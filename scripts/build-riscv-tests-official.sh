@@ -31,9 +31,15 @@ if [ ! -x "$SRC_DIR/configure" ]; then
 fi
 
 if [ ! -f "$SRC_DIR/Makefile" ]; then
-  RISCV="${RISCV:-$HOME/.local/riscv}" \
-  CC="$CC_BIN" \
-    "$SRC_DIR/configure" --prefix="${RISCV:-$HOME/.local/riscv}/target" --with-xlen=32
+  _riscv_install="${RISCV:-$HOME/.local/riscv}"
+  (
+    cd "$SRC_DIR"
+    CC="$CC_BIN" \
+    CFLAGS="-nostdlib -nostartfiles" \
+    LDFLAGS="-nostdlib -nostartfiles" \
+    RISCV="$_riscv_install" \
+      ./configure --prefix="$_riscv_install/target" --with-xlen=32
+  )
 fi
 
 while IFS=$'\t' read -r suite test_name arch tier; do
