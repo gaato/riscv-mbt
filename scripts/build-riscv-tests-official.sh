@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SRC_DIR="${RISCV_TESTS_DIR:-$ROOT/_build/riscv-tests-src}"
 MANIFEST_FILE="$ROOT/tools/riscv-tests-manifest.tsv"
-PREFIX="${RISCV_PREFIX:-riscv64-elf-}"
+PREFIX="${RISCV_PREFIX:-riscv64-unknown-elf-}"
 CC_BIN="${CC_BIN:-${PREFIX}gcc}"
 
 require_tool() {
