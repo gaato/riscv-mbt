@@ -1,0 +1,17 @@
+FROM opensuse/tumbleweed:latest
+
+RUN zypper --non-interactive install \
+    bash \
+    git \
+    autoconf \
+    automake \
+    make \
+    perl \
+    socat \
+    cross-riscv64-binutils \
+    cross-riscv64-elf-gcc16 \
+    cross-riscv64-newlib-devel \
+    qemu-extra \
+  && zypper clean --all
+
+WORKDIR /workspace

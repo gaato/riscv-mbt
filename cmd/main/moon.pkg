@@ -1,0 +1,7 @@
+import {
+  "gaato/riscv_mbt" @riscv,
+}
+
+options(
+  "is-main": true,
+)

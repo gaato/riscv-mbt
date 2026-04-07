@@ -1,0 +1,105 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "gaato/riscv_mbt"
+
+// Values
+pub fn decode(UInt) -> Instruction
+
+pub fn default_machine_config() -> MachineConfig
+
+pub fn demo_program_words() -> Array[UInt]
+
+pub fn make_runner(MachineConfig) -> Runner
+
+pub fn words_to_bytes(Array[UInt]) -> Bytes
+
+// Errors
+
+// Types and methods
+pub struct Bus {
+  memory : Array[Byte]
+}
+pub fn Bus::fetch(Self, UInt) -> UInt
+pub fn Bus::load_u16(Self, UInt) -> UInt
+pub fn Bus::load_u32(Self, UInt) -> UInt
+pub fn Bus::new(Int) -> Self
+pub fn Bus::size(Self) -> Int
+pub fn Bus::store_u16(Self, UInt, UInt) -> Unit
+pub fn Bus::store_u32(Self, UInt, UInt) -> Unit
+pub fn Bus::store_u8(Self, UInt, UInt) -> Unit
+pub fn Bus::write_bytes(Self, UInt, Bytes) -> Unit
+
+pub struct CpuState {
+  mut pc : UInt
+  registers : Array[UInt]
+}
+pub fn CpuState::new(UInt) -> Self
+pub fn CpuState::read_reg(Self, Int) -> UInt
+pub fn CpuState::write_reg(Self, Int, UInt) -> Unit
+
+pub enum Instruction {
+  Lui(Int, UInt)
+  Auipc(Int, UInt)
+  Addi(Int, Int, Int)
+  Slti(Int, Int, Int)
+  Sltiu(Int, Int, Int)
+  Xori(Int, Int, Int)
+  Ori(Int, Int, Int)
+  Andi(Int, Int, Int)
+  Slli(Int, Int, Int)
+  Srli(Int, Int, Int)
+  Srai(Int, Int, Int)
+  Add(Int, Int, Int)
+  Sub(Int, Int, Int)
+  Sll(Int, Int, Int)
+  Slt(Int, Int, Int)
+  Sltu(Int, Int, Int)
+  Xor(Int, Int, Int)
+  Srl(Int, Int, Int)
+  Sra(Int, Int, Int)
+  Or(Int, Int, Int)
+  And(Int, Int, Int)
+  Beq(Int, Int, Int)
+  Bne(Int, Int, Int)
+  Blt(Int, Int, Int)
+  Bge(Int, Int, Int)
+  Bltu(Int, Int, Int)
+  Bgeu(Int, Int, Int)
+  Lb(Int, Int, Int)
+  Lh(Int, Int, Int)
+  Lw(Int, Int, Int)
+  Lbu(Int, Int, Int)
+  Lhu(Int, Int, Int)
+  Sb(Int, Int, Int)
+  Sh(Int, Int, Int)
+  Sw(Int, Int, Int)
+  Jal(Int, Int)
+  Jalr(Int, Int, Int)
+  Unknown(UInt)
+}
+
+pub struct MachineConfig {
+  ram_size : Int
+  entry_point : UInt
+}
+
+pub struct Runner {
+  cpu : CpuState
+  bus : Bus
+  config : MachineConfig
+}
+pub fn Runner::config(Self) -> MachineConfig
+pub fn Runner::load_program(Self, Bytes, UInt) -> Unit
+pub fn Runner::pc(Self) -> UInt
+pub fn Runner::read_reg(Self, Int) -> UInt
+pub fn Runner::run(Self, Int) -> StepResult
+pub fn Runner::step(Self) -> StepResult
+
+pub enum StepResult {
+  Running
+  Trap(String)
+}
+
+// Type aliases
+
+// Traits
+

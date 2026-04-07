@@ -1,0 +1,16 @@
+# suite	test_name	arch	tier
+rv32ui	addi	rv32i	gating
+rv32ui	add	rv32i	gating
+rv32ui	beq	rv32i	gating
+rv32ui	bltu	rv32i	gating
+rv32ui	lb	rv32i	gating
+rv32ui	lhu	rv32i	gating
+rv32ui	sw	rv32i	gating
+rv32ui	jal	rv32i	gating
+rv32ui	jalr	rv32i	gating
+rv32ui	lui	rv32i	gating
+rv32ui	auipc	rv32i	gating
+rv32um	mul	rv32im	survey
+rv32um	div	rv32im	survey
+rv32um	rem	rv32im	survey
+rv32uc	rvc	rv32ic	survey
