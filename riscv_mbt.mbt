@@ -337,6 +337,11 @@ fn funct7(raw : UInt) -> UInt {
 }
 
 ///|
+fn c_funct3(raw : UInt) -> UInt {
+  (raw >> 13) & 0x7U
+}
+
+///|
 fn instruction_length_from_low16(low16 : UInt) -> Int {
   if (low16 & 0x3U) == 0x3U {
     4
@@ -353,6 +358,31 @@ fn csr_addr(raw : UInt) -> Int {
 ///|
 fn csr_uimm(raw : UInt) -> UInt {
   (raw >> 15) & 0x1fU
+}
+
+///|
+fn c_rd_rs1(raw : UInt) -> Int {
+  ((raw >> 7) & 0x1fU).reinterpret_as_int()
+}
+
+///|
+fn c_rs2(raw : UInt) -> Int {
+  ((raw >> 2) & 0x1fU).reinterpret_as_int()
+}
+
+///|
+fn c_rd_prime(raw : UInt) -> Int {
+  8 + (((raw >> 2) & 0x7U).reinterpret_as_int())
+}
+
+///|
+fn c_rs1_prime(raw : UInt) -> Int {
+  8 + (((raw >> 7) & 0x7U).reinterpret_as_int())
+}
+
+///|
+fn c_rs2_prime(raw : UInt) -> Int {
+  8 + (((raw >> 2) & 0x7U).reinterpret_as_int())
 }
 
 ///|
@@ -404,6 +434,94 @@ fn imm_j(raw : UInt) -> Int {
 ///|
 fn as_signed(value : UInt) -> Int {
   value.reinterpret_as_int()
+}
+
+///|
+fn c_imm_ci(raw : UInt) -> Int {
+  sign_extend((((raw >> 12) & 0x1U) << 5) | ((raw >> 2) & 0x1fU), 6)
+}
+
+///|
+fn c_lui_imm(raw : UInt) -> UInt {
+  (sign_extend((((raw >> 12) & 0x1U) << 5) | ((raw >> 2) & 0x1fU), 6)
+    .reinterpret_as_uint()) <<
+  12
+}
+
+///|
+fn c_imm_cj(raw : UInt) -> Int {
+  let imm = (((raw >> 12) & 0x1U) << 11) |
+    (((raw >> 11) & 0x1U) << 4) |
+    (((raw >> 9) & 0x3U) << 8) |
+    (((raw >> 8) & 0x1U) << 10) |
+    (((raw >> 7) & 0x1U) << 6) |
+    (((raw >> 6) & 0x1U) << 7) |
+    (((raw >> 3) & 0x7U) << 1) |
+    (((raw >> 2) & 0x1U) << 5)
+  sign_extend(imm, 12)
+}
+
+///|
+fn c_imm_cb(raw : UInt) -> Int {
+  let imm = (((raw >> 12) & 0x1U) << 8) |
+    (((raw >> 10) & 0x3U) << 3) |
+    (((raw >> 5) & 0x3U) << 6) |
+    (((raw >> 3) & 0x3U) << 1) |
+    (((raw >> 2) & 0x1U) << 5)
+  sign_extend(imm, 9)
+}
+
+///|
+fn c_uimm_lw_sw(raw : UInt) -> Int {
+  ((((raw >> 10) & 0x7U) << 3) |
+  (((raw >> 6) & 0x1U) << 2) |
+  (((raw >> 5) & 0x1U) << 6)).reinterpret_as_int()
+}
+
+///|
+fn c_nzuimm_addi4spn(raw : UInt) -> Int {
+  ((((raw >> 12) & 0x1U) << 5) |
+  (((raw >> 11) & 0x1U) << 4) |
+  (((raw >> 10) & 0x1U) << 9) |
+  (((raw >> 9) & 0x1U) << 8) |
+  (((raw >> 8) & 0x1U) << 7) |
+  (((raw >> 7) & 0x1U) << 6) |
+  (((raw >> 6) & 0x1U) << 2) |
+  (((raw >> 5) & 0x1U) << 3)).reinterpret_as_int()
+}
+
+///|
+fn c_nzimm_addi16sp(raw : UInt) -> Int {
+  let imm = (((raw >> 12) & 0x1U) << 9) |
+    (((raw >> 4) & 0x1U) << 8) |
+    (((raw >> 3) & 0x1U) << 7) |
+    (((raw >> 5) & 0x1U) << 6) |
+    (((raw >> 2) & 0x1U) << 5) |
+    (((raw >> 6) & 0x1U) << 4)
+  sign_extend(imm, 10)
+}
+
+///|
+fn c_uimm_lwsp(raw : UInt) -> Int {
+  ((((raw >> 2) & 0x3U) << 6) |
+  (((raw >> 4) & 0x7U) << 2) |
+  (((raw >> 12) & 0x1U) << 5)).reinterpret_as_int()
+}
+
+///|
+fn c_uimm_swsp(raw : UInt) -> Int {
+  ((((raw >> 7) & 0x3U) << 6) |
+  (((raw >> 9) & 0xfU) << 2)).reinterpret_as_int()
+}
+
+///|
+fn c_funct2_cb(raw : UInt) -> UInt {
+  (raw >> 10) & 0x3U
+}
+
+///|
+fn c_funct2_ca(raw : UInt) -> UInt {
+  (raw >> 5) & 0x3U
 }
 
 ///|
@@ -616,6 +734,145 @@ pub fn decode(raw : UInt) -> Instruction {
         0x7U => Csrrci(rd(raw), csr_addr(raw), csr_uimm(raw))
         _ => Unknown(raw)
       }
+    _ => Unknown(raw)
+  }
+}
+
+///|
+fn decode_c_q0(raw : UInt) -> Instruction {
+  match c_funct3(raw) {
+    0x0U => {
+      let imm = c_nzuimm_addi4spn(raw)
+      if imm == 0 {
+        Unknown(raw)
+      } else {
+        Addi(c_rd_prime(raw), 2, imm)
+      }
+    }
+    0x2U => Lw(c_rd_prime(raw), c_rs1_prime(raw), c_uimm_lw_sw(raw))
+    0x6U => Sw(c_rs1_prime(raw), c_rs2_prime(raw), c_uimm_lw_sw(raw))
+    _ => Unknown(raw)
+  }
+}
+
+///|
+fn decode_c_q1_cb(raw : UInt) -> Instruction {
+  let rd = c_rs1_prime(raw)
+  let rs2 = c_rs2_prime(raw)
+  match c_funct2_cb(raw) {
+    0x0U => {
+      if ((raw >> 12) & 0x1U) != 0U {
+        Unknown(raw)
+      } else {
+        Srli(rd, rd, c_imm_ci(raw))
+      }
+    }
+    0x1U => {
+      if ((raw >> 12) & 0x1U) != 0U {
+        Unknown(raw)
+      } else {
+        Srai(rd, rd, c_imm_ci(raw))
+      }
+    }
+    0x2U => Andi(rd, rd, c_imm_ci(raw))
+    0x3U =>
+      if ((raw >> 12) & 0x1U) != 0U {
+        Unknown(raw)
+      } else {
+        match c_funct2_ca(raw) {
+          0x0U => Sub(rd, rd, rs2)
+          0x1U => Xor(rd, rd, rs2)
+          0x2U => Or(rd, rd, rs2)
+          0x3U => And(rd, rd, rs2)
+          _ => Unknown(raw)
+        }
+      }
+    _ => Unknown(raw)
+  }
+}
+
+///|
+fn decode_c_q1(raw : UInt) -> Instruction {
+  match c_funct3(raw) {
+    0x0U => Addi(c_rd_rs1(raw), c_rd_rs1(raw), c_imm_ci(raw))
+    0x1U => Jal(1, c_imm_cj(raw))
+    0x2U => Addi(c_rd_rs1(raw), 0, c_imm_ci(raw))
+    0x3U => {
+      let rd = c_rd_rs1(raw)
+      if rd == 2 {
+        let imm = c_nzimm_addi16sp(raw)
+        if imm == 0 {
+          Unknown(raw)
+        } else {
+          Addi(2, 2, imm)
+        }
+      } else {
+        let imm = c_imm_ci(raw)
+        if rd == 0 || imm == 0 {
+          Unknown(raw)
+        } else {
+          Lui(rd, c_lui_imm(raw))
+        }
+      }
+    }
+    0x4U => decode_c_q1_cb(raw)
+    0x5U => Jal(0, c_imm_cj(raw))
+    0x6U => Beq(c_rs1_prime(raw), 0, c_imm_cb(raw))
+    0x7U => Bne(c_rs1_prime(raw), 0, c_imm_cb(raw))
+    _ => Unknown(raw)
+  }
+}
+
+///|
+fn decode_c_q2_cr(raw : UInt) -> Instruction {
+  let rd = c_rd_rs1(raw)
+  let rs2 = c_rs2(raw)
+  if ((raw >> 12) & 0x1U) == 0U {
+    if rs2 == 0 {
+      if rd == 0 { Unknown(raw) } else { Jalr(0, rd, 0) }
+    } else {
+      Add(rd, 0, rs2)
+    }
+  } else {
+    if rs2 == 0 {
+      if rd == 0 { Unknown(raw) } else { Jalr(1, rd, 0) }
+    } else {
+      Add(rd, rd, rs2)
+    }
+  }
+}
+
+///|
+fn decode_c_q2(raw : UInt) -> Instruction {
+  match c_funct3(raw) {
+    0x0U => {
+      let rd = c_rd_rs1(raw)
+      if rd == 0 {
+        Unknown(raw)
+      } else {
+        Slli(rd, rd, c_imm_ci(raw))
+      }
+    }
+    0x2U => {
+      let rd = c_rd_rs1(raw)
+      if rd == 0 {
+        Unknown(raw)
+      } else {
+        Lw(rd, 2, c_uimm_lwsp(raw))
+      }
+    }
+    0x4U => decode_c_q2_cr(raw)
+    0x6U => Sw(2, c_rs2(raw), c_uimm_swsp(raw))
+    _ => Unknown(raw)
+  }
+}
+
+///|
+fn decode_compressed(raw : UInt) -> Instruction {
+  match raw & 0x3U {
+    0x0U => decode_c_q0(raw)
+    0x1U => decode_c_q1(raw)
+    0x2U => decode_c_q2(raw)
     _ => Unknown(raw)
   }
 }
@@ -1519,12 +1776,13 @@ pub fn Runner::step(self : Runner) -> StepResult {
     Some(instruction) => instruction
     None => return self.raise_trap(InstructionAccessFault, current_pc, current_pc)
   }
-  if fetched.length == 2 {
-    return self.raise_trap(IllegalInstruction, current_pc, fetched.raw)
-  }
   let next_pc = current_pc + fetched.length.reinterpret_as_uint()
   let raw = fetched.raw
-  let instruction = decode(raw)
+  let instruction = if fetched.length == 2 {
+    decode_compressed(raw)
+  } else {
+    decode(raw)
+  }
   match instruction {
     Fence => {
       self.cpu.pc = next_pc

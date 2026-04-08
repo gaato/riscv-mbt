@@ -12,9 +12,9 @@ test "32-bit fetch path still advances pc by 4" {
 }
 
 ///|
-test "16-bit-looking instruction traps as illegal instruction" {
+test "unsupported compressed-looking instruction traps as illegal instruction" {
   let runner = make_runner(default_machine_config())
-  let raw16 = Bytes::from_array([0x01U.to_byte(), 0x00U.to_byte()])
+  let raw16 = Bytes::from_array([0x25U.to_byte(), 0x9cU.to_byte()])
   runner.load_program(raw16, 0U)
   match runner.step() {
     Trap(info) => {
@@ -23,7 +23,7 @@ test "16-bit-looking instruction traps as illegal instruction" {
         _ => fail("expected illegal instruction trap")
       }
       assert_eq(info.faulting_pc, 0U)
-      assert_eq(info.trap_value, 0x0001U)
+      assert_eq(info.trap_value, 0x9c25U)
     }
     _ => fail("expected illegal instruction trap")
   }

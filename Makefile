@@ -1,6 +1,6 @@
 DEFAULT_GOAL := help
 
-.PHONY: help check test demo riscv-tests riscv-tests-podman rv32ui-qemu c-sample-build c-sample-run c-sample smoke ci-local
+.PHONY: help check test demo riscv-tests riscv-tests-podman rv32ui-qemu rv32uc-survey c-sample-build c-sample-run c-sample smoke ci-local
 
 help:
 	@printf '%s\n' \
@@ -8,6 +8,7 @@ help:
 	  '  make smoke             # quick local confidence path' \
 	  '  make ci-local          # local approximation of CI' \
 	  '  make rv32ui-qemu       # cross-check official rv32ui gating subset in qemu-system-riscv32' \
+	  '  make rv32uc-survey     # run the current rv32uc survey against the emulator' \
 	  '  make c-sample          # build and run the freestanding RV32I C sample' \
 	  '' \
 	  'Core targets:' \
@@ -38,6 +39,9 @@ riscv-tests-podman:
 
 rv32ui-qemu:
 	./scripts/cross-check-official-rv32ui-with-qemu.pl
+
+rv32uc-survey:
+	moon run cmd/official_survey -- rv32uc
 
 c-sample-build:
 	./scripts/build-rv32i-c-sample.sh

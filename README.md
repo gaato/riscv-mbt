@@ -42,6 +42,7 @@ This is a general-purpose RISC-V emulator project built in MoonBit. Linux boot a
 make smoke
 make ci-local
 make rv32ui-qemu
+make rv32uc-survey
 make c-sample
 ```
 
@@ -57,4 +58,5 @@ moon run cmd/main
 ./scripts/build-rv32i-c-sample.sh
 ./scripts/run-rv32i-c-sample.sh
 moon run cmd/c_sample
+moon run cmd/official_survey -- rv32uc
 ```

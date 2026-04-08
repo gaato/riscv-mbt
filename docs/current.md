@@ -32,13 +32,13 @@
 
 ## Next Task
 
-- Continue [Task 0006](tasks/0006-rv32imc.md): build compressed decode/execute on top of the new length-aware fetch path while keeping the `RV32IM` execute path and the current official `rv32ui-p-*` regression path stable.
+- Continue [Task 0006](tasks/0006-rv32imc.md): decide whether the current official `rv32uc` survey coverage should expand or promote beyond survey-only use, then close the remaining reserved/hint/unimplemented `C` gaps needed for full `RV32IMC` completion.
 
 ## Known Blockers
 
 - The official QEMU cross-check path currently focuses on the `rv32ui` gating subset. `rv32um`, `rv32uc`, and broader privileged coverage still need follow-up work.
 - Local `moon test` now expects build artifacts under `_build/riscv-tests-src/isa`; run `./scripts/build-riscv-tests-official.sh` first if they are missing.
-- 16-bit-looking instructions intentionally trap as `IllegalInstruction` until compressed decode lands in `Task 0006`.
+- The reusable integer `C` subset is mostly in place, and the current manifest-backed `rv32uc/rvc` survey passes, but broader compressed coverage and any promotion beyond survey-only still need follow-up work.
 
 ## Read Next
 
