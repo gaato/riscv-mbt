@@ -35,7 +35,16 @@ This is a general-purpose RISC-V emulator project built in MoonBit. Linux boot a
 - [RV32I Milestone](docs/milestones/01-rv32i.md)
 - [Agent Guide](AGENTS.md)
 
-## Commands
+## Common Commands
+
+```bash
+make smoke
+make ci-local
+make rv32ui-qemu
+make c-sample
+```
+
+## Direct Commands
 
 ```bash
 moon check
@@ -43,7 +52,7 @@ moon test
 moon run cmd/main
 ./scripts/build-riscv-tests-official.sh
 ./scripts/build-riscv-tests-official-in-podman.sh
-./scripts/cross-check-official-rv32ui-with-qemu.sh
+./scripts/cross-check-official-rv32ui-with-qemu.pl
 ./scripts/build-rv32i-c-sample.sh
 ./scripts/run-rv32i-c-sample.sh
 moon run cmd/c_sample

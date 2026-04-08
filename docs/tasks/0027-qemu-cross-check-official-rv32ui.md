@@ -38,7 +38,7 @@ is the fastest practical cross-check.
 
 - The repo cross-check path uses `qemu-system-riscv32 -machine virt -bios none -kernel rv32ui-p-*`
 - Pass/fail is observed by polling the upstream `tohost` symbol over a QEMU monitor socket
-- `./scripts/cross-check-official-rv32ui-with-qemu.sh` defaults to the manifest-backed gating subset and accepts individual test names as arguments
+- `./scripts/cross-check-official-rv32ui-with-qemu.pl` defaults to the manifest-backed gating subset and accepts individual test names as arguments
 
 ## Related Milestone
 

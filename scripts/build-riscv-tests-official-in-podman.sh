@@ -18,4 +18,3 @@ podman run --rm \
   -w /workspace \
   "$IMAGE_TAG" \
   bash -lc './scripts/build-riscv-tests-official.sh'
-
