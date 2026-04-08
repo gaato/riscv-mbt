@@ -33,3 +33,23 @@ test "decode bltu fields" {
     _ => fail("expected bltu")
   }
 }
+
+///|
+test "decode mul and div fields" {
+  match decode(encode_r(0x01U, 5, 4, 0x0U, 3, 0x33U)) {
+    Mul(rd, rs1, rs2) => {
+      assert_eq(rd, 3)
+      assert_eq(rs1, 4)
+      assert_eq(rs2, 5)
+    }
+    _ => fail("expected mul")
+  }
+  match decode(encode_r(0x01U, 8, 7, 0x4U, 6, 0x33U)) {
+    Div(rd, rs1, rs2) => {
+      assert_eq(rd, 6)
+      assert_eq(rs1, 7)
+      assert_eq(rs2, 8)
+    }
+    _ => fail("expected div")
+  }
+}

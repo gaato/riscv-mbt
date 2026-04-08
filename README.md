@@ -6,9 +6,10 @@ This is a general-purpose RISC-V emulator project built in MoonBit. Linux boot a
 
 - The repo already has an AI-readable operating system in Markdown
 - The MoonBit project is initialized
-- The `RV32I` base integer core is implemented
+- The `RV32IM` integer core is implemented
   - all branch variants
   - the main `OP-IMM` / `OP` integer operations
+  - all `M` extension multiply/divide operations
   - byte / halfword / word load-store
   - `JAL` / `JALR`
   - representative decode / execute / integration tests
@@ -23,8 +24,8 @@ This is a general-purpose RISC-V emulator project built in MoonBit. Linux boot a
 
 ## Next Milestone
 
-- The `RV32I` core and the official `riscv-tests` execution path are now in a good place, so the next step is [RV32IM](docs/tasks/0005-rv32im.md)
-- After that, the path continues through `RV32IMC` and `RV32IMC + Zicsr + Zifencei` toward the first practical standalone checkpoint
+- The `RV32IM` core and the official `riscv-tests` execution path are now in a good place, so the next step is [RV32IMC](docs/tasks/0006-rv32imc.md)
+- After that, the path continues through `RV32IMC + Zicsr + Zifencei` toward the first practical standalone checkpoint
 - `Linux boot` is treated as a system-integration gate built from privileged support + MMU + SBI + device model work, not just as “more ISA coverage”
 
 ## Read Next
@@ -32,7 +33,7 @@ This is a general-purpose RISC-V emulator project built in MoonBit. Linux boot a
 - [Current State](docs/current.md)
 - [Roadmap](docs/roadmap.md)
 - [Implementation Notes](docs/guides/implementation-notes.md)
-- [RV32I Milestone](docs/milestones/01-rv32i.md)
+- [RV32IMC Milestone](docs/milestones/03-rv32imc.md)
 - [Agent Guide](AGENTS.md)
 
 ## Common Commands

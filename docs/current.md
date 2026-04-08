@@ -2,7 +2,7 @@
 
 ## Current Milestone
 
-- `RV32IM`
+- `RV32IMC`
 
 ## Current Tasks
 
@@ -10,7 +10,7 @@
 - [Implement the RV32I bootstrap subset](tasks/0002-rv32i-bootstrap-subset.md) — `done`
 - [Finish remaining RV32I base instruction coverage](tasks/0003-rv32i-complete-base-core.md) — `done`
 - [Introduce riscv-tests for RV32I regression](tasks/0004-riscv-tests-integration.md) — `done`
-- [Implement RV32IM](tasks/0005-rv32im.md) — `todo`
+- [Implement RV32IM](tasks/0005-rv32im.md) — `done`
 - [Implement RV32IMC](tasks/0006-rv32imc.md) — `todo`
 - [Add Zicsr and Zifencei](tasks/0007-rv32imc-zicsr-zifencei.md) — `todo`
 - [Add minimal M-mode](tasks/0008-minimal-m-mode.md) — `todo`
@@ -32,7 +32,7 @@
 
 ## Next Task
 
-- Move on to [Task 0005](tasks/0005-rv32im.md): add the `M` extension while keeping the official `rv32ui-p-*` subset and the QEMU cross-check path green.
+- Move on to [Task 0006](tasks/0006-rv32imc.md): add compressed-instruction support while keeping the `RV32IM` execute path and the current official `rv32ui-p-*` regression path stable.
 
 ## Known Blockers
 
@@ -43,7 +43,7 @@
 
 - [Roadmap](roadmap.md)
 - [Implementation Notes](guides/implementation-notes.md)
-- [RV32IM milestone](milestones/02-rv32im.md)
-- [Task 0005](tasks/0005-rv32im.md)
+- [RV32IMC milestone](milestones/03-rv32imc.md)
+- [Task 0006](tasks/0006-rv32imc.md)
 - [ADR 0001](adr/0001-rv32i-first.md)
 - [ADR 0003](adr/0003-milestone-spine.md)

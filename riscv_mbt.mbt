@@ -63,6 +63,14 @@ pub enum Instruction {
   Srai(Int, Int, Int)
   Add(Int, Int, Int)
   Sub(Int, Int, Int)
+  Mul(Int, Int, Int)
+  Mulh(Int, Int, Int)
+  Mulhsu(Int, Int, Int)
+  Mulhu(Int, Int, Int)
+  Div(Int, Int, Int)
+  Divu(Int, Int, Int)
+  Rem(Int, Int, Int)
+  Remu(Int, Int, Int)
   Sll(Int, Int, Int)
   Slt(Int, Int, Int)
   Sltu(Int, Int, Int)
@@ -379,6 +387,87 @@ fn as_signed(value : UInt) -> Int {
 }
 
 ///|
+fn u32_to_u64(value : UInt) -> UInt64 {
+  value.to_uint64()
+}
+
+///|
+fn u32_to_i64(value : UInt) -> Int64 {
+  value.to_int64()
+}
+
+///|
+fn i32_bits_to_i64(value : UInt) -> Int64 {
+  as_signed(value).to_int64()
+}
+
+///|
+fn high_word_u64(value : UInt64) -> UInt {
+  (value >> 32).to_uint()
+}
+
+///|
+fn mulh_u32(lhs : UInt, rhs : UInt) -> UInt {
+  high_word_u64((i32_bits_to_i64(lhs) * i32_bits_to_i64(rhs)).reinterpret_as_uint64())
+}
+
+///|
+fn mulhsu_u32(lhs : UInt, rhs : UInt) -> UInt {
+  high_word_u64((i32_bits_to_i64(lhs) * u32_to_i64(rhs)).reinterpret_as_uint64())
+}
+
+///|
+fn mulhu_u32(lhs : UInt, rhs : UInt) -> UInt {
+  high_word_u64(u32_to_u64(lhs) * u32_to_u64(rhs))
+}
+
+///|
+fn div_u32(lhs : UInt, rhs : UInt) -> UInt {
+  let dividend = as_signed(lhs)
+  let divisor = as_signed(rhs)
+  let int_min = 0x80000000U.reinterpret_as_int()
+  if divisor == 0 {
+    0xffffffffU
+  } else if dividend == int_min && divisor == -1 {
+    lhs
+  } else {
+    (dividend / divisor).reinterpret_as_uint()
+  }
+}
+
+///|
+fn divu_u32(lhs : UInt, rhs : UInt) -> UInt {
+  if rhs == 0U {
+    0xffffffffU
+  } else {
+    lhs / rhs
+  }
+}
+
+///|
+fn rem_u32(lhs : UInt, rhs : UInt) -> UInt {
+  let dividend = as_signed(lhs)
+  let divisor = as_signed(rhs)
+  let int_min = 0x80000000U.reinterpret_as_int()
+  if divisor == 0 {
+    lhs
+  } else if dividend == int_min && divisor == -1 {
+    0U
+  } else {
+    (dividend % divisor).reinterpret_as_uint()
+  }
+}
+
+///|
+fn remu_u32(lhs : UInt, rhs : UInt) -> UInt {
+  if rhs == 0U {
+    lhs
+  } else {
+    lhs % rhs
+  }
+}
+
+///|
 fn bool_to_reg(value : Bool) -> UInt {
   if value {
     1U
@@ -441,14 +530,22 @@ pub fn decode(raw : UInt) -> Instruction {
       match (funct3(raw), funct7(raw)) {
         (0x0U, 0x00U) => Add(rd(raw), rs1(raw), rs2(raw))
         (0x0U, 0x20U) => Sub(rd(raw), rs1(raw), rs2(raw))
+        (0x0U, 0x01U) => Mul(rd(raw), rs1(raw), rs2(raw))
         (0x1U, 0x00U) => Sll(rd(raw), rs1(raw), rs2(raw))
+        (0x1U, 0x01U) => Mulh(rd(raw), rs1(raw), rs2(raw))
         (0x2U, 0x00U) => Slt(rd(raw), rs1(raw), rs2(raw))
+        (0x2U, 0x01U) => Mulhsu(rd(raw), rs1(raw), rs2(raw))
         (0x3U, 0x00U) => Sltu(rd(raw), rs1(raw), rs2(raw))
+        (0x3U, 0x01U) => Mulhu(rd(raw), rs1(raw), rs2(raw))
         (0x4U, 0x00U) => Xor(rd(raw), rs1(raw), rs2(raw))
+        (0x4U, 0x01U) => Div(rd(raw), rs1(raw), rs2(raw))
         (0x5U, 0x00U) => Srl(rd(raw), rs1(raw), rs2(raw))
         (0x5U, 0x20U) => Sra(rd(raw), rs1(raw), rs2(raw))
+        (0x5U, 0x01U) => Divu(rd(raw), rs1(raw), rs2(raw))
         (0x6U, 0x00U) => Or(rd(raw), rs1(raw), rs2(raw))
+        (0x6U, 0x01U) => Rem(rd(raw), rs1(raw), rs2(raw))
         (0x7U, 0x00U) => And(rd(raw), rs1(raw), rs2(raw))
+        (0x7U, 0x01U) => Remu(rd(raw), rs1(raw), rs2(raw))
         _ => Unknown(raw)
       }
     0x63U =>
@@ -926,74 +1023,150 @@ fn Runner::execute_op(
   instruction : Instruction,
   next_pc : UInt,
 ) -> StepResult {
+  match self.execute_op_m(instruction, next_pc) {
+    Some(result) => result
+    None =>
+      match instruction {
+        Add(rd, rs1, rs2) => {
+          self.cpu.write_reg(rd, self.cpu.read_reg(rs1) + self.cpu.read_reg(rs2))
+          self.cpu.pc = next_pc
+          Running
+        }
+        Sub(rd, rs1, rs2) => {
+          self.cpu.write_reg(rd, self.cpu.read_reg(rs1) - self.cpu.read_reg(rs2))
+          self.cpu.pc = next_pc
+          Running
+        }
+        Sll(rd, rs1, rs2) => {
+          self.cpu.write_reg(
+            rd,
+            self.cpu.read_reg(rs1) << shift_mask_32(self.cpu.read_reg(rs2)),
+          )
+          self.cpu.pc = next_pc
+          Running
+        }
+        Slt(rd, rs1, rs2) => {
+          self.cpu.write_reg(
+            rd,
+            bool_to_reg(compare_signed_u32(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2)) < 0),
+          )
+          self.cpu.pc = next_pc
+          Running
+        }
+        Sltu(rd, rs1, rs2) => {
+          self.cpu.write_reg(
+            rd,
+            bool_to_reg(compare_unsigned_u32(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2)) < 0),
+          )
+          self.cpu.pc = next_pc
+          Running
+        }
+        Xor(rd, rs1, rs2) => {
+          self.cpu.write_reg(rd, self.cpu.read_reg(rs1) ^ self.cpu.read_reg(rs2))
+          self.cpu.pc = next_pc
+          Running
+        }
+        Srl(rd, rs1, rs2) => {
+          self.cpu.write_reg(
+            rd,
+            self.cpu.read_reg(rs1) >> shift_mask_32(self.cpu.read_reg(rs2)),
+          )
+          self.cpu.pc = next_pc
+          Running
+        }
+        Sra(rd, rs1, rs2) => {
+          self.cpu.write_reg(
+            rd,
+            (as_signed(self.cpu.read_reg(rs1)) >>
+            shift_mask_32(self.cpu.read_reg(rs2))).reinterpret_as_uint(),
+          )
+          self.cpu.pc = next_pc
+          Running
+        }
+        Or(rd, rs1, rs2) => {
+          self.cpu.write_reg(rd, self.cpu.read_reg(rs1) | self.cpu.read_reg(rs2))
+          self.cpu.pc = next_pc
+          Running
+        }
+        And(rd, rs1, rs2) => {
+          self.cpu.write_reg(rd, self.cpu.read_reg(rs1) & self.cpu.read_reg(rs2))
+          self.cpu.pc = next_pc
+          Running
+        }
+        _ => abort("unexpected op dispatch")
+      }
+  }
+}
+
+///|
+fn Runner::execute_op_m(
+  self : Runner,
+  instruction : Instruction,
+  next_pc : UInt,
+) -> StepResult? {
   match instruction {
-    Add(rd, rs1, rs2) => {
-      self.cpu.write_reg(rd, self.cpu.read_reg(rs1) + self.cpu.read_reg(rs2))
+    Mul(rd, rs1, rs2) => {
+      self.cpu.write_reg(rd, self.cpu.read_reg(rs1) * self.cpu.read_reg(rs2))
       self.cpu.pc = next_pc
-      Running
+      Some(Running)
     }
-    Sub(rd, rs1, rs2) => {
-      self.cpu.write_reg(rd, self.cpu.read_reg(rs1) - self.cpu.read_reg(rs2))
-      self.cpu.pc = next_pc
-      Running
-    }
-    Sll(rd, rs1, rs2) => {
+    Mulh(rd, rs1, rs2) => {
       self.cpu.write_reg(
         rd,
-        self.cpu.read_reg(rs1) << shift_mask_32(self.cpu.read_reg(rs2)),
+        mulh_u32(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2)),
       )
       self.cpu.pc = next_pc
-      Running
+      Some(Running)
     }
-    Slt(rd, rs1, rs2) => {
+    Mulhsu(rd, rs1, rs2) => {
       self.cpu.write_reg(
         rd,
-        bool_to_reg(compare_signed_u32(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2)) < 0),
+        mulhsu_u32(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2)),
       )
       self.cpu.pc = next_pc
-      Running
+      Some(Running)
     }
-    Sltu(rd, rs1, rs2) => {
+    Mulhu(rd, rs1, rs2) => {
       self.cpu.write_reg(
         rd,
-        bool_to_reg(compare_unsigned_u32(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2)) < 0),
+        mulhu_u32(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2)),
       )
       self.cpu.pc = next_pc
-      Running
+      Some(Running)
     }
-    Xor(rd, rs1, rs2) => {
-      self.cpu.write_reg(rd, self.cpu.read_reg(rs1) ^ self.cpu.read_reg(rs2))
-      self.cpu.pc = next_pc
-      Running
-    }
-    Srl(rd, rs1, rs2) => {
+    Div(rd, rs1, rs2) => {
       self.cpu.write_reg(
         rd,
-        self.cpu.read_reg(rs1) >> shift_mask_32(self.cpu.read_reg(rs2)),
+        div_u32(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2)),
       )
       self.cpu.pc = next_pc
-      Running
+      Some(Running)
     }
-    Sra(rd, rs1, rs2) => {
+    Divu(rd, rs1, rs2) => {
       self.cpu.write_reg(
         rd,
-        (as_signed(self.cpu.read_reg(rs1)) >>
-        shift_mask_32(self.cpu.read_reg(rs2))).reinterpret_as_uint(),
+        divu_u32(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2)),
       )
       self.cpu.pc = next_pc
-      Running
+      Some(Running)
     }
-    Or(rd, rs1, rs2) => {
-      self.cpu.write_reg(rd, self.cpu.read_reg(rs1) | self.cpu.read_reg(rs2))
+    Rem(rd, rs1, rs2) => {
+      self.cpu.write_reg(
+        rd,
+        rem_u32(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2)),
+      )
       self.cpu.pc = next_pc
-      Running
+      Some(Running)
     }
-    And(rd, rs1, rs2) => {
-      self.cpu.write_reg(rd, self.cpu.read_reg(rs1) & self.cpu.read_reg(rs2))
+    Remu(rd, rs1, rs2) => {
+      self.cpu.write_reg(
+        rd,
+        remu_u32(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2)),
+      )
       self.cpu.pc = next_pc
-      Running
+      Some(Running)
     }
-    _ => abort("unexpected op dispatch")
+    _ => None
   }
 }
 
@@ -1333,6 +1506,14 @@ pub fn Runner::step(self : Runner) -> StepResult {
     Srai(_, _, _) => self.execute_op_imm(instruction, next_pc)
     Add(_, _, _) => self.execute_op(instruction, next_pc)
     Sub(_, _, _) => self.execute_op(instruction, next_pc)
+    Mul(_, _, _) => self.execute_op(instruction, next_pc)
+    Mulh(_, _, _) => self.execute_op(instruction, next_pc)
+    Mulhsu(_, _, _) => self.execute_op(instruction, next_pc)
+    Mulhu(_, _, _) => self.execute_op(instruction, next_pc)
+    Div(_, _, _) => self.execute_op(instruction, next_pc)
+    Divu(_, _, _) => self.execute_op(instruction, next_pc)
+    Rem(_, _, _) => self.execute_op(instruction, next_pc)
+    Remu(_, _, _) => self.execute_op(instruction, next_pc)
     Sll(_, _, _) => self.execute_op(instruction, next_pc)
     Slt(_, _, _) => self.execute_op(instruction, next_pc)
     Sltu(_, _, _) => self.execute_op(instruction, next_pc)

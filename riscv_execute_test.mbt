@@ -151,6 +151,91 @@ test "unsupported instruction traps" {
 }
 
 ///|
+test "m extension execute path covers multiply variants" {
+  let program = words_to_bytes([
+    encode_i(-2, 0, 0x0U, 1, 0x13U),
+    encode_i(7, 0, 0x0U, 2, 0x13U),
+    encode_r(0x01U, 2, 1, 0x0U, 3, 0x33U),
+    encode_u(0x80000000U, 4, 0x37U),
+    encode_i(2, 0, 0x0U, 5, 0x13U),
+    encode_r(0x01U, 5, 4, 0x1U, 6, 0x33U),
+    encode_r(0x01U, 5, 4, 0x2U, 7, 0x33U),
+    encode_r(0x01U, 5, 4, 0x3U, 8, 0x33U),
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(8) {
+    Running => ()
+    _ => fail("expected running")
+  }
+  assert_eq(runner.read_reg(3), 0xfffffff2U)
+  assert_eq(runner.read_reg(6), 0xffffffffU)
+  assert_eq(runner.read_reg(7), 0xffffffffU)
+  assert_eq(runner.read_reg(8), 0x1U)
+}
+
+///|
+test "m extension division and remainder edge cases match the spec" {
+  let program = words_to_bytes([
+    encode_i(-13, 0, 0x0U, 1, 0x13U),
+    encode_i(5, 0, 0x0U, 2, 0x13U),
+    encode_i(0, 0, 0x0U, 3, 0x13U),
+    encode_r(0x01U, 2, 1, 0x4U, 4, 0x33U),
+    encode_r(0x01U, 2, 1, 0x6U, 5, 0x33U),
+    encode_r(0x01U, 3, 1, 0x4U, 6, 0x33U),
+    encode_r(0x01U, 3, 1, 0x5U, 7, 0x33U),
+    encode_r(0x01U, 3, 1, 0x6U, 8, 0x33U),
+    encode_r(0x01U, 3, 1, 0x7U, 9, 0x33U),
+    encode_u(0x80000000U, 10, 0x37U),
+    encode_i(-1, 0, 0x0U, 11, 0x13U),
+    encode_r(0x01U, 11, 10, 0x4U, 12, 0x33U),
+    encode_r(0x01U, 11, 10, 0x6U, 13, 0x33U),
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(13) {
+    Running => ()
+    _ => fail("expected running")
+  }
+  assert_eq(runner.read_reg(4), 0xfffffffeU)
+  assert_eq(runner.read_reg(5), 0xfffffffdU)
+  assert_eq(runner.read_reg(6), 0xffffffffU)
+  assert_eq(runner.read_reg(7), 0xffffffffU)
+  assert_eq(runner.read_reg(8), 0xfffffff3U)
+  assert_eq(runner.read_reg(9), 0xfffffff3U)
+  assert_eq(runner.read_reg(12), 0x80000000U)
+  assert_eq(runner.read_reg(13), 0U)
+}
+
+///|
+test "mixed i and m program runs naturally" {
+  let program = words_to_bytes([
+    encode_i(6, 0, 0x0U, 1, 0x13U),
+    encode_i(7, 0, 0x0U, 2, 0x13U),
+    encode_r(0x01U, 2, 1, 0x0U, 3, 0x33U),
+    encode_i(5, 0, 0x0U, 4, 0x13U),
+    encode_r(0x01U, 4, 3, 0x4U, 5, 0x33U),
+    encode_r(0x01U, 4, 3, 0x6U, 6, 0x33U),
+    encode_s(0, 5, 0, 0x2U, 0x23U),
+    encode_i(4, 0, 0x0U, 7, 0x13U),
+    encode_s(4, 6, 0, 0x2U, 0x23U),
+    encode_i(0, 0, 0x2U, 8, 0x03U),
+    encode_i(4, 0, 0x2U, 9, 0x03U),
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(11) {
+    Running => ()
+    _ => fail("expected running")
+  }
+  assert_eq(runner.read_reg(3), 42U)
+  assert_eq(runner.read_reg(5), 8U)
+  assert_eq(runner.read_reg(6), 2U)
+  assert_eq(runner.read_reg(8), 8U)
+  assert_eq(runner.read_reg(9), 2U)
+}
+
+///|
 test "minimal env/p startup can reach a test body via mret" {
   let base = 0x80000000U
   let program = words_to_bytes([
