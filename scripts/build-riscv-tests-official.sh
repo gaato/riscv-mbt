@@ -5,7 +5,7 @@ set -euo pipefail
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 SRC_DIR="${RISCV_TESTS_DIR:-$ROOT/_build/riscv-tests-src}"
 MANIFEST_FILE="$ROOT/tools/riscv-tests-manifest.tsv"
-PREFIX="${RISCV_PREFIX:-riscv64-elf-}"
+PREFIX="${RISCV_PREFIX:-riscv64-unknown-elf-}"
 CC_BIN="${CC_BIN:-${PREFIX}gcc}"
 
 require_tool() {
@@ -31,9 +31,15 @@ if [ ! -x "$SRC_DIR/configure" ]; then
 fi
 
 if [ ! -f "$SRC_DIR/Makefile" ]; then
-  RISCV="${RISCV:-$HOME/.local/riscv}" \
-  CC="$CC_BIN" \
-    "$SRC_DIR/configure" --prefix="${RISCV:-$HOME/.local/riscv}/target" --with-xlen=32
+  _riscv_install="${RISCV:-$HOME/.local/riscv}"
+  (
+    cd "$SRC_DIR"
+    CC="$CC_BIN" \
+    CFLAGS="-nostdlib -nostartfiles" \
+    LDFLAGS="-nostdlib -nostartfiles" \
+    RISCV="$_riscv_install" \
+      ./configure --prefix="$_riscv_install/target" --with-xlen=32
+  )
 fi
 
 while IFS=$'\t' read -r suite test_name arch tier; do
@@ -44,6 +50,9 @@ while IFS=$'\t' read -r suite test_name arch tier; do
   target="${suite}-p-${test_name}"
   echo "building ${target}"
   make -C "$SRC_DIR/isa" "src_dir=$SRC_DIR/isa" XLEN=32 "RISCV_PREFIX=${PREFIX}" "$target"
+  "${PREFIX}strip" --strip-unneeded \
+    -K tohost -K fromhost -K begin_signature -K end_signature \
+    "$SRC_DIR/isa/${target}"
 done <"$MANIFEST_FILE"
 
 echo "official riscv-tests targets from manifest built under $SRC_DIR/isa"
