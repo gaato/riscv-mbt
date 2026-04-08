@@ -1158,6 +1158,36 @@ fn is_supported_csr(csr : Int) -> Bool {
 }
 
 ///|
+fn instruction_supported_in_xlen(
+  instruction : Instruction,
+  xlen : Int,
+  length : Int,
+) -> Bool {
+  match instruction {
+    Addiw(_, _, _) => xlen == XLEN_64
+    Slliw(_, _, _) => xlen == XLEN_64
+    Srliw(_, _, _) => xlen == XLEN_64
+    Sraiw(_, _, _) => xlen == XLEN_64
+    Addw(_, _, _) => xlen == XLEN_64
+    Subw(_, _, _) => xlen == XLEN_64
+    Mulw(_, _, _) => xlen == XLEN_64
+    Divw(_, _, _) => xlen == XLEN_64
+    Divuw(_, _, _) => xlen == XLEN_64
+    Remw(_, _, _) => xlen == XLEN_64
+    Remuw(_, _, _) => xlen == XLEN_64
+    Sllw(_, _, _) => xlen == XLEN_64
+    Srlw(_, _, _) => xlen == XLEN_64
+    Sraw(_, _, _) => xlen == XLEN_64
+    Lwu(_, _, _) => xlen == XLEN_64
+    Ld(_, _, _) => xlen == XLEN_64
+    Sd(_, _, _) => xlen == XLEN_64
+    // C.JAL exists only on RV32C; the 32-bit JAL x1 form remains legal on both widths.
+    Jal(rd, _) => !(length == 2 && rd == 1 && xlen == XLEN_64)
+    _ => true
+  }
+}
+
+///|
 pub fn decode(raw : UInt) -> Instruction {
   match raw & 0x7fU {
     0x0fU =>
@@ -2556,6 +2586,9 @@ pub fn Runner::step(self : Runner) -> StepResult {
     decode_compressed(raw)
   } else {
     decode(raw)
+  }
+  if !instruction_supported_in_xlen(instruction, self.xlen_bits(), fetched.length) {
+    return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
   }
   match instruction {
     Fence => {

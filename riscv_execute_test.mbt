@@ -162,6 +162,29 @@ test "unsupported instruction traps" {
 }
 
 ///|
+test "rv32 rejects rv64-only instructions as illegal" {
+  let rv64_only_words = [
+    encode_i(1, 0, 0x0U, 1, 0x1bU),
+    encode_i(0, 0, 0x6U, 1, 0x03U),
+    encode_s(0, 1, 0, 0x3U, 0x23U),
+  ]
+  for raw in rv64_only_words {
+    let runner = make_runner(default_machine_config())
+    runner.load_program(words_to_bytes([raw]), 0U)
+    match runner.step() {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected illegal instruction cause")
+        }
+        assert_eq(info.trap_value, raw.to_uint64())
+      }
+      _ => fail("expected rv64-only instruction to trap on rv32")
+    }
+  }
+}
+
+///|
 test "m extension execute path covers multiply variants" {
   let program = words_to_bytes([
     encode_i(-2, 0, 0x0U, 1, 0x13U),
