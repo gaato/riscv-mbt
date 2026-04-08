@@ -34,6 +34,7 @@ If the task is implementation work, prefer this reading order:
 ## Spec Usage
 
 - For RISC-V ISA or privileged behavior, do not rely only on memory or repo-local summaries when a precise rule matters.
+- For MoonBit APIs, especially `moonbitlang/async`, prefer MoonBit official docs and Context7 over memory when choosing runtime or IO APIs.
 - Re-check the official spec when implementing or changing:
   - instruction encodings or corner-case semantics
   - CSR behavior

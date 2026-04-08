@@ -1,1 +1,9 @@
+import {
+  "moonbitlang/async",
+  "moonbitlang/async/fs",
+  "moonbitlang/async/io",
+} for "test"
 
+options(
+  "link": { "native": { "cc": "gcc" } },
+)

@@ -32,6 +32,7 @@ to make one official `rv32ui-p-*` path real before broadening coverage.
 - A documented official subset of `riscv-tests` runs in CI/local dev
 - Failures are actionable enough to use during TDD
 - The repo makes it clear that upstream `riscv-tests` are the source of truth and no adapter layer is required for normal development
+- Official ELF files are consumed directly at test time instead of being embedded into a generated MoonBit source file
 
 ## Related Milestone
 

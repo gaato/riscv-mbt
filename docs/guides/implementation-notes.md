@@ -8,6 +8,7 @@ This document captures the practical cautions that matter across milestones, esp
 - Keep fetch, decode, CSR handling, trap flow, and address translation separable.
 - Treat Linux boot as a platform-integration problem, not as proof that “enough instructions” exist.
 - Keep one-hart bring-up as the baseline; add SMP only after single-hart boot is stable.
+- For MoonBit runtime and IO APIs, prefer MoonBit official docs and Context7 over memory when choosing async or native-backend behavior.
 
 ## By Stage
 
@@ -93,6 +94,8 @@ This document captures the practical cautions that matter across milestones, esp
 - Treat upstream `riscv-tests` sources as authoritative for ISA regression.
 - Keep handwritten MoonBit tests focused on fast local diagnosis: decode, single-step execute behavior, and small integration programs.
 - Prefer official GNU-toolchain and `env/p` execution paths over custom adapters.
+- Prefer file-based official ELF loading over embedding large generated blobs into MoonBit source.
+- For native async tests, read official ELF files through `moonbitlang/async/fs` and pin the native C compiler explicitly when the platform default linker is unreliable.
 - Keep regression in two layers:
   - `gating`: tests expected to pass and stay green in normal CI
   - `survey`: broader upstream coverage that may be expected to fail while features are still missing

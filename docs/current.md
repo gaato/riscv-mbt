@@ -37,7 +37,7 @@
 ## Known Blockers
 
 - The official QEMU cross-check path currently focuses on the `rv32ui` gating subset. `rv32um`, `rv32uc`, and broader privileged coverage still need follow-up work.
-- CI rebuilds the official `riscv-tests` subset and fails if [riscv_tests_official_generated.mbt](/home/gaato/repos/github.com/gaato/riscv-mbt/riscv_tests_official_generated.mbt) is stale.
+- Local `moon test` now expects build artifacts under `_build/riscv-tests-src/isa`; run `./scripts/build-riscv-tests-official.sh` first if they are missing.
 
 ## Read Next
 

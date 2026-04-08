@@ -10,33 +10,57 @@ pub fn demo_program_words() -> Array[UInt]
 
 pub fn make_runner(MachineConfig) -> Runner
 
+pub fn official_riscv_tests_machine_config() -> MachineConfig
+
 pub fn words_to_bytes(Array[UInt]) -> Bytes
 
 // Errors
 
 // Types and methods
 pub struct Bus {
+  base_addr : UInt
   memory : Array[Byte]
 }
 pub fn Bus::fetch(Self, UInt) -> UInt
 pub fn Bus::load_u16(Self, UInt) -> UInt
 pub fn Bus::load_u32(Self, UInt) -> UInt
-pub fn Bus::new(Int) -> Self
+pub fn Bus::new(UInt, Int) -> Self
 pub fn Bus::size(Self) -> Int
 pub fn Bus::store_u16(Self, UInt, UInt) -> Unit
 pub fn Bus::store_u32(Self, UInt, UInt) -> Unit
 pub fn Bus::store_u8(Self, UInt, UInt) -> Unit
 pub fn Bus::write_bytes(Self, UInt, Bytes) -> Unit
+pub fn Bus::zero_range(Self, UInt, Int) -> Unit
 
 pub struct CpuState {
   mut pc : UInt
   registers : Array[UInt]
+  csrs : CsrFile
+  mut privilege : PrivilegeMode
 }
-pub fn CpuState::new(UInt) -> Self
+pub fn CpuState::new(UInt, UInt) -> Self
+pub fn CpuState::read_csr(Self, Int) -> UInt
 pub fn CpuState::read_reg(Self, Int) -> UInt
+pub fn CpuState::write_csr(Self, Int, UInt) -> Unit
 pub fn CpuState::write_reg(Self, Int, UInt) -> Unit
 
+pub struct CsrFile {
+  registers : Array[UInt]
+}
+pub fn CsrFile::new() -> Self
+pub fn CsrFile::read(Self, Int) -> UInt
+pub fn CsrFile::write(Self, Int, UInt) -> Unit
+
+pub struct ElfInfo {
+  entry_point : UInt
+  tohost_addr : UInt?
+  fromhost_addr : UInt?
+  begin_signature_addr : UInt?
+  end_signature_addr : UInt?
+}
+
 pub enum Instruction {
+  Fence
   Lui(Int, UInt)
   Auipc(Int, UInt)
   Addi(Int, Int, Int)
@@ -74,12 +98,33 @@ pub enum Instruction {
   Sw(Int, Int, Int)
   Jal(Int, Int)
   Jalr(Int, Int, Int)
+  Csrrw(Int, Int, Int)
+  Csrrs(Int, Int, Int)
+  Csrrc(Int, Int, Int)
+  Csrrwi(Int, Int, UInt)
+  Csrrsi(Int, Int, UInt)
+  Csrrci(Int, Int, UInt)
+  Ecall
+  Mret
   Unknown(UInt)
 }
 
+pub enum LoadElfResult {
+  Loaded(ElfInfo)
+  LoadError(String)
+}
+
 pub struct MachineConfig {
+  ram_base : UInt
   ram_size : Int
   entry_point : UInt
+  hart_id : UInt
+}
+
+pub enum PrivilegeMode {
+  User
+  Supervisor
+  Machine
 }
 
 pub struct Runner {
@@ -88,15 +133,35 @@ pub struct Runner {
   config : MachineConfig
 }
 pub fn Runner::config(Self) -> MachineConfig
+pub fn Runner::load_elf(Self, Bytes) -> LoadElfResult
 pub fn Runner::load_program(Self, Bytes, UInt) -> Unit
+pub fn Runner::load_u32(Self, UInt) -> UInt
 pub fn Runner::pc(Self) -> UInt
+pub fn Runner::privilege_mode(Self) -> PrivilegeMode
+pub fn Runner::read_csr(Self, Int) -> UInt
 pub fn Runner::read_reg(Self, Int) -> UInt
 pub fn Runner::run(Self, Int) -> StepResult
 pub fn Runner::step(Self) -> StepResult
 
 pub enum StepResult {
   Running
-  Trap(String)
+  Trap(TrapInfo)
+}
+
+pub enum TrapCause {
+  InstructionAccessFault
+  IllegalInstruction
+  LoadAccessFault
+  StoreAccessFault
+  EnvironmentCallFromUMode
+  EnvironmentCallFromSMode
+  EnvironmentCallFromMMode
+}
+
+pub struct TrapInfo {
+  cause : TrapCause
+  faulting_pc : UInt
+  trap_value : UInt
 }
 
 // Type aliases

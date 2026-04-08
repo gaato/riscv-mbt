@@ -30,9 +30,9 @@ jobs:
           curl -fsSL https://cli.moonbitlang.com/install/unix.sh | bash
           echo "$HOME/.moon/bin" >> "$GITHUB_PATH"
 
-      - name: Build and verify official riscv-tests generated assets
+      - name: Build official riscv-tests ELF artifacts
         run: |
-          bash ./scripts/check-riscv-tests-official-generated.sh
+          bash ./scripts/build-riscv-tests-official.sh
 
       - name: Verify project
         run: |

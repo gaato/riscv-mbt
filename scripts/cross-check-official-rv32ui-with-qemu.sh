@@ -7,7 +7,25 @@ SRC_DIR="${RISCV_TESTS_DIR:-$ROOT/_build/riscv-tests-src}"
 ISA_DIR="$SRC_DIR/isa"
 MANIFEST_FILE="$ROOT/tools/riscv-tests-manifest.tsv"
 QEMU_BIN="${QEMU_BIN:-qemu-system-riscv32}"
-READELF_BIN="${READELF_BIN:-riscv64-elf-readelf}"
+
+detect_readelf() {
+  if [ -n "${READELF_BIN:-}" ]; then
+    printf '%s\n' "$READELF_BIN"
+    return
+  fi
+
+  for candidate in riscv64-unknown-elf-readelf riscv64-elf-readelf; do
+    if command -v "$candidate" >/dev/null 2>&1; then
+      printf '%s\n' "$candidate"
+      return
+    fi
+  done
+
+  echo "missing supported RISC-V readelf; tried riscv64-unknown-elf-readelf and riscv64-elf-readelf" >&2
+  exit 1
+}
+
+READELF_BIN="$(detect_readelf)"
 POLL_ATTEMPTS="${QEMU_POLL_ATTEMPTS:-200}"
 POLL_INTERVAL="${QEMU_POLL_INTERVAL_SEC:-0.05}"
 SOCKET_ATTEMPTS="${QEMU_SOCKET_ATTEMPTS:-100}"

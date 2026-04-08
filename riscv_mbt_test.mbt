@@ -1,4 +1,67 @@
 ///|
+struct OfficialRiscvTestCase {
+  suite : String
+  name : String
+  arch : String
+  tier : String
+  path : String
+  max_steps : Int
+}
+
+let official_riscv_tests_manifest_path = "tools/riscv-tests-manifest.tsv"
+let official_riscv_tests_isa_dir = "_build/riscv-tests-src/isa"
+
+///|
+async fn read_manifest_text(path : String) -> String {
+  try {
+    @fs.read_file(path).text()
+  } catch {
+    _ =>
+      abort(
+        "missing official riscv-tests manifest: \{path}; verify the repository checkout is complete",
+      )
+  }
+}
+
+///|
+async fn read_official_test_elf(path : String) -> Bytes {
+  try {
+    @fs.read_file(path).binary()
+  } catch {
+    _ =>
+      abort(
+        "missing official riscv-tests ELF: \{path}; run ./scripts/build-riscv-tests-official.sh first",
+      )
+  }
+}
+
+///|
+async fn load_official_riscv_test_cases() -> Array[OfficialRiscvTestCase] {
+  let manifest = read_manifest_text(official_riscv_tests_manifest_path)
+  let cases : Array[OfficialRiscvTestCase] = []
+  for raw_line in manifest.split("\n") {
+    let line = raw_line.to_string().trim().to_string()
+    if line == "" || line.has_prefix("#") {
+      continue
+    }
+    let fields : Array[String] = []
+    for field in line.split("\t") {
+      fields.push(field.to_string())
+    }
+    if fields.length() != 4 {
+      abort("invalid riscv-tests manifest line: \{line}")
+    }
+    let suite = fields[0]
+    let name = fields[1]
+    let arch = fields[2]
+    let tier = fields[3]
+    let path = "\{official_riscv_tests_isa_dir}/\{suite}-p-\{name}"
+    cases.push({ suite, name, arch, tier, path, max_steps: 200000 })
+  }
+  cases
+}
+
+///|
 fn encode_i(
   imm : Int,
   rs1 : Int,
@@ -125,15 +188,22 @@ fn trap_cause_name(cause : TrapCause) -> String {
 }
 
 ///|
-fn run_official_riscv_test_case(test_case : OfficialRiscvTestBinary) -> UInt {
+async fn run_official_riscv_test_case(test_case : OfficialRiscvTestCase) -> UInt {
   let runner = make_runner(official_riscv_tests_machine_config())
-  let info = match runner.load_elf(test_case.elf) {
+  let elf = read_official_test_elf(test_case.path)
+  let info = match runner.load_elf(elf) {
     Loaded(info) => info
-    LoadError(message) => abort("official riscv-tests ELF load failed: \{test_case.name}: \{message}")
+    LoadError(message) =>
+      abort(
+        "official riscv-tests ELF load failed: \{test_case.suite}/\{test_case.arch}/\{test_case.name}: \{message}",
+      )
   }
   let tohost = match info.tohost_addr {
     Some(value) => value
-    None => abort("official riscv-tests ELF missing tohost: \{test_case.name}")
+    None =>
+      abort(
+        "official riscv-tests ELF missing tohost: \{test_case.suite}/\{test_case.arch}/\{test_case.name} at \{test_case.path}",
+      )
   }
   let mut steps = 0
   while steps < test_case.max_steps {
@@ -145,11 +215,13 @@ fn run_official_riscv_test_case(test_case : OfficialRiscvTestBinary) -> UInt {
       Running => steps = steps + 1
       Trap(info) =>
         abort(
-          "official riscv-tests trap: \{test_case.name}: \{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tval=\{info.trap_value.to_string()}",
+          "official riscv-tests trap: \{test_case.suite}/\{test_case.arch}/\{test_case.name}: \{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tval=\{info.trap_value.to_string()}",
         )
     }
   }
-  abort("official riscv-tests timed out: \{test_case.name}")
+  abort(
+    "official riscv-tests timed out: \{test_case.suite}/\{test_case.arch}/\{test_case.name}",
+  )
 }
 
 ///|
@@ -688,8 +760,10 @@ test "user ecall traps to mtvec with mcause set" {
 }
 
 ///|
-test "official rv32ui gating subset passes" {
-  let cases = gating_official_riscv_tests()
+async test "official rv32ui gating subset passes" {
+  let cases = load_official_riscv_test_cases().filter(fn(test_case) {
+    test_case.tier == "gating"
+  })
   let mut index = 0
   while index < cases.length() {
     let result = run_official_riscv_test_case(cases[index])
