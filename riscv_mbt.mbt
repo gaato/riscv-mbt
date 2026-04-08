@@ -50,6 +50,7 @@ pub enum LoadElfResult {
 ///|
 pub enum Instruction {
   Fence
+  FenceI
   Lui(Int, UInt)
   Auipc(Int, UInt)
   Addi(Int, Int, Int)
@@ -175,17 +176,32 @@ pub fn CsrFile::write(self : CsrFile, index : Int, value : UInt) -> Unit {
 
 ///|
 const CSR_MSTATUS : Int = 0x300
+const CSR_MISA : Int = 0x301
+const CSR_MEDELEG : Int = 0x302
+const CSR_MIDELEG : Int = 0x303
+const CSR_MIE : Int = 0x304
 const CSR_MTVEC : Int = 0x305
 const CSR_MEPC : Int = 0x341
 const CSR_MCAUSE : Int = 0x342
 const CSR_MTVAL : Int = 0x343
+const CSR_MIP : Int = 0x344
+const CSR_STVEC : Int = 0x105
+const CSR_SATP : Int = 0x180
+const CSR_PMPCFG0 : Int = 0x3A0
+const CSR_PMPADDR0 : Int = 0x3B0
+const CSR_MNSTATUS : Int = 0x744
 const CSR_MHARTID : Int = 0xF14
+const XLEN_32 : Int = 32
+const MSTATUS_MIE_BIT : UInt = 0x8U
+const MSTATUS_MPIE_BIT : UInt = 0x80U
 const MSTATUS_MPP_SHIFT : Int = 11
 const MSTATUS_MPP_MASK : UInt = 0x1800U
+const MISA_RV32IMCU : UInt = 0x40101104U
 
 ///|
 pub fn CpuState::new(entry_point : UInt, hart_id : UInt) -> CpuState {
   let csrs = CsrFile::new()
+  csrs.write(CSR_MISA, MISA_RV32IMCU)
   csrs.write(CSR_MHARTID, hart_id)
   {
     pc: entry_point,
@@ -545,22 +561,61 @@ fn high_word_u64(value : UInt64) -> UInt {
 }
 
 ///|
-fn mulh_u32(lhs : UInt, rhs : UInt) -> UInt {
+fn sign_extend_to_32(value : UInt, bits : Int) -> UInt {
+  sign_extend(value, bits).reinterpret_as_uint()
+}
+
+///|
+fn shift_mask_32(value : UInt) -> Int {
+  value.reinterpret_as_int() & 0x1f
+}
+
+///|
+fn arithmetic_shift_right_32(value : UInt, shamt : Int) -> UInt {
+  (as_signed(value) >> shamt).reinterpret_as_uint()
+}
+
+///|
+fn compare_signed_32(lhs : UInt, rhs : UInt) -> Int {
+  let left = as_signed(lhs)
+  let right = as_signed(rhs)
+  if left < right {
+    -1
+  } else if left > right {
+    1
+  } else {
+    0
+  }
+}
+
+///|
+fn compare_unsigned_32(lhs : UInt, rhs : UInt) -> Int {
+  if lhs < rhs {
+    -1
+  } else if lhs > rhs {
+    1
+  } else {
+    0
+  }
+}
+
+///|
+fn mulh_32(lhs : UInt, rhs : UInt) -> UInt {
   high_word_u64((i32_bits_to_i64(lhs) * i32_bits_to_i64(rhs)).reinterpret_as_uint64())
 }
 
 ///|
-fn mulhsu_u32(lhs : UInt, rhs : UInt) -> UInt {
+fn mulhsu_32(lhs : UInt, rhs : UInt) -> UInt {
   high_word_u64((i32_bits_to_i64(lhs) * u32_to_i64(rhs)).reinterpret_as_uint64())
 }
 
 ///|
-fn mulhu_u32(lhs : UInt, rhs : UInt) -> UInt {
+fn mulhu_32(lhs : UInt, rhs : UInt) -> UInt {
   high_word_u64(u32_to_u64(lhs) * u32_to_u64(rhs))
 }
 
 ///|
-fn div_u32(lhs : UInt, rhs : UInt) -> UInt {
+fn div_32(lhs : UInt, rhs : UInt) -> UInt {
   let dividend = as_signed(lhs)
   let divisor = as_signed(rhs)
   let int_min = 0x80000000U.reinterpret_as_int()
@@ -574,7 +629,7 @@ fn div_u32(lhs : UInt, rhs : UInt) -> UInt {
 }
 
 ///|
-fn divu_u32(lhs : UInt, rhs : UInt) -> UInt {
+fn divu_32(lhs : UInt, rhs : UInt) -> UInt {
   if rhs == 0U {
     0xffffffffU
   } else {
@@ -583,7 +638,7 @@ fn divu_u32(lhs : UInt, rhs : UInt) -> UInt {
 }
 
 ///|
-fn rem_u32(lhs : UInt, rhs : UInt) -> UInt {
+fn rem_32(lhs : UInt, rhs : UInt) -> UInt {
   let dividend = as_signed(lhs)
   let divisor = as_signed(rhs)
   let int_min = 0x80000000U.reinterpret_as_int()
@@ -597,11 +652,117 @@ fn rem_u32(lhs : UInt, rhs : UInt) -> UInt {
 }
 
 ///|
-fn remu_u32(lhs : UInt, rhs : UInt) -> UInt {
+fn remu_32(lhs : UInt, rhs : UInt) -> UInt {
   if rhs == 0U {
     lhs
   } else {
     lhs % rhs
+  }
+}
+
+///|
+fn xlen_shift_mask(value : UInt, xlen : Int) -> Int {
+  match xlen {
+    XLEN_32 => shift_mask_32(value)
+    _ => abort("unsupported xlen for shift mask")
+  }
+}
+
+///|
+fn xlen_sign_extend(value : UInt, bits : Int, xlen : Int) -> UInt {
+  match xlen {
+    XLEN_32 => sign_extend_to_32(value, bits)
+    _ => abort("unsupported xlen for sign extension")
+  }
+}
+
+///|
+fn xlen_load_sign_extend(value : UInt, bits : Int, xlen : Int) -> UInt {
+  match bits {
+    8 => xlen_sign_extend(value, 8, xlen)
+    16 => xlen_sign_extend(value, 16, xlen)
+    32 => xlen_sign_extend(value, 32, xlen)
+    _ => abort("unsupported load sign extension width")
+  }
+}
+
+///|
+fn xlen_arithmetic_shift_right(value : UInt, shamt : Int, xlen : Int) -> UInt {
+  match xlen {
+    XLEN_32 => arithmetic_shift_right_32(value, shamt)
+    _ => abort("unsupported xlen for arithmetic shift")
+  }
+}
+
+///|
+fn xlen_compare_signed(lhs : UInt, rhs : UInt, xlen : Int) -> Int {
+  match xlen {
+    XLEN_32 => compare_signed_32(lhs, rhs)
+    _ => abort("unsupported xlen for signed compare")
+  }
+}
+
+///|
+fn xlen_compare_unsigned(lhs : UInt, rhs : UInt, xlen : Int) -> Int {
+  match xlen {
+    XLEN_32 => compare_unsigned_32(lhs, rhs)
+    _ => abort("unsupported xlen for unsigned compare")
+  }
+}
+
+///|
+fn xlen_mulh(lhs : UInt, rhs : UInt, xlen : Int) -> UInt {
+  match xlen {
+    XLEN_32 => mulh_32(lhs, rhs)
+    _ => abort("unsupported xlen for mulh")
+  }
+}
+
+///|
+fn xlen_mulhsu(lhs : UInt, rhs : UInt, xlen : Int) -> UInt {
+  match xlen {
+    XLEN_32 => mulhsu_32(lhs, rhs)
+    _ => abort("unsupported xlen for mulhsu")
+  }
+}
+
+///|
+fn xlen_mulhu(lhs : UInt, rhs : UInt, xlen : Int) -> UInt {
+  match xlen {
+    XLEN_32 => mulhu_32(lhs, rhs)
+    _ => abort("unsupported xlen for mulhu")
+  }
+}
+
+///|
+fn xlen_div(lhs : UInt, rhs : UInt, xlen : Int) -> UInt {
+  match xlen {
+    XLEN_32 => div_32(lhs, rhs)
+    _ => abort("unsupported xlen for div")
+  }
+}
+
+///|
+fn xlen_divu(lhs : UInt, rhs : UInt, xlen : Int) -> UInt {
+  match xlen {
+    XLEN_32 => divu_32(lhs, rhs)
+    _ => abort("unsupported xlen for divu")
+  }
+}
+
+///|
+fn xlen_rem(lhs : UInt, rhs : UInt, xlen : Int) -> UInt {
+  match xlen {
+    XLEN_32 => rem_32(lhs, rhs)
+    _ => abort("unsupported xlen for rem")
+  }
+}
+
+///|
+fn xlen_remu(lhs : UInt, rhs : UInt, xlen : Int) -> UInt {
+  match xlen {
+    XLEN_32 => remu_32(lhs, rhs)
+    _ => abort("unsupported xlen for remu")
   }
 }
 
@@ -642,9 +803,110 @@ fn bit_not(value : UInt) -> UInt {
 }
 
 ///|
+fn mstatus_mie(value : UInt) -> Bool {
+  (value & MSTATUS_MIE_BIT) != 0U
+}
+
+///|
+fn mstatus_mpie(value : UInt) -> Bool {
+  (value & MSTATUS_MPIE_BIT) != 0U
+}
+
+///|
+fn mstatus_mpp(value : UInt) -> PrivilegeMode {
+  privilege_mode_from_code((value & MSTATUS_MPP_MASK) >> MSTATUS_MPP_SHIFT)
+}
+
+///|
+fn set_mstatus_mie(value : UInt, enabled : Bool) -> UInt {
+  if enabled {
+    value | MSTATUS_MIE_BIT
+  } else {
+    value & bit_not(MSTATUS_MIE_BIT)
+  }
+}
+
+///|
+fn set_mstatus_mpie(value : UInt, enabled : Bool) -> UInt {
+  if enabled {
+    value | MSTATUS_MPIE_BIT
+  } else {
+    value & bit_not(MSTATUS_MPIE_BIT)
+  }
+}
+
+///|
+fn set_mstatus_mpp(value : UInt, mode : PrivilegeMode) -> UInt {
+  let mode_bits = match mode {
+    User => 0U
+    Supervisor => 1U
+    Machine => 3U
+  }
+  (value & bit_not(MSTATUS_MPP_MASK)) |
+  ((mode_bits << MSTATUS_MPP_SHIFT) & MSTATUS_MPP_MASK)
+}
+
+///|
+// Modeled machine CSRs participate in current machine-state semantics.
+// Compatibility-only storage CSRs are kept writable for upstream env/p startup.
+fn is_modeled_machine_csr(csr : Int) -> Bool {
+  match csr {
+    CSR_MSTATUS => true
+    CSR_MIE => true
+    CSR_MIP => true
+    CSR_MTVEC => true
+    CSR_MEPC => true
+    CSR_MCAUSE => true
+    CSR_MTVAL => true
+    CSR_MISA => true
+    CSR_MHARTID => true
+    _ => false
+  }
+}
+
+///|
+fn is_compatibility_storage_csr(csr : Int) -> Bool {
+  match csr {
+    CSR_STVEC => true
+    CSR_SATP => true
+    CSR_MEDELEG => true
+    CSR_MIDELEG => true
+    CSR_PMPCFG0 => true
+    CSR_PMPADDR0 => true
+    CSR_MNSTATUS => true
+    _ => false
+  }
+}
+
+///|
+fn is_read_only_csr(csr : Int) -> Bool {
+  match csr {
+    CSR_MISA => true
+    CSR_MHARTID => true
+    _ => false
+  }
+}
+
+///|
+fn is_supported_rw_csr(csr : Int) -> Bool {
+  (is_modeled_machine_csr(csr) && !is_read_only_csr(csr)) ||
+  is_compatibility_storage_csr(csr)
+}
+
+///|
+fn is_supported_csr(csr : Int) -> Bool {
+  is_supported_rw_csr(csr) || is_read_only_csr(csr)
+}
+
+///|
 pub fn decode(raw : UInt) -> Instruction {
   match raw & 0x7fU {
-    0x0fU => Fence
+    0x0fU =>
+      match funct3(raw) {
+        0x0U => Fence
+        0x1U => FenceI
+        _ => Unknown(raw)
+      }
     0x37U => Lui(rd(raw), imm_u(raw))
     0x17U => Auipc(rd(raw), imm_u(raw))
     0x13U =>
@@ -1139,6 +1401,11 @@ pub fn Runner::load_elf(self : Runner, bytes : Bytes) -> LoadElfResult {
 }
 
 ///|
+fn Runner::xlen_bits(_self : Runner) -> Int {
+  XLEN_32
+}
+
+///|
 fn Runner::step_next_pc(self : Runner, delta : Int) -> UInt {
   self.cpu.pc + delta.reinterpret_as_uint()
 }
@@ -1188,8 +1455,31 @@ fn Runner::store_check(self : Runner, addr : UInt, width : Int) -> StepResult? {
 }
 
 ///|
-fn Runner::trap_vector(self : Runner) -> UInt {
+fn Runner::trap_target_from_mtvec(self : Runner) -> UInt {
   self.cpu.read_csr(CSR_MTVEC) & 0xfffffffcU
+}
+
+///|
+fn Runner::enter_machine_trap(
+  self : Runner,
+  cause : TrapCause,
+  faulting_pc : UInt,
+  trap_value : UInt,
+  prior_privilege : PrivilegeMode,
+) -> Unit {
+  let mstatus = self.cpu.read_csr(CSR_MSTATUS)
+  let next_mstatus = set_mstatus_mie(
+    set_mstatus_mpie(
+      set_mstatus_mpp(mstatus, prior_privilege),
+      mstatus_mie(mstatus),
+    ),
+    false,
+  )
+  self.cpu.write_csr(CSR_MSTATUS, next_mstatus)
+  self.cpu.write_csr(CSR_MEPC, faulting_pc)
+  self.cpu.write_csr(CSR_MCAUSE, trap_cause_code(cause))
+  self.cpu.write_csr(CSR_MTVAL, trap_value)
+  self.cpu.privilege = Machine
 }
 
 ///|
@@ -1199,54 +1489,14 @@ fn Runner::raise_trap(
   faulting_pc : UInt,
   trap_value : UInt,
 ) -> StepResult {
-  self.cpu.write_csr(CSR_MEPC, faulting_pc)
-  self.cpu.write_csr(CSR_MCAUSE, trap_cause_code(cause))
-  self.cpu.write_csr(CSR_MTVAL, trap_value)
-  let target = self.trap_vector()
+  let prior_privilege = self.cpu.privilege
+  self.enter_machine_trap(cause, faulting_pc, trap_value, prior_privilege)
+  let target = self.trap_target_from_mtvec()
   if target != 0U && self.bus.contains_range(target, 4) {
     self.cpu.pc = target
-    self.cpu.privilege = Machine
     Running
   } else {
     Trap({ cause, faulting_pc, trap_value })
-  }
-}
-
-///|
-fn shift_mask_32(value : UInt) -> Int {
-  value.reinterpret_as_int() & 0x1f
-}
-
-///|
-fn load_sign_extend_8_16_32(value : UInt, bits : Int) -> UInt {
-  match bits {
-    8 => sign_extend(value, 8).reinterpret_as_uint()
-    16 => sign_extend(value, 16).reinterpret_as_uint()
-    _ => value
-  }
-}
-
-///|
-fn compare_signed_u32(lhs : UInt, rhs : UInt) -> Int {
-  let left = as_signed(lhs)
-  let right = as_signed(rhs)
-  if left < right {
-    -1
-  } else if left > right {
-    1
-  } else {
-    0
-  }
-}
-
-///|
-fn compare_unsigned_u32(lhs : UInt, rhs : UInt) -> Int {
-  if lhs < rhs {
-    -1
-  } else if lhs > rhs {
-    1
-  } else {
-    0
   }
 }
 
@@ -1256,6 +1506,7 @@ fn Runner::execute_op_imm(
   instruction : Instruction,
   next_pc : UInt,
 ) -> StepResult {
+  let xlen = self.xlen_bits()
   match instruction {
     Addi(rd, rs1, imm) => {
       self.cpu.write_reg(rd, self.cpu.read_reg(rs1) + imm.reinterpret_as_uint())
@@ -1265,7 +1516,7 @@ fn Runner::execute_op_imm(
     Slti(rd, rs1, imm) => {
       self.cpu.write_reg(
         rd,
-        bool_to_reg(compare_signed_u32(self.cpu.read_reg(rs1), imm.reinterpret_as_uint()) < 0),
+        bool_to_reg(xlen_compare_signed(self.cpu.read_reg(rs1), imm.reinterpret_as_uint(), xlen) < 0),
       )
       self.cpu.pc = next_pc
       Running
@@ -1273,7 +1524,9 @@ fn Runner::execute_op_imm(
     Sltiu(rd, rs1, imm) => {
       self.cpu.write_reg(
         rd,
-        bool_to_reg(compare_unsigned_u32(self.cpu.read_reg(rs1), imm.reinterpret_as_uint()) < 0),
+        bool_to_reg(
+          xlen_compare_unsigned(self.cpu.read_reg(rs1), imm.reinterpret_as_uint(), xlen) < 0,
+        ),
       )
       self.cpu.pc = next_pc
       Running
@@ -1306,7 +1559,7 @@ fn Runner::execute_op_imm(
     Srai(rd, rs1, shamt) => {
       self.cpu.write_reg(
         rd,
-        (as_signed(self.cpu.read_reg(rs1)) >> shamt).reinterpret_as_uint(),
+        xlen_arithmetic_shift_right(self.cpu.read_reg(rs1), shamt, xlen),
       )
       self.cpu.pc = next_pc
       Running
@@ -1321,6 +1574,7 @@ fn Runner::execute_op(
   instruction : Instruction,
   next_pc : UInt,
 ) -> StepResult {
+  let xlen = self.xlen_bits()
   match self.execute_op_m(instruction, next_pc) {
     Some(result) => result
     None =>
@@ -1338,7 +1592,7 @@ fn Runner::execute_op(
         Sll(rd, rs1, rs2) => {
           self.cpu.write_reg(
             rd,
-            self.cpu.read_reg(rs1) << shift_mask_32(self.cpu.read_reg(rs2)),
+            self.cpu.read_reg(rs1) << xlen_shift_mask(self.cpu.read_reg(rs2), xlen),
           )
           self.cpu.pc = next_pc
           Running
@@ -1346,7 +1600,9 @@ fn Runner::execute_op(
         Slt(rd, rs1, rs2) => {
           self.cpu.write_reg(
             rd,
-            bool_to_reg(compare_signed_u32(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2)) < 0),
+            bool_to_reg(
+              xlen_compare_signed(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2), xlen) < 0,
+            ),
           )
           self.cpu.pc = next_pc
           Running
@@ -1354,7 +1610,9 @@ fn Runner::execute_op(
         Sltu(rd, rs1, rs2) => {
           self.cpu.write_reg(
             rd,
-            bool_to_reg(compare_unsigned_u32(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2)) < 0),
+            bool_to_reg(
+              xlen_compare_unsigned(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2), xlen) < 0,
+            ),
           )
           self.cpu.pc = next_pc
           Running
@@ -1367,7 +1625,7 @@ fn Runner::execute_op(
         Srl(rd, rs1, rs2) => {
           self.cpu.write_reg(
             rd,
-            self.cpu.read_reg(rs1) >> shift_mask_32(self.cpu.read_reg(rs2)),
+            self.cpu.read_reg(rs1) >> xlen_shift_mask(self.cpu.read_reg(rs2), xlen),
           )
           self.cpu.pc = next_pc
           Running
@@ -1375,8 +1633,11 @@ fn Runner::execute_op(
         Sra(rd, rs1, rs2) => {
           self.cpu.write_reg(
             rd,
-            (as_signed(self.cpu.read_reg(rs1)) >>
-            shift_mask_32(self.cpu.read_reg(rs2))).reinterpret_as_uint(),
+            xlen_arithmetic_shift_right(
+              self.cpu.read_reg(rs1),
+              xlen_shift_mask(self.cpu.read_reg(rs2), xlen),
+              xlen,
+            ),
           )
           self.cpu.pc = next_pc
           Running
@@ -1402,6 +1663,7 @@ fn Runner::execute_op_m(
   instruction : Instruction,
   next_pc : UInt,
 ) -> StepResult? {
+  let xlen = self.xlen_bits()
   match instruction {
     Mul(rd, rs1, rs2) => {
       self.cpu.write_reg(rd, self.cpu.read_reg(rs1) * self.cpu.read_reg(rs2))
@@ -1411,7 +1673,7 @@ fn Runner::execute_op_m(
     Mulh(rd, rs1, rs2) => {
       self.cpu.write_reg(
         rd,
-        mulh_u32(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2)),
+        xlen_mulh(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2), xlen),
       )
       self.cpu.pc = next_pc
       Some(Running)
@@ -1419,7 +1681,7 @@ fn Runner::execute_op_m(
     Mulhsu(rd, rs1, rs2) => {
       self.cpu.write_reg(
         rd,
-        mulhsu_u32(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2)),
+        xlen_mulhsu(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2), xlen),
       )
       self.cpu.pc = next_pc
       Some(Running)
@@ -1427,7 +1689,7 @@ fn Runner::execute_op_m(
     Mulhu(rd, rs1, rs2) => {
       self.cpu.write_reg(
         rd,
-        mulhu_u32(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2)),
+        xlen_mulhu(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2), xlen),
       )
       self.cpu.pc = next_pc
       Some(Running)
@@ -1435,7 +1697,7 @@ fn Runner::execute_op_m(
     Div(rd, rs1, rs2) => {
       self.cpu.write_reg(
         rd,
-        div_u32(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2)),
+        xlen_div(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2), xlen),
       )
       self.cpu.pc = next_pc
       Some(Running)
@@ -1443,7 +1705,7 @@ fn Runner::execute_op_m(
     Divu(rd, rs1, rs2) => {
       self.cpu.write_reg(
         rd,
-        divu_u32(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2)),
+        xlen_divu(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2), xlen),
       )
       self.cpu.pc = next_pc
       Some(Running)
@@ -1451,7 +1713,7 @@ fn Runner::execute_op_m(
     Rem(rd, rs1, rs2) => {
       self.cpu.write_reg(
         rd,
-        rem_u32(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2)),
+        xlen_rem(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2), xlen),
       )
       self.cpu.pc = next_pc
       Some(Running)
@@ -1459,7 +1721,7 @@ fn Runner::execute_op_m(
     Remu(rd, rs1, rs2) => {
       self.cpu.write_reg(
         rd,
-        remu_u32(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2)),
+        xlen_remu(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2), xlen),
       )
       self.cpu.pc = next_pc
       Some(Running)
@@ -1474,6 +1736,7 @@ fn Runner::execute_branch(
   instruction : Instruction,
   next_pc : UInt,
 ) -> StepResult {
+  let xlen = self.xlen_bits()
   match instruction {
     Beq(rs1, rs2, imm) => {
       self.cpu.pc = if self.cpu.read_reg(rs1) == self.cpu.read_reg(rs2) {
@@ -1492,7 +1755,7 @@ fn Runner::execute_branch(
       Running
     }
     Blt(rs1, rs2, imm) => {
-      self.cpu.pc = if compare_signed_u32(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2)) < 0 {
+      self.cpu.pc = if xlen_compare_signed(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2), xlen) < 0 {
         self.step_next_pc(imm)
       } else {
         next_pc
@@ -1500,7 +1763,7 @@ fn Runner::execute_branch(
       Running
     }
     Bge(rs1, rs2, imm) => {
-      self.cpu.pc = if compare_signed_u32(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2)) >= 0 {
+      self.cpu.pc = if xlen_compare_signed(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2), xlen) >= 0 {
         self.step_next_pc(imm)
       } else {
         next_pc
@@ -1508,7 +1771,7 @@ fn Runner::execute_branch(
       Running
     }
     Bltu(rs1, rs2, imm) => {
-      self.cpu.pc = if compare_unsigned_u32(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2)) < 0 {
+      self.cpu.pc = if xlen_compare_unsigned(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2), xlen) < 0 {
         self.step_next_pc(imm)
       } else {
         next_pc
@@ -1516,7 +1779,7 @@ fn Runner::execute_branch(
       Running
     }
     Bgeu(rs1, rs2, imm) => {
-      self.cpu.pc = if compare_unsigned_u32(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2)) >= 0 {
+      self.cpu.pc = if xlen_compare_unsigned(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2), xlen) >= 0 {
         self.step_next_pc(imm)
       } else {
         next_pc
@@ -1533,6 +1796,7 @@ fn Runner::execute_load(
   instruction : Instruction,
   next_pc : UInt,
 ) -> StepResult {
+  let xlen = self.xlen_bits()
   match instruction {
     Lb(rd, rs1, imm) => {
       let addr = self.address_from(rs1, imm)
@@ -1541,7 +1805,7 @@ fn Runner::execute_load(
         None => {
           self.cpu.write_reg(
             rd,
-            load_sign_extend_8_16_32(self.bus.load_u8(addr), 8),
+            xlen_load_sign_extend(self.bus.load_u8(addr), 8, xlen),
           )
           self.cpu.pc = next_pc
           Running
@@ -1555,7 +1819,7 @@ fn Runner::execute_load(
         None => {
           self.cpu.write_reg(
             rd,
-            load_sign_extend_8_16_32(self.bus.load_u16(addr), 16),
+            xlen_load_sign_extend(self.bus.load_u16(addr), 16, xlen),
           )
           self.cpu.pc = next_pc
           Running
@@ -1569,7 +1833,7 @@ fn Runner::execute_load(
         None => {
           self.cpu.write_reg(
             rd,
-            load_sign_extend_8_16_32(self.bus.load_u32(addr), 32),
+            xlen_load_sign_extend(self.bus.load_u32(addr), 32, xlen),
           )
           self.cpu.pc = next_pc
           Running
@@ -1669,17 +1933,33 @@ fn Runner::execute_jump(
   }
 }
 
+fn Runner::read_csr_checked(self : Runner, csr : Int) -> UInt? {
+  if is_supported_csr(csr) {
+    Some(self.cpu.read_csr(csr))
+  } else {
+    None
+  }
+}
+
 ///|
-fn Runner::execute_csr_read_write(
+fn Runner::execute_csr_read_write_checked(
   self : Runner,
   rd : Int,
   csr : Int,
   write_value : UInt,
   should_write : Bool,
   next_pc : UInt,
+  current_pc : UInt,
+  raw : UInt,
 ) -> StepResult {
-  let old_value = self.cpu.read_csr(csr)
+  let old_value = match self.read_csr_checked(csr) {
+    Some(value) => value
+    None => return self.raise_trap(IllegalInstruction, current_pc, raw)
+  }
   if should_write {
+    if !is_supported_rw_csr(csr) {
+      return self.raise_trap(IllegalInstruction, current_pc, raw)
+    }
     self.cpu.write_csr(csr, write_value)
   }
   self.cpu.write_reg(rd, old_value)
@@ -1697,53 +1977,83 @@ fn Runner::execute_system(
 ) -> StepResult {
   match instruction {
     Csrrw(rd, csr, rs1) =>
-      self.execute_csr_read_write(
+      self.execute_csr_read_write_checked(
         rd,
         csr,
         self.cpu.read_reg(rs1),
         true,
         next_pc,
+        current_pc,
+        raw,
       )
     Csrrs(rd, csr, rs1) => {
-      let old_value = self.cpu.read_csr(csr)
-      self.execute_csr_read_write(
+      let old_value = match self.read_csr_checked(csr) {
+        Some(value) => value
+        None => return self.raise_trap(IllegalInstruction, current_pc, raw)
+      }
+      self.execute_csr_read_write_checked(
         rd,
         csr,
         old_value | self.cpu.read_reg(rs1),
         rs1 != 0,
         next_pc,
+        current_pc,
+        raw,
       )
     }
     Csrrc(rd, csr, rs1) => {
-      let old_value = self.cpu.read_csr(csr)
-      self.execute_csr_read_write(
+      let old_value = match self.read_csr_checked(csr) {
+        Some(value) => value
+        None => return self.raise_trap(IllegalInstruction, current_pc, raw)
+      }
+      self.execute_csr_read_write_checked(
         rd,
         csr,
         old_value & bit_not(self.cpu.read_reg(rs1)),
         rs1 != 0,
         next_pc,
+        current_pc,
+        raw,
       )
     }
     Csrrwi(rd, csr, uimm) =>
-      self.execute_csr_read_write(rd, csr, uimm, true, next_pc)
+      self.execute_csr_read_write_checked(
+        rd,
+        csr,
+        uimm,
+        true,
+        next_pc,
+        current_pc,
+        raw,
+      )
     Csrrsi(rd, csr, uimm) => {
-      let old_value = self.cpu.read_csr(csr)
-      self.execute_csr_read_write(
+      let old_value = match self.read_csr_checked(csr) {
+        Some(value) => value
+        None => return self.raise_trap(IllegalInstruction, current_pc, raw)
+      }
+      self.execute_csr_read_write_checked(
         rd,
         csr,
         old_value | uimm,
         uimm != 0U,
         next_pc,
+        current_pc,
+        raw,
       )
     }
     Csrrci(rd, csr, uimm) => {
-      let old_value = self.cpu.read_csr(csr)
-      self.execute_csr_read_write(
+      let old_value = match self.read_csr_checked(csr) {
+        Some(value) => value
+        None => return self.raise_trap(IllegalInstruction, current_pc, raw)
+      }
+      self.execute_csr_read_write_checked(
         rd,
         csr,
         old_value & bit_not(uimm),
         uimm != 0U,
         next_pc,
+        current_pc,
+        raw,
       )
     }
     Ecall => {
@@ -1756,10 +2066,14 @@ fn Runner::execute_system(
     }
     Mret => {
       let mstatus = self.cpu.read_csr(CSR_MSTATUS)
-      let next_privilege = privilege_mode_from_code(
-        (mstatus & MSTATUS_MPP_MASK) >> MSTATUS_MPP_SHIFT,
+      let next_privilege = mstatus_mpp(mstatus)
+      self.cpu.write_csr(
+        CSR_MSTATUS,
+        set_mstatus_mpie(
+          set_mstatus_mie(set_mstatus_mpp(mstatus, User), mstatus_mpie(mstatus)),
+          true,
+        ),
       )
-      self.cpu.write_csr(CSR_MSTATUS, mstatus & bit_not(MSTATUS_MPP_MASK))
       self.cpu.privilege = next_privilege
       self.cpu.pc = self.cpu.read_csr(CSR_MEPC)
       Running
@@ -1785,6 +2099,10 @@ pub fn Runner::step(self : Runner) -> StepResult {
   }
   match instruction {
     Fence => {
+      self.cpu.pc = next_pc
+      Running
+    }
+    FenceI => {
       self.cpu.pc = next_pc
       Running
     }

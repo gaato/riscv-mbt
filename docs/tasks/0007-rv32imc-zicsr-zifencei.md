@@ -15,6 +15,7 @@
 - CSR instruction tests pass
 - Self-modifying-code or fence-sensitive micro-tests demonstrate `FENCE.I` behavior
 - Docs clearly mark this stage as the first practical standalone CPU target
+- The official regression manifest includes `rv32ui/fence_i` coverage and it remains green
 
 ## Related Milestone
 
@@ -24,6 +25,12 @@
 
 - [Task 0006](0006-rv32imc.md)
 
+## Completion Notes
+
+- `Zicsr` instructions are implemented on the checked CSR path.
+- `FENCE.I` is decoded explicitly and covered by a behavior-focused regression.
+- The official regression manifest includes `rv32ui/fence_i` in the always-green subset.
+
 ## Status
 
-- `todo`
+- `done`

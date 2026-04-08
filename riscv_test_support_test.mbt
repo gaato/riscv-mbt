@@ -175,6 +175,11 @@ fn encode_fence() -> UInt {
 }
 
 ///|
+fn encode_fence_i() -> UInt {
+  0x0000100fU
+}
+
+///|
 fn trap_cause_name(cause : TrapCause) -> String {
   match cause {
     InstructionAccessFault => "instruction access fault"

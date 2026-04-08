@@ -19,6 +19,7 @@ Introduce compressed instructions after the 32-bit integer core is stable.
 
 - Mixed 16/32-bit programs run correctly
 - `pc` updates remain correct across instruction widths
+- Built upstream `*-p-*` survey results show `rv32ui`, `rv32um`, and the current `rv32uc` coverage passing
 
 ## Required Tests
 
@@ -28,3 +29,4 @@ Introduce compressed instructions after the 32-bit integer core is stable.
 ## Prerequisites For Next Milestone
 
 - Fetch/decode abstraction clean enough to add `RV64I`
+- `RV32IMC` docs and survey status explicitly closed before CSR/FENCE.I hardening

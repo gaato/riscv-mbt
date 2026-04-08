@@ -53,3 +53,15 @@ test "decode mul and div fields" {
     _ => fail("expected div")
   }
 }
+
+///|
+test "decode fence and fence.i distinctly" {
+  match decode(encode_fence()) {
+    Fence => ()
+    _ => fail("expected fence")
+  }
+  match decode(encode_fence_i()) {
+    FenceI => ()
+    _ => fail("expected fence.i")
+  }
+}

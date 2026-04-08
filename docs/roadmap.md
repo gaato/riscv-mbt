@@ -2,9 +2,9 @@
 
 ## Current Position
 
-- Active milestone: `RV32IM`
-- Current checkpoint: `RV32I` base integer core implemented with decode, execute, and integration coverage
-- Next concrete target: make one official `rv32ui-p-*` path real, then begin the `M` extension
+- Active milestone: `RV64 transition`
+- Current checkpoint: `Minimal M-mode` is complete as the first coherent machine-mode checkpoint
+- Next concrete target: establish RV64 sign-extension invariants without mixing in MMU or platform work
 - Design rule: protect implementation boundaries first, then add instructions
 - Milestone semantics:
   - `RV32IMC` = core completion checkpoint

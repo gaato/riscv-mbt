@@ -2,7 +2,7 @@
 
 ## Current Milestone
 
-- `RV32IMC`
+- `RV64 transition`
 
 ## Current Tasks
 
@@ -11,11 +11,14 @@
 - [Finish remaining RV32I base instruction coverage](tasks/0003-rv32i-complete-base-core.md) — `done`
 - [Introduce riscv-tests for RV32I regression](tasks/0004-riscv-tests-integration.md) — `done`
 - [Implement RV32IM](tasks/0005-rv32im.md) — `done`
-- [Implement RV32IMC](tasks/0006-rv32imc.md) — `doing`
-- [Add Zicsr and Zifencei](tasks/0007-rv32imc-zicsr-zifencei.md) — `todo`
-- [Add minimal M-mode](tasks/0008-minimal-m-mode.md) — `todo`
+- [Implement RV32IMC](tasks/0006-rv32imc.md) — `done`
+- [Add Zicsr and Zifencei](tasks/0007-rv32imc-zicsr-zifencei.md) — `done`
+- [Add minimal M-mode](tasks/0008-minimal-m-mode.md) — `done`
+- [Machine reset and trap-entry invariants](tasks/0028-machine-reset-and-trap-entry.md) — `done`
+- [Machine return and `mstatus` semantics](tasks/0029-machine-return-and-mstatus.md) — `done`
+- [Add `mip` skeleton and machine CSR contract](tasks/0030-mip-skeleton-and-machine-csr-contract.md) — `done`
 - [Optional RV32 supervisor + Sv32 path](tasks/0009-rv32-supervisor-sv32.md) — `todo`
-- [Establish RV64 sign-extension invariants](tasks/0010-rv64-transition.md) — `todo`
+- [Establish RV64 sign-extension invariants](tasks/0010-rv64-transition.md) — `doing`
 - [Stabilize the practical RV64 core](tasks/0011-rv64-practical-core.md) — `todo`
 - [Add S-mode and delegation](tasks/0012-s-mode-and-delegation.md) — `todo`
 - [Add Sv39 and SFENCE.VMA](tasks/0013-sv39-and-sfence-vma.md) — `todo`
@@ -32,19 +35,20 @@
 
 ## Next Task
 
-- Continue [Task 0006](tasks/0006-rv32imc.md): decide whether the current official `rv32uc` survey coverage should expand or promote beyond survey-only use, then close the remaining reserved/hint/unimplemented `C` gaps needed for full `RV32IMC` completion.
+- Continue [Task 0010](tasks/0010-rv64-transition.md): establish RV64 sign-extension invariants and keep widening work separate from MMU and platform concerns.
 
 ## Known Blockers
 
 - The official QEMU cross-check path currently focuses on the `rv32ui` gating subset. `rv32um`, `rv32uc`, and broader privileged coverage still need follow-up work.
 - Local `moon test` now expects build artifacts under `_build/riscv-tests-src/isa`; run `./scripts/build-riscv-tests-official.sh` first if they are missing.
-- The reusable integer `C` subset is mostly in place, and the current manifest-backed `rv32uc/rvc` survey passes, but broader compressed coverage and any promotion beyond survey-only still need follow-up work.
+- The built upstream `*-p-*` survey currently stands at `122 total / 51 pass`, with `rv32ui`, `rv32um`, and the current `rv32uc` coverage passing; broader extension failures remain out of scope for the current milestone spine.
 
 ## Read Next
 
 - [Roadmap](roadmap.md)
 - [Implementation Notes](guides/implementation-notes.md)
-- [RV32IMC milestone](milestones/03-rv32imc.md)
-- [Task 0006](tasks/0006-rv32imc.md)
+- [RV64 transition milestone](milestones/06b-rv64-transition.md)
+- [Task 0010](tasks/0010-rv64-transition.md)
+- [Task 0009](tasks/0009-rv32-supervisor-sv32.md)
 - [ADR 0001](adr/0001-rv32i-first.md)
 - [ADR 0003](adr/0003-milestone-spine.md)

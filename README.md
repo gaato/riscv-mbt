@@ -6,10 +6,11 @@ This is a general-purpose RISC-V emulator project built in MoonBit. Linux boot a
 
 - The repo already has an AI-readable operating system in Markdown
 - The MoonBit project is initialized
-- The `RV32IM` integer core is implemented
+- The `RV32IMC` integer core is implemented
   - all branch variants
   - the main `OP-IMM` / `OP` integer operations
   - all `M` extension multiply/divide operations
+  - the current compressed integer subset with mixed-width fetch/decode
   - byte / halfword / word load-store
   - `JAL` / `JALR`
   - representative decode / execute / integration tests
@@ -21,11 +22,18 @@ This is a general-purpose RISC-V emulator project built in MoonBit. Linux boot a
 - The same official `rv32ui-p-*` gating subset can be cross-checked in `qemu-system-riscv32`
 - GitHub Actions builds the official `riscv-tests` subset and runs `moon test`
 - A freestanding `RV32I` C sample can also be built and run
+- A built upstream `*-p-*` survey currently reports `122 total / 51 pass`, with `rv32ui`, `rv32um`, and the current `rv32uc` coverage passing
+- The official always-green subset now includes `rv32ui/fence_i`
+- Minimal M-mode is now complete:
+  - trap entry and trap return semantics are explicit
+  - `mip` exists as machine-state storage
+  - the machine CSR contract is explicit in code and tests
 
 ## Next Milestone
 
-- The `RV32IM` core and the official `riscv-tests` execution path are now in a good place, so the next step is [RV32IMC](docs/tasks/0006-rv32imc.md)
-- After that, the path continues through `RV32IMC + Zicsr + Zifencei` toward the first practical standalone checkpoint
+- The repo now has its first coherent machine-mode checkpoint: `Minimal M-mode`
+- The mainline next step is [RV64 transition](docs/tasks/0010-rv64-transition.md)
+- The optional side branch remains [RV32 supervisor + Sv32](docs/tasks/0009-rv32-supervisor-sv32.md)
 - `Linux boot` is treated as a system-integration gate built from privileged support + MMU + SBI + device model work, not just as “more ISA coverage”
 
 ## Read Next
@@ -33,7 +41,7 @@ This is a general-purpose RISC-V emulator project built in MoonBit. Linux boot a
 - [Current State](docs/current.md)
 - [Roadmap](docs/roadmap.md)
 - [Implementation Notes](docs/guides/implementation-notes.md)
-- [RV32IMC Milestone](docs/milestones/03-rv32imc.md)
+- [RV64 Transition Milestone](docs/milestones/06b-rv64-transition.md)
 - [Agent Guide](AGENTS.md)
 
 ## Common Commands
