@@ -10,6 +10,12 @@ Pivot from the 32-bit learning path to the 64-bit general-purpose path before go
 - Carry-forward of `M`, `C`, `Zicsr`, `Zifencei`, and minimal privileged behavior
 - RV64-specific load/store width and shift semantics
 
+## Implementation Order
+
+1. `0031` XLEN plumbing and widened RV64 machine state
+2. `0032` RV64I sign extension, wider loads/stores, and `*W` integer ops
+3. `0033` RV64M `*W` coverage and transition closure
+
 ## Non-Goals
 
 - Full Linux boot platform
@@ -29,3 +35,8 @@ Pivot from the 32-bit learning path to the 64-bit general-purpose path before go
 ## Prerequisites For Next Milestone
 
 - Stable 64-bit core and privileged baseline
+
+## Current Position
+
+- `0010` is complete as the sign-extension and width-semantics checkpoint
+- The next active task inside this milestone is [Task 0011](../tasks/0011-rv64-practical-core.md)

@@ -22,8 +22,8 @@ test "unsupported compressed-looking instruction traps as illegal instruction" {
         IllegalInstruction => ()
         _ => fail("expected illegal instruction trap")
       }
-      assert_eq(info.faulting_pc, 0U)
-      assert_eq(info.trap_value, 0x9c25U)
+      assert_eq(info.faulting_pc, 0U.to_uint64())
+      assert_eq(info.trap_value, 0x9c25U.to_uint64())
     }
     _ => fail("expected illegal instruction trap")
   }
@@ -43,8 +43,8 @@ test "32-bit-looking truncated fetch traps as instruction access fault" {
         InstructionAccessFault => ()
         _ => fail("expected instruction access fault")
       }
-      assert_eq(info.faulting_pc, last_two_bytes)
-      assert_eq(info.trap_value, last_two_bytes)
+      assert_eq(info.faulting_pc, last_two_bytes.to_uint64())
+      assert_eq(info.trap_value, last_two_bytes.to_uint64())
     }
     _ => fail("expected instruction access fault")
   }

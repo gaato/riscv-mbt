@@ -212,9 +212,9 @@ async fn run_official_riscv_test_case(test_case : OfficialRiscvTestCase) -> UInt
   }
   let mut steps = 0
   while steps < test_case.max_steps {
-    let value = runner.load_u32(tohost)
-    if value != 0U {
-      return value
+    let value = runner.load_u32_u64(tohost)
+    if value != 0U.to_uint64() {
+      return value.to_uint()
     }
     match runner.step() {
       Running => steps = steps + 1

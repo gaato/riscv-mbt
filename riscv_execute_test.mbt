@@ -1,4 +1,15 @@
 ///|
+fn test_sign_extend_word64(value : UInt) -> UInt64 {
+  let shifted = value.to_uint64() << 32
+  (shifted.reinterpret_as_int64() >> 32).reinterpret_as_uint64()
+}
+
+///|
+fn test_join_u64(upper : UInt, lower : UInt) -> UInt64 {
+  (upper.to_uint64() << 32) | lower.to_uint64()
+}
+
+///|
 test "x0 remains zero when written" {
   let runner = make_runner(default_machine_config())
   runner.load_program(words_to_bytes([encode_i(5, 0, 0x0U, 0, 0x13U)]), 0U)
@@ -528,7 +539,7 @@ test "csr contract distinguishes modeled, compatibility-only, and unsupported cs
         IllegalInstruction => ()
         _ => fail("expected illegal instruction cause")
       }
-      assert_eq(info.trap_value, unsupported)
+      assert_eq(info.trap_value, unsupported.to_uint64())
     }
     _ => fail("expected unsupported csr trap")
   }
@@ -545,7 +556,7 @@ test "unsupported csr access traps as illegal instruction" {
         IllegalInstruction => ()
         _ => fail("expected illegal instruction cause")
       }
-      assert_eq(info.trap_value, raw)
+      assert_eq(info.trap_value, raw.to_uint64())
     }
     _ => fail("expected illegal instruction trap")
   }
@@ -562,7 +573,7 @@ test "writes to read-only csrs trap as illegal instruction" {
         IllegalInstruction => ()
         _ => fail("expected illegal instruction cause")
       }
-      assert_eq(info.trap_value, misa_raw)
+      assert_eq(info.trap_value, misa_raw.to_uint64())
     }
     _ => fail("expected illegal instruction trap")
   }
@@ -575,7 +586,7 @@ test "writes to read-only csrs trap as illegal instruction" {
         IllegalInstruction => ()
         _ => fail("expected illegal instruction cause")
       }
-      assert_eq(info.trap_value, mhartid_raw)
+      assert_eq(info.trap_value, mhartid_raw.to_uint64())
     }
     _ => fail("expected illegal instruction trap")
   }
@@ -605,4 +616,137 @@ test "fence.i is explicit and remains compatible with the current coherent fetch
   assert_eq(runner.read_reg(6), 0U)
   assert_eq(runner.read_reg(7), 1U)
   assert_eq(runner.load_u32(28U), target)
+}
+
+///|
+test "rv64 machine config resets widened state and misa" {
+  let runner = make_runner(rv64_machine_config())
+  match runner.privilege_mode() {
+    Machine => ()
+    _ => fail("expected machine privilege at reset")
+  }
+  assert_eq(runner.pc_u64(), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(1), 0U.to_uint64())
+  assert_eq(
+    runner.read_csr_u64(0x301),
+    (2U.to_uint64() << 62) | 0x101104U.to_uint64(),
+  )
+  assert_eq(runner.read_csr_u64(0xF14), 0U.to_uint64())
+}
+
+///|
+test "rv64 loads and stores preserve sign extension and full-width round trips" {
+  let program = words_to_bytes([
+    encode_u(0x80000000U, 1, 0x37U),
+    encode_i(0x80, 1, 0x0U, 1, 0x13U),
+    encode_s(0, 1, 0, 0x2U, 0x23U),
+    encode_i(0, 0, 0x2U, 2, 0x03U),
+    encode_i(0, 0, 0x6U, 3, 0x03U),
+    encode_u(0x12345000U, 4, 0x37U),
+    encode_i(32, 4, 0x1U, 4, 0x13U),
+    encode_u(0x6789a000U, 5, 0x37U),
+    encode_r(0x00U, 5, 4, 0x0U, 6, 0x33U),
+    encode_s(8, 6, 0, 0x3U, 0x23U),
+    encode_i(8, 0, 0x3U, 7, 0x03U),
+  ])
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(11) {
+    Running => ()
+    _ => fail("expected rv64 load/store program to run")
+  }
+  assert_eq(runner.read_reg_u64(2), test_sign_extend_word64(0x80000080U))
+  assert_eq(runner.read_reg_u64(3), 0x80000080U.to_uint64())
+  assert_eq(runner.read_reg_u64(7), test_join_u64(0x12345000U, 0x6789a000U))
+}
+
+///|
+test "rv64 word operations keep 32-bit results sign-extended" {
+  let program = words_to_bytes([
+    encode_i(-1, 0, 0x0U, 1, 0x1bU),
+    encode_i(31, 1, 0x1U, 2, 0x1bU),
+    encode_i(31, 2, 0x5U, 3, 0x1bU),
+    encode_i(0x404, 1, 0x5U, 4, 0x1bU),
+    encode_r(0x00U, 3, 1, 0x0U, 5, 0x3bU),
+    encode_r(0x20U, 3, 1, 0x0U, 6, 0x3bU),
+    encode_r(0x00U, 3, 1, 0x1U, 7, 0x3bU),
+    encode_r(0x00U, 3, 2, 0x5U, 8, 0x3bU),
+    encode_r(0x20U, 3, 2, 0x5U, 9, 0x3bU),
+  ])
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(9) {
+    Running => ()
+    _ => fail("expected rv64 word-op program to run")
+  }
+  assert_eq(runner.read_reg_u64(1), (-1L).reinterpret_as_uint64())
+  assert_eq(runner.read_reg_u64(2), test_sign_extend_word64(0x80000000U))
+  assert_eq(runner.read_reg_u64(3), 1U.to_uint64())
+  assert_eq(runner.read_reg_u64(4), (-1L).reinterpret_as_uint64())
+  assert_eq(runner.read_reg_u64(5), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(6), test_sign_extend_word64(0xfffffffeU))
+  assert_eq(runner.read_reg_u64(7), test_sign_extend_word64(0xfffffffeU))
+  assert_eq(runner.read_reg_u64(8), 0x40000000U.to_uint64())
+  assert_eq(runner.read_reg_u64(9), test_sign_extend_word64(0xc0000000U))
+}
+
+///|
+test "rv64m word instructions honor divide edge cases and sign extension" {
+  let program = words_to_bytes([
+    encode_i(-13, 0, 0x0U, 1, 0x1bU),
+    encode_i(5, 0, 0x0U, 2, 0x1bU),
+    encode_i(13, 0, 0x0U, 3, 0x1bU),
+    encode_i(0, 0, 0x0U, 4, 0x1bU),
+    encode_r(0x01U, 2, 1, 0x0U, 5, 0x3bU),
+    encode_r(0x01U, 2, 1, 0x4U, 6, 0x3bU),
+    encode_r(0x01U, 2, 1, 0x6U, 7, 0x3bU),
+    encode_r(0x01U, 2, 3, 0x5U, 8, 0x3bU),
+    encode_r(0x01U, 2, 3, 0x7U, 9, 0x3bU),
+    encode_r(0x01U, 4, 1, 0x4U, 10, 0x3bU),
+    encode_r(0x01U, 4, 1, 0x6U, 11, 0x3bU),
+    encode_u(0x80000000U, 12, 0x37U),
+    encode_i(-1, 0, 0x0U, 13, 0x1bU),
+    encode_r(0x01U, 13, 12, 0x4U, 14, 0x3bU),
+    encode_r(0x01U, 13, 12, 0x6U, 15, 0x3bU),
+  ])
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(15) {
+    Running => ()
+    _ => fail("expected rv64m word-op program to run")
+  }
+  assert_eq(runner.read_reg_u64(5), test_sign_extend_word64(0xffffffbfU))
+  assert_eq(runner.read_reg_u64(6), test_sign_extend_word64(0xfffffffeU))
+  assert_eq(runner.read_reg_u64(7), test_sign_extend_word64(0xfffffffdU))
+  assert_eq(runner.read_reg_u64(8), 2U.to_uint64())
+  assert_eq(runner.read_reg_u64(9), 3U.to_uint64())
+  assert_eq(runner.read_reg_u64(10), (-1L).reinterpret_as_uint64())
+  assert_eq(runner.read_reg_u64(11), test_sign_extend_word64(0xfffffff3U))
+  assert_eq(runner.read_reg_u64(14), test_sign_extend_word64(0x80000000U))
+  assert_eq(runner.read_reg_u64(15), 0U.to_uint64())
+}
+
+///|
+test "rv64 widened state still supports trap entry and mret round trip" {
+  let program = words_to_bytes([
+    encode_u(0U, 5, 0x17U),
+    encode_i(20, 5, 0x0U, 5, 0x13U),
+    encode_csr(0x300, 0, 0x5U, 0),
+    encode_csr(0x341, 5, 0x1U, 0),
+    encode_mret(),
+    encode_i(7, 0, 0x0U, 1, 0x13U),
+  ])
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(6) {
+    Running => ()
+    _ => fail("expected rv64 mret startup sequence to reach test body")
+  }
+  assert_eq(runner.read_reg_u64(1), 7U.to_uint64())
+  assert_eq(runner.pc_u64(), 24U.to_uint64())
+  assert_eq(runner.read_csr_u64(0x341), 20U.to_uint64())
+  match runner.privilege_mode() {
+    User => ()
+    _ => fail("expected user mode after rv64 mret")
+  }
 }

@@ -9,7 +9,7 @@ test "load_elf places PT_LOAD segments at linked addresses" {
   let runner = make_runner(official_riscv_tests_machine_config())
   match runner.load_elf(elf) {
     Loaded(info) => {
-      assert_eq(info.entry_point, load_addr)
+      assert_eq(info.entry_point, load_addr.to_uint64())
       assert_eq(runner.pc(), load_addr)
       assert_eq(runner.load_u32(load_addr), program[0])
       assert_eq(runner.load_u32(load_addr + 4U), program[1])
@@ -36,19 +36,19 @@ test "load_elf exposes tohost and signature symbols" {
   match runner.load_elf(elf) {
     Loaded(info) => {
       match info.tohost_addr {
-        Some(value) => assert_eq(value, load_addr + 0x1000U)
+        Some(value) => assert_eq(value, (load_addr + 0x1000U).to_uint64())
         None => fail("expected tohost symbol")
       }
       match info.fromhost_addr {
-        Some(value) => assert_eq(value, load_addr + 0x1004U)
+        Some(value) => assert_eq(value, (load_addr + 0x1004U).to_uint64())
         None => fail("expected fromhost symbol")
       }
       match info.begin_signature_addr {
-        Some(value) => assert_eq(value, load_addr + 0x2000U)
+        Some(value) => assert_eq(value, (load_addr + 0x2000U).to_uint64())
         None => fail("expected begin_signature symbol")
       }
       match info.end_signature_addr {
-        Some(value) => assert_eq(value, load_addr + 0x2010U)
+        Some(value) => assert_eq(value, (load_addr + 0x2010U).to_uint64())
         None => fail("expected end_signature symbol")
       }
     }

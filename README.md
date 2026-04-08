@@ -28,11 +28,16 @@ This is a general-purpose RISC-V emulator project built in MoonBit. Linux boot a
   - trap entry and trap return semantics are explicit
   - `mip` exists as machine-state storage
   - the machine CSR contract is explicit in code and tests
+- RV64 transition step 1 is complete:
+  - internal architectural state is RV64-capable
+  - RV64I sign-extension invariants are covered
+  - RV64I / RV64M `*W` instruction regressions are in place
+  - RV64 widened-state `MRET` / trap round trips are tested
 
 ## Next Milestone
 
-- The repo now has its first coherent machine-mode checkpoint: `Minimal M-mode`
-- The mainline next step is [RV64 transition](docs/tasks/0010-rv64-transition.md)
+- The repo now has its RV64 sign-extension checkpoint in place on top of `Minimal M-mode`
+- The mainline next step is [practical RV64 core stabilization](docs/tasks/0011-rv64-practical-core.md)
 - The optional side branch remains [RV32 supervisor + Sv32](docs/tasks/0009-rv32-supervisor-sv32.md)
 - `Linux boot` is treated as a system-integration gate built from privileged support + MMU + SBI + device model work, not just as “more ISA coverage”
 

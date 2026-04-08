@@ -25,4 +25,4 @@ Before Linux bring-up, the RV64 CPU core should be stable on its own. This stage
 
 ## Status
 
-- `todo`
+- `doing`

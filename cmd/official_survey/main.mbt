@@ -106,12 +106,12 @@ async fn run_official_riscv_test_case(
   }
   let mut steps = 0
   while steps < test_case.max_steps {
-    let value = runner.load_u32(tohost)
-    if value != 0U {
-      if value == 1U {
-        return Pass(value)
+    let value = runner.load_u32_u64(tohost)
+    if value != 0U.to_uint64() {
+      if value == 1U.to_uint64() {
+        return Pass(value.to_uint())
       } else {
-        return Fail(value)
+        return Fail(value.to_uint())
       }
     }
     match runner.step() {

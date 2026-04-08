@@ -65,3 +65,31 @@ test "decode fence and fence.i distinctly" {
     _ => fail("expected fence.i")
   }
 }
+
+///|
+test "decode rv64-specific word and load instructions" {
+  match decode(encode_i(-1, 2, 0x0U, 1, 0x1bU)) {
+    Addiw(rd, rs1, imm) => {
+      assert_eq(rd, 1)
+      assert_eq(rs1, 2)
+      assert_eq(imm, -1)
+    }
+    _ => fail("expected addiw")
+  }
+  match decode(encode_i(8, 4, 0x6U, 3, 0x03U)) {
+    Lwu(rd, rs1, imm) => {
+      assert_eq(rd, 3)
+      assert_eq(rs1, 4)
+      assert_eq(imm, 8)
+    }
+    _ => fail("expected lwu")
+  }
+  match decode(encode_r(0x01U, 8, 7, 0x0U, 6, 0x3bU)) {
+    Mulw(rd, rs1, rs2) => {
+      assert_eq(rd, 6)
+      assert_eq(rs1, 7)
+      assert_eq(rs2, 8)
+    }
+    _ => fail("expected mulw")
+  }
+}

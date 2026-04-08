@@ -389,8 +389,8 @@ test "c.addi4spn with zero immediate remains illegal" {
         IllegalInstruction => ()
         _ => fail("expected illegal instruction trap")
       }
-      assert_eq(info.faulting_pc, 0U)
-      assert_eq(info.trap_value, 0x0000U)
+      assert_eq(info.faulting_pc, 0U.to_uint64())
+      assert_eq(info.trap_value, 0x0000U.to_uint64())
     }
     _ => fail("expected illegal instruction trap")
   }
@@ -433,8 +433,8 @@ test "unsupported compressed instructions still trap as illegal instruction" {
         IllegalInstruction => ()
         _ => fail("expected illegal instruction trap")
       }
-      assert_eq(info.faulting_pc, 0U)
-      assert_eq(info.trap_value, 0x9c25U)
+      assert_eq(info.faulting_pc, 0U.to_uint64())
+      assert_eq(info.trap_value, 0x9c25U.to_uint64())
     }
     _ => fail("expected illegal instruction trap")
   }
