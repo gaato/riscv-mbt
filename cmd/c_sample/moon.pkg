@@ -1,0 +1,11 @@
+import {
+  "gaato/riscv_mbt" @riscv,
+  "moonbitlang/async",
+  "moonbitlang/async/fs",
+  "moonbitlang/core/env",
+}
+
+options(
+  "is-main": true,
+  "link": { "native": { "cc": "gcc" } },
+)
