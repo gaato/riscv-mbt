@@ -11,7 +11,7 @@
 - [Finish remaining RV32I base instruction coverage](tasks/0003-rv32i-complete-base-core.md) — `done`
 - [Introduce riscv-tests for RV32I regression](tasks/0004-riscv-tests-integration.md) — `done`
 - [Implement RV32IM](tasks/0005-rv32im.md) — `done`
-- [Implement RV32IMC](tasks/0006-rv32imc.md) — `todo`
+- [Implement RV32IMC](tasks/0006-rv32imc.md) — `doing`
 - [Add Zicsr and Zifencei](tasks/0007-rv32imc-zicsr-zifencei.md) — `todo`
 - [Add minimal M-mode](tasks/0008-minimal-m-mode.md) — `todo`
 - [Optional RV32 supervisor + Sv32 path](tasks/0009-rv32-supervisor-sv32.md) — `todo`
@@ -32,12 +32,13 @@
 
 ## Next Task
 
-- Move on to [Task 0006](tasks/0006-rv32imc.md): add compressed-instruction support while keeping the `RV32IM` execute path and the current official `rv32ui-p-*` regression path stable.
+- Continue [Task 0006](tasks/0006-rv32imc.md): build compressed decode/execute on top of the new length-aware fetch path while keeping the `RV32IM` execute path and the current official `rv32ui-p-*` regression path stable.
 
 ## Known Blockers
 
 - The official QEMU cross-check path currently focuses on the `rv32ui` gating subset. `rv32um`, `rv32uc`, and broader privileged coverage still need follow-up work.
 - Local `moon test` now expects build artifacts under `_build/riscv-tests-src/isa`; run `./scripts/build-riscv-tests-official.sh` first if they are missing.
+- 16-bit-looking instructions intentionally trap as `IllegalInstruction` until compressed decode lands in `Task 0006`.
 
 ## Read Next
 

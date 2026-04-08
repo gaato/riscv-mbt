@@ -131,6 +131,12 @@ pub enum StepResult {
 }
 
 ///|
+priv struct FetchedInstruction {
+  raw : UInt
+  length : Int
+}
+
+///|
 pub struct Runner {
   cpu : CpuState
   bus : Bus
@@ -296,7 +302,12 @@ pub fn Bus::zero_range(self : Bus, base_addr : UInt, len : Int) -> Unit {
 }
 
 ///|
-pub fn Bus::fetch(self : Bus, addr : UInt) -> UInt {
+fn Bus::fetch_u16(self : Bus, addr : UInt) -> UInt {
+  self.load_u16(addr)
+}
+
+///|
+fn Bus::fetch_u32(self : Bus, addr : UInt) -> UInt {
   self.load_u32(addr)
 }
 
@@ -323,6 +334,15 @@ fn funct3(raw : UInt) -> UInt {
 ///|
 fn funct7(raw : UInt) -> UInt {
   (raw >> 25) & 0x7fU
+}
+
+///|
+fn instruction_length_from_low16(low16 : UInt) -> Int {
+  if (low16 & 0x3U) == 0x3U {
+    4
+  } else {
+    2
+  }
 }
 
 ///|
@@ -864,6 +884,27 @@ pub fn Runner::load_elf(self : Runner, bytes : Bytes) -> LoadElfResult {
 ///|
 fn Runner::step_next_pc(self : Runner, delta : Int) -> UInt {
   self.cpu.pc + delta.reinterpret_as_uint()
+}
+
+///|
+fn Runner::fetch_instruction(
+  self : Runner,
+  addr : UInt,
+) -> FetchedInstruction? {
+  if !self.bus.contains_range(addr, 2) {
+    return None
+  }
+  let low16 = self.bus.fetch_u16(addr)
+  let length = instruction_length_from_low16(low16)
+  if !self.bus.contains_range(addr, length) {
+    return None
+  }
+  let raw = if length == 2 {
+    low16
+  } else {
+    self.bus.fetch_u32(addr)
+  }
+  Some({ raw, length })
 }
 
 ///|
@@ -1473,12 +1514,16 @@ fn Runner::execute_system(
 
 ///|
 pub fn Runner::step(self : Runner) -> StepResult {
-  if !self.bus.contains_range(self.cpu.pc, 4) {
-    return self.raise_trap(InstructionAccessFault, self.cpu.pc, self.cpu.pc)
-  }
   let current_pc = self.cpu.pc
-  let next_pc = current_pc + 4U
-  let raw = self.bus.fetch(current_pc)
+  let fetched = match self.fetch_instruction(current_pc) {
+    Some(instruction) => instruction
+    None => return self.raise_trap(InstructionAccessFault, current_pc, current_pc)
+  }
+  if fetched.length == 2 {
+    return self.raise_trap(IllegalInstruction, current_pc, fetched.raw)
+  }
+  let next_pc = current_pc + fetched.length.reinterpret_as_uint()
+  let raw = fetched.raw
   let instruction = decode(raw)
   match instruction {
     Fence => {
