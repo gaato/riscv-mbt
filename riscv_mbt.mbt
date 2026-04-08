@@ -818,46 +818,50 @@ fn Runner::raise_trap(
 }
 
 ///|
-fn Runner::execute_csr_read_write(
-  self : Runner,
-  rd : Int,
-  csr : Int,
-  write_value : UInt,
-  should_write : Bool,
-  next_pc : UInt,
-) -> StepResult {
-  let old_value = self.cpu.read_csr(csr)
-  if should_write {
-    self.cpu.write_csr(csr, write_value)
-  }
-  self.cpu.write_reg(rd, old_value)
-  self.cpu.pc = next_pc
-  Running
+fn shift_mask_32(value : UInt) -> Int {
+  value.reinterpret_as_int() & 0x1f
 }
 
 ///|
-pub fn Runner::step(self : Runner) -> StepResult {
-  if !self.bus.contains_range(self.cpu.pc, 4) {
-    return self.raise_trap(InstructionAccessFault, self.cpu.pc, self.cpu.pc)
+fn load_sign_extend_8_16_32(value : UInt, bits : Int) -> UInt {
+  match bits {
+    8 => sign_extend(value, 8).reinterpret_as_uint()
+    16 => sign_extend(value, 16).reinterpret_as_uint()
+    _ => value
   }
-  let current_pc = self.cpu.pc
-  let next_pc = current_pc + 4U
-  let raw = self.bus.fetch(current_pc)
-  match decode(raw) {
-    Fence => {
-      self.cpu.pc = next_pc
-      Running
-    }
-    Lui(rd, imm) => {
-      self.cpu.write_reg(rd, imm)
-      self.cpu.pc = next_pc
-      Running
-    }
-    Auipc(rd, imm) => {
-      self.cpu.write_reg(rd, current_pc + imm)
-      self.cpu.pc = next_pc
-      Running
-    }
+}
+
+///|
+fn compare_signed_u32(lhs : UInt, rhs : UInt) -> Int {
+  let left = as_signed(lhs)
+  let right = as_signed(rhs)
+  if left < right {
+    -1
+  } else if left > right {
+    1
+  } else {
+    0
+  }
+}
+
+///|
+fn compare_unsigned_u32(lhs : UInt, rhs : UInt) -> Int {
+  if lhs < rhs {
+    -1
+  } else if lhs > rhs {
+    1
+  } else {
+    0
+  }
+}
+
+///|
+fn Runner::execute_op_imm(
+  self : Runner,
+  instruction : Instruction,
+  next_pc : UInt,
+) -> StepResult {
+  match instruction {
     Addi(rd, rs1, imm) => {
       self.cpu.write_reg(rd, self.cpu.read_reg(rs1) + imm.reinterpret_as_uint())
       self.cpu.pc = next_pc
@@ -866,7 +870,7 @@ pub fn Runner::step(self : Runner) -> StepResult {
     Slti(rd, rs1, imm) => {
       self.cpu.write_reg(
         rd,
-        bool_to_reg(as_signed(self.cpu.read_reg(rs1)) < imm),
+        bool_to_reg(compare_signed_u32(self.cpu.read_reg(rs1), imm.reinterpret_as_uint()) < 0),
       )
       self.cpu.pc = next_pc
       Running
@@ -874,7 +878,7 @@ pub fn Runner::step(self : Runner) -> StepResult {
     Sltiu(rd, rs1, imm) => {
       self.cpu.write_reg(
         rd,
-        bool_to_reg(self.cpu.read_reg(rs1) < imm.reinterpret_as_uint()),
+        bool_to_reg(compare_unsigned_u32(self.cpu.read_reg(rs1), imm.reinterpret_as_uint()) < 0),
       )
       self.cpu.pc = next_pc
       Running
@@ -912,6 +916,17 @@ pub fn Runner::step(self : Runner) -> StepResult {
       self.cpu.pc = next_pc
       Running
     }
+    _ => abort("unexpected op-imm dispatch")
+  }
+}
+
+///|
+fn Runner::execute_op(
+  self : Runner,
+  instruction : Instruction,
+  next_pc : UInt,
+) -> StepResult {
+  match instruction {
     Add(rd, rs1, rs2) => {
       self.cpu.write_reg(rd, self.cpu.read_reg(rs1) + self.cpu.read_reg(rs2))
       self.cpu.pc = next_pc
@@ -925,8 +940,7 @@ pub fn Runner::step(self : Runner) -> StepResult {
     Sll(rd, rs1, rs2) => {
       self.cpu.write_reg(
         rd,
-        self.cpu.read_reg(rs1) <<
-        (self.cpu.read_reg(rs2).reinterpret_as_int() & 0x1f),
+        self.cpu.read_reg(rs1) << shift_mask_32(self.cpu.read_reg(rs2)),
       )
       self.cpu.pc = next_pc
       Running
@@ -934,9 +948,7 @@ pub fn Runner::step(self : Runner) -> StepResult {
     Slt(rd, rs1, rs2) => {
       self.cpu.write_reg(
         rd,
-        bool_to_reg(
-          as_signed(self.cpu.read_reg(rs1)) < as_signed(self.cpu.read_reg(rs2)),
-        ),
+        bool_to_reg(compare_signed_u32(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2)) < 0),
       )
       self.cpu.pc = next_pc
       Running
@@ -944,7 +956,7 @@ pub fn Runner::step(self : Runner) -> StepResult {
     Sltu(rd, rs1, rs2) => {
       self.cpu.write_reg(
         rd,
-        bool_to_reg(self.cpu.read_reg(rs1) < self.cpu.read_reg(rs2)),
+        bool_to_reg(compare_unsigned_u32(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2)) < 0),
       )
       self.cpu.pc = next_pc
       Running
@@ -957,8 +969,7 @@ pub fn Runner::step(self : Runner) -> StepResult {
     Srl(rd, rs1, rs2) => {
       self.cpu.write_reg(
         rd,
-        self.cpu.read_reg(rs1) >>
-        (self.cpu.read_reg(rs2).reinterpret_as_int() & 0x1f),
+        self.cpu.read_reg(rs1) >> shift_mask_32(self.cpu.read_reg(rs2)),
       )
       self.cpu.pc = next_pc
       Running
@@ -967,7 +978,7 @@ pub fn Runner::step(self : Runner) -> StepResult {
       self.cpu.write_reg(
         rd,
         (as_signed(self.cpu.read_reg(rs1)) >>
-        (self.cpu.read_reg(rs2).reinterpret_as_int() & 0x1f)).reinterpret_as_uint(),
+        shift_mask_32(self.cpu.read_reg(rs2))).reinterpret_as_uint(),
       )
       self.cpu.pc = next_pc
       Running
@@ -982,6 +993,17 @@ pub fn Runner::step(self : Runner) -> StepResult {
       self.cpu.pc = next_pc
       Running
     }
+    _ => abort("unexpected op dispatch")
+  }
+}
+
+///|
+fn Runner::execute_branch(
+  self : Runner,
+  instruction : Instruction,
+  next_pc : UInt,
+) -> StepResult {
+  match instruction {
     Beq(rs1, rs2, imm) => {
       self.cpu.pc = if self.cpu.read_reg(rs1) == self.cpu.read_reg(rs2) {
         self.step_next_pc(imm)
@@ -999,8 +1021,7 @@ pub fn Runner::step(self : Runner) -> StepResult {
       Running
     }
     Blt(rs1, rs2, imm) => {
-      self.cpu.pc = if as_signed(self.cpu.read_reg(rs1)) <
-        as_signed(self.cpu.read_reg(rs2)) {
+      self.cpu.pc = if compare_signed_u32(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2)) < 0 {
         self.step_next_pc(imm)
       } else {
         next_pc
@@ -1008,8 +1029,7 @@ pub fn Runner::step(self : Runner) -> StepResult {
       Running
     }
     Bge(rs1, rs2, imm) => {
-      self.cpu.pc = if as_signed(self.cpu.read_reg(rs1)) >=
-        as_signed(self.cpu.read_reg(rs2)) {
+      self.cpu.pc = if compare_signed_u32(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2)) >= 0 {
         self.step_next_pc(imm)
       } else {
         next_pc
@@ -1017,7 +1037,7 @@ pub fn Runner::step(self : Runner) -> StepResult {
       Running
     }
     Bltu(rs1, rs2, imm) => {
-      self.cpu.pc = if self.cpu.read_reg(rs1) < self.cpu.read_reg(rs2) {
+      self.cpu.pc = if compare_unsigned_u32(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2)) < 0 {
         self.step_next_pc(imm)
       } else {
         next_pc
@@ -1025,13 +1045,24 @@ pub fn Runner::step(self : Runner) -> StepResult {
       Running
     }
     Bgeu(rs1, rs2, imm) => {
-      self.cpu.pc = if self.cpu.read_reg(rs1) >= self.cpu.read_reg(rs2) {
+      self.cpu.pc = if compare_unsigned_u32(self.cpu.read_reg(rs1), self.cpu.read_reg(rs2)) >= 0 {
         self.step_next_pc(imm)
       } else {
         next_pc
       }
       Running
     }
+    _ => abort("unexpected branch dispatch")
+  }
+}
+
+///|
+fn Runner::execute_load(
+  self : Runner,
+  instruction : Instruction,
+  next_pc : UInt,
+) -> StepResult {
+  match instruction {
     Lb(rd, rs1, imm) => {
       let addr = self.address_from(rs1, imm)
       match self.load_check(addr, 1) {
@@ -1039,7 +1070,7 @@ pub fn Runner::step(self : Runner) -> StepResult {
         None => {
           self.cpu.write_reg(
             rd,
-            sign_extend(self.bus.load_u8(addr), 8).reinterpret_as_uint(),
+            load_sign_extend_8_16_32(self.bus.load_u8(addr), 8),
           )
           self.cpu.pc = next_pc
           Running
@@ -1053,7 +1084,7 @@ pub fn Runner::step(self : Runner) -> StepResult {
         None => {
           self.cpu.write_reg(
             rd,
-            sign_extend(self.bus.load_u16(addr), 16).reinterpret_as_uint(),
+            load_sign_extend_8_16_32(self.bus.load_u16(addr), 16),
           )
           self.cpu.pc = next_pc
           Running
@@ -1065,7 +1096,10 @@ pub fn Runner::step(self : Runner) -> StepResult {
       match self.load_check(addr, 4) {
         Some(result) => result
         None => {
-          self.cpu.write_reg(rd, self.bus.load_u32(addr))
+          self.cpu.write_reg(
+            rd,
+            load_sign_extend_8_16_32(self.bus.load_u32(addr), 32),
+          )
           self.cpu.pc = next_pc
           Running
         }
@@ -1093,6 +1127,17 @@ pub fn Runner::step(self : Runner) -> StepResult {
         }
       }
     }
+    _ => abort("unexpected load dispatch")
+  }
+}
+
+///|
+fn Runner::execute_store(
+  self : Runner,
+  instruction : Instruction,
+  next_pc : UInt,
+) -> StepResult {
+  match instruction {
     Sb(rs1, rs2, imm) => {
       let addr = self.address_from(rs1, imm)
       match self.store_check(addr, 1) {
@@ -1126,6 +1171,17 @@ pub fn Runner::step(self : Runner) -> StepResult {
         }
       }
     }
+    _ => abort("unexpected store dispatch")
+  }
+}
+
+///|
+fn Runner::execute_jump(
+  self : Runner,
+  instruction : Instruction,
+  next_pc : UInt,
+) -> StepResult {
+  match instruction {
     Jal(rd, imm) => {
       self.cpu.write_reg(rd, next_pc)
       self.cpu.pc = self.step_next_pc(imm)
@@ -1138,6 +1194,37 @@ pub fn Runner::step(self : Runner) -> StepResult {
       self.cpu.pc = target
       Running
     }
+    _ => abort("unexpected jump dispatch")
+  }
+}
+
+///|
+fn Runner::execute_csr_read_write(
+  self : Runner,
+  rd : Int,
+  csr : Int,
+  write_value : UInt,
+  should_write : Bool,
+  next_pc : UInt,
+) -> StepResult {
+  let old_value = self.cpu.read_csr(csr)
+  if should_write {
+    self.cpu.write_csr(csr, write_value)
+  }
+  self.cpu.write_reg(rd, old_value)
+  self.cpu.pc = next_pc
+  Running
+}
+
+///|
+fn Runner::execute_system(
+  self : Runner,
+  instruction : Instruction,
+  current_pc : UInt,
+  next_pc : UInt,
+  raw : UInt,
+) -> StepResult {
+  match instruction {
     Csrrw(rd, csr, rs1) =>
       self.execute_csr_read_write(
         rd,
@@ -1207,6 +1294,78 @@ pub fn Runner::step(self : Runner) -> StepResult {
       Running
     }
     Unknown(_) => self.raise_trap(IllegalInstruction, current_pc, raw)
+    _ => abort("unexpected system dispatch")
+  }
+}
+
+///|
+pub fn Runner::step(self : Runner) -> StepResult {
+  if !self.bus.contains_range(self.cpu.pc, 4) {
+    return self.raise_trap(InstructionAccessFault, self.cpu.pc, self.cpu.pc)
+  }
+  let current_pc = self.cpu.pc
+  let next_pc = current_pc + 4U
+  let raw = self.bus.fetch(current_pc)
+  let instruction = decode(raw)
+  match instruction {
+    Fence => {
+      self.cpu.pc = next_pc
+      Running
+    }
+    Lui(rd, imm) => {
+      self.cpu.write_reg(rd, imm)
+      self.cpu.pc = next_pc
+      Running
+    }
+    Auipc(rd, imm) => {
+      self.cpu.write_reg(rd, current_pc + imm)
+      self.cpu.pc = next_pc
+      Running
+    }
+    Addi(_, _, _) => self.execute_op_imm(instruction, next_pc)
+    Slti(_, _, _) => self.execute_op_imm(instruction, next_pc)
+    Sltiu(_, _, _) => self.execute_op_imm(instruction, next_pc)
+    Xori(_, _, _) => self.execute_op_imm(instruction, next_pc)
+    Ori(_, _, _) => self.execute_op_imm(instruction, next_pc)
+    Andi(_, _, _) => self.execute_op_imm(instruction, next_pc)
+    Slli(_, _, _) => self.execute_op_imm(instruction, next_pc)
+    Srli(_, _, _) => self.execute_op_imm(instruction, next_pc)
+    Srai(_, _, _) => self.execute_op_imm(instruction, next_pc)
+    Add(_, _, _) => self.execute_op(instruction, next_pc)
+    Sub(_, _, _) => self.execute_op(instruction, next_pc)
+    Sll(_, _, _) => self.execute_op(instruction, next_pc)
+    Slt(_, _, _) => self.execute_op(instruction, next_pc)
+    Sltu(_, _, _) => self.execute_op(instruction, next_pc)
+    Xor(_, _, _) => self.execute_op(instruction, next_pc)
+    Srl(_, _, _) => self.execute_op(instruction, next_pc)
+    Sra(_, _, _) => self.execute_op(instruction, next_pc)
+    Or(_, _, _) => self.execute_op(instruction, next_pc)
+    And(_, _, _) => self.execute_op(instruction, next_pc)
+    Beq(_, _, _) => self.execute_branch(instruction, next_pc)
+    Bne(_, _, _) => self.execute_branch(instruction, next_pc)
+    Blt(_, _, _) => self.execute_branch(instruction, next_pc)
+    Bge(_, _, _) => self.execute_branch(instruction, next_pc)
+    Bltu(_, _, _) => self.execute_branch(instruction, next_pc)
+    Bgeu(_, _, _) => self.execute_branch(instruction, next_pc)
+    Lb(_, _, _) => self.execute_load(instruction, next_pc)
+    Lh(_, _, _) => self.execute_load(instruction, next_pc)
+    Lw(_, _, _) => self.execute_load(instruction, next_pc)
+    Lbu(_, _, _) => self.execute_load(instruction, next_pc)
+    Lhu(_, _, _) => self.execute_load(instruction, next_pc)
+    Sb(_, _, _) => self.execute_store(instruction, next_pc)
+    Sh(_, _, _) => self.execute_store(instruction, next_pc)
+    Sw(_, _, _) => self.execute_store(instruction, next_pc)
+    Jal(_, _) => self.execute_jump(instruction, next_pc)
+    Jalr(_, _, _) => self.execute_jump(instruction, next_pc)
+    Csrrw(_, _, _) => self.execute_system(instruction, current_pc, next_pc, raw)
+    Csrrs(_, _, _) => self.execute_system(instruction, current_pc, next_pc, raw)
+    Csrrc(_, _, _) => self.execute_system(instruction, current_pc, next_pc, raw)
+    Csrrwi(_, _, _) => self.execute_system(instruction, current_pc, next_pc, raw)
+    Csrrsi(_, _, _) => self.execute_system(instruction, current_pc, next_pc, raw)
+    Csrrci(_, _, _) => self.execute_system(instruction, current_pc, next_pc, raw)
+    Ecall => self.execute_system(instruction, current_pc, next_pc, raw)
+    Mret => self.execute_system(instruction, current_pc, next_pc, raw)
+    Unknown(_) => self.execute_system(instruction, current_pc, next_pc, raw)
   }
 }
 
