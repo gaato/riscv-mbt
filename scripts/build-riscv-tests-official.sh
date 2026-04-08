@@ -50,7 +50,9 @@ while IFS=$'\t' read -r suite test_name arch tier; do
   target="${suite}-p-${test_name}"
   echo "building ${target}"
   make -C "$SRC_DIR/isa" "src_dir=$SRC_DIR/isa" XLEN=32 "RISCV_PREFIX=${PREFIX}" "$target"
-  "${PREFIX}strip" --strip-all "$SRC_DIR/isa/${target}"
+  "${PREFIX}strip" --strip-unneeded \
+    -K tohost -K fromhost -K begin_signature -K end_signature \
+    "$SRC_DIR/isa/${target}"
 done <"$MANIFEST_FILE"
 
 echo "official riscv-tests targets from manifest built under $SRC_DIR/isa"
