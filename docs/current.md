@@ -31,7 +31,7 @@
 - [Delegation routing and `SRET`](tasks/0038-delegation-routing-and-sret.md) — `done`
 - [S-mode closure before `Sv39`](tasks/0039-s-mode-closure-before-sv39.md) — `done`
 - [Add Sv39 and SFENCE.VMA](tasks/0013-sv39-and-sfence-vma.md) — `done`
-- [Integrate OpenSBI and a virt-like platform](tasks/0014-opensbi-and-virt-platform.md) — `todo`
+- [Integrate OpenSBI and a virt-like platform](tasks/0014-opensbi-and-virt-platform.md) — `doing`
 - [Meet the Linux boot ABI on one hart](tasks/0015-linux-boot-abi-single-hart.md) — `todo`
 - [Add SMP after single-hart boot](tasks/0016-smp-after-single-hart.md) — `todo`
 - [Load official `riscv-tests` binaries](tasks/0024-official-riscv-tests-loader.md) — `done`
@@ -44,7 +44,7 @@
 
 ## Next Task
 
-- Start [Task 0014](tasks/0014-opensbi-and-virt-platform.md): integrate OpenSBI and a `virt`-like platform on top of the now-closed `Sv39` baseline.
+- Continue [Task 0014](tasks/0014-opensbi-and-virt-platform.md): integrate OpenSBI and a `virt`-like platform on top of the now-closed `Sv39` baseline.
 
 ## Known Blockers
 

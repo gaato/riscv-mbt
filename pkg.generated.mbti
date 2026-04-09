@@ -20,6 +20,8 @@ pub fn rv64_machine_config() -> MachineConfig
 
 pub fn sv39_translate(Bus, UInt64, UInt64, AccessType, PrivilegeMode, Bool, Bool) -> TranslateResult
 
+pub fn virt_machine_config() -> MachineConfig
+
 pub fn words_to_bytes(Array[UInt]) -> Bytes
 
 pub fn xlen32() -> Xlen
@@ -168,6 +170,10 @@ pub struct MachineConfig {
   ram_size : Int
   entry_point : UInt64
   hart_id : UInt64
+  uart0_base : UInt64
+  clint_base : UInt64
+  plic_base : UInt64
+  dtb_addr : UInt64
 }
 
 pub(all) enum PrivilegeMode {
@@ -180,7 +186,12 @@ pub struct Runner {
   cpu : CpuState
   bus : Bus
   config : MachineConfig
+  uart_output : Array[Byte]
+  mut mtime : UInt64
+  mut mtimecmp : UInt64
 }
+pub fn Runner::clint_mtime(Self) -> UInt64
+pub fn Runner::clint_mtimecmp(Self) -> UInt64
 pub fn Runner::config(Self) -> MachineConfig
 pub fn Runner::load_elf(Self, Bytes) -> LoadElfResult
 pub fn Runner::load_program(Self, Bytes, UInt) -> Unit
@@ -196,6 +207,7 @@ pub fn Runner::read_reg(Self, Int) -> UInt
 pub fn Runner::read_reg_u64(Self, Int) -> UInt64
 pub fn Runner::run(Self, Int) -> StepResult
 pub fn Runner::step(Self) -> StepResult
+pub fn Runner::uart_drain(Self) -> String
 
 pub enum StepResult {
   Running

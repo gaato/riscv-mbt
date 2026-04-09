@@ -997,6 +997,22 @@ test "rv64 machine config resets widened state and misa" {
     (2U.to_uint64() << 62) | 0x101104U.to_uint64(),
   )
   assert_eq(runner.read_csr_u64(0xF14), 0U.to_uint64())
+  let config = runner.config()
+  assert_eq(config.uart0_base, 0U.to_uint64())
+  assert_eq(config.clint_base, 0U.to_uint64())
+  assert_eq(config.plic_base, 0U.to_uint64())
+  assert_eq(config.dtb_addr, 0U.to_uint64())
+}
+
+///|
+test "virt machine config exposes virt-like platform addresses" {
+  let config = virt_machine_config()
+  assert_eq(config.ram_base, 0x80000000U.to_uint64())
+  assert_eq(config.entry_point, 0x80000000U.to_uint64())
+  assert_eq(config.uart0_base, 0x10000000U.to_uint64())
+  assert_eq(config.clint_base, 0x02000000U.to_uint64())
+  assert_eq(config.plic_base, 0x0C000000U.to_uint64())
+  assert_eq(config.dtb_addr, 0x87E00000U.to_uint64())
 }
 
 ///|
@@ -1172,4 +1188,116 @@ test "rv64 fence.i remains explicit under the current coherent fetch model" {
   assert_eq(runner.read_reg_u64(6), 0U.to_uint64())
   assert_eq(runner.read_reg_u64(7), 1U.to_uint64())
   assert_eq(runner.load_u32_u64(28U.to_uint64()), target.to_uint64())
+}
+
+// ---------------------------------------------------------------------------
+// MMIO physical access layer tests
+// ---------------------------------------------------------------------------
+
+///|
+test "uart sb to tx fifo captures byte in uart_output" {
+  // LUI x1, 0x10000 → x1 = 0x10000000 (uart base)
+  // ADDI x2, x0, 72  → x2 = 'H'
+  // SB x2, 0(x1)     → write THR: char captured in uart_output
+  let program = words_to_bytes([
+    encode_u(0x10000000U, 1, 0x37U),
+    encode_i(72, 0, 0x0U, 2, 0x13U),
+    encode_s(0, 2, 1, 0x0U, 0x23U),
+  ])
+  let runner = make_runner(virt_machine_config())
+  runner.load_program_u64(program, 0x80000000U.to_uint64())
+  match runner.run(3) {
+    Running => ()
+    _ => fail("expected running after uart sb write")
+  }
+  assert_eq(runner.uart_drain(), "H")
+}
+
+///|
+test "uart lbu from lsr offset returns tx-ready status" {
+  // LUI x1, 0x10000 → x1 = 0x10000000 (uart base)
+  // LBU x3, 5(x1)   → read LSR: should return 0x60 (THRE+TEMT)
+  let program = words_to_bytes([
+    encode_u(0x10000000U, 1, 0x37U),
+    encode_i(5, 1, 0x4U, 3, 0x03U),
+  ])
+  let runner = make_runner(virt_machine_config())
+  runner.load_program_u64(program, 0x80000000U.to_uint64())
+  match runner.run(2) {
+    Running => ()
+    _ => fail("expected running after uart lsr read")
+  }
+  assert_eq(runner.read_reg_u64(3), 0x60U.to_uint64())
+}
+
+///|
+test "clint mtime read/write via sd/ld 64-bit" {
+  // mtime = clint_base + 0xBFF8 = 0x0200C000 - 8 = 0x0200BFF8
+  // LUI x1, 0x200C → x1 = 0x0200C000
+  // ADDI x1, x1, -8 → x1 = 0x0200BFF8
+  // ADDI x2, x0, 66 → x2 = 0x42 (test value)
+  // SD x2, 0(x1)    → write mtime
+  // LD x4, 0(x1)    → read mtime back into x4
+  let program = words_to_bytes([
+    encode_u(0x0200C000U, 1, 0x37U),
+    encode_i(-8, 1, 0x0U, 1, 0x13U),
+    encode_i(66, 0, 0x0U, 2, 0x13U),
+    encode_s(0, 2, 1, 0x3U, 0x23U),
+    encode_i(0, 1, 0x3U, 4, 0x03U),
+  ])
+  let runner = make_runner(virt_machine_config())
+  runner.load_program_u64(program, 0x80000000U.to_uint64())
+  match runner.run(5) {
+    Running => ()
+    _ => fail("expected running after clint mtime write/read")
+  }
+  assert_eq(runner.clint_mtime(), 66U.to_uint64())
+  assert_eq(runner.read_reg_u64(4), 66U.to_uint64())
+}
+
+///|
+test "clint mtimecmp write via sw (32-bit halves)" {
+  // mtimecmp[0] lo = clint_base + 0x4000 = 0x02004000
+  // LUI x1, 0x2004   → x1 = 0x02004000
+  // LUI x2, 0x12345000; ADDI x2, x2, 0x678 → x2 = 0x12345678
+  // SW x2, 0(x1)     → write lo word
+  // ADDI x5, x0, 1   → x5 = 1
+  // SW x5, 4(x1)     → write hi word at offset 4
+  let program = words_to_bytes([
+    encode_u(0x02004000U, 1, 0x37U),
+    encode_u(0x12345000U, 2, 0x37U),
+    encode_i(0x678, 2, 0x0U, 2, 0x13U),
+    encode_s(0, 2, 1, 0x2U, 0x23U),
+    encode_i(1, 0, 0x0U, 5, 0x13U),
+    encode_s(4, 5, 1, 0x2U, 0x23U),
+  ])
+  let runner = make_runner(virt_machine_config())
+  runner.load_program_u64(program, 0x80000000U.to_uint64())
+  match runner.run(6) {
+    Running => ()
+    _ => fail("expected running after mtimecmp writes")
+  }
+  let expected = (1U.to_uint64() << 32) | 0x12345678U.to_uint64()
+  assert_eq(runner.clint_mtimecmp(), expected)
+}
+
+///|
+test "non-device non-ram physical address faults with Trap" {
+  // LW from 0x50000000 (not RAM, not UART, not CLINT) should raise a Trap.
+  // LUI x1, 0x50000 → x1 = 0x50000000
+  // LW x2, 0(x1)    → load access fault → Trap result (mtvec=0, not in RAM)
+  let program = words_to_bytes([
+    encode_u(0x50000000U, 1, 0x37U),
+    encode_i(0, 1, 0x2U, 2, 0x03U),
+  ])
+  let runner = make_runner(virt_machine_config())
+  runner.load_program_u64(program, 0x80000000U.to_uint64())
+  match runner.step() {
+    Running => ()
+    _ => fail("expected lui to run")
+  }
+  match runner.step() {
+    Trap(_) => ()
+    Running => fail("expected Trap for unmapped address, got Running")
+  }
 }

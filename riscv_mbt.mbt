@@ -21,6 +21,10 @@ pub struct MachineConfig {
   ram_size : Int
   entry_point : UInt64
   hart_id : UInt64
+  uart0_base : UInt64
+  clint_base : UInt64
+  plic_base : UInt64
+  dtb_addr : UInt64
 }
 
 ///|
@@ -181,6 +185,9 @@ pub struct Runner {
   cpu : CpuState
   bus : Bus
   config : MachineConfig
+  uart_output : Array[Byte]
+  mut mtime : UInt64
+  mut mtimecmp : UInt64
 }
 
 ///|
@@ -191,6 +198,10 @@ pub fn default_machine_config() -> MachineConfig {
     ram_size: 65536,
     entry_point: 0U.to_uint64(),
     hart_id: 0U.to_uint64(),
+    uart0_base: 0U.to_uint64(),
+    clint_base: 0U.to_uint64(),
+    plic_base: 0U.to_uint64(),
+    dtb_addr: 0U.to_uint64(),
   }
 }
 
@@ -202,6 +213,10 @@ pub fn official_riscv_tests_machine_config_for_xlen(xlen : Xlen) -> MachineConfi
     ram_size: 0x20000,
     entry_point: 0x80000000U.to_uint64(),
     hart_id: 0U.to_uint64(),
+    uart0_base: 0U.to_uint64(),
+    clint_base: 0U.to_uint64(),
+    plic_base: 0U.to_uint64(),
+    dtb_addr: 0U.to_uint64(),
   }
 }
 
@@ -218,6 +233,25 @@ pub fn rv64_machine_config() -> MachineConfig {
     ram_size: 65536,
     entry_point: 0U.to_uint64(),
     hart_id: 0U.to_uint64(),
+    uart0_base: 0U.to_uint64(),
+    clint_base: 0U.to_uint64(),
+    plic_base: 0U.to_uint64(),
+    dtb_addr: 0U.to_uint64(),
+  }
+}
+
+///|
+pub fn virt_machine_config() -> MachineConfig {
+  {
+    xlen: Xlen64,
+    ram_base: 0x80000000U.to_uint64(),
+    ram_size: 0x08000000,
+    entry_point: 0x80000000U.to_uint64(),
+    hart_id: 0U.to_uint64(),
+    uart0_base: 0x10000000U.to_uint64(),
+    clint_base: 0x02000000U.to_uint64(),
+    plic_base: 0x0C000000U.to_uint64(),
+    dtb_addr: 0x87E00000U.to_uint64(),
   }
 }
 
@@ -1580,6 +1614,9 @@ pub fn make_runner(config : MachineConfig) -> Runner {
     cpu: CpuState::new(config.entry_point, config.hart_id, config.xlen),
     bus: Bus::new(config.ram_base, config.ram_size),
     config,
+    uart_output: [],
+    mtime: 0U.to_uint64(),
+    mtimecmp: bit_not(0U.to_uint64()),
   }
 }
 
@@ -2300,7 +2337,7 @@ fn Runner::load_check(self : Runner, addr : UInt64, width : Int) -> (UInt64, Ste
     TranslateFault(cause) =>
       return (addr, Some(self.raise_trap(cause, self.cpu.pc, addr)))
   }
-  if self.bus.contains_range(pa, width) {
+  if self.phy_contains(pa, width) {
     (pa, None)
   } else {
     (addr, Some(self.raise_trap(LoadAccessFault, self.cpu.pc, addr)))
@@ -2315,11 +2352,378 @@ fn Runner::store_check(self : Runner, addr : UInt64, width : Int) -> (UInt64, St
     TranslateFault(cause) =>
       return (addr, Some(self.raise_trap(cause, self.cpu.pc, addr)))
   }
-  if self.bus.contains_range(pa, width) {
+  if self.phy_contains(pa, width) {
     (pa, None)
   } else {
     (addr, Some(self.raise_trap(StoreAccessFault, self.cpu.pc, addr)))
   }
+}
+
+// ---------------------------------------------------------------------------
+// Physical address dispatch layer
+// Bus handles RAM; this layer adds MMIO devices (UART, CLINT).
+// A device is disabled when its base address in MachineConfig is zero.
+// ---------------------------------------------------------------------------
+
+///|
+fn Runner::uart_range(self : Runner) -> (UInt64, UInt64) {
+  // 8-register bank, 1 byte each
+  let base = self.config.uart0_base
+  (base, base + 8U.to_uint64())
+}
+
+///|
+fn Runner::clint_range(self : Runner) -> (UInt64, UInt64) {
+  // QEMU virt CLINT occupies 0x10000 bytes
+  let base = self.config.clint_base
+  (base, base + 0x10000U.to_uint64())
+}
+
+///|
+fn Runner::phy_contains(self : Runner, pa : UInt64, width : Int) -> Bool {
+  if self.bus.contains_range(pa, width) {
+    return true
+  }
+  let w = width.to_uint64()
+  let zero = 0U.to_uint64()
+  if self.config.uart0_base != zero {
+    let (lo, hi) = self.uart_range()
+    if pa >= lo && pa + w <= hi {
+      return true
+    }
+  }
+  if self.config.clint_base != zero {
+    let (lo, hi) = self.clint_range()
+    if pa >= lo && pa + w <= hi {
+      return true
+    }
+  }
+  false
+}
+
+///|
+// CLINT offsets (from QEMU virt / SiFive CLINT spec)
+let clint_mtime_lo_offset : UInt64 = 0xBFF8U.to_uint64()
+
+let clint_mtime_hi_offset : UInt64 = 0xBFFCU.to_uint64()
+
+let clint_mtimecmp_lo_offset : UInt64 = 0x4000U.to_uint64()
+
+let clint_mtimecmp_hi_offset : UInt64 = 0x4004U.to_uint64()
+
+///|
+fn Runner::phy_load_u8(self : Runner, pa : UInt64) -> UInt64 {
+  if self.config.uart0_base != 0U.to_uint64() {
+    let (lo, hi) = self.uart_range()
+    if pa >= lo && pa < hi {
+      let off = pa - lo
+      // LSR (offset 5): always report THRE+TEMT (TX empty) so firmware knows
+      // the FIFO is ready.  All other registers read as zero.
+      if off == 5U.to_uint64() {
+        return 0x60U.to_uint64()
+      }
+      return 0U.to_uint64()
+    }
+  }
+  if self.config.clint_base != 0U.to_uint64() {
+    let (lo, hi) = self.clint_range()
+    if pa >= lo && pa < hi {
+      let off = pa - lo
+      return self.clint_reg_byte(off)
+    }
+  }
+  self.bus.load_u8(pa)
+}
+
+///|
+fn Runner::phy_load_u16(self : Runner, pa : UInt64) -> UInt64 {
+  if self.config.uart0_base != 0U.to_uint64() {
+    let (lo, hi) = self.uart_range()
+    if pa >= lo && pa + 2U.to_uint64() <= hi {
+      return 0U.to_uint64()
+    }
+  }
+  if self.config.clint_base != 0U.to_uint64() {
+    let (lo, hi) = self.clint_range()
+    if pa >= lo && pa + 2U.to_uint64() <= hi {
+      let off = pa - lo
+      return self.clint_reg_halfword(off)
+    }
+  }
+  self.bus.load_u16(pa)
+}
+
+///|
+fn Runner::phy_load_u32(self : Runner, pa : UInt64) -> UInt64 {
+  if self.config.uart0_base != 0U.to_uint64() {
+    let (lo, hi) = self.uart_range()
+    if pa >= lo && pa + 4U.to_uint64() <= hi {
+      return 0U.to_uint64()
+    }
+  }
+  if self.config.clint_base != 0U.to_uint64() {
+    let (lo, hi) = self.clint_range()
+    if pa >= lo && pa + 4U.to_uint64() <= hi {
+      let off = pa - lo
+      return self.clint_reg_word(off)
+    }
+  }
+  self.bus.load_u32(pa)
+}
+
+///|
+fn Runner::phy_load_u64(self : Runner, pa : UInt64) -> UInt64 {
+  if self.config.uart0_base != 0U.to_uint64() {
+    let (lo, hi) = self.uart_range()
+    if pa >= lo && pa + 8U.to_uint64() <= hi {
+      return 0U.to_uint64()
+    }
+  }
+  if self.config.clint_base != 0U.to_uint64() {
+    let (lo, hi) = self.clint_range()
+    if pa >= lo && pa + 8U.to_uint64() <= hi {
+      let off = pa - lo
+      return self.clint_reg_dword(off)
+    }
+  }
+  self.bus.load_u64(pa)
+}
+
+///|
+fn Runner::phy_store_u8(self : Runner, pa : UInt64, value : UInt64) -> Unit {
+  if self.config.uart0_base != 0U.to_uint64() {
+    let (lo, hi) = self.uart_range()
+    if pa >= lo && pa < hi {
+      let off = pa - lo
+      // Offset 0 = THR (transmit holding register): capture the character
+      if off == 0U.to_uint64() {
+        self.uart_output.push(value.to_byte())
+      }
+      return
+    }
+  }
+  if self.config.clint_base != 0U.to_uint64() {
+    let (lo, hi) = self.clint_range()
+    if pa >= lo && pa < hi {
+      let off = pa - lo
+      self.clint_store_byte(off, value)
+      return
+    }
+  }
+  self.bus.store_u8(pa, value)
+}
+
+///|
+fn Runner::phy_store_u16(self : Runner, pa : UInt64, value : UInt64) -> Unit {
+  if self.config.uart0_base != 0U.to_uint64() {
+    let (lo, hi) = self.uart_range()
+    if pa >= lo && pa + 2U.to_uint64() <= hi {
+      return
+    }
+  }
+  if self.config.clint_base != 0U.to_uint64() {
+    let (lo, hi) = self.clint_range()
+    if pa >= lo && pa + 2U.to_uint64() <= hi {
+      let off = pa - lo
+      self.clint_store_halfword(off, value)
+      return
+    }
+  }
+  self.bus.store_u16(pa, value)
+}
+
+///|
+fn Runner::phy_store_u32(self : Runner, pa : UInt64, value : UInt64) -> Unit {
+  if self.config.uart0_base != 0U.to_uint64() {
+    let (lo, hi) = self.uart_range()
+    if pa >= lo && pa + 4U.to_uint64() <= hi {
+      return
+    }
+  }
+  if self.config.clint_base != 0U.to_uint64() {
+    let (lo, hi) = self.clint_range()
+    if pa >= lo && pa + 4U.to_uint64() <= hi {
+      let off = pa - lo
+      self.clint_store_word(off, value)
+      return
+    }
+  }
+  self.bus.store_u32(pa, value)
+}
+
+///|
+fn Runner::phy_store_u64(self : Runner, pa : UInt64, value : UInt64) -> Unit {
+  if self.config.uart0_base != 0U.to_uint64() {
+    let (lo, hi) = self.uart_range()
+    if pa >= lo && pa + 8U.to_uint64() <= hi {
+      return
+    }
+  }
+  if self.config.clint_base != 0U.to_uint64() {
+    let (lo, hi) = self.clint_range()
+    if pa >= lo && pa + 8U.to_uint64() <= hi {
+      let off = pa - lo
+      self.clint_store_dword(off, value)
+      return
+    }
+  }
+  self.bus.store_u64(pa, value)
+}
+
+// ---------------------------------------------------------------------------
+// CLINT register helpers (little-endian byte-addressed MMIO)
+// Only mtime and mtimecmp[0] are implemented.
+// ---------------------------------------------------------------------------
+
+///|
+fn Runner::clint_reg_byte(self : Runner, off : UInt64) -> UInt64 {
+  if off >= clint_mtime_lo_offset && off < clint_mtime_lo_offset + 8U.to_uint64() {
+    let shift = (off - clint_mtime_lo_offset).to_int() * 8
+    return (self.mtime >> shift) & 0xffU.to_uint64()
+  }
+  if off >= clint_mtimecmp_lo_offset &&
+    off < clint_mtimecmp_lo_offset + 8U.to_uint64() {
+    let shift = (off - clint_mtimecmp_lo_offset).to_int() * 8
+    return (self.mtimecmp >> shift) & 0xffU.to_uint64()
+  }
+  0U.to_uint64()
+}
+
+///|
+fn Runner::clint_reg_halfword(self : Runner, off : UInt64) -> UInt64 {
+  if off >= clint_mtime_lo_offset && off + 2U.to_uint64() <= clint_mtime_lo_offset + 8U.to_uint64() {
+    let shift = (off - clint_mtime_lo_offset).to_int() * 8
+    return (self.mtime >> shift) & 0xffffU.to_uint64()
+  }
+  if off >= clint_mtimecmp_lo_offset &&
+    off + 2U.to_uint64() <= clint_mtimecmp_lo_offset + 8U.to_uint64() {
+    let shift = (off - clint_mtimecmp_lo_offset).to_int() * 8
+    return (self.mtimecmp >> shift) & 0xffffU.to_uint64()
+  }
+  0U.to_uint64()
+}
+
+///|
+fn Runner::clint_reg_word(self : Runner, off : UInt64) -> UInt64 {
+  if off == clint_mtime_lo_offset {
+    return self.mtime & 0xffffffffU.to_uint64()
+  }
+  if off == clint_mtime_hi_offset {
+    return self.mtime >> 32
+  }
+  if off == clint_mtimecmp_lo_offset {
+    return self.mtimecmp & 0xffffffffU.to_uint64()
+  }
+  if off == clint_mtimecmp_hi_offset {
+    return self.mtimecmp >> 32
+  }
+  0U.to_uint64()
+}
+
+///|
+fn Runner::clint_reg_dword(self : Runner, off : UInt64) -> UInt64 {
+  if off == clint_mtime_lo_offset {
+    return self.mtime
+  }
+  if off == clint_mtimecmp_lo_offset {
+    return self.mtimecmp
+  }
+  0U.to_uint64()
+}
+
+///|
+fn Runner::clint_store_byte(self : Runner, off : UInt64, value : UInt64) -> Unit {
+  let byte_val = value & 0xffU.to_uint64()
+  if off >= clint_mtime_lo_offset && off < clint_mtime_lo_offset + 8U.to_uint64() {
+    let shift = (off - clint_mtime_lo_offset).to_int() * 8
+    let mask = bit_not(0xffU.to_uint64() << shift)
+    self.mtime = (self.mtime & mask) | (byte_val << shift)
+    return
+  }
+  if off >= clint_mtimecmp_lo_offset &&
+    off < clint_mtimecmp_lo_offset + 8U.to_uint64() {
+    let shift = (off - clint_mtimecmp_lo_offset).to_int() * 8
+    let mask = bit_not(0xffU.to_uint64() << shift)
+    self.mtimecmp = (self.mtimecmp & mask) | (byte_val << shift)
+    return
+  }
+}
+
+///|
+fn Runner::clint_store_halfword(
+  self : Runner,
+  off : UInt64,
+  value : UInt64,
+) -> Unit {
+  let hw_val = value & 0xffffU.to_uint64()
+  if off >= clint_mtime_lo_offset &&
+    off + 2U.to_uint64() <= clint_mtime_lo_offset + 8U.to_uint64() {
+    let shift = (off - clint_mtime_lo_offset).to_int() * 8
+    let mask = bit_not(0xffffU.to_uint64() << shift)
+    self.mtime = (self.mtime & mask) | (hw_val << shift)
+    return
+  }
+  if off >= clint_mtimecmp_lo_offset &&
+    off + 2U.to_uint64() <= clint_mtimecmp_lo_offset + 8U.to_uint64() {
+    let shift = (off - clint_mtimecmp_lo_offset).to_int() * 8
+    let mask = bit_not(0xffffU.to_uint64() << shift)
+    self.mtimecmp = (self.mtimecmp & mask) | (hw_val << shift)
+    return
+  }
+}
+
+///|
+fn Runner::clint_store_word(self : Runner, off : UInt64, value : UInt64) -> Unit {
+  let w_val = value & 0xffffffffU.to_uint64()
+  if off == clint_mtime_lo_offset {
+    self.mtime = (self.mtime & bit_not(0xffffffffU.to_uint64())) | w_val
+    return
+  }
+  if off == clint_mtime_hi_offset {
+    self.mtime = (self.mtime & 0xffffffffU.to_uint64()) | (w_val << 32)
+    return
+  }
+  if off == clint_mtimecmp_lo_offset {
+    self.mtimecmp = (self.mtimecmp & bit_not(0xffffffffU.to_uint64())) | w_val
+    return
+  }
+  if off == clint_mtimecmp_hi_offset {
+    self.mtimecmp =
+      (self.mtimecmp & 0xffffffffU.to_uint64()) | (w_val << 32)
+    return
+  }
+}
+
+///|
+fn Runner::clint_store_dword(self : Runner, off : UInt64, value : UInt64) -> Unit {
+  if off == clint_mtime_lo_offset {
+    self.mtime = value
+    return
+  }
+  if off == clint_mtimecmp_lo_offset {
+    self.mtimecmp = value
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Public accessors for testing and OpenSBI integration
+// ---------------------------------------------------------------------------
+
+///|
+pub fn Runner::uart_drain(self : Runner) -> String {
+  let bytes = self.uart_output.copy()
+  self.uart_output.clear()
+  String::from_array(bytes.map(fn(b) { b.to_int().unsafe_to_char() }))
+}
+
+///|
+pub fn Runner::clint_mtime(self : Runner) -> UInt64 {
+  self.mtime
+}
+
+///|
+pub fn Runner::clint_mtimecmp(self : Runner) -> UInt64 {
+  self.mtimecmp
 }
 
 ///|
@@ -2860,31 +3264,31 @@ fn Runner::execute_load(
   match instruction {
     Lb(rd, rs1, imm) =>
       self.load_and_write(rs1, imm, 1, next_pc, fn(pa) {
-        self.write_xlen_reg(rd, xlen_load_sign_extend(self.bus.load_u8(pa), 8, xlen))
+        self.write_xlen_reg(rd, xlen_load_sign_extend(self.phy_load_u8(pa), 8, xlen))
       })
     Lh(rd, rs1, imm) =>
       self.load_and_write(rs1, imm, 2, next_pc, fn(pa) {
-        self.write_xlen_reg(rd, xlen_load_sign_extend(self.bus.load_u16(pa), 16, xlen))
+        self.write_xlen_reg(rd, xlen_load_sign_extend(self.phy_load_u16(pa), 16, xlen))
       })
     Lw(rd, rs1, imm) =>
       self.load_and_write(rs1, imm, 4, next_pc, fn(pa) {
-        self.write_word_reg(rd, self.bus.load_u32(pa))
+        self.write_word_reg(rd, self.phy_load_u32(pa))
       })
     Lwu(rd, rs1, imm) =>
       self.load_and_write(rs1, imm, 4, next_pc, fn(pa) {
-        self.write_xlen_reg(rd, self.bus.load_u32(pa))
+        self.write_xlen_reg(rd, self.phy_load_u32(pa))
       })
     Ld(rd, rs1, imm) =>
       self.load_and_write(rs1, imm, 8, next_pc, fn(pa) {
-        self.write_xlen_reg(rd, self.bus.load_u64(pa))
+        self.write_xlen_reg(rd, self.phy_load_u64(pa))
       })
     Lbu(rd, rs1, imm) =>
       self.load_and_write(rs1, imm, 1, next_pc, fn(pa) {
-        self.write_xlen_reg(rd, self.bus.load_u8(pa))
+        self.write_xlen_reg(rd, self.phy_load_u8(pa))
       })
     Lhu(rd, rs1, imm) =>
       self.load_and_write(rs1, imm, 2, next_pc, fn(pa) {
-        self.write_xlen_reg(rd, self.bus.load_u16(pa))
+        self.write_xlen_reg(rd, self.phy_load_u16(pa))
       })
     _ => abort("unexpected load dispatch")
   }
@@ -2920,19 +3324,19 @@ fn Runner::execute_store(
   match instruction {
     Sb(rs1, rs2, imm) =>
       self.store_and_commit(rs1, imm, 1, next_pc, fn(pa) {
-        self.bus.store_u8(pa, self.cpu.read_reg(rs2))
+        self.phy_store_u8(pa, self.cpu.read_reg(rs2))
       })
     Sh(rs1, rs2, imm) =>
       self.store_and_commit(rs1, imm, 2, next_pc, fn(pa) {
-        self.bus.store_u16(pa, self.cpu.read_reg(rs2))
+        self.phy_store_u16(pa, self.cpu.read_reg(rs2))
       })
     Sw(rs1, rs2, imm) =>
       self.store_and_commit(rs1, imm, 4, next_pc, fn(pa) {
-        self.bus.store_u32(pa, self.cpu.read_reg(rs2))
+        self.phy_store_u32(pa, self.cpu.read_reg(rs2))
       })
     Sd(rs1, rs2, imm) =>
       self.store_and_commit(rs1, imm, 8, next_pc, fn(pa) {
-        self.bus.store_u64(pa, self.cpu.read_reg(rs2))
+        self.phy_store_u64(pa, self.cpu.read_reg(rs2))
       })
     _ => abort("unexpected store dispatch")
   }
