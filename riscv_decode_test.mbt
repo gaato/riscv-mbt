@@ -67,6 +67,22 @@ test "decode fence and fence.i distinctly" {
 }
 
 ///|
+test "decode sret distinctly from mret and ecall" {
+  match decode(encode_ecall()) {
+    Ecall => ()
+    _ => fail("expected ecall")
+  }
+  match decode(encode_mret()) {
+    Mret => ()
+    _ => fail("expected mret")
+  }
+  match decode(encode_sret()) {
+    Sret => ()
+    _ => fail("expected sret")
+  }
+}
+
+///|
 test "decode rv64-specific word and load instructions" {
   match decode(encode_i(-1, 2, 0x0U, 1, 0x1bU)) {
     Addiw(rd, rs1, imm) => {

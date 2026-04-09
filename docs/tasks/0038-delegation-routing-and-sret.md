@@ -27,4 +27,10 @@ Once the supervisor trap surface exists, delegated exception routing and supervi
 
 ## Status
 
-- `todo`
+- `doing`
+
+## Progress Notes
+
+- Added `SRET` decode/execute with `sstatus` trap-return field updates and `sepc` return path
+- Split trap delegation selection into exception and interrupt routing helpers; exceptions now use `medeleg`
+- Kept `mideleg` as a routed placeholder for future interrupt causes without introducing interrupt delivery yet

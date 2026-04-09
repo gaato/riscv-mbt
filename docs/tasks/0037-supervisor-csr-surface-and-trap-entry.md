@@ -35,4 +35,10 @@ Before delegation and `SRET` semantics land, the emulator needs an explicit supe
 
 ## Status
 
-- `doing`
+- `done`
+
+## Completion Notes
+
+- Added minimum supervisor CSR surface (`sstatus`, `stvec`, `sscratch`, `sepc`, `scause`, `stval`) on the checked CSR path
+- Generalized trap target selection so supervisor and machine trap vectors share direct-mode target logic
+- Added supervisor trap-entry state update path and regression tests for delegated user trap entry and `stvec` low-bit masking

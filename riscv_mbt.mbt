@@ -138,6 +138,7 @@ pub enum Instruction {
   Csrrci(Int, Int, UInt)
   Ecall
   Mret
+  Sret
   Unknown(UInt)
 }
 
@@ -1100,6 +1101,20 @@ fn mstatus_mpie(value : UInt64) -> Bool {
   (value & MSTATUS_MPIE_BIT.to_uint64()) != 0U.to_uint64()
 }
 
+///|
+fn mstatus_spie(value : UInt64) -> Bool {
+  (value & MSTATUS_SPIE_BIT.to_uint64()) != 0U.to_uint64()
+}
+
+///|
+fn mstatus_spp(value : UInt64) -> PrivilegeMode {
+  if (value & MSTATUS_SPP_BIT.to_uint64()) != 0U.to_uint64() {
+    Supervisor
+  } else {
+    User
+  }
+}
+
 fn mstatus_mpp(value : UInt64) -> PrivilegeMode {
   privilege_mode_from_code((value & MSTATUS_MPP_MASK.to_uint64()) >> MSTATUS_MPP_SHIFT)
 }
@@ -1375,6 +1390,7 @@ pub fn decode(raw : UInt) -> Instruction {
           match csr_addr(raw) {
             0x000 => Ecall
             0x302 => Mret
+            0x102 => Sret
             _ => Unknown(raw)
           }
         0x1U => Csrrw(rd(raw), csr_addr(raw), rs1(raw))
@@ -2111,20 +2127,52 @@ fn Runner::trap_target_privilege(
   cause : TrapCause,
   prior_privilege : PrivilegeMode,
 ) -> PrivilegeMode {
+  if self.trap_cause_is_interrupt(cause) {
+    self.delegated_interrupt_target(cause, prior_privilege)
+  } else {
+    self.delegated_exception_target(cause, prior_privilege)
+  }
+}
+
+///|
+fn Runner::trap_cause_is_interrupt(_self : Runner, _cause : TrapCause) -> Bool {
+  // Interrupt causes are not modeled yet.
+  false
+}
+
+///|
+fn Runner::delegated_interrupt_target(
+  self : Runner,
+  _cause : TrapCause,
+  _prior_privilege : PrivilegeMode,
+) -> PrivilegeMode {
+  // Keep MIDELEG wired as the future interrupt routing source of truth.
+  let _mideleg = self.cpu.read_csr(CSR_MIDELEG)
+  Machine
+}
+
+///|
+fn Runner::delegated_exception_target(
+  self : Runner,
+  cause : TrapCause,
+  prior_privilege : PrivilegeMode,
+) -> PrivilegeMode {
   let may_delegate_to_supervisor = match prior_privilege {
     Machine => false
     _ => true
   }
-  if may_delegate_to_supervisor {
-    let cause_code = trap_cause_code(cause)
-    let cause_shift = cause_code.reinterpret_as_int64().to_int()
-    let medeleg = self.cpu.read_csr(CSR_MEDELEG)
-    let delegated = (medeleg & (1U.to_uint64() << cause_shift)) != 0U.to_uint64()
-    if delegated {
-      return Supervisor
-    }
+  if !may_delegate_to_supervisor {
+    return Machine
   }
-  Machine
+  let cause_code = trap_cause_code(cause)
+  let cause_shift = cause_code.reinterpret_as_int64().to_int()
+  let medeleg = self.cpu.read_csr(CSR_MEDELEG)
+  let delegated = (medeleg & (1U.to_uint64() << cause_shift)) != 0U.to_uint64()
+  if delegated {
+    Supervisor
+  } else {
+    Machine
+  }
 }
 
 ///|
@@ -2867,6 +2915,20 @@ fn Runner::execute_system(
       self.cpu.pc = self.cpu.read_csr(CSR_MEPC)
       Running
     }
+    Sret => {
+      let mstatus = self.cpu.read_csr(CSR_MSTATUS)
+      let next_privilege = mstatus_spp(mstatus)
+      self.cpu.write_csr(
+        CSR_MSTATUS,
+        set_mstatus_spp(
+          set_mstatus_spie(set_mstatus_sie(mstatus, mstatus_spie(mstatus)), true),
+          User,
+        ),
+      )
+      self.cpu.privilege = next_privilege
+      self.cpu.pc = self.cpu.read_csr(CSR_SEPC)
+      Running
+    }
     Unknown(_) => self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
     _ => abort("unexpected system dispatch")
   }
@@ -2979,6 +3041,7 @@ pub fn Runner::step(self : Runner) -> StepResult {
     Csrrci(_, _, _) => self.execute_system(instruction, current_pc, next_pc, raw)
     Ecall => self.execute_system(instruction, current_pc, next_pc, raw)
     Mret => self.execute_system(instruction, current_pc, next_pc, raw)
+    Sret => self.execute_system(instruction, current_pc, next_pc, raw)
     Unknown(_) => self.execute_system(instruction, current_pc, next_pc, raw)
   }
 }

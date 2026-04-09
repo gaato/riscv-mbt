@@ -189,6 +189,11 @@ fn encode_mret() -> UInt {
 }
 
 ///|
+fn encode_sret() -> UInt {
+  0x10200073U
+}
+
+///|
 fn encode_fence() -> UInt {
   0x0ff0000fU
 }

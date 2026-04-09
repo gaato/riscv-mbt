@@ -515,6 +515,74 @@ test "stvec direct target masks low bits during delegated supervisor trap entry"
 }
 
 ///|
+test "sret restores user mode from delegated supervisor trap and resumes at sepc" {
+  let program = words_to_bytes([
+    encode_i(33, 0, 0x0U, 6, 0x13U),
+    encode_csr(0x105, 6, 0x1U, 0),
+    encode_i(256, 0, 0x0U, 1, 0x13U),
+    encode_csr(0x302, 1, 0x1U, 0),
+    encode_i(28, 0, 0x0U, 5, 0x13U),
+    encode_csr(0x341, 5, 0x1U, 0),
+    encode_mret(),
+    encode_ecall(),
+    encode_i(48, 0, 0x0U, 12, 0x13U),
+    encode_csr(0x141, 12, 0x1U, 0),
+    encode_csr(0x100, 0, 0x2U, 13),
+    encode_sret(),
+    encode_i(1, 0, 0x0U, 14, 0x13U),
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(13) {
+    Running => ()
+    _ => fail("expected delegated trap handler to return with sret")
+  }
+  assert_eq(runner.read_reg(13), 0U)
+  assert_eq(runner.read_reg(14), 1U)
+  assert_eq(runner.read_csr(0x100), 0x20U)
+  assert_eq(runner.read_csr(0x141), 48U)
+  assert_eq(runner.pc(), 52U)
+  match runner.privilege_mode() {
+    User => ()
+    _ => fail("expected user mode after sret from delegated user trap")
+  }
+}
+
+///|
+test "sret restores supervisor mode when sstatus.spp is set" {
+  let program = words_to_bytes([
+    encode_i(0x120, 0, 0x0U, 1, 0x13U),
+    encode_csr(0x100, 1, 0x1U, 0),
+    encode_i(52, 0, 0x0U, 2, 0x13U),
+    encode_csr(0x141, 2, 0x1U, 0),
+    encode_i(44, 0, 0x0U, 5, 0x13U),
+    encode_csr(0x341, 5, 0x1U, 0),
+    encode_u(0x00001000U, 3, 0x37U),
+    encode_i(-1760, 3, 0x0U, 3, 0x13U),
+    encode_csr(0x300, 3, 0x1U, 0),
+    encode_mret(),
+    encode_i(0, 0, 0x0U, 0, 0x13U),
+    encode_sret(),
+    encode_i(0, 0, 0x0U, 0, 0x13U),
+    encode_i(1, 0, 0x0U, 15, 0x13U),
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(12) {
+    Running => ()
+    _ => fail("expected sret supervisor-mode return path to run")
+  }
+  assert_eq(runner.read_reg(15), 1U)
+  assert_eq(runner.read_csr(0x100), 0x22U)
+  assert_eq(runner.read_csr(0x141), 52U)
+  assert_eq(runner.pc(), 56U)
+  match runner.privilege_mode() {
+    Supervisor => ()
+    _ => fail("expected supervisor mode after sret with spp=1")
+  }
+}
+
+///|
 test "mret sets mie from mpie, sets mpie to 1, and clears mpp" {
   let program = words_to_bytes([
     encode_u(0U, 5, 0x17U),

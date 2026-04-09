@@ -27,8 +27,8 @@
 - [ELF64 loader and RV64 official plumbing](tasks/0035-elf64-loader-and-rv64-official-plumbing.md) — `done`
 - [RV64 official survey and practical-core closure](tasks/0036-rv64-official-survey-and-practical-core-closure.md) — `done`
 - [Add S-mode and delegation](tasks/0012-s-mode-and-delegation.md) — `doing`
-- [Supervisor CSR surface and trap entry](tasks/0037-supervisor-csr-surface-and-trap-entry.md) — `doing`
-- [Delegation routing and `SRET`](tasks/0038-delegation-routing-and-sret.md) — `todo`
+- [Supervisor CSR surface and trap entry](tasks/0037-supervisor-csr-surface-and-trap-entry.md) — `done`
+- [Delegation routing and `SRET`](tasks/0038-delegation-routing-and-sret.md) — `doing`
 - [S-mode closure before `Sv39`](tasks/0039-s-mode-closure-before-sv39.md) — `todo`
 - [Add Sv39 and SFENCE.VMA](tasks/0013-sv39-and-sfence-vma.md) — `todo`
 - [Integrate OpenSBI and a virt-like platform](tasks/0014-opensbi-and-virt-platform.md) — `todo`
@@ -44,7 +44,7 @@
 
 ## Next Task
 
-- Start [Task 0037](tasks/0037-supervisor-csr-surface-and-trap-entry.md): add the minimum supervisor trap surface and trap-entry path before delegation and `Sv39`.
+- Continue [Task 0038](tasks/0038-delegation-routing-and-sret.md): finish delegation routing and `SRET` semantics before closing S-mode for `Sv39`.
 
 ## Known Blockers
 
@@ -60,8 +60,8 @@
 - [Implementation Notes](guides/implementation-notes.md)
 - [Linux boot platform milestone](milestones/07-linux-boot-platform.md)
 - [Task 0012](tasks/0012-s-mode-and-delegation.md)
-- [Task 0037](tasks/0037-supervisor-csr-surface-and-trap-entry.md)
 - [Task 0038](tasks/0038-delegation-routing-and-sret.md)
+- [Task 0039](tasks/0039-s-mode-closure-before-sv39.md)
 - [Task 0009](tasks/0009-rv32-supervisor-sv32.md)
 - [ADR 0001](adr/0001-rv32i-first.md)
 - [ADR 0003](adr/0003-milestone-spine.md)
