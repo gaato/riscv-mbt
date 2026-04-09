@@ -458,3 +458,47 @@ test "mixed 16-bit and 32-bit instructions keep sequential pc accounting correct
   assert_eq(runner.read_reg(10), 3U)
   assert_eq(runner.pc(), 8U)
 }
+
+///|
+test "rv64 carries forward the supported compressed subset through the mixed-width execute path" {
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(
+    mixed_program_bytes([
+      (2, encode_c_li(9, 5).reinterpret_as_uint()),
+      (2, encode_c_addi(9, -1).reinterpret_as_uint()),
+      (4, encode_i(1, 0, 0x0U, 10, 0x13U)),
+      (2, encode_c_add(10, 9).reinterpret_as_uint()),
+      (2, encode_c_j(6).reinterpret_as_uint()),
+      (4, encode_i(99, 0, 0x0U, 11, 0x13U)),
+      (2, encode_c_addi(8, 1).reinterpret_as_uint()),
+    ]),
+    0U,
+  )
+  match runner.run(6) {
+    Running => ()
+    _ => fail("expected rv64 compressed carry-forward sequence to run")
+  }
+  assert_eq(runner.read_reg_u64(8), 1U.to_uint64())
+  assert_eq(runner.read_reg_u64(9), 4U.to_uint64())
+  assert_eq(runner.read_reg_u64(10), 5U.to_uint64())
+  assert_eq(runner.read_reg_u64(11), 0U.to_uint64())
+  assert_eq(runner.pc_u64(), 18U.to_uint64())
+}
+
+///|
+test "c.jal is illegal on rv64" {
+  let raw = encode_c_jal(2).reinterpret_as_uint()
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(mixed_program_bytes([(2, raw)]), 0U)
+  match runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction trap")
+      }
+      assert_eq(info.faulting_pc, 0U.to_uint64())
+      assert_eq(info.trap_value, raw.to_uint64())
+    }
+    _ => fail("expected rv64 c.jal trap")
+  }
+}

@@ -38,5 +38,5 @@ Pivot from the 32-bit learning path to the 64-bit general-purpose path before go
 
 ## Current Position
 
-- `0010` is complete as the sign-extension and width-semantics checkpoint
-- The next active task inside this milestone is [Task 0011](../tasks/0011-rv64-practical-core.md)
+- `0010` and `0011` are complete
+- The milestone now exits into [Milestone 07: Linux boot platform integration](07-linux-boot-platform.md)

@@ -28,16 +28,17 @@ This is a general-purpose RISC-V emulator project built in MoonBit. Linux boot a
   - trap entry and trap return semantics are explicit
   - `mip` exists as machine-state storage
   - the machine CSR contract is explicit in code and tests
-- RV64 transition step 1 is complete:
+- Practical RV64 core stabilization is now complete:
   - internal architectural state is RV64-capable
-  - RV64I sign-extension invariants are covered
-  - RV64I / RV64M `*W` instruction regressions are in place
-  - RV64 widened-state `MRET` / trap round trips are tested
+  - RV64I sign-extension invariants and RV64M `*W` regressions are covered
+  - the current `C`, `Zicsr`, and `Zifencei` surface has explicit RV64 carry-forward regressions
+  - `Runner.load_elf(...)` supports both `ELF32` and `ELF64`
+  - official `rv64ui` / `rv64um` survey plumbing is in place
 
 ## Next Milestone
 
-- The repo now has its RV64 sign-extension checkpoint in place on top of `Minimal M-mode`
-- The mainline next step is [practical RV64 core stabilization](docs/tasks/0011-rv64-practical-core.md)
+- The repo has finished the practical RV64 core checkpoint on top of `Minimal M-mode`
+- The mainline next step is [S-mode and delegation](docs/tasks/0012-s-mode-and-delegation.md)
 - The optional side branch remains [RV32 supervisor + Sv32](docs/tasks/0009-rv32-supervisor-sv32.md)
 - `Linux boot` is treated as a system-integration gate built from privileged support + MMU + SBI + device model work, not just as “more ISA coverage”
 
@@ -72,4 +73,6 @@ moon run cmd/main
 ./scripts/run-rv32i-c-sample.sh
 moon run cmd/c_sample
 moon run cmd/official_survey -- rv32uc
+moon run cmd/official_survey -- rv64ui
+moon run cmd/official_survey -- rv64um
 ```

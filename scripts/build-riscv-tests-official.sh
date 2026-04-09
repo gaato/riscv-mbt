@@ -3,7 +3,8 @@
 set -euo pipefail
 
 ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-SRC_DIR="${RISCV_TESTS_DIR:-$ROOT/_build/riscv-tests-src}"
+SRC_DIR_RV32="${RISCV_TESTS_DIR_RV32:-${RISCV_TESTS_DIR:-$ROOT/_build/riscv-tests-src}}"
+SRC_DIR_RV64="${RISCV_TESTS_DIR_RV64:-$ROOT/_build/riscv-tests-src-rv64}"
 MANIFEST_FILE="$ROOT/tools/riscv-tests-manifest.tsv"
 detect_prefix() {
   if [ -n "${RISCV_PREFIX:-}" ]; then
@@ -40,39 +41,77 @@ require_tool make
 require_tool "$CC_BIN"
 require_tool "$STRIP_BIN"
 
-if [ ! -d "$SRC_DIR/.git" ]; then
-  git clone --depth=1 https://github.com/riscv-software-src/riscv-tests "$SRC_DIR"
-fi
+ensure_source_tree() {
+  local src_dir="$1"
+  if [ ! -d "$src_dir/.git" ]; then
+    git clone --depth=1 https://github.com/riscv-software-src/riscv-tests "$src_dir"
+  fi
 
-git -C "$SRC_DIR" submodule update --init --recursive
+  git -C "$src_dir" submodule update --init --recursive
 
-if [ ! -x "$SRC_DIR/configure" ]; then
-  (cd "$SRC_DIR" && autoconf)
-fi
+  if [ ! -x "$src_dir/configure" ]; then
+    (cd "$src_dir" && autoconf)
+  fi
+}
 
-if [ ! -f "$SRC_DIR/Makefile" ]; then
-  _riscv_install="${RISCV:-$HOME/.local/riscv}"
-  (
-    cd "$SRC_DIR"
-    CC="$CC_BIN" \
-    CFLAGS="-nostdlib -nostartfiles" \
-    LDFLAGS="-nostdlib -nostartfiles" \
-    RISCV="$_riscv_install" \
-      ./configure --prefix="$_riscv_install/target" --with-xlen=32
-  )
-fi
+ensure_makefile_for_xlen() {
+  local src_dir="$1"
+  local xlen="$2"
+  if [ ! -f "$src_dir/Makefile" ]; then
+    local _riscv_install="${RISCV:-$HOME/.local/riscv}"
+    (
+      cd "$src_dir"
+      CC="$CC_BIN" \
+      CFLAGS="-nostdlib -nostartfiles" \
+      LDFLAGS="-nostdlib -nostartfiles" \
+      RISCV="$_riscv_install" \
+        ./configure --prefix="$_riscv_install/target" --with-xlen="$xlen"
+    )
+  fi
+}
+
+source_dir_for_xlen() {
+  local xlen="$1"
+  case "$xlen" in
+    32) printf '%s\n' "$SRC_DIR_RV32" ;;
+    64) printf '%s\n' "$SRC_DIR_RV64" ;;
+    *)
+      echo "unsupported XLEN: $xlen" >&2
+      exit 1
+      ;;
+  esac
+}
+
+xlen_for_arch() {
+  local arch="$1"
+  case "$arch" in
+    rv64*) printf '64\n' ;;
+    rv32*) printf '32\n' ;;
+    *)
+      echo "unsupported arch in manifest: $arch" >&2
+      exit 1
+      ;;
+  esac
+}
+
+ensure_source_tree "$SRC_DIR_RV32"
+ensure_makefile_for_xlen "$SRC_DIR_RV32" 32
 
 while IFS=$'\t' read -r suite test_name arch tier; do
   if [[ -z "${suite}" || "${suite}" == \#* ]]; then
     continue
   fi
 
+  xlen="$(xlen_for_arch "$arch")"
+  src_dir="$(source_dir_for_xlen "$xlen")"
+  ensure_source_tree "$src_dir"
+  ensure_makefile_for_xlen "$src_dir" "$xlen"
   target="${suite}-p-${test_name}"
   echo "building ${target}"
-  make -C "$SRC_DIR/isa" "src_dir=$SRC_DIR/isa" XLEN=32 "RISCV_PREFIX=${PREFIX}" "$target"
+  make -C "$src_dir/isa" "src_dir=$src_dir/isa" "XLEN=$xlen" "RISCV_PREFIX=${PREFIX}" "$target"
   "$STRIP_BIN" --strip-unneeded \
     -K tohost -K fromhost -K begin_signature -K end_signature \
-    "$SRC_DIR/isa/${target}"
+    "$src_dir/isa/${target}"
 done <"$MANIFEST_FILE"
 
-echo "official riscv-tests targets from manifest built under $SRC_DIR/isa"
+echo "official riscv-tests targets from manifest built under $SRC_DIR_RV32/isa and $SRC_DIR_RV64/isa"

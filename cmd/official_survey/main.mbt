@@ -1,5 +1,6 @@
 let default_official_riscv_tests_manifest_path = "tools/riscv-tests-manifest.tsv"
-let official_riscv_tests_isa_dir = "_build/riscv-tests-src/isa"
+let official_riscv_tests_isa_dir_rv32 = "_build/riscv-tests-src/isa"
+let official_riscv_tests_isa_dir_rv64 = "_build/riscv-tests-src-rv64/isa"
 let default_suite = "rv32uc"
 let default_step_budget = 200000
 
@@ -71,10 +72,28 @@ async fn load_official_riscv_test_cases(
     if suite_filter != "all" && suite != suite_filter {
       continue
     }
-    let path = official_riscv_tests_isa_dir + "/" + suite + "-p-" + name
+    let path = official_riscv_tests_isa_dir_for_arch(arch) + "/" + suite + "-p-" + name
     cases.push({ suite, name, arch, tier, path, max_steps: default_step_budget })
   }
   cases
+}
+
+///|
+fn official_riscv_tests_isa_dir_for_arch(arch : String) -> String {
+  if arch.has_prefix("rv64") {
+    official_riscv_tests_isa_dir_rv64
+  } else {
+    official_riscv_tests_isa_dir_rv32
+  }
+}
+
+///|
+fn official_riscv_tests_xlen_for_arch(arch : String) -> @riscv.Xlen {
+  if arch.has_prefix("rv64") {
+    @riscv.xlen64()
+  } else {
+    @riscv.xlen32()
+  }
 }
 
 ///|
@@ -94,7 +113,11 @@ fn trap_cause_name(cause : @riscv.TrapCause) -> String {
 async fn run_official_riscv_test_case(
   test_case : OfficialRiscvTestCase,
 ) -> SurveyOutcome {
-  let runner = @riscv.make_runner(@riscv.official_riscv_tests_machine_config())
+  let runner = @riscv.make_runner(
+    @riscv.official_riscv_tests_machine_config_for_xlen(
+      official_riscv_tests_xlen_for_arch(test_case.arch),
+    ),
+  )
   let elf = read_official_test_elf(test_case.path)
   let info = match runner.load_elf(elf) {
     @riscv.Loaded(info) => info

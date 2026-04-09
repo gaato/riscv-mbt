@@ -773,3 +773,61 @@ test "rv64 widened state still supports trap entry and mret round trip" {
     _ => fail("expected user mode after rv64 mret")
   }
 }
+
+///|
+test "rv64 csr semantics carry forward writable and read-only behavior" {
+  let program = words_to_bytes([
+    encode_i(9, 0, 0x0U, 1, 0x13U),
+    encode_csr(0x305, 1, 0x1U, 2),
+    encode_csr(0x305, 0, 0x2U, 3),
+  ])
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(3) {
+    Running => ()
+    _ => fail("expected rv64 csr program to run")
+  }
+  assert_eq(runner.read_reg_u64(2), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(3), 9U.to_uint64())
+  assert_eq(runner.read_csr_u64(0x305), 9U.to_uint64())
+
+  let misa_raw = encode_csr(0x301, 1, 0x1U, 0)
+  let trap_runner = make_runner(rv64_machine_config())
+  trap_runner.load_program(words_to_bytes([misa_raw]), 0U)
+  match trap_runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+      assert_eq(info.trap_value, misa_raw.to_uint64())
+    }
+    _ => fail("expected read-only csr trap")
+  }
+}
+
+///|
+test "rv64 fence.i remains explicit under the current coherent fetch model" {
+  let target = encode_i(7, 0, 0x0U, 5, 0x13U)
+  let program = words_to_bytes([
+    encode_i(28, 0, 0x0U, 1, 0x13U),
+    encode_u(0x00700000U, 2, 0x37U),
+    encode_i(0x293, 2, 0x0U, 2, 0x13U),
+    encode_s(0, 2, 1, 0x2U, 0x23U),
+    encode_fence_i(),
+    encode_j(8, 0, 0x6fU),
+    encode_i(99, 0, 0x0U, 6, 0x13U),
+    encode_i(0, 0, 0x0U, 0, 0x13U),
+    encode_i(1, 0, 0x0U, 7, 0x13U),
+  ])
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(8) {
+    Running => ()
+    _ => fail("expected rv64 fence.i sequence to run")
+  }
+  assert_eq(runner.read_reg_u64(5), 7U.to_uint64())
+  assert_eq(runner.read_reg_u64(6), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(7), 1U.to_uint64())
+  assert_eq(runner.load_u32_u64(28U.to_uint64()), target.to_uint64())
+}

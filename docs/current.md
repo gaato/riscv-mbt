@@ -2,7 +2,7 @@
 
 ## Current Milestone
 
-- `RV64 transition`
+- `Linux boot platform integration`
 
 ## Current Tasks
 
@@ -22,7 +22,10 @@
 - [XLEN plumbing and RV64 state](tasks/0031-xlen-plumbing-and-rv64-state.md) — `done`
 - [RV64I sign extension and word ops](tasks/0032-rv64i-sign-extension-and-word-ops.md) — `done`
 - [RV64M word ops and transition closure](tasks/0033-rv64m-word-ops-and-transition-closure.md) — `done`
-- [Stabilize the practical RV64 core](tasks/0011-rv64-practical-core.md) — `doing`
+- [Stabilize the practical RV64 core](tasks/0011-rv64-practical-core.md) — `done`
+- [RV64 carry-forward of `C`, `Zicsr`, and `Zifencei`](tasks/0034-rv64-carry-forward-of-c-zicsr-zifencei.md) — `done`
+- [ELF64 loader and RV64 official plumbing](tasks/0035-elf64-loader-and-rv64-official-plumbing.md) — `done`
+- [RV64 official survey and practical-core closure](tasks/0036-rv64-official-survey-and-practical-core-closure.md) — `done`
 - [Add S-mode and delegation](tasks/0012-s-mode-and-delegation.md) — `todo`
 - [Add Sv39 and SFENCE.VMA](tasks/0013-sv39-and-sfence-vma.md) — `todo`
 - [Integrate OpenSBI and a virt-like platform](tasks/0014-opensbi-and-virt-platform.md) — `todo`
@@ -38,21 +41,21 @@
 
 ## Next Task
 
-- Continue [Task 0011](tasks/0011-rv64-practical-core.md): carry forward the practical RV64 core while keeping MMU, SBI, and platform work separate.
+- Start [Task 0012](tasks/0012-s-mode-and-delegation.md): add supervisor trap state and delegation before MMU work deepens.
 
 ## Known Blockers
 
 - The official QEMU cross-check path currently focuses on the `rv32ui` gating subset. `rv32um`, `rv32uc`, and broader privileged coverage still need follow-up work.
 - Local `moon test` now expects build artifacts under `_build/riscv-tests-src/isa`; run `./scripts/build-riscv-tests-official.sh` first if they are missing.
-- The built upstream `*-p-*` survey currently stands at `122 total / 51 pass`, with `rv32ui`, `rv32um`, and the current `rv32uc` coverage passing; broader extension failures remain out of scope for the current milestone spine.
-- Official regression is still RV32-only; RV64 official ELF loading and survey work remain deferred to the practical-core stage.
+- The built upstream `*-p-*` survey currently stands above the original RV32 checkpoint, but RV64 coverage is still survey-only and has not been promoted into the always-green CI subset.
+- The official QEMU cross-check path remains RV32-only; RV64 system-emulator cross-checking is still deferred.
 
 ## Read Next
 
 - [Roadmap](roadmap.md)
 - [Implementation Notes](guides/implementation-notes.md)
-- [RV64 transition milestone](milestones/06b-rv64-transition.md)
-- [Task 0011](tasks/0011-rv64-practical-core.md)
+- [Linux boot platform milestone](milestones/07-linux-boot-platform.md)
+- [Task 0012](tasks/0012-s-mode-and-delegation.md)
 - [Task 0009](tasks/0009-rv32-supervisor-sv32.md)
 - [ADR 0001](adr/0001-rv32i-first.md)
 - [ADR 0003](adr/0003-milestone-spine.md)

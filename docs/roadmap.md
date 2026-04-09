@@ -2,9 +2,9 @@
 
 ## Current Position
 
-- Active milestone: `RV64 transition`
-- Current checkpoint: RV64 sign-extension invariants and `*W` semantics are complete
-- Next concrete target: stabilize the practical RV64 core without mixing in MMU or platform work
+- Active milestone: `Linux boot platform integration`
+- Current checkpoint: practical RV64 core stabilization is complete, including official RV64 survey plumbing
+- Next concrete target: add `S`-mode and delegation before MMU work begins
 - Design rule: protect implementation boundaries first, then add instructions
 - Milestone semantics:
   - `RV32IMC` = core completion checkpoint
