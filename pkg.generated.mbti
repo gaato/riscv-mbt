@@ -161,6 +161,9 @@ pub enum TrapCause {
   IllegalInstruction
   LoadAccessFault
   StoreAccessFault
+  InstructionPageFault
+  LoadPageFault
+  StorePageFault
   EnvironmentCallFromUMode
   EnvironmentCallFromSMode
   EnvironmentCallFromMMode

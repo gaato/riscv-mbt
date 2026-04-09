@@ -346,6 +346,37 @@ test "reset invariants are explicit for modeled machine state" {
 }
 
 ///|
+test "rv64 supervisor fetch traps with instruction page fault when satp selects Sv39" {
+  let program = words_to_bytes([
+    encode_i(8, 0, 0x0U, 1, 0x13U),
+    encode_i(60, 1, 0x1U, 1, 0x13U),
+    encode_csr(0x180, 1, 0x1U, 0),
+    encode_i(8, 0, 0x0U, 2, 0x13U),
+    encode_i(8, 2, 0x1U, 2, 0x13U),
+    encode_csr(0x300, 2, 0x1U, 0),
+    encode_i(36, 0, 0x0U, 5, 0x13U),
+    encode_csr(0x341, 5, 0x1U, 0),
+    encode_mret(),
+    encode_i(1, 0, 0x0U, 3, 0x13U),
+  ])
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(10) {
+    Trap(info) => {
+      match info.cause {
+        InstructionPageFault => ()
+        _ => fail("expected instruction page fault")
+      }
+      assert_eq(info.faulting_pc, 36U.to_uint64())
+      assert_eq(info.trap_value, 36U.to_uint64())
+    }
+    _ => fail("expected supervisor fetch to fault under Sv39 placeholder")
+  }
+  assert_eq(runner.read_csr(0x342), 12U)
+  assert_eq(runner.read_csr(0x343), 36U)
+}
+
+///|
 test "trap entry from machine updates mstatus trap fields" {
   let program = words_to_bytes([
     encode_csr(0x300, 8, 0x5U, 0),

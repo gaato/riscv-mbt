@@ -210,6 +210,9 @@ fn trap_cause_name(cause : TrapCause) -> String {
     IllegalInstruction => "illegal instruction"
     LoadAccessFault => "load access fault"
     StoreAccessFault => "store access fault"
+    InstructionPageFault => "instruction page fault"
+    LoadPageFault => "load page fault"
+    StorePageFault => "store page fault"
     EnvironmentCallFromUMode => "ecall from u-mode"
     EnvironmentCallFromSMode => "ecall from s-mode"
     EnvironmentCallFromMMode => "ecall from m-mode"
@@ -329,30 +332,66 @@ fn append_ascii_cstr(buffer : Array[Byte], text : Array[Int]) -> Int {
 }
 
 ///|
-fn build_test_elf(
-  load_addr : UInt,
-  entry_point : UInt,
-  program_words : Array[UInt],
-) -> Bytes {
-  let program = words_to_bytes(program_words)
-  let buffer : Array[Byte] = []
+struct TestElfNameTableLayout {
+  shstrtab_offset : Int
+  shstrtab_size : Int
+  strtab_offset : Int
+  strtab_size : Int
+  text_name_offset : Int
+  symtab_name_offset : Int
+  strtab_name_offset : Int
+  shstrtab_name_offset : Int
+  tohost_name_offset : Int
+  fromhost_name_offset : Int
+  begin_signature_name_offset : Int
+  end_signature_name_offset : Int
+}
+
+///|
+fn append_buffer_bytes(buffer : Array[Byte], bytes : Array[Byte]) -> Unit {
   let mut index = 0
-  while index < 52 + 32 {
+  while index < bytes.length() {
+    buffer.push(bytes[index])
+    index = index + 1
+  }
+}
+
+///|
+fn append_program_bytes(buffer : Array[Byte], bytes : Bytes) -> Unit {
+  let mut index = 0
+  while index < bytes.length() {
+    buffer.push(bytes[index])
+    index = index + 1
+  }
+}
+
+///|
+fn reserve_zero_bytes(buffer : Array[Byte], count : Int) -> Unit {
+  let mut index = 0
+  while index < count {
     buffer.push(0U.to_byte())
     index = index + 1
   }
+}
 
+///|
+fn build_test_elf_buffer(program : Bytes, reserved_header_bytes : Int) -> Array[Byte] {
+  let buffer : Array[Byte] = []
+  reserve_zero_bytes(buffer, reserved_header_bytes)
   let program_offset = 0x100
   while buffer.length() < program_offset {
     buffer.push(0U.to_byte())
   }
-  let mut program_index = 0
-  while program_index < program.length() {
-    buffer.push(program[program_index])
-    program_index = program_index + 1
-  }
+  append_program_bytes(buffer, program)
+  buffer
+}
 
-  align_buffer(buffer, 4)
+///|
+fn append_test_elf_name_tables(
+  buffer : Array[Byte],
+  alignment : Int,
+) -> TestElfNameTableLayout {
+  align_buffer(buffer, alignment)
   let shstrtab_offset = buffer.length()
   let shstrtab : Array[Byte] = []
   shstrtab.push(0U.to_byte())
@@ -363,13 +402,10 @@ fn build_test_elf(
     shstrtab,
     [46, 115, 104, 115, 116, 114, 116, 97, 98],
   )
-  let mut sh_index = 0
-  while sh_index < shstrtab.length() {
-    buffer.push(shstrtab[sh_index])
-    sh_index = sh_index + 1
-  }
+  let shstrtab_size = shstrtab.length()
+  append_buffer_bytes(buffer, shstrtab)
 
-  align_buffer(buffer, 4)
+  align_buffer(buffer, alignment)
   let strtab_offset = buffer.length()
   let strtab : Array[Byte] = []
   strtab.push(0U.to_byte())
@@ -383,11 +419,35 @@ fn build_test_elf(
     strtab,
     [101, 110, 100, 95, 115, 105, 103, 110, 97, 116, 117, 114, 101],
   )
-  let mut str_index = 0
-  while str_index < strtab.length() {
-    buffer.push(strtab[str_index])
-    str_index = str_index + 1
+  let strtab_size = strtab.length()
+  append_buffer_bytes(buffer, strtab)
+
+  {
+    shstrtab_offset,
+    shstrtab_size,
+    strtab_offset,
+    strtab_size,
+    text_name_offset,
+    symtab_name_offset,
+    strtab_name_offset,
+    shstrtab_name_offset,
+    tohost_name_offset,
+    fromhost_name_offset,
+    begin_signature_name_offset,
+    end_signature_name_offset,
   }
+}
+
+///|
+fn build_test_elf(
+  load_addr : UInt,
+  entry_point : UInt,
+  program_words : Array[UInt],
+) -> Bytes {
+  let program = words_to_bytes(program_words)
+  let buffer = build_test_elf_buffer(program, 52 + 32)
+  let program_offset = 0x100
+  let tables = append_test_elf_name_tables(buffer, 4)
 
   align_buffer(buffer, 4)
   let symtab_offset = buffer.length()
@@ -400,10 +460,10 @@ fn build_test_elf(
     push_u16_le(buffer, 1)
   }
   write_symbol(0, 0U)
-  write_symbol(tohost_name_offset, load_addr + 0x1000U)
-  write_symbol(fromhost_name_offset, load_addr + 0x1004U)
-  write_symbol(begin_signature_name_offset, load_addr + 0x2000U)
-  write_symbol(end_signature_name_offset, load_addr + 0x2010U)
+  write_symbol(tables.tohost_name_offset, load_addr + 0x1000U)
+  write_symbol(tables.fromhost_name_offset, load_addr + 0x1004U)
+  write_symbol(tables.begin_signature_name_offset, load_addr + 0x2000U)
+  write_symbol(tables.end_signature_name_offset, load_addr + 0x2010U)
   let symtab_size = buffer.length() - symtab_offset
 
   align_buffer(buffer, 4)
@@ -433,7 +493,7 @@ fn build_test_elf(
   }
   write_section_header(0, 0U, 0U, 0U, 0, 0, 0, 0, 0U, 0U)
   write_section_header(
-    text_name_offset,
+    tables.text_name_offset,
     1U,
     0x6U,
     load_addr,
@@ -445,7 +505,7 @@ fn build_test_elf(
     0U,
   )
   write_section_header(
-    symtab_name_offset,
+    tables.symtab_name_offset,
     2U,
     0U,
     0U,
@@ -457,24 +517,24 @@ fn build_test_elf(
     16U,
   )
   write_section_header(
-    strtab_name_offset,
+    tables.strtab_name_offset,
     3U,
     0U,
     0U,
-    strtab_offset,
-    strtab.length(),
+    tables.strtab_offset,
+    tables.strtab_size,
     0,
     0,
     1U,
     0U,
   )
   write_section_header(
-    shstrtab_name_offset,
+    tables.shstrtab_name_offset,
     3U,
     0U,
     0U,
-    shstrtab_offset,
-    shstrtab.length(),
+    tables.shstrtab_offset,
+    tables.shstrtab_size,
     0,
     0,
     1U,
@@ -520,59 +580,9 @@ fn build_test_elf64(
   program_words : Array[UInt],
 ) -> Bytes {
   let program = words_to_bytes(program_words)
-  let buffer : Array[Byte] = []
-  let mut index = 0
-  while index < 64 + 56 {
-    buffer.push(0U.to_byte())
-    index = index + 1
-  }
-
+  let buffer = build_test_elf_buffer(program, 64 + 56)
   let program_offset = 0x100
-  while buffer.length() < program_offset {
-    buffer.push(0U.to_byte())
-  }
-  let mut program_index = 0
-  while program_index < program.length() {
-    buffer.push(program[program_index])
-    program_index = program_index + 1
-  }
-
-  align_buffer(buffer, 8)
-  let shstrtab_offset = buffer.length()
-  let shstrtab : Array[Byte] = []
-  shstrtab.push(0U.to_byte())
-  let text_name_offset = append_ascii_cstr(shstrtab, [46, 116, 101, 120, 116])
-  let symtab_name_offset = append_ascii_cstr(shstrtab, [46, 115, 121, 109, 116, 97, 98])
-  let strtab_name_offset = append_ascii_cstr(shstrtab, [46, 115, 116, 114, 116, 97, 98])
-  let shstrtab_name_offset = append_ascii_cstr(
-    shstrtab,
-    [46, 115, 104, 115, 116, 114, 116, 97, 98],
-  )
-  let mut sh_index = 0
-  while sh_index < shstrtab.length() {
-    buffer.push(shstrtab[sh_index])
-    sh_index = sh_index + 1
-  }
-
-  align_buffer(buffer, 8)
-  let strtab_offset = buffer.length()
-  let strtab : Array[Byte] = []
-  strtab.push(0U.to_byte())
-  let tohost_name_offset = append_ascii_cstr(strtab, [116, 111, 104, 111, 115, 116])
-  let fromhost_name_offset = append_ascii_cstr(strtab, [102, 114, 111, 109, 104, 111, 115, 116])
-  let begin_signature_name_offset = append_ascii_cstr(
-    strtab,
-    [98, 101, 103, 105, 110, 95, 115, 105, 103, 110, 97, 116, 117, 114, 101],
-  )
-  let end_signature_name_offset = append_ascii_cstr(
-    strtab,
-    [101, 110, 100, 95, 115, 105, 103, 110, 97, 116, 117, 114, 101],
-  )
-  let mut str_index = 0
-  while str_index < strtab.length() {
-    buffer.push(strtab[str_index])
-    str_index = str_index + 1
-  }
+  let tables = append_test_elf_name_tables(buffer, 8)
 
   align_buffer(buffer, 8)
   let symtab_offset = buffer.length()
@@ -585,10 +595,10 @@ fn build_test_elf64(
     push_u64_le(buffer, 0U.to_uint64())
   }
   write_symbol(0, 0U.to_uint64())
-  write_symbol(tohost_name_offset, load_addr + 0x1000U.to_uint64())
-  write_symbol(fromhost_name_offset, load_addr + 0x1004U.to_uint64())
-  write_symbol(begin_signature_name_offset, load_addr + 0x2000U.to_uint64())
-  write_symbol(end_signature_name_offset, load_addr + 0x2010U.to_uint64())
+  write_symbol(tables.tohost_name_offset, load_addr + 0x1000U.to_uint64())
+  write_symbol(tables.fromhost_name_offset, load_addr + 0x1004U.to_uint64())
+  write_symbol(tables.begin_signature_name_offset, load_addr + 0x2000U.to_uint64())
+  write_symbol(tables.end_signature_name_offset, load_addr + 0x2010U.to_uint64())
   let symtab_size = buffer.length() - symtab_offset
 
   align_buffer(buffer, 8)
@@ -629,7 +639,7 @@ fn build_test_elf64(
     0U.to_uint64(),
   )
   write_section_header(
-    text_name_offset,
+    tables.text_name_offset,
     1U,
     0x6U.to_uint64(),
     load_addr,
@@ -641,7 +651,7 @@ fn build_test_elf64(
     0U.to_uint64(),
   )
   write_section_header(
-    symtab_name_offset,
+    tables.symtab_name_offset,
     2U,
     0U.to_uint64(),
     0U.to_uint64(),
@@ -653,24 +663,24 @@ fn build_test_elf64(
     24U.to_uint64(),
   )
   write_section_header(
-    strtab_name_offset,
+    tables.strtab_name_offset,
     3U,
     0U.to_uint64(),
     0U.to_uint64(),
-    strtab_offset,
-    strtab.length(),
+    tables.strtab_offset,
+    tables.strtab_size,
     0,
     0,
     1U.to_uint64(),
     0U.to_uint64(),
   )
   write_section_header(
-    shstrtab_name_offset,
+    tables.shstrtab_name_offset,
     3U,
     0U.to_uint64(),
     0U.to_uint64(),
-    shstrtab_offset,
-    shstrtab.length(),
+    tables.shstrtab_offset,
+    tables.shstrtab_size,
     0,
     0,
     1U.to_uint64(),

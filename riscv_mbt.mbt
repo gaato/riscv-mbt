@@ -148,6 +148,9 @@ pub enum TrapCause {
   IllegalInstruction
   LoadAccessFault
   StoreAccessFault
+  InstructionPageFault
+  LoadPageFault
+  StorePageFault
   EnvironmentCallFromUMode
   EnvironmentCallFromSMode
   EnvironmentCallFromMMode
@@ -1064,6 +1067,9 @@ fn trap_cause_code(cause : TrapCause) -> UInt64 {
     IllegalInstruction => 2U.to_uint64()
     LoadAccessFault => 5U.to_uint64()
     StoreAccessFault => 7U.to_uint64()
+    InstructionPageFault => 12U.to_uint64()
+    LoadPageFault => 13U.to_uint64()
+    StorePageFault => 15U.to_uint64()
     EnvironmentCallFromUMode => 8U.to_uint64()
     EnvironmentCallFromSMode => 9U.to_uint64()
     EnvironmentCallFromMMode => 11U.to_uint64()
@@ -1704,45 +1710,84 @@ fn elf_symbol_matches(
 }
 
 ///|
-fn find_elf32_symbol_addr(
+fn find_elf_symbol_addr(
   bytes : Bytes,
   symtab_offset : Int,
   symtab_size : Int,
   strtab_offset : Int,
   target_name : Array[Int],
+  entry_size : Int,
+  value_offset : Int,
+  value_is_u64 : Bool,
 ) -> UInt64? {
   let mut index = 0
-  while index + 16 <= symtab_size {
+  while index + entry_size <= symtab_size {
     let entry_offset = symtab_offset + index
     let name_offset = bytes_load_u32(bytes, entry_offset).to_uint64()
-    let value = bytes_load_u32(bytes, entry_offset + 4).to_uint64()
+    let value = if value_is_u64 {
+      bytes_load_u64(bytes, entry_offset + value_offset)
+    } else {
+      bytes_load_u32(bytes, entry_offset + value_offset).to_uint64()
+    }
     if elf_symbol_matches(bytes, strtab_offset, name_offset, target_name) {
       return Some(value)
     }
-    index = index + 16
+    index = index + entry_size
   }
   None
 }
 
 ///|
-fn find_elf64_symbol_addr(
+fn read_elf_named_symbols(
   bytes : Bytes,
   symtab_offset : Int,
   symtab_size : Int,
   strtab_offset : Int,
-  target_name : Array[Int],
-) -> UInt64? {
-  let mut index = 0
-  while index + 24 <= symtab_size {
-    let entry_offset = symtab_offset + index
-    let name_offset = bytes_load_u32(bytes, entry_offset).to_uint64()
-    let value = bytes_load_u64(bytes, entry_offset + 8)
-    if elf_symbol_matches(bytes, strtab_offset, name_offset, target_name) {
-      return Some(value)
-    }
-    index = index + 24
-  }
-  None
+  entry_size : Int,
+  value_offset : Int,
+  value_is_u64 : Bool,
+) -> (UInt64?, UInt64?, UInt64?, UInt64?) {
+  let tohost = find_elf_symbol_addr(
+    bytes,
+    symtab_offset,
+    symtab_size,
+    strtab_offset,
+    [116, 111, 104, 111, 115, 116],
+    entry_size,
+    value_offset,
+    value_is_u64,
+  )
+  let fromhost = find_elf_symbol_addr(
+    bytes,
+    symtab_offset,
+    symtab_size,
+    strtab_offset,
+    [102, 114, 111, 109, 104, 111, 115, 116],
+    entry_size,
+    value_offset,
+    value_is_u64,
+  )
+  let begin_signature = find_elf_symbol_addr(
+    bytes,
+    symtab_offset,
+    symtab_size,
+    strtab_offset,
+    [98, 101, 103, 105, 110, 95, 115, 105, 103, 110, 97, 116, 117, 114, 101],
+    entry_size,
+    value_offset,
+    value_is_u64,
+  )
+  let end_signature = find_elf_symbol_addr(
+    bytes,
+    symtab_offset,
+    symtab_size,
+    strtab_offset,
+    [101, 110, 100, 95, 115, 105, 103, 110, 97, 116, 117, 114, 101],
+    entry_size,
+    value_offset,
+    value_is_u64,
+  )
+  (tohost, fromhost, begin_signature, end_signature)
 }
 
 ///|
@@ -1752,10 +1797,6 @@ fn parse_elf32_symbols(
   shentsize : Int,
   shnum : Int,
 ) -> (UInt64?, UInt64?, UInt64?, UInt64?) {
-  let mut tohost = None
-  let mut fromhost = None
-  let mut begin_signature = None
-  let mut end_signature = None
   let mut index = 0
   while index < shnum {
     let sh_offset = shoff + (index * shentsize)
@@ -1767,39 +1808,20 @@ fn parse_elf32_symbols(
       let strtab_header = shoff + (strtab_index * shentsize)
       let strtab_offset = bytes_load_u32(bytes, strtab_header + 16).reinterpret_as_int()
       if bytes_range_ok(bytes, symtab_offset, symtab_size) {
-        tohost = find_elf32_symbol_addr(
+        return read_elf_named_symbols(
           bytes,
           symtab_offset,
           symtab_size,
           strtab_offset,
-          [116, 111, 104, 111, 115, 116],
-        )
-        fromhost = find_elf32_symbol_addr(
-          bytes,
-          symtab_offset,
-          symtab_size,
-          strtab_offset,
-          [102, 114, 111, 109, 104, 111, 115, 116],
-        )
-        begin_signature = find_elf32_symbol_addr(
-          bytes,
-          symtab_offset,
-          symtab_size,
-          strtab_offset,
-          [98, 101, 103, 105, 110, 95, 115, 105, 103, 110, 97, 116, 117, 114, 101],
-        )
-        end_signature = find_elf32_symbol_addr(
-          bytes,
-          symtab_offset,
-          symtab_size,
-          strtab_offset,
-          [101, 110, 100, 95, 115, 105, 103, 110, 97, 116, 117, 114, 101],
+          16,
+          4,
+          false,
         )
       }
     }
     index = index + 1
   }
-  (tohost, fromhost, begin_signature, end_signature)
+  (None, None, None, None)
 }
 
 ///|
@@ -1809,10 +1831,6 @@ fn parse_elf64_symbols(
   shentsize : Int,
   shnum : Int,
 ) -> (UInt64?, UInt64?, UInt64?, UInt64?) {
-  let mut tohost = None
-  let mut fromhost = None
-  let mut begin_signature = None
-  let mut end_signature = None
   let mut index = 0
   while index < shnum {
     let sh_offset = shoff + (index * shentsize)
@@ -1824,39 +1842,20 @@ fn parse_elf64_symbols(
       let strtab_header = shoff + (strtab_index * shentsize)
       let strtab_offset = bytes_load_u64(bytes, strtab_header + 24).reinterpret_as_int64().to_int()
       if bytes_range_ok(bytes, symtab_offset, symtab_size) {
-        tohost = find_elf64_symbol_addr(
+        return read_elf_named_symbols(
           bytes,
           symtab_offset,
           symtab_size,
           strtab_offset,
-          [116, 111, 104, 111, 115, 116],
-        )
-        fromhost = find_elf64_symbol_addr(
-          bytes,
-          symtab_offset,
-          symtab_size,
-          strtab_offset,
-          [102, 114, 111, 109, 104, 111, 115, 116],
-        )
-        begin_signature = find_elf64_symbol_addr(
-          bytes,
-          symtab_offset,
-          symtab_size,
-          strtab_offset,
-          [98, 101, 103, 105, 110, 95, 115, 105, 103, 110, 97, 116, 117, 114, 101],
-        )
-        end_signature = find_elf64_symbol_addr(
-          bytes,
-          symtab_offset,
-          symtab_size,
-          strtab_offset,
-          [101, 110, 100, 95, 115, 105, 103, 110, 97, 116, 117, 114, 101],
+          24,
+          8,
+          true,
         )
       }
     }
     index = index + 1
   }
-  (tohost, fromhost, begin_signature, end_signature)
+  (None, None, None, None)
 }
 
 ///|
@@ -2038,6 +2037,22 @@ fn Runner::step_next_pc(self : Runner, delta : Int) -> UInt64 {
 }
 
 ///|
+fn Runner::satp_mode(self : Runner) -> UInt64 {
+  match self.xlen_bits() {
+    XLEN_64 => (self.cpu.read_csr(CSR_SATP) >> 60) & 0xfU.to_uint64()
+    _ => 0U.to_uint64()
+  }
+}
+
+///|
+fn Runner::sv39_active_for_privilege(self : Runner, privilege : PrivilegeMode) -> Bool {
+  match privilege {
+    Machine => false
+    _ => self.satp_mode() == 8U.to_uint64()
+  }
+}
+
+///|
 fn Runner::fetch_instruction(
   self : Runner,
   addr : UInt64,
@@ -2065,6 +2080,9 @@ fn Runner::address_from(self : Runner, rs1 : Int, imm : Int) -> UInt64 {
 
 ///|
 fn Runner::load_check(self : Runner, addr : UInt64, width : Int) -> StepResult? {
+  if self.sv39_active_for_privilege(self.cpu.privilege) {
+    return Some(self.raise_trap(LoadPageFault, self.cpu.pc, addr))
+  }
   if self.bus.contains_range(addr, width) {
     None
   } else {
@@ -2074,6 +2092,9 @@ fn Runner::load_check(self : Runner, addr : UInt64, width : Int) -> StepResult? 
 
 ///|
 fn Runner::store_check(self : Runner, addr : UInt64, width : Int) -> StepResult? {
+  if self.sv39_active_for_privilege(self.cpu.privilege) {
+    return Some(self.raise_trap(StorePageFault, self.cpu.pc, addr))
+  }
   if self.bus.contains_range(addr, width) {
     None
   } else {
@@ -2945,6 +2966,9 @@ fn Runner::execute_sret(self : Runner) -> StepResult {
 ///|
 pub fn Runner::step(self : Runner) -> StepResult {
   let current_pc = self.cpu.pc
+  if self.sv39_active_for_privilege(self.cpu.privilege) {
+    return self.raise_trap(InstructionPageFault, current_pc, current_pc)
+  }
   let fetched = match self.fetch_instruction(current_pc) {
     Some(instruction) => instruction
     None => return self.raise_trap(InstructionAccessFault, current_pc, current_pc)

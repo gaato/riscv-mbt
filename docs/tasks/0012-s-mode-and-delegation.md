@@ -32,4 +32,9 @@ Linux boot wants supervisor-mode execution, not an indefinitely M-mode-centric d
 
 ## Status
 
-- `doing`
+- `done`
+
+## Progress Notes
+
+- Supervisor trap entry, delegated exception routing, and `SRET` are now independently testable before `Sv39`
+- The next Linux-path task is `Sv39` and `SFENCE.VMA`

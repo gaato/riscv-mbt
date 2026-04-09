@@ -26,4 +26,9 @@ After supervisor trap entry and delegation are both present, the repo should clo
 
 ## Status
 
-- `todo`
+- `done`
+
+## Progress Notes
+
+- Consolidated supervisor trap-flow regressions around delegated user traps and `SRET` return behavior
+- Closed the standalone `S`-mode checkpoint so `Sv39` can become the next active task without MMU assumptions mixed into the supervisor baseline

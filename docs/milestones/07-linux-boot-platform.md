@@ -36,6 +36,11 @@ Treat Linux boot as a system-integration milestone that proves the platform hang
 3. `Sv39` and `SFENCE.VMA`
 4. platform and boot ABI integration
 
+## Current Checkpoint
+
+- The standalone supervisor baseline is closed through delegation routing and `SRET`
+- The next active task is `Sv39` and `SFENCE.VMA`
+
 ## Prerequisites For Next Milestone
 
 - A successful and repeatable Linux boot
