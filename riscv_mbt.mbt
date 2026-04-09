@@ -24,7 +24,7 @@ pub struct MachineConfig {
 }
 
 ///|
-pub enum PrivilegeMode {
+pub(all) enum PrivilegeMode {
   User
   Supervisor
   Machine
@@ -267,6 +267,8 @@ const MSTATUS_MPIE_BIT : UInt = 0x80U
 const MSTATUS_MPP_SHIFT : Int = 11
 const MSTATUS_MPP_MASK : UInt = 0x1800U
 const SSTATUS_VISIBLE_MASK : UInt = 0x122U
+const MSTATUS_SUM_BIT : UInt64 = 0x40000 // bit 18
+const MSTATUS_MXR_BIT : UInt64 = 0x80000 // bit 19
 
 ///|
 fn misa_value(xlen : Xlen) -> UInt64 {
@@ -2037,6 +2039,182 @@ fn Runner::step_next_pc(self : Runner, delta : Int) -> UInt64 {
 }
 
 ///|
+pub(all) enum AccessType {
+  Fetch
+  Load
+  Store
+}
+
+///|
+pub(all) enum TranslateResult {
+  TranslatedAddr(UInt64)
+  TranslateFault(TrapCause)
+}
+
+///|
+pub fn access_type_fault(access_type : AccessType) -> TrapCause {
+  match access_type {
+    Fetch => InstructionPageFault
+    Load => LoadPageFault
+    Store => StorePageFault
+  }
+}
+
+///|
+const PTE_V : UInt64 = 0x1
+const PTE_R : UInt64 = 0x2
+const PTE_W : UInt64 = 0x4
+const PTE_X : UInt64 = 0x8
+const PTE_U : UInt64 = 0x10
+const PTE_A : UInt64 = 0x40
+const PTE_D : UInt64 = 0x80
+const SV39_LEVELS : Int = 3
+const SV39_PAGESIZE : UInt64 = 4096
+const SV39_PTESIZE : UInt64 = 8
+
+///|
+fn satp_ppn(satp : UInt64) -> UInt64 {
+  satp & ((1U.to_uint64() << 44) - 1U.to_uint64())
+}
+
+///|
+fn sv39_vpn(vaddr : UInt64, level : Int) -> UInt64 {
+  (vaddr >> (12 + level * 9)) & 0x1FFU.to_uint64()
+}
+
+///|
+fn sv39_va_canonical(vaddr : UInt64) -> Bool {
+  let bit38 = (vaddr >> 38) & 1U.to_uint64()
+  let upper = (vaddr >> 39) & 0x1FFFFFFU.to_uint64()
+  if bit38 == 0U.to_uint64() {
+    upper == 0U.to_uint64()
+  } else {
+    upper == 0x1FFFFFFU.to_uint64()
+  }
+}
+
+///|
+fn pte_ppn(pte : UInt64) -> UInt64 {
+  (pte >> 10) & ((1U.to_uint64() << 44) - 1U.to_uint64())
+}
+
+///|
+fn pte_ppn_i(pte : UInt64, level : Int) -> UInt64 {
+  (pte >> (10 + level * 9)) & 0x1FFU.to_uint64()
+}
+
+///|
+pub fn sv39_translate(
+  bus : Bus,
+  satp : UInt64,
+  vaddr : UInt64,
+  access_type : AccessType,
+  privilege : PrivilegeMode,
+  sum : Bool,
+  mxr : Bool,
+) -> TranslateResult {
+  let fault = access_type_fault(access_type)
+  if !sv39_va_canonical(vaddr) {
+    return TranslateFault(fault)
+  }
+  let mut a = satp_ppn(satp) * SV39_PAGESIZE
+  let mut i = SV39_LEVELS - 1
+  // Page table walk loop
+  let mut pte = 0U.to_uint64()
+  while i >= 0 {
+    let pte_addr = a + sv39_vpn(vaddr, i) * SV39_PTESIZE
+    if !bus.contains_range(pte_addr, 8) {
+      return TranslateFault(fault)
+    }
+    pte = bus.load_u64(pte_addr)
+    // Invalid PTE: V=0 or (W=1 and R=0)
+    if (pte & PTE_V) == 0U.to_uint64() ||
+      ((pte & PTE_R) == 0U.to_uint64() && (pte & PTE_W) != 0U.to_uint64()) {
+      return TranslateFault(fault)
+    }
+    // Leaf PTE: R=1 or X=1
+    if (pte & PTE_R) != 0U.to_uint64() || (pte & PTE_X) != 0U.to_uint64() {
+      break
+    }
+    // Non-leaf: descend
+    a = pte_ppn(pte) * SV39_PAGESIZE
+    i = i - 1
+    if i < 0 {
+      return TranslateFault(fault)
+    }
+  } nobreak {
+    // Loop exhausted without finding a leaf
+    return TranslateFault(fault)
+  }
+  // Leaf PTE found at level i
+  // Permission checks
+  match access_type {
+    Fetch =>
+      if (pte & PTE_X) == 0U.to_uint64() {
+        return TranslateFault(fault)
+      }
+    Load =>
+      if (pte & PTE_R) == 0U.to_uint64() &&
+        !(mxr && (pte & PTE_X) != 0U.to_uint64()) {
+        return TranslateFault(fault)
+      }
+    Store =>
+      if (pte & PTE_W) == 0U.to_uint64() {
+        return TranslateFault(fault)
+      }
+  }
+  // U-bit check
+  let is_user_page = (pte & PTE_U) != 0U.to_uint64()
+  match privilege {
+    User =>
+      if !is_user_page {
+        return TranslateFault(fault)
+      }
+    Supervisor =>
+      if is_user_page && !sum {
+        return TranslateFault(fault)
+      }
+    Machine => ()
+  }
+  // Superpage alignment: for level > 0, lower PPN bits must be zero
+  if i > 0 {
+    let mut level = 0
+    while level < i {
+      if pte_ppn_i(pte, level) != 0U.to_uint64() {
+        return TranslateFault(fault)
+      }
+      level = level + 1
+    }
+  }
+  // A/D bit checks
+  if (pte & PTE_A) == 0U.to_uint64() {
+    return TranslateFault(fault)
+  }
+  match access_type {
+    Store =>
+      if (pte & PTE_D) == 0U.to_uint64() {
+        return TranslateFault(fault)
+      }
+    _ => ()
+  }
+  // Compute physical address
+  let page_offset = vaddr & (SV39_PAGESIZE - 1U.to_uint64())
+  let mut pa = pte_ppn(pte) * SV39_PAGESIZE + page_offset
+  // For superpages, substitute VPN bits into PPN
+  if i > 0 {
+    let mut level = 0
+    while level < i {
+      let vpn_bits = sv39_vpn(vaddr, level)
+      let shift = 12 + level * 9
+      let mask = 0x1FFU.to_uint64() << shift
+      pa = (pa & bit_not(mask)) | (vpn_bits << shift)
+      level = level + 1
+    }
+  }
+  TranslatedAddr(pa)
+}
+
+///|
 fn Runner::satp_mode(self : Runner) -> UInt64 {
   match self.xlen_bits() {
     XLEN_64 => (self.cpu.read_csr(CSR_SATP) >> 60) & 0xfU.to_uint64()
@@ -2050,6 +2228,23 @@ fn Runner::sv39_active_for_privilege(self : Runner, privilege : PrivilegeMode) -
     Machine => false
     _ => self.satp_mode() == 8U.to_uint64()
   }
+}
+
+///|
+fn Runner::translate_address(
+  self : Runner,
+  vaddr : UInt64,
+  access_type : AccessType,
+  privilege : PrivilegeMode,
+) -> TranslateResult {
+  if !self.sv39_active_for_privilege(privilege) {
+    return TranslatedAddr(vaddr)
+  }
+  let satp = self.cpu.read_csr(CSR_SATP)
+  let mstatus = self.cpu.read_csr(CSR_MSTATUS)
+  let sum = (mstatus & MSTATUS_SUM_BIT) != 0U.to_uint64()
+  let mxr = (mstatus & MSTATUS_MXR_BIT) != 0U.to_uint64()
+  sv39_translate(self.bus, satp, vaddr, access_type, privilege, sum, mxr)
 }
 
 ///|
@@ -2079,26 +2274,30 @@ fn Runner::address_from(self : Runner, rs1 : Int, imm : Int) -> UInt64 {
 }
 
 ///|
-fn Runner::load_check(self : Runner, addr : UInt64, width : Int) -> StepResult? {
-  if self.sv39_active_for_privilege(self.cpu.privilege) {
-    return Some(self.raise_trap(LoadPageFault, self.cpu.pc, addr))
+fn Runner::load_check(self : Runner, addr : UInt64, width : Int) -> (UInt64, StepResult?) {
+  let pa = match self.translate_address(addr, Load, self.cpu.privilege) {
+    TranslatedAddr(pa) => pa
+    TranslateFault(cause) =>
+      return (addr, Some(self.raise_trap(cause, self.cpu.pc, addr)))
   }
-  if self.bus.contains_range(addr, width) {
-    None
+  if self.bus.contains_range(pa, width) {
+    (pa, None)
   } else {
-    Some(self.raise_trap(LoadAccessFault, self.cpu.pc, addr))
+    (addr, Some(self.raise_trap(LoadAccessFault, self.cpu.pc, addr)))
   }
 }
 
 ///|
-fn Runner::store_check(self : Runner, addr : UInt64, width : Int) -> StepResult? {
-  if self.sv39_active_for_privilege(self.cpu.privilege) {
-    return Some(self.raise_trap(StorePageFault, self.cpu.pc, addr))
+fn Runner::store_check(self : Runner, addr : UInt64, width : Int) -> (UInt64, StepResult?) {
+  let pa = match self.translate_address(addr, Store, self.cpu.privilege) {
+    TranslatedAddr(pa) => pa
+    TranslateFault(cause) =>
+      return (addr, Some(self.raise_trap(cause, self.cpu.pc, addr)))
   }
-  if self.bus.contains_range(addr, width) {
-    None
+  if self.bus.contains_range(pa, width) {
+    (pa, None)
   } else {
-    Some(self.raise_trap(StoreAccessFault, self.cpu.pc, addr))
+    (addr, Some(self.raise_trap(StoreAccessFault, self.cpu.pc, addr)))
   }
 }
 
@@ -2224,7 +2423,7 @@ fn Runner::raise_trap(
   match target_privilege {
     Supervisor => self.enter_supervisor_trap(cause, faulting_pc, trap_value, prior_privilege)
     Machine => self.enter_machine_trap(cause, faulting_pc, trap_value, prior_privilege)
-    User => abort("user trap targets are not supported")
+    User => self.enter_machine_trap(cause, faulting_pc, trap_value, prior_privilege)
   }
   let target = self.trap_target_for_privilege(target_privilege)
   if target != 0U.to_uint64() && self.bus.contains_range(target, 4) {
@@ -2619,12 +2818,13 @@ fn Runner::execute_load(
   match instruction {
     Lb(rd, rs1, imm) => {
       let addr = self.address_from(rs1, imm)
-      match self.load_check(addr, 1) {
+      let (pa, check) = self.load_check(addr, 1)
+      match check {
         Some(result) => result
         None => {
           self.write_xlen_reg(
             rd,
-            xlen_load_sign_extend(self.bus.load_u8(addr), 8, xlen),
+            xlen_load_sign_extend(self.bus.load_u8(pa), 8, xlen),
           )
           self.cpu.pc = next_pc
           Running
@@ -2633,12 +2833,13 @@ fn Runner::execute_load(
     }
     Lh(rd, rs1, imm) => {
       let addr = self.address_from(rs1, imm)
-      match self.load_check(addr, 2) {
+      let (pa, check) = self.load_check(addr, 2)
+      match check {
         Some(result) => result
         None => {
           self.write_xlen_reg(
             rd,
-            xlen_load_sign_extend(self.bus.load_u16(addr), 16, xlen),
+            xlen_load_sign_extend(self.bus.load_u16(pa), 16, xlen),
           )
           self.cpu.pc = next_pc
           Running
@@ -2647,12 +2848,13 @@ fn Runner::execute_load(
     }
     Lw(rd, rs1, imm) => {
       let addr = self.address_from(rs1, imm)
-      match self.load_check(addr, 4) {
+      let (pa, check) = self.load_check(addr, 4)
+      match check {
         Some(result) => result
         None => {
           self.write_word_reg(
             rd,
-            self.bus.load_u32(addr),
+            self.bus.load_u32(pa),
           )
           self.cpu.pc = next_pc
           Running
@@ -2661,10 +2863,11 @@ fn Runner::execute_load(
     }
     Lwu(rd, rs1, imm) => {
       let addr = self.address_from(rs1, imm)
-      match self.load_check(addr, 4) {
+      let (pa, check) = self.load_check(addr, 4)
+      match check {
         Some(result) => result
         None => {
-          self.write_xlen_reg(rd, self.bus.load_u32(addr))
+          self.write_xlen_reg(rd, self.bus.load_u32(pa))
           self.cpu.pc = next_pc
           Running
         }
@@ -2672,10 +2875,11 @@ fn Runner::execute_load(
     }
     Ld(rd, rs1, imm) => {
       let addr = self.address_from(rs1, imm)
-      match self.load_check(addr, 8) {
+      let (pa, check) = self.load_check(addr, 8)
+      match check {
         Some(result) => result
         None => {
-          self.write_xlen_reg(rd, self.bus.load_u64(addr))
+          self.write_xlen_reg(rd, self.bus.load_u64(pa))
           self.cpu.pc = next_pc
           Running
         }
@@ -2683,10 +2887,11 @@ fn Runner::execute_load(
     }
     Lbu(rd, rs1, imm) => {
       let addr = self.address_from(rs1, imm)
-      match self.load_check(addr, 1) {
+      let (pa, check) = self.load_check(addr, 1)
+      match check {
         Some(result) => result
         None => {
-          self.write_xlen_reg(rd, self.bus.load_u8(addr))
+          self.write_xlen_reg(rd, self.bus.load_u8(pa))
           self.cpu.pc = next_pc
           Running
         }
@@ -2694,10 +2899,11 @@ fn Runner::execute_load(
     }
     Lhu(rd, rs1, imm) => {
       let addr = self.address_from(rs1, imm)
-      match self.load_check(addr, 2) {
+      let (pa, check) = self.load_check(addr, 2)
+      match check {
         Some(result) => result
         None => {
-          self.write_xlen_reg(rd, self.bus.load_u16(addr))
+          self.write_xlen_reg(rd, self.bus.load_u16(pa))
           self.cpu.pc = next_pc
           Running
         }
@@ -2716,10 +2922,11 @@ fn Runner::execute_store(
   match instruction {
     Sb(rs1, rs2, imm) => {
       let addr = self.address_from(rs1, imm)
-      match self.store_check(addr, 1) {
+      let (pa, check) = self.store_check(addr, 1)
+      match check {
         Some(result) => result
         None => {
-          self.bus.store_u8(addr, self.cpu.read_reg(rs2))
+          self.bus.store_u8(pa, self.cpu.read_reg(rs2))
           self.cpu.pc = next_pc
           Running
         }
@@ -2727,10 +2934,11 @@ fn Runner::execute_store(
     }
     Sh(rs1, rs2, imm) => {
       let addr = self.address_from(rs1, imm)
-      match self.store_check(addr, 2) {
+      let (pa, check) = self.store_check(addr, 2)
+      match check {
         Some(result) => result
         None => {
-          self.bus.store_u16(addr, self.cpu.read_reg(rs2))
+          self.bus.store_u16(pa, self.cpu.read_reg(rs2))
           self.cpu.pc = next_pc
           Running
         }
@@ -2738,10 +2946,11 @@ fn Runner::execute_store(
     }
     Sw(rs1, rs2, imm) => {
       let addr = self.address_from(rs1, imm)
-      match self.store_check(addr, 4) {
+      let (pa, check) = self.store_check(addr, 4)
+      match check {
         Some(result) => result
         None => {
-          self.bus.store_u32(addr, self.cpu.read_reg(rs2))
+          self.bus.store_u32(pa, self.cpu.read_reg(rs2))
           self.cpu.pc = next_pc
           Running
         }
@@ -2749,10 +2958,11 @@ fn Runner::execute_store(
     }
     Sd(rs1, rs2, imm) => {
       let addr = self.address_from(rs1, imm)
-      match self.store_check(addr, 8) {
+      let (pa, check) = self.store_check(addr, 8)
+      match check {
         Some(result) => result
         None => {
-          self.bus.store_u64(addr, self.cpu.read_reg(rs2))
+          self.bus.store_u64(pa, self.cpu.read_reg(rs2))
           self.cpu.pc = next_pc
           Running
         }
@@ -2966,10 +3176,12 @@ fn Runner::execute_sret(self : Runner) -> StepResult {
 ///|
 pub fn Runner::step(self : Runner) -> StepResult {
   let current_pc = self.cpu.pc
-  if self.sv39_active_for_privilege(self.cpu.privilege) {
-    return self.raise_trap(InstructionPageFault, current_pc, current_pc)
+  let fetch_pa = match self.translate_address(current_pc, Fetch, self.cpu.privilege) {
+    TranslatedAddr(pa) => pa
+    TranslateFault(cause) =>
+      return self.raise_trap(cause, current_pc, current_pc)
   }
-  let fetched = match self.fetch_instruction(current_pc) {
+  let fetched = match self.fetch_instruction(fetch_pa) {
     Some(instruction) => instruction
     None => return self.raise_trap(InstructionAccessFault, current_pc, current_pc)
   }

@@ -2,6 +2,8 @@
 package "gaato/riscv_mbt"
 
 // Values
+pub fn access_type_fault(AccessType) -> TrapCause
+
 pub fn decode(UInt) -> Instruction
 
 pub fn default_machine_config() -> MachineConfig
@@ -12,55 +14,74 @@ pub fn make_runner(MachineConfig) -> Runner
 
 pub fn official_riscv_tests_machine_config() -> MachineConfig
 
+pub fn official_riscv_tests_machine_config_for_xlen(Xlen) -> MachineConfig
+
+pub fn rv64_machine_config() -> MachineConfig
+
+pub fn sv39_translate(Bus, UInt64, UInt64, AccessType, PrivilegeMode, Bool, Bool) -> TranslateResult
+
 pub fn words_to_bytes(Array[UInt]) -> Bytes
+
+pub fn xlen32() -> Xlen
+
+pub fn xlen64() -> Xlen
 
 // Errors
 
 // Types and methods
+pub(all) enum AccessType {
+  Fetch
+  Load
+  Store
+}
+
 pub struct Bus {
-  base_addr : UInt
+  base_addr : UInt64
   memory : Array[Byte]
 }
-pub fn Bus::fetch(Self, UInt) -> UInt
-pub fn Bus::load_u16(Self, UInt) -> UInt
-pub fn Bus::load_u32(Self, UInt) -> UInt
-pub fn Bus::new(UInt, Int) -> Self
+pub fn Bus::load_u16(Self, UInt64) -> UInt64
+pub fn Bus::load_u32(Self, UInt64) -> UInt64
+pub fn Bus::load_u64(Self, UInt64) -> UInt64
+pub fn Bus::load_u8(Self, UInt64) -> UInt64
+pub fn Bus::new(UInt64, Int) -> Self
 pub fn Bus::size(Self) -> Int
-pub fn Bus::store_u16(Self, UInt, UInt) -> Unit
-pub fn Bus::store_u32(Self, UInt, UInt) -> Unit
-pub fn Bus::store_u8(Self, UInt, UInt) -> Unit
-pub fn Bus::write_bytes(Self, UInt, Bytes) -> Unit
-pub fn Bus::zero_range(Self, UInt, Int) -> Unit
+pub fn Bus::store_u16(Self, UInt64, UInt64) -> Unit
+pub fn Bus::store_u32(Self, UInt64, UInt64) -> Unit
+pub fn Bus::store_u64(Self, UInt64, UInt64) -> Unit
+pub fn Bus::store_u8(Self, UInt64, UInt64) -> Unit
+pub fn Bus::write_bytes(Self, UInt64, Bytes) -> Unit
+pub fn Bus::zero_range(Self, UInt64, Int) -> Unit
 
 pub struct CpuState {
-  mut pc : UInt
-  registers : Array[UInt]
+  mut pc : UInt64
+  registers : Array[UInt64]
   csrs : CsrFile
   mut privilege : PrivilegeMode
 }
-pub fn CpuState::new(UInt, UInt) -> Self
-pub fn CpuState::read_csr(Self, Int) -> UInt
-pub fn CpuState::read_reg(Self, Int) -> UInt
-pub fn CpuState::write_csr(Self, Int, UInt) -> Unit
-pub fn CpuState::write_reg(Self, Int, UInt) -> Unit
+pub fn CpuState::new(UInt64, UInt64, Xlen) -> Self
+pub fn CpuState::read_csr(Self, Int) -> UInt64
+pub fn CpuState::read_reg(Self, Int) -> UInt64
+pub fn CpuState::write_csr(Self, Int, UInt64) -> Unit
+pub fn CpuState::write_reg(Self, Int, UInt64) -> Unit
 
 pub struct CsrFile {
-  registers : Array[UInt]
+  registers : Array[UInt64]
 }
 pub fn CsrFile::new() -> Self
-pub fn CsrFile::read(Self, Int) -> UInt
-pub fn CsrFile::write(Self, Int, UInt) -> Unit
+pub fn CsrFile::read(Self, Int) -> UInt64
+pub fn CsrFile::write(Self, Int, UInt64) -> Unit
 
 pub struct ElfInfo {
-  entry_point : UInt
-  tohost_addr : UInt?
-  fromhost_addr : UInt?
-  begin_signature_addr : UInt?
-  end_signature_addr : UInt?
+  entry_point : UInt64
+  tohost_addr : UInt64?
+  fromhost_addr : UInt64?
+  begin_signature_addr : UInt64?
+  end_signature_addr : UInt64?
 }
 
 pub enum Instruction {
   Fence
+  FenceI
   Lui(Int, UInt)
   Auipc(Int, UInt)
   Addi(Int, Int, Int)
@@ -69,25 +90,39 @@ pub enum Instruction {
   Xori(Int, Int, Int)
   Ori(Int, Int, Int)
   Andi(Int, Int, Int)
+  Addiw(Int, Int, Int)
   Slli(Int, Int, Int)
   Srli(Int, Int, Int)
   Srai(Int, Int, Int)
+  Slliw(Int, Int, Int)
+  Srliw(Int, Int, Int)
+  Sraiw(Int, Int, Int)
   Add(Int, Int, Int)
   Sub(Int, Int, Int)
+  Addw(Int, Int, Int)
+  Subw(Int, Int, Int)
   Mul(Int, Int, Int)
+  Mulw(Int, Int, Int)
   Mulh(Int, Int, Int)
   Mulhsu(Int, Int, Int)
   Mulhu(Int, Int, Int)
   Div(Int, Int, Int)
+  Divw(Int, Int, Int)
   Divu(Int, Int, Int)
+  Divuw(Int, Int, Int)
   Rem(Int, Int, Int)
+  Remw(Int, Int, Int)
   Remu(Int, Int, Int)
+  Remuw(Int, Int, Int)
   Sll(Int, Int, Int)
+  Sllw(Int, Int, Int)
   Slt(Int, Int, Int)
   Sltu(Int, Int, Int)
   Xor(Int, Int, Int)
   Srl(Int, Int, Int)
   Sra(Int, Int, Int)
+  Srlw(Int, Int, Int)
+  Sraw(Int, Int, Int)
   Or(Int, Int, Int)
   And(Int, Int, Int)
   Beq(Int, Int, Int)
@@ -99,11 +134,14 @@ pub enum Instruction {
   Lb(Int, Int, Int)
   Lh(Int, Int, Int)
   Lw(Int, Int, Int)
+  Lwu(Int, Int, Int)
+  Ld(Int, Int, Int)
   Lbu(Int, Int, Int)
   Lhu(Int, Int, Int)
   Sb(Int, Int, Int)
   Sh(Int, Int, Int)
   Sw(Int, Int, Int)
+  Sd(Int, Int, Int)
   Jal(Int, Int)
   Jalr(Int, Int, Int)
   Csrrw(Int, Int, Int)
@@ -114,6 +152,7 @@ pub enum Instruction {
   Csrrci(Int, Int, UInt)
   Ecall
   Mret
+  Sret
   Unknown(UInt)
 }
 
@@ -123,13 +162,14 @@ pub enum LoadElfResult {
 }
 
 pub struct MachineConfig {
-  ram_base : UInt
+  xlen : Xlen
+  ram_base : UInt64
   ram_size : Int
-  entry_point : UInt
-  hart_id : UInt
+  entry_point : UInt64
+  hart_id : UInt64
 }
 
-pub enum PrivilegeMode {
+pub(all) enum PrivilegeMode {
   User
   Supervisor
   Machine
@@ -143,17 +183,27 @@ pub struct Runner {
 pub fn Runner::config(Self) -> MachineConfig
 pub fn Runner::load_elf(Self, Bytes) -> LoadElfResult
 pub fn Runner::load_program(Self, Bytes, UInt) -> Unit
+pub fn Runner::load_program_u64(Self, Bytes, UInt64) -> Unit
 pub fn Runner::load_u32(Self, UInt) -> UInt
+pub fn Runner::load_u32_u64(Self, UInt64) -> UInt64
 pub fn Runner::pc(Self) -> UInt
+pub fn Runner::pc_u64(Self) -> UInt64
 pub fn Runner::privilege_mode(Self) -> PrivilegeMode
 pub fn Runner::read_csr(Self, Int) -> UInt
+pub fn Runner::read_csr_u64(Self, Int) -> UInt64
 pub fn Runner::read_reg(Self, Int) -> UInt
+pub fn Runner::read_reg_u64(Self, Int) -> UInt64
 pub fn Runner::run(Self, Int) -> StepResult
 pub fn Runner::step(Self) -> StepResult
 
 pub enum StepResult {
   Running
   Trap(TrapInfo)
+}
+
+pub(all) enum TranslateResult {
+  TranslatedAddr(UInt64)
+  TranslateFault(TrapCause)
 }
 
 pub enum TrapCause {
@@ -171,8 +221,13 @@ pub enum TrapCause {
 
 pub struct TrapInfo {
   cause : TrapCause
-  faulting_pc : UInt
-  trap_value : UInt
+  faulting_pc : UInt64
+  trap_value : UInt64
+}
+
+pub enum Xlen {
+  Xlen32
+  Xlen64
 }
 
 // Type aliases

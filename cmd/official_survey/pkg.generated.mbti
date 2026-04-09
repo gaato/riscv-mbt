@@ -1,0 +1,16 @@
+// Generated using `moon info`, DON'T EDIT IT
+package "gaato/riscv_mbt/cmd/official_survey"
+
+// Values
+
+// Errors
+
+// Types and methods
+type OfficialRiscvTestCase
+
+type SurveyOutcome
+
+// Type aliases
+
+// Traits
+
