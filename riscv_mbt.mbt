@@ -1175,6 +1175,22 @@ fn set_mstatus_mpp(value : UInt64, mode : PrivilegeMode) -> UInt64 {
 }
 
 ///|
+fn mstatus_after_mret(mstatus : UInt64) -> UInt64 {
+  set_mstatus_mpie(
+    set_mstatus_mie(set_mstatus_mpp(mstatus, User), mstatus_mpie(mstatus)),
+    true,
+  )
+}
+
+///|
+fn mstatus_after_sret(mstatus : UInt64) -> UInt64 {
+  set_mstatus_spp(
+    set_mstatus_spie(set_mstatus_sie(mstatus, mstatus_spie(mstatus)), true),
+    User,
+  )
+}
+
+///|
 // Modeled machine CSRs participate in current machine-state semantics.
 // Compatibility-only storage CSRs are kept writable for upstream env/p startup.
 fn is_modeled_machine_csr(csr : Int) -> Bool {
@@ -2901,37 +2917,29 @@ fn Runner::execute_system(
       }
       self.raise_trap(cause, current_pc, 0U.to_uint64())
     }
-    Mret => {
-      let mstatus = self.cpu.read_csr(CSR_MSTATUS)
-      let next_privilege = mstatus_mpp(mstatus)
-      self.cpu.write_csr(
-        CSR_MSTATUS,
-        set_mstatus_mpie(
-          set_mstatus_mie(set_mstatus_mpp(mstatus, User), mstatus_mpie(mstatus)),
-          true,
-        ),
-      )
-      self.cpu.privilege = next_privilege
-      self.cpu.pc = self.cpu.read_csr(CSR_MEPC)
-      Running
-    }
-    Sret => {
-      let mstatus = self.cpu.read_csr(CSR_MSTATUS)
-      let next_privilege = mstatus_spp(mstatus)
-      self.cpu.write_csr(
-        CSR_MSTATUS,
-        set_mstatus_spp(
-          set_mstatus_spie(set_mstatus_sie(mstatus, mstatus_spie(mstatus)), true),
-          User,
-        ),
-      )
-      self.cpu.privilege = next_privilege
-      self.cpu.pc = self.cpu.read_csr(CSR_SEPC)
-      Running
-    }
+    Mret => self.execute_mret()
+    Sret => self.execute_sret()
     Unknown(_) => self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
     _ => abort("unexpected system dispatch")
   }
+}
+
+///|
+fn Runner::execute_mret(self : Runner) -> StepResult {
+  let mstatus = self.cpu.read_csr(CSR_MSTATUS)
+  self.cpu.write_csr(CSR_MSTATUS, mstatus_after_mret(mstatus))
+  self.cpu.privilege = mstatus_mpp(mstatus)
+  self.cpu.pc = self.cpu.read_csr(CSR_MEPC)
+  Running
+}
+
+///|
+fn Runner::execute_sret(self : Runner) -> StepResult {
+  let mstatus = self.cpu.read_csr(CSR_MSTATUS)
+  self.cpu.write_csr(CSR_MSTATUS, mstatus_after_sret(mstatus))
+  self.cpu.privilege = mstatus_spp(mstatus)
+  self.cpu.pc = self.cpu.read_csr(CSR_SEPC)
+  Running
 }
 
 ///|
