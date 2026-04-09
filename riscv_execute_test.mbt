@@ -428,6 +428,93 @@ test "mtvec direct target masks low bits and ignores mode dispatch" {
 }
 
 ///|
+test "supervisor csr surface is writable and sstatus aliases the modeled mstatus subset" {
+  let program = words_to_bytes([
+    encode_i(0x122, 0, 0x0U, 1, 0x13U),
+    encode_csr(0x100, 1, 0x1U, 0),
+    encode_csr(0x105, 0x15, 0x5U, 0),
+    encode_csr(0x140, 9, 0x5U, 0),
+    encode_csr(0x141, 13, 0x5U, 0),
+    encode_csr(0x142, 8, 0x5U, 0),
+    encode_csr(0x143, 7, 0x5U, 0),
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(7) {
+    Running => ()
+    _ => fail("expected supervisor csr setup to run")
+  }
+  assert_eq(runner.read_csr(0x100), 0x122U)
+  assert_eq(runner.read_csr(0x300), 0x122U)
+  assert_eq(runner.read_csr(0x105), 0x15U)
+  assert_eq(runner.read_csr(0x140), 9U)
+  assert_eq(runner.read_csr(0x141), 13U)
+  assert_eq(runner.read_csr(0x142), 8U)
+  assert_eq(runner.read_csr(0x143), 7U)
+}
+
+///|
+test "delegated user ecall traps to stvec with supervisor trap state" {
+  let program = words_to_bytes([
+    encode_i(33, 0, 0x0U, 6, 0x13U),
+    encode_csr(0x105, 6, 0x1U, 0),
+    encode_i(256, 0, 0x0U, 1, 0x13U),
+    encode_csr(0x302, 1, 0x1U, 0),
+    encode_i(28, 0, 0x0U, 5, 0x13U),
+    encode_csr(0x341, 5, 0x1U, 0),
+    encode_mret(),
+    encode_ecall(),
+    encode_csr(0x142, 0, 0x2U, 7),
+    encode_i(1, 0, 0x0U, 8, 0x13U),
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(10) {
+    Running => ()
+    _ => fail("expected delegated supervisor trap handler to run")
+  }
+  assert_eq(runner.read_reg(7), 8U)
+  assert_eq(runner.read_reg(8), 1U)
+  assert_eq(runner.read_csr(0x141), 28U)
+  assert_eq(runner.read_csr(0x142), 8U)
+  assert_eq(runner.read_csr(0x143), 0U)
+  assert_eq(runner.read_csr(0x100), 0U)
+  match runner.privilege_mode() {
+    Supervisor => ()
+    _ => fail("expected supervisor mode in delegated trap handler")
+  }
+}
+
+///|
+test "stvec direct target masks low bits during delegated supervisor trap entry" {
+  let program = words_to_bytes([
+    encode_i(33, 0, 0x0U, 6, 0x13U),
+    encode_csr(0x105, 6, 0x1U, 0),
+    encode_i(256, 0, 0x0U, 1, 0x13U),
+    encode_csr(0x302, 1, 0x1U, 0),
+    encode_i(28, 0, 0x0U, 5, 0x13U),
+    encode_csr(0x341, 5, 0x1U, 0),
+    encode_mret(),
+    encode_ecall(),
+    encode_i(1, 0, 0x0U, 9, 0x13U),
+    encode_i(2, 0, 0x0U, 10, 0x13U),
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(9) {
+    Running => ()
+    _ => fail("expected delegated supervisor trap redirection to running state")
+  }
+  assert_eq(runner.pc(), 36U)
+  assert_eq(runner.read_reg(9), 1U)
+  assert_eq(runner.read_reg(10), 0U)
+  match runner.privilege_mode() {
+    Supervisor => ()
+    _ => fail("expected supervisor mode after delegated trap redirection")
+  }
+}
+
+///|
 test "mret sets mie from mpie, sets mpie to 1, and clears mpp" {
   let program = words_to_bytes([
     encode_u(0U, 5, 0x17U),

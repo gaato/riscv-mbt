@@ -238,11 +238,16 @@ const CSR_MEDELEG : Int = 0x302
 const CSR_MIDELEG : Int = 0x303
 const CSR_MIE : Int = 0x304
 const CSR_MTVEC : Int = 0x305
+const CSR_SSTATUS : Int = 0x100
 const CSR_MEPC : Int = 0x341
 const CSR_MCAUSE : Int = 0x342
 const CSR_MTVAL : Int = 0x343
 const CSR_MIP : Int = 0x344
 const CSR_STVEC : Int = 0x105
+const CSR_SSCRATCH : Int = 0x140
+const CSR_SEPC : Int = 0x141
+const CSR_SCAUSE : Int = 0x142
+const CSR_STVAL : Int = 0x143
 const CSR_SATP : Int = 0x180
 const CSR_PMPCFG0 : Int = 0x3A0
 const CSR_PMPADDR0 : Int = 0x3B0
@@ -250,10 +255,14 @@ const CSR_MNSTATUS : Int = 0x744
 const CSR_MHARTID : Int = 0xF14
 const XLEN_32 : Int = 32
 const XLEN_64 : Int = 64
+const MSTATUS_SIE_BIT : UInt = 0x2U
+const MSTATUS_SPIE_BIT : UInt = 0x20U
+const MSTATUS_SPP_BIT : UInt = 0x100U
 const MSTATUS_MIE_BIT : UInt = 0x8U
 const MSTATUS_MPIE_BIT : UInt = 0x80U
 const MSTATUS_MPP_SHIFT : Int = 11
 const MSTATUS_MPP_MASK : UInt = 0x1800U
+const SSTATUS_VISIBLE_MASK : UInt = 0x122U
 
 ///|
 fn misa_value(xlen : Xlen) -> UInt64 {
@@ -1082,11 +1091,15 @@ fn mstatus_mie(value : UInt64) -> Bool {
 }
 
 ///|
+fn mstatus_sie(value : UInt64) -> Bool {
+  (value & MSTATUS_SIE_BIT.to_uint64()) != 0U.to_uint64()
+}
+
+///|
 fn mstatus_mpie(value : UInt64) -> Bool {
   (value & MSTATUS_MPIE_BIT.to_uint64()) != 0U.to_uint64()
 }
 
-///|
 fn mstatus_mpp(value : UInt64) -> PrivilegeMode {
   privilege_mode_from_code((value & MSTATUS_MPP_MASK.to_uint64()) >> MSTATUS_MPP_SHIFT)
 }
@@ -1101,11 +1114,37 @@ fn set_mstatus_mie(value : UInt64, enabled : Bool) -> UInt64 {
 }
 
 ///|
+fn set_mstatus_sie(value : UInt64, enabled : Bool) -> UInt64 {
+  if enabled {
+    value | MSTATUS_SIE_BIT.to_uint64()
+  } else {
+    value & bit_not(MSTATUS_SIE_BIT.to_uint64())
+  }
+}
+
+///|
 fn set_mstatus_mpie(value : UInt64, enabled : Bool) -> UInt64 {
   if enabled {
     value | MSTATUS_MPIE_BIT.to_uint64()
   } else {
     value & bit_not(MSTATUS_MPIE_BIT.to_uint64())
+  }
+}
+
+///|
+fn set_mstatus_spie(value : UInt64, enabled : Bool) -> UInt64 {
+  if enabled {
+    value | MSTATUS_SPIE_BIT.to_uint64()
+  } else {
+    value & bit_not(MSTATUS_SPIE_BIT.to_uint64())
+  }
+}
+
+///|
+fn set_mstatus_spp(value : UInt64, mode : PrivilegeMode) -> UInt64 {
+  match mode {
+    Supervisor => value | MSTATUS_SPP_BIT.to_uint64()
+    _ => value & bit_not(MSTATUS_SPP_BIT.to_uint64())
   }
 }
 
@@ -1139,9 +1178,21 @@ fn is_modeled_machine_csr(csr : Int) -> Bool {
 }
 
 ///|
+fn is_modeled_supervisor_csr(csr : Int) -> Bool {
+  match csr {
+    CSR_SSTATUS => true
+    CSR_STVEC => true
+    CSR_SSCRATCH => true
+    CSR_SEPC => true
+    CSR_SCAUSE => true
+    CSR_STVAL => true
+    _ => false
+  }
+}
+
+///|
 fn is_compatibility_storage_csr(csr : Int) -> Bool {
   match csr {
-    CSR_STVEC => true
     CSR_SATP => true
     CSR_MEDELEG => true
     CSR_MIDELEG => true
@@ -1164,6 +1215,7 @@ fn is_read_only_csr(csr : Int) -> Bool {
 ///|
 fn is_supported_rw_csr(csr : Int) -> Bool {
   (is_modeled_machine_csr(csr) && !is_read_only_csr(csr)) ||
+  is_modeled_supervisor_csr(csr) ||
   is_compatibility_storage_csr(csr)
 }
 
@@ -1512,12 +1564,12 @@ pub fn Runner::read_reg_u64(self : Runner, index : Int) -> UInt64 {
 
 ///|
 pub fn Runner::read_csr(self : Runner, index : Int) -> UInt {
-  self.cpu.read_csr(index).to_uint()
+  self.read_csr_visible(index).to_uint()
 }
 
 ///|
 pub fn Runner::read_csr_u64(self : Runner, index : Int) -> UInt64 {
-  self.cpu.read_csr(index)
+  self.read_csr_visible(index)
 }
 
 ///|
@@ -1998,8 +2050,13 @@ fn Runner::store_check(self : Runner, addr : UInt64, width : Int) -> StepResult?
 }
 
 ///|
-fn Runner::trap_target_from_mtvec(self : Runner) -> UInt64 {
-  self.cpu.read_csr(CSR_MTVEC) & bit_not(0x3U.to_uint64())
+fn Runner::trap_target_for_privilege(self : Runner, target_privilege : PrivilegeMode) -> UInt64 {
+  let tvec_csr = match target_privilege {
+    Supervisor => CSR_STVEC
+    Machine => CSR_MTVEC
+    User => return 0U.to_uint64()
+  }
+  self.read_csr_visible(tvec_csr) & bit_not(0x3U.to_uint64())
 }
 
 ///|
@@ -2026,6 +2083,51 @@ fn Runner::enter_machine_trap(
 }
 
 ///|
+fn Runner::enter_supervisor_trap(
+  self : Runner,
+  cause : TrapCause,
+  faulting_pc : UInt64,
+  trap_value : UInt64,
+  prior_privilege : PrivilegeMode,
+) -> Unit {
+  let mstatus = self.cpu.read_csr(CSR_MSTATUS)
+  let next_mstatus = set_mstatus_sie(
+    set_mstatus_spie(
+      set_mstatus_spp(mstatus, prior_privilege),
+      mstatus_sie(mstatus),
+    ),
+    false,
+  )
+  self.cpu.write_csr(CSR_MSTATUS, next_mstatus)
+  self.cpu.write_csr(CSR_SEPC, faulting_pc)
+  self.cpu.write_csr(CSR_SCAUSE, trap_cause_code(cause))
+  self.cpu.write_csr(CSR_STVAL, trap_value)
+  self.cpu.privilege = Supervisor
+}
+
+///|
+fn Runner::trap_target_privilege(
+  self : Runner,
+  cause : TrapCause,
+  prior_privilege : PrivilegeMode,
+) -> PrivilegeMode {
+  let may_delegate_to_supervisor = match prior_privilege {
+    Machine => false
+    _ => true
+  }
+  if may_delegate_to_supervisor {
+    let cause_code = trap_cause_code(cause)
+    let cause_shift = cause_code.reinterpret_as_int64().to_int()
+    let medeleg = self.cpu.read_csr(CSR_MEDELEG)
+    let delegated = (medeleg & (1U.to_uint64() << cause_shift)) != 0U.to_uint64()
+    if delegated {
+      return Supervisor
+    }
+  }
+  Machine
+}
+
+///|
 fn Runner::raise_trap(
   self : Runner,
   cause : TrapCause,
@@ -2033,8 +2135,13 @@ fn Runner::raise_trap(
   trap_value : UInt64,
 ) -> StepResult {
   let prior_privilege = self.cpu.privilege
-  self.enter_machine_trap(cause, faulting_pc, trap_value, prior_privilege)
-  let target = self.trap_target_from_mtvec()
+  let target_privilege = self.trap_target_privilege(cause, prior_privilege)
+  match target_privilege {
+    Supervisor => self.enter_supervisor_trap(cause, faulting_pc, trap_value, prior_privilege)
+    Machine => self.enter_machine_trap(cause, faulting_pc, trap_value, prior_privilege)
+    User => abort("user trap targets are not supported")
+  }
+  let target = self.trap_target_for_privilege(target_privilege)
   if target != 0U.to_uint64() && self.bus.contains_range(target, 4) {
     self.cpu.pc = target
     Running
@@ -2593,9 +2700,31 @@ fn Runner::execute_jump(
   }
 }
 
+fn Runner::read_csr_visible(self : Runner, csr : Int) -> UInt64 {
+  match csr {
+    CSR_SSTATUS => self.cpu.read_csr(CSR_MSTATUS) & SSTATUS_VISIBLE_MASK.to_uint64()
+    _ => self.cpu.read_csr(csr)
+  }
+}
+
+///|
+fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
+  match csr {
+    CSR_SSTATUS => {
+      let mstatus = self.cpu.read_csr(CSR_MSTATUS)
+      let next_mstatus =
+        (mstatus & bit_not(SSTATUS_VISIBLE_MASK.to_uint64())) |
+        (value & SSTATUS_VISIBLE_MASK.to_uint64())
+      self.cpu.write_csr(CSR_MSTATUS, next_mstatus)
+    }
+    _ => self.cpu.write_csr(csr, value)
+  }
+}
+
+///|
 fn Runner::read_csr_checked(self : Runner, csr : Int) -> UInt64? {
   if is_supported_csr(csr) {
-    Some(self.cpu.read_csr(csr))
+    Some(self.read_csr_visible(csr))
   } else {
     None
   }
@@ -2620,7 +2749,7 @@ fn Runner::execute_csr_read_write_checked(
     if !is_supported_rw_csr(csr) {
       return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
     }
-    self.cpu.write_csr(csr, write_value)
+    self.write_csr_visible(csr, write_value)
   }
   self.write_xlen_reg(rd, old_value)
   self.cpu.pc = next_pc

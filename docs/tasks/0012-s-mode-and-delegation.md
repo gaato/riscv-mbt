@@ -6,14 +6,21 @@ Linux boot wants supervisor-mode execution, not an indefinitely M-mode-centric d
 
 ## Work
 
-- Add supervisor trap state such as `stvec`, `sepc`, `scause`, and `stval`
-- Add `medeleg` and `mideleg`
-- Make the S-mode path independent enough that everything does not route through M-mode by default
+- Use this task as the umbrella for supervisor-mode and delegation work before `Sv39`
+- Add the minimum supervisor trap surface and direct trap-entry path
+- Add delegation routing and `SRET` without mixing in MMU or platform work
+
+## Subtasks
+
+- [0037 Supervisor CSR surface and trap entry](0037-supervisor-csr-surface-and-trap-entry.md)
+- [0038 Delegation routing and `SRET`](0038-delegation-routing-and-sret.md)
+- [0039 S-mode closure before `Sv39`](0039-s-mode-closure-before-sv39.md)
 
 ## Acceptance Criteria
 
 - Supervisor trap flow is testable on its own
 - Delegated exceptions and interrupts can be reasoned about without Linux in the loop
+- The supervisor path is explicit enough that `Sv39` work does not have to begin from an M-mode-only trap design
 
 ## Related Milestone
 
@@ -25,4 +32,4 @@ Linux boot wants supervisor-mode execution, not an indefinitely M-mode-centric d
 
 ## Status
 
-- `todo`
+- `doing`

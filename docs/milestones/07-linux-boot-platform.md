@@ -29,6 +29,13 @@ Treat Linux boot as a system-integration milestone that proves the platform hang
 - Boot-path smoke tests
 - Device-access smoke tests for the minimum Linux path
 
+## Implementation Order
+
+1. `S`-mode trap surface and supervisor trap entry
+2. delegation routing and `SRET`
+3. `Sv39` and `SFENCE.VMA`
+4. platform and boot ABI integration
+
 ## Prerequisites For Next Milestone
 
 - A successful and repeatable Linux boot
