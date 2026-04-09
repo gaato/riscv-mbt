@@ -30,7 +30,7 @@
 - [Supervisor CSR surface and trap entry](tasks/0037-supervisor-csr-surface-and-trap-entry.md) — `done`
 - [Delegation routing and `SRET`](tasks/0038-delegation-routing-and-sret.md) — `done`
 - [S-mode closure before `Sv39`](tasks/0039-s-mode-closure-before-sv39.md) — `done`
-- [Add Sv39 and SFENCE.VMA](tasks/0013-sv39-and-sfence-vma.md) — `todo`
+- [Add Sv39 and SFENCE.VMA](tasks/0013-sv39-and-sfence-vma.md) — `done`
 - [Integrate OpenSBI and a virt-like platform](tasks/0014-opensbi-and-virt-platform.md) — `todo`
 - [Meet the Linux boot ABI on one hart](tasks/0015-linux-boot-abi-single-hart.md) — `todo`
 - [Add SMP after single-hart boot](tasks/0016-smp-after-single-hart.md) — `todo`
@@ -44,7 +44,7 @@
 
 ## Next Task
 
-- Start [Task 0013](tasks/0013-sv39-and-sfence-vma.md): implement `Sv39` and `SFENCE.VMA` on top of the now-closed supervisor baseline.
+- Start [Task 0014](tasks/0014-opensbi-and-virt-platform.md): integrate OpenSBI and a `virt`-like platform on top of the now-closed `Sv39` baseline.
 
 ## Known Blockers
 
@@ -52,14 +52,14 @@
 - Local `moon test` now expects build artifacts under `_build/riscv-tests-src/isa`; run `./scripts/build-riscv-tests-official.sh` first if they are missing.
 - The built upstream `*-p-*` survey currently stands above the original RV32 checkpoint, but RV64 coverage is still survey-only and has not been promoted into the always-green CI subset.
 - The official QEMU cross-check path remains RV32-only; RV64 system-emulator cross-checking is still deferred.
-- `S`-mode trap flow is now closed as a standalone checkpoint; `Sv39` remains the next correctness cliff before platform work can deepen.
+- `Sv39`, `SFENCE.VMA`, and `MPRV` are now closed; the next correctness cliff is platform integration (UART, timer, DTB).
 
 ## Read Next
 
 - [Roadmap](roadmap.md)
 - [Implementation Notes](guides/implementation-notes.md)
 - [Linux boot platform milestone](milestones/07-linux-boot-platform.md)
-- [Task 0013](tasks/0013-sv39-and-sfence-vma.md)
+- [Task 0014](tasks/0014-opensbi-and-virt-platform.md)
 - [Task 0009](tasks/0009-rv32-supervisor-sv32.md)
 - [ADR 0001](adr/0001-rv32i-first.md)
 - [ADR 0003](adr/0003-milestone-spine.md)

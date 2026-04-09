@@ -2830,6 +2830,27 @@ fn Runner::execute_branch(
 }
 
 ///|
+fn Runner::load_and_write(
+  self : Runner,
+  rs1 : Int,
+  imm : Int,
+  width : Int,
+  next_pc : UInt64,
+  write : (UInt64) -> Unit,
+) -> StepResult {
+  let addr = self.address_from(rs1, imm)
+  let (pa, check) = self.load_check(addr, width)
+  match check {
+    Some(result) => result
+    None => {
+      write(pa)
+      self.cpu.pc = next_pc
+      Running
+    }
+  }
+}
+
+///|
 fn Runner::execute_load(
   self : Runner,
   instruction : Instruction,
@@ -2837,100 +2858,56 @@ fn Runner::execute_load(
 ) -> StepResult {
   let xlen = self.xlen_bits()
   match instruction {
-    Lb(rd, rs1, imm) => {
-      let addr = self.address_from(rs1, imm)
-      let (pa, check) = self.load_check(addr, 1)
-      match check {
-        Some(result) => result
-        None => {
-          self.write_xlen_reg(
-            rd,
-            xlen_load_sign_extend(self.bus.load_u8(pa), 8, xlen),
-          )
-          self.cpu.pc = next_pc
-          Running
-        }
-      }
-    }
-    Lh(rd, rs1, imm) => {
-      let addr = self.address_from(rs1, imm)
-      let (pa, check) = self.load_check(addr, 2)
-      match check {
-        Some(result) => result
-        None => {
-          self.write_xlen_reg(
-            rd,
-            xlen_load_sign_extend(self.bus.load_u16(pa), 16, xlen),
-          )
-          self.cpu.pc = next_pc
-          Running
-        }
-      }
-    }
-    Lw(rd, rs1, imm) => {
-      let addr = self.address_from(rs1, imm)
-      let (pa, check) = self.load_check(addr, 4)
-      match check {
-        Some(result) => result
-        None => {
-          self.write_word_reg(
-            rd,
-            self.bus.load_u32(pa),
-          )
-          self.cpu.pc = next_pc
-          Running
-        }
-      }
-    }
-    Lwu(rd, rs1, imm) => {
-      let addr = self.address_from(rs1, imm)
-      let (pa, check) = self.load_check(addr, 4)
-      match check {
-        Some(result) => result
-        None => {
-          self.write_xlen_reg(rd, self.bus.load_u32(pa))
-          self.cpu.pc = next_pc
-          Running
-        }
-      }
-    }
-    Ld(rd, rs1, imm) => {
-      let addr = self.address_from(rs1, imm)
-      let (pa, check) = self.load_check(addr, 8)
-      match check {
-        Some(result) => result
-        None => {
-          self.write_xlen_reg(rd, self.bus.load_u64(pa))
-          self.cpu.pc = next_pc
-          Running
-        }
-      }
-    }
-    Lbu(rd, rs1, imm) => {
-      let addr = self.address_from(rs1, imm)
-      let (pa, check) = self.load_check(addr, 1)
-      match check {
-        Some(result) => result
-        None => {
-          self.write_xlen_reg(rd, self.bus.load_u8(pa))
-          self.cpu.pc = next_pc
-          Running
-        }
-      }
-    }
-    Lhu(rd, rs1, imm) => {
-      let addr = self.address_from(rs1, imm)
-      let (pa, check) = self.load_check(addr, 2)
-      match check {
-        Some(result) => result
-        None => {
-          self.write_xlen_reg(rd, self.bus.load_u16(pa))
-          self.cpu.pc = next_pc
-          Running
-        }
-      }
-    }
+    Lb(rd, rs1, imm) =>
+      self.load_and_write(rs1, imm, 1, next_pc, fn(pa) {
+        self.write_xlen_reg(rd, xlen_load_sign_extend(self.bus.load_u8(pa), 8, xlen))
+      })
+    Lh(rd, rs1, imm) =>
+      self.load_and_write(rs1, imm, 2, next_pc, fn(pa) {
+        self.write_xlen_reg(rd, xlen_load_sign_extend(self.bus.load_u16(pa), 16, xlen))
+      })
+    Lw(rd, rs1, imm) =>
+      self.load_and_write(rs1, imm, 4, next_pc, fn(pa) {
+        self.write_word_reg(rd, self.bus.load_u32(pa))
+      })
+    Lwu(rd, rs1, imm) =>
+      self.load_and_write(rs1, imm, 4, next_pc, fn(pa) {
+        self.write_xlen_reg(rd, self.bus.load_u32(pa))
+      })
+    Ld(rd, rs1, imm) =>
+      self.load_and_write(rs1, imm, 8, next_pc, fn(pa) {
+        self.write_xlen_reg(rd, self.bus.load_u64(pa))
+      })
+    Lbu(rd, rs1, imm) =>
+      self.load_and_write(rs1, imm, 1, next_pc, fn(pa) {
+        self.write_xlen_reg(rd, self.bus.load_u8(pa))
+      })
+    Lhu(rd, rs1, imm) =>
+      self.load_and_write(rs1, imm, 2, next_pc, fn(pa) {
+        self.write_xlen_reg(rd, self.bus.load_u16(pa))
+      })
     _ => abort("unexpected load dispatch")
+  }
+}
+
+///|
+fn Runner::store_and_commit(
+  self : Runner,
+  rs1 : Int,
+  imm : Int,
+  width : Int,
+  next_pc : UInt64,
+  store : (UInt64) -> Unit,
+) -> StepResult {
+  let addr = self.address_from(rs1, imm)
+  let (pa, check) = self.store_check(addr, width)
+  match check {
+    Some(result) => result
+    None => {
+      store(pa)
+      self.cpu.pc = next_pc
+      Running
+    }
   }
 }
 
@@ -2941,54 +2918,22 @@ fn Runner::execute_store(
   next_pc : UInt64,
 ) -> StepResult {
   match instruction {
-    Sb(rs1, rs2, imm) => {
-      let addr = self.address_from(rs1, imm)
-      let (pa, check) = self.store_check(addr, 1)
-      match check {
-        Some(result) => result
-        None => {
-          self.bus.store_u8(pa, self.cpu.read_reg(rs2))
-          self.cpu.pc = next_pc
-          Running
-        }
-      }
-    }
-    Sh(rs1, rs2, imm) => {
-      let addr = self.address_from(rs1, imm)
-      let (pa, check) = self.store_check(addr, 2)
-      match check {
-        Some(result) => result
-        None => {
-          self.bus.store_u16(pa, self.cpu.read_reg(rs2))
-          self.cpu.pc = next_pc
-          Running
-        }
-      }
-    }
-    Sw(rs1, rs2, imm) => {
-      let addr = self.address_from(rs1, imm)
-      let (pa, check) = self.store_check(addr, 4)
-      match check {
-        Some(result) => result
-        None => {
-          self.bus.store_u32(pa, self.cpu.read_reg(rs2))
-          self.cpu.pc = next_pc
-          Running
-        }
-      }
-    }
-    Sd(rs1, rs2, imm) => {
-      let addr = self.address_from(rs1, imm)
-      let (pa, check) = self.store_check(addr, 8)
-      match check {
-        Some(result) => result
-        None => {
-          self.bus.store_u64(pa, self.cpu.read_reg(rs2))
-          self.cpu.pc = next_pc
-          Running
-        }
-      }
-    }
+    Sb(rs1, rs2, imm) =>
+      self.store_and_commit(rs1, imm, 1, next_pc, fn(pa) {
+        self.bus.store_u8(pa, self.cpu.read_reg(rs2))
+      })
+    Sh(rs1, rs2, imm) =>
+      self.store_and_commit(rs1, imm, 2, next_pc, fn(pa) {
+        self.bus.store_u16(pa, self.cpu.read_reg(rs2))
+      })
+    Sw(rs1, rs2, imm) =>
+      self.store_and_commit(rs1, imm, 4, next_pc, fn(pa) {
+        self.bus.store_u32(pa, self.cpu.read_reg(rs2))
+      })
+    Sd(rs1, rs2, imm) =>
+      self.store_and_commit(rs1, imm, 8, next_pc, fn(pa) {
+        self.bus.store_u64(pa, self.cpu.read_reg(rs2))
+      })
     _ => abort("unexpected store dispatch")
   }
 }
