@@ -80,6 +80,13 @@ test "decode sret distinctly from mret and ecall" {
     Sret => ()
     _ => fail("expected sret")
   }
+  match decode(encode_sfence_vma(1, 2)) {
+    SfenceVma(rs1, rs2) => {
+      assert_eq(rs1, 1)
+      assert_eq(rs2, 2)
+    }
+    _ => fail("expected sfence.vma")
+  }
 }
 
 ///|

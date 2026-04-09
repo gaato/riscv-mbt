@@ -150,6 +150,7 @@ pub enum Instruction {
   Csrrwi(Int, Int, UInt)
   Csrrsi(Int, Int, UInt)
   Csrrci(Int, Int, UInt)
+  SfenceVma(Int, Int)
   Ecall
   Mret
   Sret

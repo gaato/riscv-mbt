@@ -10,6 +10,50 @@ fn test_join_u64(upper : UInt, lower : UInt) -> UInt64 {
 }
 
 ///|
+fn exec_test_sv39_satp(root_ppn : UInt64) -> UInt64 {
+  (8U.to_uint64() << 60) | root_ppn
+}
+
+///|
+fn exec_test_make_pte(ppn : UInt64, flags : UInt64) -> UInt64 {
+  (ppn << 10) | flags
+}
+
+///|
+fn exec_test_u64_to_le_bytes(value : UInt64) -> Bytes {
+  let lo = (value & 0xffffffffU.to_uint64()).to_uint()
+  let hi = (value >> 32).to_uint()
+  words_to_bytes([lo, hi])
+}
+
+///|
+fn exec_test_setup_basic_sv39_map(runner : Runner) -> Unit {
+  let pte_v = 0x1U.to_uint64()
+  let pte_r = 0x2U.to_uint64()
+  let pte_w = 0x4U.to_uint64()
+  let pte_a = 0x40U.to_uint64()
+  let pte_d = 0x80U.to_uint64()
+
+  let root_ppn = 1U.to_uint64()
+  let l1_ppn = 2U.to_uint64()
+  let l0_ppn = 3U.to_uint64()
+  let leaf_ppn = 4U.to_uint64()
+
+  runner.load_program_u64(exec_test_u64_to_le_bytes(exec_test_make_pte(l1_ppn, pte_v)), 0x1000U.to_uint64())
+  runner.load_program_u64(exec_test_u64_to_le_bytes(exec_test_make_pte(l0_ppn, pte_v)), 0x2000U.to_uint64())
+  runner.load_program_u64(
+    exec_test_u64_to_le_bytes(exec_test_make_pte(leaf_ppn, pte_v | pte_r | pte_w | pte_a | pte_d)),
+    0x3000U.to_uint64(),
+  )
+
+  runner.load_program_u64(words_to_bytes([0x12345678U]), 0x4100U.to_uint64())
+  runner.load_program_u64(words_to_bytes([0U]), 0x4104U.to_uint64())
+  runner.load_program_u64(words_to_bytes([0xa5a5a5a5U]), 0x100U.to_uint64())
+
+  let _ = exec_test_sv39_satp(root_ppn)
+}
+
+///|
 test "x0 remains zero when written" {
   let runner = make_runner(default_machine_config())
   runner.load_program(words_to_bytes([encode_i(5, 0, 0x0U, 0, 0x13U)]), 0U)
@@ -370,10 +414,83 @@ test "rv64 supervisor fetch traps with instruction page fault when satp selects 
       assert_eq(info.faulting_pc, 36U.to_uint64())
       assert_eq(info.trap_value, 36U.to_uint64())
     }
-    _ => fail("expected supervisor fetch to fault under Sv39 placeholder")
+    _ => fail("expected supervisor fetch to fault under Sv39")
   }
   assert_eq(runner.read_csr(0x342), 12U)
   assert_eq(runner.read_csr(0x343), 36U)
+}
+
+///|
+test "rv64 mprv makes machine load and store follow Sv39 using mpp privilege" {
+  let program = words_to_bytes([
+    encode_i(0x100, 0, 0x0U, 1, 0x13U),
+    encode_i(8, 0, 0x0U, 2, 0x13U),
+    encode_i(60, 2, 0x1U, 2, 0x13U),
+    encode_i(1, 2, 0x0U, 2, 0x13U),
+    encode_csr(0x180, 2, 0x1U, 0),
+    encode_i(1, 0, 0x0U, 3, 0x13U),
+    encode_i(17, 3, 0x1U, 3, 0x13U),
+    encode_i(1, 0, 0x0U, 4, 0x13U),
+    encode_i(11, 4, 0x1U, 4, 0x13U),
+    encode_r(0x00U, 4, 3, 0x6U, 3, 0x33U),
+    encode_csr(0x300, 3, 0x1U, 0),
+    encode_i(42, 0, 0x0U, 12, 0x13U),
+    encode_i(0, 1, 0x2U, 10, 0x03U),
+    encode_s(4, 12, 1, 0x2U, 0x23U),
+  ])
+  let runner = make_runner(rv64_machine_config())
+  exec_test_setup_basic_sv39_map(runner)
+  runner.load_program(program, 0U)
+  match runner.run(14) {
+    Running => ()
+    _ => fail("expected mprv-assisted memory accesses to run")
+  }
+  assert_eq(runner.read_reg(10), 0x12345678U)
+  assert_eq(runner.load_u32_u64(0x4104U.to_uint64()), 42U.to_uint64())
+}
+
+///|
+test "rv64 machine load remains physical when mprv is clear" {
+  let program = words_to_bytes([
+    encode_i(0x100, 0, 0x0U, 1, 0x13U),
+    encode_i(8, 0, 0x0U, 2, 0x13U),
+    encode_i(60, 2, 0x1U, 2, 0x13U),
+    encode_i(1, 2, 0x0U, 2, 0x13U),
+    encode_csr(0x180, 2, 0x1U, 0),
+    encode_i(0, 1, 0x2U, 10, 0x03U),
+  ])
+  let runner = make_runner(rv64_machine_config())
+  exec_test_setup_basic_sv39_map(runner)
+  runner.load_program(program, 0U)
+  match runner.run(6) {
+    Running => ()
+    _ => fail("expected machine load to stay physical without mprv")
+  }
+  assert_eq(runner.read_reg(10), 0xa5a5a5a5U)
+}
+
+///|
+test "rv64 mprv does not affect machine-mode instruction fetch" {
+  let program = words_to_bytes([
+    encode_i(8, 0, 0x0U, 2, 0x13U),
+    encode_i(60, 2, 0x1U, 2, 0x13U),
+    encode_i(1, 2, 0x0U, 2, 0x13U),
+    encode_csr(0x180, 2, 0x1U, 0),
+    encode_i(1, 0, 0x0U, 3, 0x13U),
+    encode_i(17, 3, 0x1U, 3, 0x13U),
+    encode_i(1, 0, 0x0U, 4, 0x13U),
+    encode_i(11, 4, 0x1U, 4, 0x13U),
+    encode_r(0x00U, 4, 3, 0x6U, 3, 0x33U),
+    encode_csr(0x300, 3, 0x1U, 0),
+    encode_i(99, 0, 0x0U, 7, 0x13U),
+  ])
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(11) {
+    Running => ()
+    _ => fail("expected machine fetch to stay physical with mprv")
+  }
+  assert_eq(runner.read_reg(7), 99U)
 }
 
 ///|
@@ -482,6 +599,27 @@ test "supervisor csr surface is writable and sstatus aliases the modeled mstatus
   assert_eq(runner.read_csr(0x141), 13U)
   assert_eq(runner.read_csr(0x142), 8U)
   assert_eq(runner.read_csr(0x143), 7U)
+}
+
+///|
+test "sstatus exposes and writes SUM and MXR bits through the alias mask" {
+  let program = words_to_bytes([
+    encode_u(0x000C0000U, 1, 0x37U),
+    encode_i(0x122, 1, 0x0U, 1, 0x13U),
+    encode_csr(0x100, 1, 0x1U, 0),
+    encode_csr(0x100, 0, 0x2U, 2),
+    encode_csr(0x300, 0, 0x2U, 3),
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(5) {
+    Running => ()
+    _ => fail("expected sstatus SUM/MXR aliasing program to run")
+  }
+  assert_eq(runner.read_reg(2), 0xC0122U)
+  assert_eq(runner.read_reg(3), 0xC0122U)
+  assert_eq(runner.read_csr(0x100), 0xC0122U)
+  assert_eq(runner.read_csr(0x300), 0xC0122U)
 }
 
 ///|
@@ -825,6 +963,24 @@ test "fence.i is explicit and remains compatible with the current coherent fetch
   assert_eq(runner.read_reg(6), 0U)
   assert_eq(runner.read_reg(7), 1U)
   assert_eq(runner.load_u32(28U), target)
+}
+
+///|
+test "sfence.vma decodes as explicit supervisor barrier and executes as no-op" {
+  let program = words_to_bytes([
+    encode_i(1, 0, 0x0U, 1, 0x13U),
+    encode_sfence_vma(0, 0),
+    encode_i(2, 0, 0x0U, 2, 0x13U),
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(3) {
+    Running => ()
+    _ => fail("expected sfence.vma sequence to run")
+  }
+  assert_eq(runner.read_reg(1), 1U)
+  assert_eq(runner.read_reg(2), 2U)
+  assert_eq(runner.pc(), 12U)
 }
 
 ///|

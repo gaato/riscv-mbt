@@ -194,6 +194,14 @@ fn encode_sret() -> UInt {
 }
 
 ///|
+fn encode_sfence_vma(rs1 : Int, rs2 : Int) -> UInt {
+  (0x09U << 25) |
+  (rs2.reinterpret_as_uint() << 20) |
+  (rs1.reinterpret_as_uint() << 15) |
+  0x73U
+}
+
+///|
 fn encode_fence() -> UInt {
   0x0ff0000fU
 }

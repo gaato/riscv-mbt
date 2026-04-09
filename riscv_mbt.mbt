@@ -136,6 +136,7 @@ pub enum Instruction {
   Csrrwi(Int, Int, UInt)
   Csrrsi(Int, Int, UInt)
   Csrrci(Int, Int, UInt)
+  SfenceVma(Int, Int)
   Ecall
   Mret
   Sret
@@ -266,7 +267,8 @@ const MSTATUS_MIE_BIT : UInt = 0x8U
 const MSTATUS_MPIE_BIT : UInt = 0x80U
 const MSTATUS_MPP_SHIFT : Int = 11
 const MSTATUS_MPP_MASK : UInt = 0x1800U
-const SSTATUS_VISIBLE_MASK : UInt = 0x122U
+const SSTATUS_VISIBLE_MASK : UInt = 0xC0122U
+const MSTATUS_MPRV_BIT : UInt64 = 0x20000 // bit 17
 const MSTATUS_SUM_BIT : UInt64 = 0x40000 // bit 18
 const MSTATUS_MXR_BIT : UInt64 = 0x80000 // bit 19
 
@@ -1411,11 +1413,15 @@ pub fn decode(raw : UInt) -> Instruction {
     0x73U =>
       match funct3(raw) {
         0x0U =>
-          match csr_addr(raw) {
-            0x000 => Ecall
-            0x302 => Mret
-            0x102 => Sret
-            _ => Unknown(raw)
+          if funct7(raw) == 0x09U && rd(raw) == 0 {
+            SfenceVma(rs1(raw), rs2(raw))
+          } else {
+            match csr_addr(raw) {
+              0x000 => Ecall
+              0x302 => Mret
+              0x102 => Sret
+              _ => Unknown(raw)
+            }
           }
         0x1U => Csrrw(rd(raw), csr_addr(raw), rs1(raw))
         0x2U => Csrrs(rd(raw), csr_addr(raw), rs1(raw))
@@ -2248,6 +2254,19 @@ fn Runner::translate_address(
 }
 
 ///|
+fn Runner::effective_data_access_privilege(self : Runner) -> PrivilegeMode {
+  match self.cpu.privilege {
+    Machine => ()
+    _ => return self.cpu.privilege
+  }
+  let mstatus = self.cpu.read_csr(CSR_MSTATUS)
+  if (mstatus & MSTATUS_MPRV_BIT) == 0U.to_uint64() {
+    return Machine
+  }
+  mstatus_mpp(mstatus)
+}
+
+///|
 fn Runner::fetch_instruction(
   self : Runner,
   addr : UInt64,
@@ -2275,7 +2294,8 @@ fn Runner::address_from(self : Runner, rs1 : Int, imm : Int) -> UInt64 {
 
 ///|
 fn Runner::load_check(self : Runner, addr : UInt64, width : Int) -> (UInt64, StepResult?) {
-  let pa = match self.translate_address(addr, Load, self.cpu.privilege) {
+  let privilege = self.effective_data_access_privilege()
+  let pa = match self.translate_address(addr, Load, privilege) {
     TranslatedAddr(pa) => pa
     TranslateFault(cause) =>
       return (addr, Some(self.raise_trap(cause, self.cpu.pc, addr)))
@@ -2289,7 +2309,8 @@ fn Runner::load_check(self : Runner, addr : UInt64, width : Int) -> (UInt64, Ste
 
 ///|
 fn Runner::store_check(self : Runner, addr : UInt64, width : Int) -> (UInt64, StepResult?) {
-  let pa = match self.translate_address(addr, Store, self.cpu.privilege) {
+  let privilege = self.effective_data_access_privilege()
+  let pa = match self.translate_address(addr, Store, privilege) {
     TranslatedAddr(pa) => pa
     TranslateFault(cause) =>
       return (addr, Some(self.raise_trap(cause, self.cpu.pc, addr)))
@@ -3140,6 +3161,10 @@ fn Runner::execute_system(
         raw,
       )
     }
+    SfenceVma(_, _) => {
+      self.cpu.pc = next_pc
+      Running
+    }
     Ecall => {
       let cause = match self.cpu.privilege {
         User => EnvironmentCallFromUMode
@@ -3283,6 +3308,7 @@ pub fn Runner::step(self : Runner) -> StepResult {
     Csrrwi(_, _, _) => self.execute_system(instruction, current_pc, next_pc, raw)
     Csrrsi(_, _, _) => self.execute_system(instruction, current_pc, next_pc, raw)
     Csrrci(_, _, _) => self.execute_system(instruction, current_pc, next_pc, raw)
+    SfenceVma(_, _) => self.execute_system(instruction, current_pc, next_pc, raw)
     Ecall => self.execute_system(instruction, current_pc, next_pc, raw)
     Mret => self.execute_system(instruction, current_pc, next_pc, raw)
     Sret => self.execute_system(instruction, current_pc, next_pc, raw)
