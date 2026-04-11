@@ -141,6 +141,9 @@ pub enum Instruction {
   Csrrsi(Int, Int, UInt)
   Csrrci(Int, Int, UInt)
   SfenceVma(Int, Int)
+  Wfi
+  AmoW(UInt, Int, Int, Int)
+  AmoD(UInt, Int, Int, Int)
   Ecall
   Mret
   Sret
@@ -188,6 +191,7 @@ pub struct Runner {
   uart_output : Array[Byte]
   mut mtime : UInt64
   mut mtimecmp : UInt64
+  plic_regs : Array[Byte] // flat PLIC register file (4 MB)
 }
 
 ///|
@@ -287,11 +291,21 @@ const CSR_SSCRATCH : Int = 0x140
 const CSR_SEPC : Int = 0x141
 const CSR_SCAUSE : Int = 0x142
 const CSR_STVAL : Int = 0x143
+const CSR_SIE : Int = 0x104
+const CSR_SIP : Int = 0x144
 const CSR_SATP : Int = 0x180
 const CSR_PMPCFG0 : Int = 0x3A0
 const CSR_PMPADDR0 : Int = 0x3B0
 const CSR_MNSTATUS : Int = 0x744
+const CSR_MSCRATCH : Int = 0x340
+const CSR_MCOUNTEREN : Int = 0x306
+const CSR_SCOUNTEREN : Int = 0x106
+const CSR_MENVCFG : Int = 0x30A
+const CSR_SENVCFG : Int = 0x10A
 const CSR_MHARTID : Int = 0xF14
+const CSR_MVENDORID : Int = 0xF11
+const CSR_MARCHID : Int = 0xF12
+const CSR_MIMPID : Int = 0xF13
 const XLEN_32 : Int = 32
 const XLEN_64 : Int = 64
 const MSTATUS_SIE_BIT : UInt = 0x2U
@@ -302,13 +316,16 @@ const MSTATUS_MPIE_BIT : UInt = 0x80U
 const MSTATUS_MPP_SHIFT : Int = 11
 const MSTATUS_MPP_MASK : UInt = 0x1800U
 const SSTATUS_VISIBLE_MASK : UInt = 0xC0122U
+// SIP/SIE visible mask: SSIP(bit 1) | STIP(bit 5) | SEIP(bit 9)
+const SIP_VISIBLE_MASK : UInt64 = 0x222
 const MSTATUS_MPRV_BIT : UInt64 = 0x20000 // bit 17
 const MSTATUS_SUM_BIT : UInt64 = 0x40000 // bit 18
 const MSTATUS_MXR_BIT : UInt64 = 0x80000 // bit 19
 
 ///|
 fn misa_value(xlen : Xlen) -> UInt64 {
-  let extensions = 0x101104U.to_uint64()
+  // I=bit8, M=bit12, A=bit0, C=bit2, S=bit18, U=bit20
+  let extensions = 0x141105U.to_uint64()
   match xlen {
     Xlen32 => (1U.to_uint64() << 30) | extensions
     Xlen64 => (2U.to_uint64() << 62) | extensions
@@ -524,6 +541,11 @@ fn funct7(raw : UInt) -> UInt {
 }
 
 ///|
+fn funct5(raw : UInt) -> UInt {
+  (raw >> 27) & 0x1fU
+}
+
+///|
 fn funct6(raw : UInt) -> UInt {
   (raw >> 26) & 0x3fU
 }
@@ -634,6 +656,13 @@ fn c_imm_ci(raw : UInt) -> Int {
 }
 
 ///|
+// For shift instructions (c.srli, c.srai): 6-bit unsigned shift amount.
+// In RV64C, bit12 is the MSB of the 6-bit shift (allows shamt 32-63).
+fn c_shamt6(raw : UInt) -> Int {
+  (((raw >> 12) & 0x1U) << 5 | ((raw >> 2) & 0x1fU)).to_int()
+}
+
+///|
 fn c_lui_imm(raw : UInt) -> UInt {
   (sign_extend((((raw >> 12) & 0x1U) << 5) | ((raw >> 2) & 0x1fU), 6)
     .reinterpret_as_uint()) <<
@@ -704,6 +733,28 @@ fn c_uimm_lwsp(raw : UInt) -> Int {
 fn c_uimm_swsp(raw : UInt) -> Int {
   ((((raw >> 7) & 0x3U) << 6) |
   (((raw >> 9) & 0xfU) << 2)).reinterpret_as_int()
+}
+
+///|
+fn c_uimm_ld_sd(raw : UInt) -> Int {
+  // C.LD/C.SD: uimm[5:3|7:6] — doubleword offset
+  ((((raw >> 10) & 0x7U) << 3) |
+  (((raw >> 5) & 0x3U) << 6)).reinterpret_as_int()
+}
+
+///|
+fn c_uimm_ldsp(raw : UInt) -> Int {
+  // C.LDSP: uimm[5|4:3|8:6]
+  ((((raw >> 2) & 0x7U) << 6) |
+  (((raw >> 5) & 0x3U) << 3) |
+  (((raw >> 12) & 0x1U) << 5)).reinterpret_as_int()
+}
+
+///|
+fn c_uimm_sdsp(raw : UInt) -> Int {
+  // C.SDSP: uimm[5:3|8:6]
+  ((((raw >> 7) & 0x7U) << 6) |
+  (((raw >> 10) & 0x7U) << 3)).reinterpret_as_int()
 }
 
 ///|
@@ -1246,8 +1297,12 @@ fn is_modeled_machine_csr(csr : Int) -> Bool {
     CSR_MEPC => true
     CSR_MCAUSE => true
     CSR_MTVAL => true
+    CSR_MSCRATCH => true
     CSR_MISA => true
     CSR_MHARTID => true
+    CSR_MVENDORID => true
+    CSR_MARCHID => true
+    CSR_MIMPID => true
     _ => false
   }
 }
@@ -1256,6 +1311,8 @@ fn is_modeled_machine_csr(csr : Int) -> Bool {
 fn is_modeled_supervisor_csr(csr : Int) -> Bool {
   match csr {
     CSR_SSTATUS => true
+    CSR_SIE => true
+    CSR_SIP => true
     CSR_STVEC => true
     CSR_SSCRATCH => true
     CSR_SEPC => true
@@ -1274,6 +1331,10 @@ fn is_compatibility_storage_csr(csr : Int) -> Bool {
     CSR_PMPCFG0 => true
     CSR_PMPADDR0 => true
     CSR_MNSTATUS => true
+    CSR_MCOUNTEREN => true
+    CSR_SCOUNTEREN => true
+    CSR_MENVCFG => true
+    CSR_SENVCFG => true
     _ => false
   }
 }
@@ -1283,6 +1344,9 @@ fn is_read_only_csr(csr : Int) -> Bool {
   match csr {
     CSR_MISA => true
     CSR_MHARTID => true
+    CSR_MVENDORID => true
+    CSR_MARCHID => true
+    CSR_MIMPID => true
     _ => false
   }
 }
@@ -1323,6 +1387,7 @@ fn instruction_supported_in_xlen(
     Lwu(_, _, _) => xlen == XLEN_64
     Ld(_, _, _) => xlen == XLEN_64
     Sd(_, _, _) => xlen == XLEN_64
+    AmoD(_, _, _, _) => xlen == XLEN_64
     // C.JAL exists only on RV32C; the 32-bit JAL x1 form remains legal on both widths.
     Jal(rd, _) => !(length == 2 && rd == 1 && xlen == XLEN_64)
     _ => true
@@ -1454,6 +1519,7 @@ pub fn decode(raw : UInt) -> Instruction {
               0x000 => Ecall
               0x302 => Mret
               0x102 => Sret
+              0x105 => Wfi
               _ => Unknown(raw)
             }
           }
@@ -1465,12 +1531,18 @@ pub fn decode(raw : UInt) -> Instruction {
         0x7U => Csrrci(rd(raw), csr_addr(raw), csr_uimm(raw))
         _ => Unknown(raw)
       }
+    0x2fU =>
+      match funct3(raw) {
+        0x2U => AmoW(funct5(raw), rd(raw), rs1(raw), rs2(raw))
+        0x3U => AmoD(funct5(raw), rd(raw), rs1(raw), rs2(raw))
+        _ => Unknown(raw)
+      }
     _ => Unknown(raw)
   }
 }
 
 ///|
-fn decode_c_q0(raw : UInt) -> Instruction {
+fn decode_c_q0(raw : UInt, xlen : Int) -> Instruction {
   match c_funct3(raw) {
     0x0U => {
       let imm = c_nzuimm_addi4spn(raw)
@@ -1481,34 +1553,44 @@ fn decode_c_q0(raw : UInt) -> Instruction {
       }
     }
     0x2U => Lw(c_rd_prime(raw), c_rs1_prime(raw), c_uimm_lw_sw(raw))
+    0x3U =>
+      if xlen == XLEN_64 {
+        Ld(c_rd_prime(raw), c_rs1_prime(raw), c_uimm_ld_sd(raw))
+      } else {
+        Unknown(raw)
+      }
     0x6U => Sw(c_rs1_prime(raw), c_rs2_prime(raw), c_uimm_lw_sw(raw))
+    0x7U =>
+      if xlen == XLEN_64 {
+        Sd(c_rs1_prime(raw), c_rs2_prime(raw), c_uimm_ld_sd(raw))
+      } else {
+        Unknown(raw)
+      }
     _ => Unknown(raw)
   }
 }
 
 ///|
-fn decode_c_q1_cb(raw : UInt) -> Instruction {
+fn decode_c_q1_cb(raw : UInt, xlen : Int) -> Instruction {
   let rd = c_rs1_prime(raw)
   let rs2 = c_rs2_prime(raw)
   match c_funct2_cb(raw) {
-    0x0U => {
-      if ((raw >> 12) & 0x1U) != 0U {
-        Unknown(raw)
-      } else {
-        Srli(rd, rd, c_imm_ci(raw))
-      }
-    }
-    0x1U => {
-      if ((raw >> 12) & 0x1U) != 0U {
-        Unknown(raw)
-      } else {
-        Srai(rd, rd, c_imm_ci(raw))
-      }
-    }
+    // C.SRLI: 6-bit unsigned shift (bit12||bits[6:2]). RV64 allows shamt 32-63.
+    0x0U => Srli(rd, rd, c_shamt6(raw))
+    // C.SRAI: 6-bit unsigned shift. RV64 allows shamt 32-63.
+    0x1U => Srai(rd, rd, c_shamt6(raw))
     0x2U => Andi(rd, rd, c_imm_ci(raw))
     0x3U =>
       if ((raw >> 12) & 0x1U) != 0U {
-        Unknown(raw)
+        if xlen == XLEN_64 {
+          match c_funct2_ca(raw) {
+            0x0U => Subw(rd, rd, rs2)
+            0x1U => Addw(rd, rd, rs2)
+            _ => Unknown(raw)
+          }
+        } else {
+          Unknown(raw)
+        }
       } else {
         match c_funct2_ca(raw) {
           0x0U => Sub(rd, rd, rs2)
@@ -1523,10 +1605,15 @@ fn decode_c_q1_cb(raw : UInt) -> Instruction {
 }
 
 ///|
-fn decode_c_q1(raw : UInt) -> Instruction {
+fn decode_c_q1(raw : UInt, xlen : Int) -> Instruction {
   match c_funct3(raw) {
     0x0U => Addi(c_rd_rs1(raw), c_rd_rs1(raw), c_imm_ci(raw))
-    0x1U => Jal(1, c_imm_cj(raw))
+    0x1U =>
+      if xlen == XLEN_64 {
+        Addiw(c_rd_rs1(raw), c_rd_rs1(raw), c_imm_ci(raw))
+      } else {
+        Jal(1, c_imm_cj(raw))
+      }
     0x2U => Addi(c_rd_rs1(raw), 0, c_imm_ci(raw))
     0x3U => {
       let rd = c_rd_rs1(raw)
@@ -1546,7 +1633,7 @@ fn decode_c_q1(raw : UInt) -> Instruction {
         }
       }
     }
-    0x4U => decode_c_q1_cb(raw)
+    0x4U => decode_c_q1_cb(raw, xlen)
     0x5U => Jal(0, c_imm_cj(raw))
     0x6U => Beq(c_rs1_prime(raw), 0, c_imm_cb(raw))
     0x7U => Bne(c_rs1_prime(raw), 0, c_imm_cb(raw))
@@ -1574,7 +1661,8 @@ fn decode_c_q2_cr(raw : UInt) -> Instruction {
 }
 
 ///|
-fn decode_c_q2(raw : UInt) -> Instruction {
+fn decode_c_q2(raw : UInt, xlen : Int) -> Instruction {
+  ignore(xlen)
   match c_funct3(raw) {
     0x0U => {
       let rd = c_rd_rs1(raw)
@@ -1592,18 +1680,27 @@ fn decode_c_q2(raw : UInt) -> Instruction {
         Lw(rd, 2, c_uimm_lwsp(raw))
       }
     }
+    0x3U => {
+      let rd = c_rd_rs1(raw)
+      if rd == 0 {
+        Unknown(raw)
+      } else {
+        Ld(rd, 2, c_uimm_ldsp(raw))
+      }
+    }
     0x4U => decode_c_q2_cr(raw)
     0x6U => Sw(2, c_rs2(raw), c_uimm_swsp(raw))
+    0x7U => Sd(2, c_rs2(raw), c_uimm_sdsp(raw))
     _ => Unknown(raw)
   }
 }
 
 ///|
-fn decode_compressed(raw : UInt) -> Instruction {
+fn decode_compressed(raw : UInt, xlen : Int) -> Instruction {
   match raw & 0x3U {
-    0x0U => decode_c_q0(raw)
-    0x1U => decode_c_q1(raw)
-    0x2U => decode_c_q2(raw)
+    0x0U => decode_c_q0(raw, xlen)
+    0x1U => decode_c_q1(raw, xlen)
+    0x2U => decode_c_q2(raw, xlen)
     _ => Unknown(raw)
   }
 }
@@ -1617,6 +1714,11 @@ pub fn make_runner(config : MachineConfig) -> Runner {
     uart_output: [],
     mtime: 0U.to_uint64(),
     mtimecmp: bit_not(0U.to_uint64()),
+    plic_regs: if config.plic_base != 0U.to_uint64() {
+      Array::make(0x400000, 0U.to_byte())
+    } else {
+      []
+    },
   }
 }
 
@@ -1687,6 +1789,19 @@ pub fn Runner::load_program_u64(
 ) -> Unit {
   self.bus.write_bytes(base_addr, bytes)
   self.cpu.pc = base_addr
+}
+
+///|
+/// Load a DTB blob into RAM at config.dtb_addr.
+pub fn Runner::load_dtb(self : Runner, dtb : Bytes) -> Unit {
+  self.bus.write_bytes(self.config.dtb_addr, dtb)
+}
+
+///|
+/// Set up the SBI/Linux boot ABI: a0 = hart_id, a1 = dtb_addr.
+pub fn Runner::setup_boot_abi(self : Runner) -> Unit {
+  self.cpu.write_reg(10, self.config.hart_id) // a0 = hart_id
+  self.cpu.write_reg(11, self.config.dtb_addr) // a1 = dtb_addr
 }
 
 ///|
@@ -2366,39 +2481,51 @@ fn Runner::store_check(self : Runner, addr : UInt64, width : Int) -> (UInt64, St
 // ---------------------------------------------------------------------------
 
 ///|
-fn Runner::uart_range(self : Runner) -> (UInt64, UInt64) {
-  // 8-register bank, 1 byte each
-  let base = self.config.uart0_base
-  (base, base + 8U.to_uint64())
+pub(all) enum PhyTarget {
+  PhyRam
+  PhyUart(UInt64) // offset within UART register bank
+  PhyClint(UInt64) // offset within CLINT region
+  PhyPlic(UInt64) // offset within PLIC region
+  PhyNone // unmapped
 }
 
 ///|
-fn Runner::clint_range(self : Runner) -> (UInt64, UInt64) {
-  // QEMU virt CLINT occupies 0x10000 bytes
-  let base = self.config.clint_base
-  (base, base + 0x10000U.to_uint64())
-}
-
-///|
-fn Runner::phy_contains(self : Runner, pa : UInt64, width : Int) -> Bool {
+fn Runner::phy_dispatch(self : Runner, pa : UInt64, width : Int) -> PhyTarget {
   if self.bus.contains_range(pa, width) {
-    return true
+    return PhyRam
   }
   let w = width.to_uint64()
   let zero = 0U.to_uint64()
   if self.config.uart0_base != zero {
-    let (lo, hi) = self.uart_range()
-    if pa >= lo && pa + w <= hi {
-      return true
+    let base = self.config.uart0_base
+    let end = base + 8U.to_uint64()
+    if pa >= base && pa + w <= end {
+      return PhyUart(pa - base)
     }
   }
   if self.config.clint_base != zero {
-    let (lo, hi) = self.clint_range()
-    if pa >= lo && pa + w <= hi {
-      return true
+    let base = self.config.clint_base
+    let end = base + 0x10000U.to_uint64()
+    if pa >= base && pa + w <= end {
+      return PhyClint(pa - base)
     }
   }
-  false
+  if self.config.plic_base != zero {
+    let base = self.config.plic_base
+    let end = base + 0x400000U.to_uint64()
+    if pa >= base && pa + w <= end {
+      return PhyPlic(pa - base)
+    }
+  }
+  PhyNone
+}
+
+///|
+fn Runner::phy_contains(self : Runner, pa : UInt64, width : Int) -> Bool {
+  match self.phy_dispatch(pa, width) {
+    PhyNone => false
+    _ => true
+  }
 }
 
 ///|
@@ -2411,163 +2538,184 @@ let clint_mtimecmp_lo_offset : UInt64 = 0x4000U.to_uint64()
 
 let clint_mtimecmp_hi_offset : UInt64 = 0x4004U.to_uint64()
 
+// ---------------------------------------------------------------------------
+// UART register read/write (16550A minimum)
+// ---------------------------------------------------------------------------
+
+///|
+fn Runner::uart_read(self : Runner, off : UInt64) -> UInt64 {
+  // LSR (offset 5): always report THRE+TEMT (TX empty)
+  if off == 5U.to_uint64() {
+    return 0x60U.to_uint64()
+  }
+  0U.to_uint64()
+}
+
+///|
+fn Runner::uart_write(self : Runner, off : UInt64, value : UInt64) -> Unit {
+  // THR (offset 0): capture the character
+  if off == 0U.to_uint64() {
+    self.uart_output.push(value.to_byte())
+  }
+}
+
+// ---------------------------------------------------------------------------
+// PLIC register read/write (flat register file, claim always returns 0)
+// Layout: priority 0x000000, pending 0x001000, enable 0x002000,
+//         threshold 0x200000+ctx*0x1000, claim 0x200004+ctx*0x1000
+// ---------------------------------------------------------------------------
+
+///|
+fn Runner::plic_read_u8(self : Runner, off : UInt64) -> UInt64 {
+  let idx = off.to_int()
+  if idx < self.plic_regs.length() {
+    self.plic_regs[idx].to_uint64()
+  } else {
+    0U.to_uint64()
+  }
+}
+
+///|
+fn Runner::plic_read_u32(self : Runner, off : UInt64) -> UInt64 {
+  let idx = off.to_int()
+  // Claim register: offset 0x200004 + context*0x1000, always returns 0
+  let ctx_off = idx - 0x200000
+  if ctx_off >= 0 && ctx_off % 0x1000 == 4 {
+    return 0U.to_uint64()
+  }
+  if idx + 3 < self.plic_regs.length() {
+    self.plic_regs[idx].to_uint64() |
+    (self.plic_regs[idx + 1].to_uint64() << 8) |
+    (self.plic_regs[idx + 2].to_uint64() << 16) |
+    (self.plic_regs[idx + 3].to_uint64() << 24)
+  } else {
+    0U.to_uint64()
+  }
+}
+
+///|
+fn Runner::plic_write_u8(self : Runner, off : UInt64, value : UInt64) -> Unit {
+  let idx = off.to_int()
+  if idx < self.plic_regs.length() {
+    self.plic_regs[idx] = value.to_byte()
+  }
+}
+
+///|
+fn Runner::plic_write_u32(
+  self : Runner,
+  off : UInt64,
+  value : UInt64,
+) -> Unit {
+  let idx = off.to_int()
+  // Complete register: same offset as claim (0x200004+ctx*0x1000), write ignored
+  let ctx_off = idx - 0x200000
+  if ctx_off >= 0 && ctx_off % 0x1000 == 4 {
+    return
+  }
+  if idx + 3 < self.plic_regs.length() {
+    self.plic_regs[idx] = value.to_byte()
+    self.plic_regs[idx + 1] = (value >> 8).to_byte()
+    self.plic_regs[idx + 2] = (value >> 16).to_byte()
+    self.plic_regs[idx + 3] = (value >> 24).to_byte()
+  }
+}
+
+// ---------------------------------------------------------------------------
+// Physical load helpers — dispatch on PhyTarget
+// ---------------------------------------------------------------------------
+
 ///|
 fn Runner::phy_load_u8(self : Runner, pa : UInt64) -> UInt64 {
-  if self.config.uart0_base != 0U.to_uint64() {
-    let (lo, hi) = self.uart_range()
-    if pa >= lo && pa < hi {
-      let off = pa - lo
-      // LSR (offset 5): always report THRE+TEMT (TX empty) so firmware knows
-      // the FIFO is ready.  All other registers read as zero.
-      if off == 5U.to_uint64() {
-        return 0x60U.to_uint64()
-      }
-      return 0U.to_uint64()
-    }
+  match self.phy_dispatch(pa, 1) {
+    PhyUart(off) => self.uart_read(off)
+    PhyClint(off) => self.clint_reg_byte(off)
+    PhyPlic(off) => self.plic_read_u8(off)
+    _ => self.bus.load_u8(pa)
   }
-  if self.config.clint_base != 0U.to_uint64() {
-    let (lo, hi) = self.clint_range()
-    if pa >= lo && pa < hi {
-      let off = pa - lo
-      return self.clint_reg_byte(off)
-    }
-  }
-  self.bus.load_u8(pa)
 }
 
 ///|
 fn Runner::phy_load_u16(self : Runner, pa : UInt64) -> UInt64 {
-  if self.config.uart0_base != 0U.to_uint64() {
-    let (lo, hi) = self.uart_range()
-    if pa >= lo && pa + 2U.to_uint64() <= hi {
-      return 0U.to_uint64()
-    }
+  match self.phy_dispatch(pa, 2) {
+    PhyUart(_) => 0U.to_uint64()
+    PhyClint(off) => self.clint_reg_halfword(off)
+    PhyPlic(off) =>
+      self.plic_read_u8(off) | (self.plic_read_u8(off + 1U.to_uint64()) << 8)
+    _ => self.bus.load_u16(pa)
   }
-  if self.config.clint_base != 0U.to_uint64() {
-    let (lo, hi) = self.clint_range()
-    if pa >= lo && pa + 2U.to_uint64() <= hi {
-      let off = pa - lo
-      return self.clint_reg_halfword(off)
-    }
-  }
-  self.bus.load_u16(pa)
 }
 
 ///|
 fn Runner::phy_load_u32(self : Runner, pa : UInt64) -> UInt64 {
-  if self.config.uart0_base != 0U.to_uint64() {
-    let (lo, hi) = self.uart_range()
-    if pa >= lo && pa + 4U.to_uint64() <= hi {
-      return 0U.to_uint64()
-    }
+  match self.phy_dispatch(pa, 4) {
+    PhyUart(_) => 0U.to_uint64()
+    PhyClint(off) => self.clint_reg_word(off)
+    PhyPlic(off) => self.plic_read_u32(off)
+    _ => self.bus.load_u32(pa)
   }
-  if self.config.clint_base != 0U.to_uint64() {
-    let (lo, hi) = self.clint_range()
-    if pa >= lo && pa + 4U.to_uint64() <= hi {
-      let off = pa - lo
-      return self.clint_reg_word(off)
-    }
-  }
-  self.bus.load_u32(pa)
 }
 
 ///|
 fn Runner::phy_load_u64(self : Runner, pa : UInt64) -> UInt64 {
-  if self.config.uart0_base != 0U.to_uint64() {
-    let (lo, hi) = self.uart_range()
-    if pa >= lo && pa + 8U.to_uint64() <= hi {
-      return 0U.to_uint64()
-    }
+  match self.phy_dispatch(pa, 8) {
+    PhyUart(_) => 0U.to_uint64()
+    PhyClint(off) => self.clint_reg_dword(off)
+    PhyPlic(off) =>
+      self.plic_read_u32(off) |
+      (self.plic_read_u32(off + 4U.to_uint64()) << 32)
+    _ => self.bus.load_u64(pa)
   }
-  if self.config.clint_base != 0U.to_uint64() {
-    let (lo, hi) = self.clint_range()
-    if pa >= lo && pa + 8U.to_uint64() <= hi {
-      let off = pa - lo
-      return self.clint_reg_dword(off)
-    }
-  }
-  self.bus.load_u64(pa)
 }
+
+// ---------------------------------------------------------------------------
+// Physical store helpers — dispatch on PhyTarget
+// ---------------------------------------------------------------------------
 
 ///|
 fn Runner::phy_store_u8(self : Runner, pa : UInt64, value : UInt64) -> Unit {
-  if self.config.uart0_base != 0U.to_uint64() {
-    let (lo, hi) = self.uart_range()
-    if pa >= lo && pa < hi {
-      let off = pa - lo
-      // Offset 0 = THR (transmit holding register): capture the character
-      if off == 0U.to_uint64() {
-        self.uart_output.push(value.to_byte())
-      }
-      return
-    }
+  match self.phy_dispatch(pa, 1) {
+    PhyUart(off) => self.uart_write(off, value)
+    PhyClint(off) => self.clint_store_byte(off, value)
+    PhyPlic(off) => self.plic_write_u8(off, value)
+    _ => self.bus.store_u8(pa, value)
   }
-  if self.config.clint_base != 0U.to_uint64() {
-    let (lo, hi) = self.clint_range()
-    if pa >= lo && pa < hi {
-      let off = pa - lo
-      self.clint_store_byte(off, value)
-      return
-    }
-  }
-  self.bus.store_u8(pa, value)
 }
 
 ///|
 fn Runner::phy_store_u16(self : Runner, pa : UInt64, value : UInt64) -> Unit {
-  if self.config.uart0_base != 0U.to_uint64() {
-    let (lo, hi) = self.uart_range()
-    if pa >= lo && pa + 2U.to_uint64() <= hi {
-      return
+  match self.phy_dispatch(pa, 2) {
+    PhyUart(_) => ()
+    PhyClint(off) => self.clint_store_halfword(off, value)
+    PhyPlic(off) => {
+      self.plic_write_u8(off, value)
+      self.plic_write_u8(off + 1U.to_uint64(), value >> 8)
     }
+    _ => self.bus.store_u16(pa, value)
   }
-  if self.config.clint_base != 0U.to_uint64() {
-    let (lo, hi) = self.clint_range()
-    if pa >= lo && pa + 2U.to_uint64() <= hi {
-      let off = pa - lo
-      self.clint_store_halfword(off, value)
-      return
-    }
-  }
-  self.bus.store_u16(pa, value)
 }
 
 ///|
 fn Runner::phy_store_u32(self : Runner, pa : UInt64, value : UInt64) -> Unit {
-  if self.config.uart0_base != 0U.to_uint64() {
-    let (lo, hi) = self.uart_range()
-    if pa >= lo && pa + 4U.to_uint64() <= hi {
-      return
-    }
+  match self.phy_dispatch(pa, 4) {
+    PhyUart(_) => ()
+    PhyClint(off) => self.clint_store_word(off, value)
+    PhyPlic(off) => self.plic_write_u32(off, value)
+    _ => self.bus.store_u32(pa, value)
   }
-  if self.config.clint_base != 0U.to_uint64() {
-    let (lo, hi) = self.clint_range()
-    if pa >= lo && pa + 4U.to_uint64() <= hi {
-      let off = pa - lo
-      self.clint_store_word(off, value)
-      return
-    }
-  }
-  self.bus.store_u32(pa, value)
 }
 
 ///|
 fn Runner::phy_store_u64(self : Runner, pa : UInt64, value : UInt64) -> Unit {
-  if self.config.uart0_base != 0U.to_uint64() {
-    let (lo, hi) = self.uart_range()
-    if pa >= lo && pa + 8U.to_uint64() <= hi {
-      return
+  match self.phy_dispatch(pa, 8) {
+    PhyUart(_) => ()
+    PhyClint(off) => self.clint_store_dword(off, value)
+    PhyPlic(off) => {
+      self.plic_write_u32(off, value)
+      self.plic_write_u32(off + 4U.to_uint64(), value >> 32)
     }
+    _ => self.bus.store_u64(pa, value)
   }
-  if self.config.clint_base != 0U.to_uint64() {
-    let (lo, hi) = self.clint_range()
-    if pa >= lo && pa + 8U.to_uint64() <= hi {
-      let off = pa - lo
-      self.clint_store_dword(off, value)
-      return
-    }
-  }
-  self.bus.store_u64(pa, value)
 }
 
 // ---------------------------------------------------------------------------
@@ -2724,6 +2872,28 @@ pub fn Runner::clint_mtime(self : Runner) -> UInt64 {
 ///|
 pub fn Runner::clint_mtimecmp(self : Runner) -> UInt64 {
   self.mtimecmp
+}
+
+// ---------------------------------------------------------------------------
+// Timer tick: advance mtime and set/clear MIP.MTIP
+// Called once per step() before instruction execution.
+// ---------------------------------------------------------------------------
+
+///|
+let mip_mtip_bit : UInt64 = 0x80U.to_uint64() // bit 7
+
+///|
+fn Runner::update_timer(self : Runner) -> Unit {
+  if self.config.clint_base == 0U.to_uint64() {
+    return
+  }
+  self.mtime = self.mtime + 1U.to_uint64()
+  let mip = self.cpu.read_csr(CSR_MIP)
+  if self.mtime >= self.mtimecmp {
+    self.cpu.write_csr(CSR_MIP, mip | mip_mtip_bit)
+  } else {
+    self.cpu.write_csr(CSR_MIP, mip & bit_not(mip_mtip_bit))
+  }
 }
 
 ///|
@@ -3343,6 +3513,130 @@ fn Runner::execute_store(
 }
 
 ///|
+fn amo_op(funct5 : UInt, old_val : UInt64, src : UInt64, xlen : Int) -> UInt64 {
+  match funct5 {
+    0x01U => src // AMOSWAP
+    0x00U => old_val + src // AMOADD
+    0x04U => old_val ^ src // AMOXOR
+    0x0cU => old_val & src // AMOAND
+    0x08U => old_val | src // AMOOR
+    0x10U => // AMOMIN (signed)
+      if xlen_compare_signed(old_val, src, xlen) <= 0 { old_val } else { src }
+    0x14U => // AMOMAX (signed)
+      if xlen_compare_signed(old_val, src, xlen) >= 0 { old_val } else { src }
+    0x18U => // AMOMINU (unsigned)
+      if xlen_compare_unsigned(old_val, src, xlen) <= 0 { old_val } else { src }
+    0x1cU => // AMOMAXU (unsigned)
+      if xlen_compare_unsigned(old_val, src, xlen) >= 0 { old_val } else { src }
+    _ => old_val // should not happen; caller validates
+  }
+}
+
+///|
+fn Runner::execute_amo(
+  self : Runner,
+  instruction : Instruction,
+  current_pc : UInt64,
+  next_pc : UInt64,
+  raw : UInt,
+) -> StepResult {
+  match instruction {
+    AmoW(funct5_val, rd, rs1, rs2) => {
+      let addr = self.cpu.read_reg(rs1)
+      // LR.W
+      if funct5_val == 0x02U {
+        let (pa, check) = self.load_check(addr, 4)
+        match check {
+          Some(result) => return result
+          None => ()
+        }
+        let loaded = self.phy_load_u32(pa)
+        let sign_extended = xlen_sign_extend(loaded, 32, self.xlen_bits())
+        self.write_xlen_reg(rd, sign_extended)
+        self.cpu.pc = next_pc
+        return Running
+      }
+      // SC.W — always succeeds on single-hart
+      if funct5_val == 0x03U {
+        let (pa, check) = self.store_check(addr, 4)
+        match check {
+          Some(result) => return result
+          None => ()
+        }
+        self.phy_store_u32(pa, self.cpu.read_reg(rs2))
+        self.write_xlen_reg(rd, 0U.to_uint64()) // 0 = success
+        self.cpu.pc = next_pc
+        return Running
+      }
+      // Other AMO.W: load-op-store
+      let (pa, lcheck) = self.load_check(addr, 4)
+      match lcheck {
+        Some(result) => return result
+        None => ()
+      }
+      let (spa, scheck) = self.store_check(addr, 4)
+      match scheck {
+        Some(result) => return result
+        None => ()
+      }
+      let old_val = xlen_sign_extend(self.phy_load_u32(pa), 32, self.xlen_bits())
+      let src = self.cpu.read_reg(rs2)
+      let new_val = amo_op(funct5_val, old_val, src, self.xlen_bits())
+      self.phy_store_u32(spa, new_val)
+      self.write_xlen_reg(rd, old_val)
+      self.cpu.pc = next_pc
+      Running
+    }
+    AmoD(funct5_val, rd, rs1, rs2) => {
+      let addr = self.cpu.read_reg(rs1)
+      // LR.D
+      if funct5_val == 0x02U {
+        let (pa, check) = self.load_check(addr, 8)
+        match check {
+          Some(result) => return result
+          None => ()
+        }
+        let loaded = self.phy_load_u64(pa)
+        self.write_xlen_reg(rd, loaded)
+        self.cpu.pc = next_pc
+        return Running
+      }
+      // SC.D — always succeeds on single-hart
+      if funct5_val == 0x03U {
+        let (pa, check) = self.store_check(addr, 8)
+        match check {
+          Some(result) => return result
+          None => ()
+        }
+        self.phy_store_u64(pa, self.cpu.read_reg(rs2))
+        self.write_xlen_reg(rd, 0U.to_uint64())
+        self.cpu.pc = next_pc
+        return Running
+      }
+      // Other AMO.D: load-op-store
+      let (pa, lcheck) = self.load_check(addr, 8)
+      match lcheck {
+        Some(result) => return result
+        None => ()
+      }
+      let (spa, scheck) = self.store_check(addr, 8)
+      match scheck {
+        Some(result) => return result
+        None => ()
+      }
+      let old_val = self.phy_load_u64(pa)
+      let src = self.cpu.read_reg(rs2)
+      let new_val = amo_op(funct5_val, old_val, src, self.xlen_bits())
+      self.phy_store_u64(spa, new_val)
+      self.write_xlen_reg(rd, old_val)
+      self.cpu.pc = next_pc
+      Running
+    }
+    _ => self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+  }
+}
+
+///|
 fn Runner::execute_jump(
   self : Runner,
   instruction : Instruction,
@@ -3368,6 +3662,8 @@ fn Runner::execute_jump(
 fn Runner::read_csr_visible(self : Runner, csr : Int) -> UInt64 {
   match csr {
     CSR_SSTATUS => self.cpu.read_csr(CSR_MSTATUS) & SSTATUS_VISIBLE_MASK.to_uint64()
+    CSR_SIP => self.cpu.read_csr(CSR_MIP) & SIP_VISIBLE_MASK
+    CSR_SIE => self.cpu.read_csr(CSR_MIE) & SIP_VISIBLE_MASK
     _ => self.cpu.read_csr(csr)
   }
 }
@@ -3381,6 +3677,20 @@ fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
         (mstatus & bit_not(SSTATUS_VISIBLE_MASK.to_uint64())) |
         (value & SSTATUS_VISIBLE_MASK.to_uint64())
       self.cpu.write_csr(CSR_MSTATUS, next_mstatus)
+    }
+    CSR_SIP => {
+      let mip = self.cpu.read_csr(CSR_MIP)
+      self.cpu.write_csr(
+        CSR_MIP,
+        (mip & bit_not(SIP_VISIBLE_MASK)) | (value & SIP_VISIBLE_MASK),
+      )
+    }
+    CSR_SIE => {
+      let mie = self.cpu.read_csr(CSR_MIE)
+      self.cpu.write_csr(
+        CSR_MIE,
+        (mie & bit_not(SIP_VISIBLE_MASK)) | (value & SIP_VISIBLE_MASK),
+      )
     }
     _ => self.cpu.write_csr(csr, value)
   }
@@ -3549,6 +3859,8 @@ fn Runner::execute_sret(self : Runner) -> StepResult {
 
 ///|
 pub fn Runner::step(self : Runner) -> StepResult {
+  // Advance CLINT mtime and update MIP.MTIP
+  self.update_timer()
   let current_pc = self.cpu.pc
   let fetch_pa = match self.translate_address(current_pc, Fetch, self.cpu.privilege) {
     TranslatedAddr(pa) => pa
@@ -3562,7 +3874,7 @@ pub fn Runner::step(self : Runner) -> StepResult {
   let next_pc = current_pc + fetched.length.reinterpret_as_uint().to_uint64()
   let raw = fetched.raw
   let instruction = if fetched.length == 2 {
-    decode_compressed(raw)
+    decode_compressed(raw, self.xlen_bits())
   } else {
     decode(raw)
   }
@@ -3658,6 +3970,12 @@ pub fn Runner::step(self : Runner) -> StepResult {
     Csrrsi(_, _, _) => self.execute_system(instruction, current_pc, next_pc, raw)
     Csrrci(_, _, _) => self.execute_system(instruction, current_pc, next_pc, raw)
     SfenceVma(_, _) => self.execute_system(instruction, current_pc, next_pc, raw)
+    Wfi => {
+      self.cpu.pc = next_pc
+      Running
+    }
+    AmoW(_, _, _, _) => self.execute_amo(instruction, current_pc, next_pc, raw)
+    AmoD(_, _, _, _) => self.execute_amo(instruction, current_pc, next_pc, raw)
     Ecall => self.execute_system(instruction, current_pc, next_pc, raw)
     Mret => self.execute_system(instruction, current_pc, next_pc, raw)
     Sret => self.execute_system(instruction, current_pc, next_pc, raw)

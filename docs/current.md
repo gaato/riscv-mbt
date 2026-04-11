@@ -31,8 +31,8 @@
 - [Delegation routing and `SRET`](tasks/0038-delegation-routing-and-sret.md) — `done`
 - [S-mode closure before `Sv39`](tasks/0039-s-mode-closure-before-sv39.md) — `done`
 - [Add Sv39 and SFENCE.VMA](tasks/0013-sv39-and-sfence-vma.md) — `done`
-- [Integrate OpenSBI and a virt-like platform](tasks/0014-opensbi-and-virt-platform.md) — `doing`
-- [Meet the Linux boot ABI on one hart](tasks/0015-linux-boot-abi-single-hart.md) — `todo`
+- [Integrate OpenSBI and a virt-like platform](tasks/0014-opensbi-and-virt-platform.md) — `done`
+- [Meet the Linux boot ABI on one hart](tasks/0015-linux-boot-abi-single-hart.md) — `doing`
 - [Add SMP after single-hart boot](tasks/0016-smp-after-single-hart.md) — `todo`
 - [Load official `riscv-tests` binaries](tasks/0024-official-riscv-tests-loader.md) — `done`
 - [Add minimal `env/p` support](tasks/0025-minimal-env-p-support.md) — `done`
@@ -44,7 +44,7 @@
 
 ## Next Task
 
-- Continue [Task 0014](tasks/0014-opensbi-and-virt-platform.md): integrate OpenSBI and a `virt`-like platform on top of the now-closed `Sv39` baseline.
+- [Task 0015](tasks/0015-linux-boot-abi-single-hart.md): load a real riscv64 Linux kernel and observe early printk output (S-mode entry ABI confirmed via stub, DTB generation is in-place).
 
 ## Known Blockers
 

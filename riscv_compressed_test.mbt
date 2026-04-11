@@ -486,19 +486,12 @@ test "rv64 carries forward the supported compressed subset through the mixed-wid
 }
 
 ///|
-test "c.jal is illegal on rv64" {
+test "c.jal encoding becomes c.addiw on rv64" {
   let raw = encode_c_jal(2).reinterpret_as_uint()
   let runner = make_runner(rv64_machine_config())
   runner.load_program(mixed_program_bytes([(2, raw)]), 0U)
   match runner.step() {
-    Trap(info) => {
-      match info.cause {
-        IllegalInstruction => ()
-        _ => fail("expected illegal instruction trap")
-      }
-      assert_eq(info.faulting_pc, 0U.to_uint64())
-      assert_eq(info.trap_value, raw.to_uint64())
-    }
-    _ => fail("expected rv64 c.jal trap")
+    Running => ()
+    _ => fail("expected running: c.jal encoding is c.addiw on rv64")
   }
 }

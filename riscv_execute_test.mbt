@@ -378,7 +378,7 @@ test "reset invariants are explicit for modeled machine state" {
     Machine => ()
     _ => fail("expected machine mode after reset")
   }
-  assert_eq(runner.read_csr(0x301), 0x40101104U)
+  assert_eq(runner.read_csr(0x301), 0x40141105U)
   assert_eq(runner.read_csr(0xF14), 0U)
   assert_eq(runner.read_csr(0x300), 0U)
   assert_eq(runner.read_csr(0x304), 0U)
@@ -828,8 +828,8 @@ test "csr instruction families enforce the supported surface and no-write semant
   assert_eq(runner.read_reg(5), 5U)
   assert_eq(runner.read_reg(6), 7U)
   assert_eq(runner.read_reg(7), 7U)
-  assert_eq(runner.read_reg(8), 0x40101104U)
-  assert_eq(runner.read_reg(9), 0x40101104U)
+  assert_eq(runner.read_reg(8), 0x40141105U)
+  assert_eq(runner.read_reg(9), 0x40141105U)
   assert_eq(runner.read_csr(0x305), 6U)
 }
 
@@ -877,7 +877,7 @@ test "csr contract distinguishes modeled, compatibility-only, and unsupported cs
   }
   assert_eq(runner.read_csr(0x344), 5U)
   assert_eq(runner.read_csr(0x302), 5U)
-  let unsupported = encode_csr(0x340, 1, 0x1U, 0)
+  let unsupported = encode_csr(0x7A0, 1, 0x1U, 0)
   let trap_runner = make_runner(default_machine_config())
   trap_runner.load_program(words_to_bytes([unsupported]), 0U)
   match trap_runner.step() {
@@ -894,7 +894,7 @@ test "csr contract distinguishes modeled, compatibility-only, and unsupported cs
 
 ///|
 test "unsupported csr access traps as illegal instruction" {
-  let raw = encode_csr(0x340, 0, 0x2U, 1)
+  let raw = encode_csr(0x7A0, 0, 0x2U, 1)
   let runner = make_runner(default_machine_config())
   runner.load_program(words_to_bytes([raw]), 0U)
   match runner.step() {
@@ -994,7 +994,7 @@ test "rv64 machine config resets widened state and misa" {
   assert_eq(runner.read_reg_u64(1), 0U.to_uint64())
   assert_eq(
     runner.read_csr_u64(0x301),
-    (2U.to_uint64() << 62) | 0x101104U.to_uint64(),
+    (2U.to_uint64() << 62) | 0x141105U.to_uint64(),
   )
   assert_eq(runner.read_csr_u64(0xF14), 0U.to_uint64())
   let config = runner.config()
@@ -1251,8 +1251,10 @@ test "clint mtime read/write via sd/ld 64-bit" {
     Running => ()
     _ => fail("expected running after clint mtime write/read")
   }
-  assert_eq(runner.clint_mtime(), 66U.to_uint64())
-  assert_eq(runner.read_reg_u64(4), 66U.to_uint64())
+  // After 5 steps, update_timer incremented mtime once on the LD step
+  // (step 5), so the value read from mtime is 66 + 1 = 67.
+  assert_eq(runner.clint_mtime(), 67U.to_uint64())
+  assert_eq(runner.read_reg_u64(4), 67U.to_uint64())
 }
 
 ///|
@@ -1299,5 +1301,519 @@ test "non-device non-ram physical address faults with Trap" {
   match runner.step() {
     Trap(_) => ()
     Running => fail("expected Trap for unmapped address, got Running")
+  }
+}
+
+///|
+test "mtime auto-increments each step" {
+  // Run 10 NOP instructions (ADDI x0, x0, 0) and verify mtime == 10.
+  let nop = encode_i(0, 0, 0x0U, 0, 0x13U)
+  let program = words_to_bytes([nop, nop, nop, nop, nop, nop, nop, nop, nop, nop])
+  let runner = make_runner(virt_machine_config())
+  runner.load_program_u64(program, 0x80000000U.to_uint64())
+  match runner.run(10) {
+    Running => ()
+    _ => fail("expected running after 10 NOPs")
+  }
+  assert_eq(runner.clint_mtime(), 10U.to_uint64())
+}
+
+///|
+test "MIP.MTIP set when mtime >= mtimecmp" {
+  // Default mtimecmp = MAX, so MTIP is never set until we lower mtimecmp.
+  // Write mtimecmp = 3 via SD. update_timer runs BEFORE each instruction,
+  // so the new mtimecmp takes effect on the NEXT step after SD.
+  // mtimecmp[0] = clint_base + 0x4000 = 0x02004000
+  // Step timeline (update_timer then instruction):
+  //   1. tick mtime 0→1, 1<MAX → MTIP clear;  LUI x1, 0x2004
+  //   2. tick mtime 1→2, 2<MAX → MTIP clear;  ADDI x2, x0, 3
+  //   3. tick mtime 2→3, 3<MAX → MTIP clear;  SD x2,0(x1) → mtimecmp=3
+  //   4. tick mtime 3→4, 4>=3  → MTIP SET;    NOP
+  let program = words_to_bytes([
+    encode_u(0x02004000U, 1, 0x37U),
+    encode_i(3, 0, 0x0U, 2, 0x13U),
+    encode_s(0, 2, 1, 0x3U, 0x23U),
+    encode_i(0, 0, 0x0U, 0, 0x13U),
+  ])
+  let runner = make_runner(virt_machine_config())
+  runner.load_program_u64(program, 0x80000000U.to_uint64())
+  // After 3 steps: mtime=3, mtimecmp just set to 3, but MTIP was evaluated
+  // with old mtimecmp(MAX) so still clear.
+  match runner.run(3) {
+    Running => ()
+    _ => fail("expected running")
+  }
+  assert_eq(runner.clint_mtime(), 3U.to_uint64())
+  assert_eq(runner.clint_mtimecmp(), 3U.to_uint64())
+  let mip_after_3 = runner.cpu.read_csr(0x344)
+  assert_eq(mip_after_3 & 0x80U.to_uint64(), 0U.to_uint64())
+  // Step 4: update_timer sees mtime=4 >= mtimecmp=3 → MTIP set
+  match runner.step() {
+    Running => ()
+    _ => fail("expected running after NOP")
+  }
+  let mip_after_4 = runner.cpu.read_csr(0x344)
+  assert_eq(mip_after_4 & 0x80U.to_uint64(), 0x80U.to_uint64())
+}
+
+///|
+test "MIP.MTIP cleared when mtimecmp raised above mtime" {
+  // Set mtimecmp=2 so MTIP fires, then raise mtimecmp=100 so MTIP clears.
+  // update_timer runs BEFORE each instruction, so mtimecmp changes take
+  // effect on the next step.
+  // Step timeline:
+  //   1. tick 0→1, 1<MAX  → clear;  LUI x1, 0x2004
+  //   2. tick 1→2, 2<MAX  → clear;  ADDI x2, x0, 2
+  //   3. tick 2→3, 3<MAX  → clear;  SD x2,0(x1) → mtimecmp=2
+  //   4. tick 3→4, 4>=2   → SET;    ADDI x2, x0, 100
+  //   5. tick 4→5, 5>=2   → SET;    SD x2,0(x1) → mtimecmp=100
+  //   6. tick 5→6, 6<100  → CLEAR;  NOP
+  let nop = encode_i(0, 0, 0x0U, 0, 0x13U)
+  let program = words_to_bytes([
+    encode_u(0x02004000U, 1, 0x37U),
+    encode_i(2, 0, 0x0U, 2, 0x13U),
+    encode_s(0, 2, 1, 0x3U, 0x23U),
+    encode_i(100, 0, 0x0U, 2, 0x13U),
+    encode_s(0, 2, 1, 0x3U, 0x23U),
+    nop,
+  ])
+  let runner = make_runner(virt_machine_config())
+  runner.load_program_u64(program, 0x80000000U.to_uint64())
+  // After 4 steps: mtimecmp=2, mtime=4, MTIP set (4>=2)
+  match runner.run(4) {
+    Running => ()
+    _ => fail("expected running")
+  }
+  let mip4 = runner.cpu.read_csr(0x344)
+  assert_eq(mip4 & 0x80U.to_uint64(), 0x80U.to_uint64())
+  // After 2 more steps (SD mtimecmp=100, then NOP):
+  // Step 5 still has MTIP set (5>=2), then SD writes mtimecmp=100
+  // Step 6: update_timer sees 6<100 → MTIP cleared
+  match runner.run(2) {
+    Running => ()
+    _ => fail("expected running after mtimecmp update")
+  }
+  assert_eq(runner.clint_mtime(), 6U.to_uint64())
+  assert_eq(runner.clint_mtimecmp(), 100U.to_uint64())
+  let mip6 = runner.cpu.read_csr(0x344)
+  assert_eq(mip6 & 0x80U.to_uint64(), 0U.to_uint64())
+}
+
+///|
+test "SIE is masked view of MIE (bits 1,5,9)" {
+  // Write 0xFFFF to MIE directly, then read SIE — should see only bits 1,5,9.
+  // 1. ADDI x1, x0, -1   → x1 = 0xFFFF...FFFF
+  // 2. CSRRW x0, MIE, x1 → MIE = 0xFFFF...FFFF
+  // 3. CSRRS x2, SIE, x0 → x2 = MIE & 0x222 (read SIE, no write since rs1=x0)
+  let program = words_to_bytes([
+    encode_i(-1, 0, 0x0U, 1, 0x13U),
+    encode_csr(0x304, 1, 0x1U, 0),
+    encode_csr(0x104, 0, 0x2U, 2),
+  ])
+  let runner = make_runner(virt_machine_config())
+  runner.load_program_u64(program, 0x80000000U.to_uint64())
+  match runner.run(3) {
+    Running => ()
+    _ => fail("expected running")
+  }
+  // SIE should show only bits 1, 5, 9 = 0x222
+  assert_eq(runner.read_reg_u64(2), 0x222U.to_uint64())
+  // MIE should have all bits set
+  let mie = runner.cpu.read_csr(0x304)
+  assert_eq(mie & 0xFFFU.to_uint64(), 0xFFFU.to_uint64())
+}
+
+///|
+test "CSRRW to SIE only affects bits 1,5,9 of MIE" {
+  // Pre-set MIE to 0xFFF (all low 12 bits), then CSRRW SIE with 0.
+  // Only bits 1,5,9 should be cleared; other MIE bits preserved.
+  // 1. ADDI x1, x0, -1     → x1 = all 1s
+  // 2. CSRRW x0, MIE, x1   → MIE = all 1s
+  // 3. CSRRW x3, SIE, x0   → write 0 to SIE (clears bits 1,5,9), x3 = old SIE
+  // 4. CSRRS x4, MIE, x0   → x4 = current MIE (read MIE)
+  let program = words_to_bytes([
+    encode_i(-1, 0, 0x0U, 1, 0x13U),
+    encode_csr(0x304, 1, 0x1U, 0),
+    encode_csr(0x104, 0, 0x1U, 3),
+    encode_csr(0x304, 0, 0x2U, 4),
+  ])
+  let runner = make_runner(virt_machine_config())
+  runner.load_program_u64(program, 0x80000000U.to_uint64())
+  match runner.run(4) {
+    Running => ()
+    _ => fail("expected running")
+  }
+  // x3 = old SIE = 0x222
+  assert_eq(runner.read_reg_u64(3), 0x222U.to_uint64())
+  // MIE should have bits 1,5,9 cleared, rest intact
+  // 0xFFF & ~0x222 = 0xDDD
+  let mie = runner.cpu.read_csr(0x304)
+  assert_eq(mie & 0xFFFU.to_uint64(), 0xDDDU.to_uint64())
+}
+
+///|
+test "SIP is masked view of MIP; write does not affect MTIP" {
+  // Set MIP.MTIP (bit 7) via update_timer (mtime >= mtimecmp with mtimecmp=1).
+  // Then CSRRS SIP with SSIP (bit 1). Verify MTIP still set but not visible via SIP.
+  // 1. LUI x1, 0x2004       → x1 = 0x02004000 (mtimecmp addr)
+  // 2. ADDI x2, x0, 1       → x2 = 1
+  // 3. SD x2, 0(x1)         → mtimecmp = 1
+  // 4. NOP                   → mtime=4 >= 1, MTIP set
+  // 5. CSRRSI x3, SIP, 0x2  → read SIP into x3 (SSIP=bit1 via uimm=2), set SSIP
+  // 6. CSRRS x4, SIP, x0    → read SIP into x4
+  let nop = encode_i(0, 0, 0x0U, 0, 0x13U)
+  let program = words_to_bytes([
+    encode_u(0x02004000U, 1, 0x37U),
+    encode_i(1, 0, 0x0U, 2, 0x13U),
+    encode_s(0, 2, 1, 0x3U, 0x23U),
+    nop,
+    encode_csr(0x144, 0x2, 0x6U, 3),
+    encode_csr(0x144, 0, 0x2U, 4),
+  ])
+  let runner = make_runner(virt_machine_config())
+  runner.load_program_u64(program, 0x80000000U.to_uint64())
+  match runner.run(6) {
+    Running => ()
+    _ => fail("expected running")
+  }
+  // MIP should have MTIP (bit 7) set by update_timer
+  let mip = runner.cpu.read_csr(0x344)
+  assert_eq(mip & 0x80U.to_uint64(), 0x80U.to_uint64())
+  // MIP should also have SSIP (bit 1) set from CSRRSI
+  assert_eq(mip & 0x02U.to_uint64(), 0x02U.to_uint64())
+  // SIP read (x4) should show SSIP (bit 1) only, not MTIP (bit 7)
+  // STIP (bit 5) is also not set, SEIP (bit 9) not set
+  assert_eq(runner.read_reg_u64(4), 0x02U.to_uint64())
+}
+
+///|
+test "PLIC priority write/read via sw/lw" {
+  // PLIC base = 0x0C000000. Priority register for source 1 is at offset 4.
+  // LUI x1, 0x0C000 → x1 = 0x0C000000
+  // ADDI x2, x0, 7  → x2 = 7 (priority value)
+  // SW x2, 4(x1)    → write priority[1] = 7
+  // LW x3, 4(x1)    → read priority[1] into x3
+  let program = words_to_bytes([
+    encode_u(0x0C000000U, 1, 0x37U),
+    encode_i(7, 0, 0x0U, 2, 0x13U),
+    encode_s(4, 2, 1, 0x2U, 0x23U),
+    encode_i(4, 1, 0x2U, 3, 0x03U),
+  ])
+  let runner = make_runner(virt_machine_config())
+  runner.load_program_u64(program, 0x80000000U.to_uint64())
+  match runner.run(4) {
+    Running => ()
+    _ => fail("expected running after PLIC write/read")
+  }
+  assert_eq(runner.read_reg_u64(3), 7U.to_uint64())
+}
+
+///|
+test "PLIC claim returns 0 (no pending interrupts)" {
+  // Claim register for context 0 = PLIC base + 0x200004 = 0x0C200004
+  // LUI x1, 0x0C200 → x1 = 0x0C200000
+  // LW x2, 4(x1)    → read claim[ctx0] into x2 (should be 0)
+  let program = words_to_bytes([
+    encode_u(0x0C200000U, 1, 0x37U),
+    encode_i(4, 1, 0x2U, 2, 0x03U),
+  ])
+  let runner = make_runner(virt_machine_config())
+  runner.load_program_u64(program, 0x80000000U.to_uint64())
+  match runner.run(2) {
+    Running => ()
+    _ => fail("expected running after PLIC claim read")
+  }
+  assert_eq(runner.read_reg_u64(2), 0U.to_uint64())
+}
+
+///|
+test "load_dtb places bytes at dtb_addr and setup_boot_abi sets a0/a1" {
+  let runner = make_runner(virt_machine_config())
+  // Small fake DTB: magic 0xD00DFEED in big-endian at offset 0
+  let dtb = Bytes::from_array([0xD0U.to_byte(), 0x0DU.to_byte(), 0xFEU.to_byte(), 0xEDU.to_byte()])
+  runner.load_dtb(dtb)
+  runner.setup_boot_abi()
+  // a0 = hart_id = 0
+  assert_eq(runner.read_reg_u64(10), 0U.to_uint64())
+  // a1 = dtb_addr = 0x87E00000
+  assert_eq(runner.read_reg_u64(11), 0x87E00000U.to_uint64())
+  // Read first 4 bytes from dtb_addr in memory
+  let b0 = runner.bus.load_u8(0x87E00000U.to_uint64())
+  let b1 = runner.bus.load_u8(0x87E00001U.to_uint64())
+  let b2 = runner.bus.load_u8(0x87E00002U.to_uint64())
+  let b3 = runner.bus.load_u8(0x87E00003U.to_uint64())
+  assert_eq(b0, 0xD0U.to_uint64())
+  assert_eq(b1, 0x0DU.to_uint64())
+  assert_eq(b2, 0xFEU.to_uint64())
+  assert_eq(b3, 0xEDU.to_uint64())
+}
+
+///|
+test "WFI advances PC without side effects" {
+  let runner = make_runner(virt_machine_config())
+  let pc = runner.cpu.pc
+  // WFI encoding: 0x10500073
+  runner.bus.store_u32(pc, 0x10500073U.to_uint64())
+  match runner.step() {
+    Running => ()
+    _ => fail("expected running")
+  }
+  assert_eq(runner.cpu.pc, pc + 4U.to_uint64())
+}
+
+///|
+fn encode_amo(funct5 : UInt, rs2 : Int, rs1 : Int, funct3 : UInt, rd : Int) -> UInt {
+  encode_r(funct5 << 2, rs2, rs1, funct3, rd, 0x2fU)
+}
+
+///|
+test "AMOSWAP.W loads old value into rd and stores rs2 at address" {
+  let runner = make_runner(virt_machine_config())
+  let addr = runner.cpu.pc + 0x100U.to_uint64()
+  // Store initial value 42 at addr
+  runner.bus.store_u32(addr, 42U.to_uint64())
+  // x1 = addr, x2 = 99 (new value)
+  runner.cpu.write_reg(1, addr)
+  runner.cpu.write_reg(2, 99U.to_uint64())
+  // amoswap.w x3, x2, (x1): funct5=0x01, rs2=2, rs1=1, funct3=0x2 (W), rd=3
+  let inst = encode_amo(0x01U, 2, 1, 0x2U, 3)
+  runner.bus.store_u32(runner.cpu.pc, inst.to_uint64())
+  match runner.step() {
+    Running => ()
+    _ => fail("expected running")
+  }
+  // rd=x3 should have old value 42
+  assert_eq(runner.read_reg_u64(3), 42U.to_uint64())
+  // Memory at addr should have new value 99
+  assert_eq(runner.bus.load_u32(addr), 99U.to_uint64())
+}
+
+///|
+test "AMOADD.D loads old value and stores sum" {
+  let runner = make_runner(virt_machine_config())
+  let addr = runner.cpu.pc + 0x100U.to_uint64()
+  // Store initial value 100 at addr (8-byte aligned)
+  runner.bus.store_u64(addr, 100U.to_uint64())
+  // x1 = addr, x2 = 50
+  runner.cpu.write_reg(1, addr)
+  runner.cpu.write_reg(2, 50U.to_uint64())
+  // amoadd.d x3, x2, (x1): funct5=0x00, rs2=2, rs1=1, funct3=0x3 (D), rd=3
+  let inst = encode_amo(0x00U, 2, 1, 0x3U, 3)
+  runner.bus.store_u32(runner.cpu.pc, inst.to_uint64())
+  match runner.step() {
+    Running => ()
+    _ => fail("expected running")
+  }
+  assert_eq(runner.read_reg_u64(3), 100U.to_uint64())
+  assert_eq(runner.bus.load_u64(addr), 150U.to_uint64())
+}
+
+///|
+test "LR.W/SC.W pair succeeds on single hart" {
+  let runner = make_runner(virt_machine_config())
+  let addr = runner.cpu.pc + 0x100U.to_uint64()
+  runner.bus.store_u32(addr, 77U.to_uint64())
+  runner.cpu.write_reg(1, addr)
+  // LR.W x3, (x1): funct5=0x02, rs2=0, rs1=1, funct3=0x2, rd=3
+  let pc0 = runner.cpu.pc
+  runner.bus.store_u32(pc0, encode_amo(0x02U, 0, 1, 0x2U, 3).to_uint64())
+  // SC.W x4, x5, (x1): funct5=0x03, rs2=5, rs1=1, funct3=0x2, rd=4
+  runner.bus.store_u32(pc0 + 4U.to_uint64(), encode_amo(0x03U, 5, 1, 0x2U, 4).to_uint64())
+  runner.cpu.write_reg(5, 88U.to_uint64())
+  // Step 1: LR.W
+  match runner.step() {
+    Running => ()
+    _ => fail("expected running")
+  }
+  assert_eq(runner.read_reg_u64(3), 77U.to_uint64())
+  // Step 2: SC.W
+  match runner.step() {
+    Running => ()
+    _ => fail("expected running")
+  }
+  assert_eq(runner.read_reg_u64(4), 0U.to_uint64()) // success
+  assert_eq(runner.bus.load_u32(addr), 88U.to_uint64())
+}
+
+///|
+fn write_u64_le(runner : Runner, addr : UInt64, value : UInt64) -> Unit {
+  runner.bus.store_u64(addr, value)
+}
+
+///|
+async test "OpenSBI fw_dynamic smoke: boots and produces UART output" {
+  // Load OpenSBI fw_dynamic binary
+  let fw_bytes = try {
+    @fs.read_file("_build/opensbi-riscv64-fw_dynamic.bin").binary()
+  } catch {
+    _ => {
+      // Skip if binary not available
+      println("SKIP: OpenSBI binary not found")
+      return
+    }
+  }
+  // Load DTB — use our generated minimal DTB, or fall back to virt.dtb
+  let dtb_bytes = try {
+    @fs.read_file("_build/minimal.dtb").binary()
+  } catch {
+    _ =>
+      try {
+        @fs.read_file("_build/virt.dtb").binary()
+      } catch {
+        _ => {
+          println("SKIP: no DTB found (run 'make minimal-dtb' or 'make virt-dtb')")
+          return
+        }
+      }
+  }
+  let runner = make_runner(virt_machine_config())
+  // Load OpenSBI at 0x80000000
+  runner.load_program_u64(fw_bytes, 0x80000000U.to_uint64())
+  // Load DTB at dtb_addr
+  runner.load_dtb(dtb_bytes)
+  // Place infinite loop (j .) at next_addr = 0x80200000
+  runner.bus.store_u32(0x80200000U.to_uint64(), 0x0000006fU.to_uint64())
+  // Build fw_dynamic_info struct at 0x80100000
+  let info_addr = 0x80100000U.to_uint64()
+  write_u64_le(runner, info_addr, 0x4942534fU.to_uint64()) // magic = "OSBI"
+  write_u64_le(runner, info_addr + 8U.to_uint64(), 2U.to_uint64()) // version = 2
+  write_u64_le(runner, info_addr + 16U.to_uint64(), 0x80200000U.to_uint64()) // next_addr
+  write_u64_le(runner, info_addr + 24U.to_uint64(), 1U.to_uint64()) // next_mode = S
+  write_u64_le(runner, info_addr + 32U.to_uint64(), 0U.to_uint64()) // options = 0
+  write_u64_le(
+    runner,
+    info_addr + 40U.to_uint64(),
+    0xffffffffU.to_uint64() | (0xffffffffU.to_uint64() << 32),
+  ) // boot_hart = -1
+  // Set boot registers: a0 = hart_id, a1 = dtb_addr, a2 = fw_dynamic_info
+  runner.setup_boot_abi()
+  runner.cpu.write_reg(12, info_addr) // a2 = &fw_dynamic_info
+  // Run for up to 10 million steps
+  let max_steps = 10000000
+  let mut steps = 0
+  let mut trapped = false
+  while steps < max_steps {
+    match runner.step() {
+      Running => {
+        steps = steps + 1
+        // Check if we've reached the infinite loop at next_addr
+        if runner.cpu.pc == 0x80200000U.to_uint64() {
+          break
+        }
+      }
+      Trap(info) => {
+        println(
+          "Trap at step \{steps}: cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tval=\{info.trap_value.to_string()}",
+        )
+        trapped = true
+        break
+      }
+    }
+  }
+  let output = runner.uart_drain()
+  println("OpenSBI UART output (\{output.length()} chars, \{steps} steps):")
+  println(output)
+  // Require OpenSBI banner in UART output
+  if !output.contains("OpenSBI") {
+    fail(
+      "OpenSBI should print its banner (trapped=\{trapped}, steps=\{steps})",
+    )
+  }
+}
+
+///|
+async test "Task 0015: S-mode entry stub via OpenSBI handoff" {
+  // Load OpenSBI fw_dynamic binary
+  let fw_bytes = try {
+    @fs.read_file("_build/opensbi-riscv64-fw_dynamic.bin").binary()
+  } catch {
+    _ => {
+      println("SKIP: OpenSBI binary not found")
+      return
+    }
+  }
+  // Load S-mode entry stub
+  let stub_bytes = try {
+    @fs.read_file("_build/smode-entry.bin").binary()
+  } catch {
+    _ => {
+      println("SKIP: smode-entry.bin not found (run scripts/build-smode-entry.sh)")
+      return
+    }
+  }
+  // Load DTB
+  let dtb_bytes = try {
+    @fs.read_file("_build/minimal.dtb").binary()
+  } catch {
+    _ =>
+      try {
+        @fs.read_file("_build/virt.dtb").binary()
+      } catch {
+        _ => {
+          println("SKIP: no DTB found (run 'make minimal-dtb' or 'make virt-dtb')")
+          return
+        }
+      }
+  }
+  let runner = make_runner(virt_machine_config())
+  // Load OpenSBI at 0x80000000 (also sets PC = 0x80000000)
+  runner.load_program_u64(fw_bytes, 0x80000000U.to_uint64())
+  // Load S-mode stub at 0x80200000 — use write_bytes to avoid overwriting PC
+  runner.bus.write_bytes(0x80200000U.to_uint64(), stub_bytes)
+  // Load DTB at dtb_addr
+  runner.load_dtb(dtb_bytes)
+  // Build fw_dynamic_info struct at 0x80100000
+  let info_addr = 0x80100000U.to_uint64()
+  write_u64_le(runner, info_addr, 0x4942534fU.to_uint64()) // magic = "OSBI"
+  write_u64_le(runner, info_addr + 8U.to_uint64(), 2U.to_uint64()) // version = 2
+  write_u64_le(runner, info_addr + 16U.to_uint64(), 0x80200000U.to_uint64()) // next_addr
+  write_u64_le(runner, info_addr + 24U.to_uint64(), 1U.to_uint64()) // next_mode = S
+  write_u64_le(runner, info_addr + 32U.to_uint64(), 0U.to_uint64()) // options = 0
+  write_u64_le(
+    runner,
+    info_addr + 40U.to_uint64(),
+    0xffffffffU.to_uint64() | (0xffffffffU.to_uint64() << 32),
+  ) // boot_hart = -1
+  // Set boot registers: a0 = hart_id, a1 = dtb_addr, a2 = fw_dynamic_info
+  runner.setup_boot_abi()
+  runner.cpu.write_reg(12, info_addr) // a2 = &fw_dynamic_info
+  // Run until stub spin loop (0x80200020) or trap or timeout
+  let max_steps = 15000000
+  let mut steps = 0
+  let mut trapped = false
+  while steps < max_steps {
+    match runner.step() {
+      Running => {
+        steps = steps + 1
+        // 0x80200020 is the infinite spin at end of stub (banner already printed)
+        if runner.cpu.pc == 0x80200020U.to_uint64() {
+          break
+        }
+      }
+      Trap(info) => {
+        println(
+          "Trap at step \{steps}: cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tval=\{info.trap_value.to_string()}",
+        )
+        trapped = true
+        break
+      }
+    }
+  }
+  let output = runner.uart_drain()
+  println(
+    "Task 0015 UART output (\{output.length()} chars, \{steps} steps):",
+  )
+  println(output)
+  // Require OpenSBI banner
+  if !output.contains("OpenSBI") {
+    fail(
+      "OpenSBI should print its banner (trapped=\{trapped}, steps=\{steps})",
+    )
+  }
+  // Require S-mode entry confirmation from stub
+  if !output.contains("Linux ABI: S-mode entry OK") {
+    fail(
+      "S-mode stub should confirm entry (trapped=\{trapped}, steps=\{steps})",
+    )
   }
 }

@@ -176,6 +176,13 @@ pub struct MachineConfig {
   dtb_addr : UInt64
 }
 
+pub(all) enum PhyTarget {
+  PhyRam
+  PhyUart(UInt64)
+  PhyClint(UInt64)
+  PhyNone
+}
+
 pub(all) enum PrivilegeMode {
   User
   Supervisor
