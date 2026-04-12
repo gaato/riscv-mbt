@@ -33,7 +33,7 @@
 - [Add Sv39 and SFENCE.VMA](tasks/0013-sv39-and-sfence-vma.md) — `done`
 - [Integrate OpenSBI and a virt-like platform](tasks/0014-opensbi-and-virt-platform.md) — `done`
 - [Meet the Linux boot ABI on one hart](tasks/0015-linux-boot-abi-single-hart.md) — `done`
-- [Add SMP after single-hart boot](tasks/0016-smp-after-single-hart.md) — `todo`
+- [Add SMP after single-hart boot](tasks/0016-smp-after-single-hart.md) — `done`
 - [Load official `riscv-tests` binaries](tasks/0024-official-riscv-tests-loader.md) — `done`
 - [Add minimal `env/p` support](tasks/0025-minimal-env-p-support.md) — `done`
 - [Run an official `rv32ui-p-*` subset](tasks/0026-official-rv32ui-runner.md) — `done`
@@ -44,7 +44,7 @@
 
 ## Next Task
 
-- [Task 0016](tasks/0016-smp-after-single-hart.md): add SMP after single-hart boot is stable (Task 0015 done — `Linux version 6.12.73` prints at ~19M steps).
+- Next: browser demo hosting decision ([Task 0021](tasks/0021-browser-hosting-decision.md)) or Linux boot platform milestone closure.
 
 ## Known Blockers
 

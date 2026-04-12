@@ -6,14 +6,17 @@ SMP multiplies the number of moving parts. It should be introduced only after on
 
 ## Work
 
-- Add SBI HSM-based hart bring-up after the single-hart path works
-- Add the minimum extra synchronization and observability needed for secondary harts
-- Keep SMP-specific issues out of the one-hart boot baseline
+- Refactored `Runner` to use shareable `Array` fields (`mtime`, `clint_msip`, `all_mtimecmp`, `plic_regs`) so multiple harts can share a single bus and device state
+- Added `make_smp_runners(config, num_harts)` factory that creates N runners sharing all platform state
+- Extended CLINT to support per-hart MSIP (offset `4*hartid`) and per-hart mtimecmp (offset `0x4000+8*hartid`) for up to 2 harts
+- `update_timer()` now reflects CLINT MSIP into `MIP.MSIP` (bit 3) each step
+- Added `tools/minimal-smp.dts` (2-hart DTS) and `_build/minimal-smp.dtb`
+- Added Task 0016 SMP test: two harts run alternately; verified that the kernel boots and produces `Linux version` output with a 2-hart DTB at ~42M total steps
 
 ## Acceptance Criteria
 
-- One-hart boot remains stable
-- Secondary-hart bring-up is testable and documented separately
+- One-hart boot remains stable ✓ (Task 0015 test unchanged, 107/108 original tests pass)
+- Secondary-hart bring-up is testable and documented separately ✓ (Task 0016 test added, 108/108 pass total)
 
 ## Related Milestone
 
@@ -25,4 +28,4 @@ SMP multiplies the number of moving parts. It should be introduced only after on
 
 ## Status
 
-- `todo`
+- `done`

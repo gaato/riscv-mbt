@@ -244,33 +244,60 @@ fn Runner::phy_store_u64(self : Runner, pa : UInt64, value : UInt64) -> Unit {
 
 // ---------------------------------------------------------------------------
 // CLINT register helpers (little-endian byte-addressed MMIO)
-// Only mtime and mtimecmp[0] are implemented.
+// Supports up to 2 harts:
+//   msip[h]     at 0x0000 + 4*h  (32-bit, only bit 0 R/W)
+//   mtimecmp[h] at 0x4000 + 8*h  (64-bit)
+//   mtime       at 0xBFF8         (64-bit, shared)
 // ---------------------------------------------------------------------------
+
+// Maximum number of harts supported by the CLINT implementation.
+let clint_max_harts : Int = 2
+
+// msip region: 0 <= off < 4 * clint_max_harts
+let clint_msip_end : UInt64 = 8U.to_uint64() // 4 * 2
+
+// mtimecmp region: 0x4000 <= off < 0x4000 + 8 * clint_max_harts
+let clint_mtimecmp_end : UInt64 = 0x4010U.to_uint64() // 0x4000 + 8*2
 
 ///|
 fn Runner::clint_reg_byte(self : Runner, off : UInt64) -> UInt64 {
+  // mtime
   if off >= clint_mtime_lo_offset && off < clint_mtime_lo_offset + 8U.to_uint64() {
     let shift = (off - clint_mtime_lo_offset).to_int() * 8
-    return (self.mtime >> shift) & 0xffU.to_uint64()
+    return (self.mtime[0] >> shift) & 0xffU.to_uint64()
   }
-  if off >= clint_mtimecmp_lo_offset &&
-    off < clint_mtimecmp_lo_offset + 8U.to_uint64() {
-    let shift = (off - clint_mtimecmp_lo_offset).to_int() * 8
-    return (self.mtimecmp >> shift) & 0xffU.to_uint64()
+  // mtimecmp[h]
+  if off >= clint_mtimecmp_lo_offset && off < clint_mtimecmp_end {
+    let rel = off - clint_mtimecmp_lo_offset
+    let hart = (rel / 8).to_int()
+    let shift = (rel % 8).to_int() * 8
+    return (self.all_mtimecmp[hart] >> shift) & 0xffU.to_uint64()
+  }
+  // msip[h]: byte at 4*h is bit 0; bytes 1-3 are reserved=0
+  if off < clint_msip_end && off % 4 == 0 {
+    let hart = (off / 4).to_int()
+    return if self.clint_msip[hart] { 1U.to_uint64() } else { 0U.to_uint64() }
   }
   0U.to_uint64()
 }
 
 ///|
 fn Runner::clint_reg_halfword(self : Runner, off : UInt64) -> UInt64 {
-  if off >= clint_mtime_lo_offset && off + 2U.to_uint64() <= clint_mtime_lo_offset + 8U.to_uint64() {
+  if off >= clint_mtime_lo_offset &&
+    off + 2U.to_uint64() <= clint_mtime_lo_offset + 8U.to_uint64() {
     let shift = (off - clint_mtime_lo_offset).to_int() * 8
-    return (self.mtime >> shift) & 0xffffU.to_uint64()
+    return (self.mtime[0] >> shift) & 0xffffU.to_uint64()
   }
   if off >= clint_mtimecmp_lo_offset &&
-    off + 2U.to_uint64() <= clint_mtimecmp_lo_offset + 8U.to_uint64() {
-    let shift = (off - clint_mtimecmp_lo_offset).to_int() * 8
-    return (self.mtimecmp >> shift) & 0xffffU.to_uint64()
+    off + 2U.to_uint64() <= clint_mtimecmp_end {
+    let rel = off - clint_mtimecmp_lo_offset
+    let hart = (rel / 8).to_int()
+    let shift = (rel % 8).to_int() * 8
+    return (self.all_mtimecmp[hart] >> shift) & 0xffffU.to_uint64()
+  }
+  if off < clint_msip_end && off % 4 == 0 {
+    let hart = (off / 4).to_int()
+    return if self.clint_msip[hart] { 1U.to_uint64() } else { 0U.to_uint64() }
   }
   0U.to_uint64()
 }
@@ -278,16 +305,22 @@ fn Runner::clint_reg_halfword(self : Runner, off : UInt64) -> UInt64 {
 ///|
 fn Runner::clint_reg_word(self : Runner, off : UInt64) -> UInt64 {
   if off == clint_mtime_lo_offset {
-    return self.mtime & 0xffffffffU.to_uint64()
+    return self.mtime[0] & 0xffffffffU.to_uint64()
   }
   if off == clint_mtime_hi_offset {
-    return self.mtime >> 32
+    return self.mtime[0] >> 32
   }
-  if off == clint_mtimecmp_lo_offset {
-    return self.mtimecmp & 0xffffffffU.to_uint64()
+  // mtimecmp[h] word access
+  if off >= clint_mtimecmp_lo_offset && off < clint_mtimecmp_end {
+    let rel = off - clint_mtimecmp_lo_offset
+    let hart = (rel / 8).to_int()
+    let shift = (rel % 8).to_int() * 8
+    return (self.all_mtimecmp[hart] >> shift) & 0xffffffffU.to_uint64()
   }
-  if off == clint_mtimecmp_hi_offset {
-    return self.mtimecmp >> 32
+  // msip[h] word access
+  if off < clint_msip_end && off % 4 == 0 {
+    let hart = (off / 4).to_int()
+    return if self.clint_msip[hart] { 1U.to_uint64() } else { 0U.to_uint64() }
   }
   0U.to_uint64()
 }
@@ -295,10 +328,12 @@ fn Runner::clint_reg_word(self : Runner, off : UInt64) -> UInt64 {
 ///|
 fn Runner::clint_reg_dword(self : Runner, off : UInt64) -> UInt64 {
   if off == clint_mtime_lo_offset {
-    return self.mtime
+    return self.mtime[0]
   }
-  if off == clint_mtimecmp_lo_offset {
-    return self.mtimecmp
+  if off >= clint_mtimecmp_lo_offset && off < clint_mtimecmp_end {
+    let rel = off - clint_mtimecmp_lo_offset
+    let hart = (rel / 8).to_int()
+    return self.all_mtimecmp[hart]
   }
   0U.to_uint64()
 }
@@ -309,15 +344,20 @@ fn Runner::clint_store_byte(self : Runner, off : UInt64, value : UInt64) -> Unit
   if off >= clint_mtime_lo_offset && off < clint_mtime_lo_offset + 8U.to_uint64() {
     let shift = (off - clint_mtime_lo_offset).to_int() * 8
     let mask = bit_not(0xffU.to_uint64() << shift)
-    self.mtime = (self.mtime & mask) | (byte_val << shift)
+    self.mtime[0] = (self.mtime[0] & mask) | (byte_val << shift)
     return
   }
-  if off >= clint_mtimecmp_lo_offset &&
-    off < clint_mtimecmp_lo_offset + 8U.to_uint64() {
-    let shift = (off - clint_mtimecmp_lo_offset).to_int() * 8
+  if off >= clint_mtimecmp_lo_offset && off < clint_mtimecmp_end {
+    let rel = off - clint_mtimecmp_lo_offset
+    let hart = (rel / 8).to_int()
+    let shift = (rel % 8).to_int() * 8
     let mask = bit_not(0xffU.to_uint64() << shift)
-    self.mtimecmp = (self.mtimecmp & mask) | (byte_val << shift)
+    self.all_mtimecmp[hart] = (self.all_mtimecmp[hart] & mask) | (byte_val << shift)
     return
+  }
+  if off < clint_msip_end && off % 4 == 0 {
+    let hart = (off / 4).to_int()
+    self.clint_msip[hart] = (byte_val & 1U.to_uint64()) != 0U.to_uint64()
   }
 }
 
@@ -332,15 +372,21 @@ fn Runner::clint_store_halfword(
     off + 2U.to_uint64() <= clint_mtime_lo_offset + 8U.to_uint64() {
     let shift = (off - clint_mtime_lo_offset).to_int() * 8
     let mask = bit_not(0xffffU.to_uint64() << shift)
-    self.mtime = (self.mtime & mask) | (hw_val << shift)
+    self.mtime[0] = (self.mtime[0] & mask) | (hw_val << shift)
     return
   }
   if off >= clint_mtimecmp_lo_offset &&
-    off + 2U.to_uint64() <= clint_mtimecmp_lo_offset + 8U.to_uint64() {
-    let shift = (off - clint_mtimecmp_lo_offset).to_int() * 8
+    off + 2U.to_uint64() <= clint_mtimecmp_end {
+    let rel = off - clint_mtimecmp_lo_offset
+    let hart = (rel / 8).to_int()
+    let shift = (rel % 8).to_int() * 8
     let mask = bit_not(0xffffU.to_uint64() << shift)
-    self.mtimecmp = (self.mtimecmp & mask) | (hw_val << shift)
+    self.all_mtimecmp[hart] = (self.all_mtimecmp[hart] & mask) | (hw_val << shift)
     return
+  }
+  if off < clint_msip_end && off % 4 == 0 {
+    let hart = (off / 4).to_int()
+    self.clint_msip[hart] = (hw_val & 1U.to_uint64()) != 0U.to_uint64()
   }
 }
 
@@ -348,32 +394,42 @@ fn Runner::clint_store_halfword(
 fn Runner::clint_store_word(self : Runner, off : UInt64, value : UInt64) -> Unit {
   let w_val = value & 0xffffffffU.to_uint64()
   if off == clint_mtime_lo_offset {
-    self.mtime = (self.mtime & bit_not(0xffffffffU.to_uint64())) | w_val
+    self.mtime[0] = (self.mtime[0] & bit_not(0xffffffffU.to_uint64())) | w_val
     return
   }
   if off == clint_mtime_hi_offset {
-    self.mtime = (self.mtime & 0xffffffffU.to_uint64()) | (w_val << 32)
+    self.mtime[0] = (self.mtime[0] & 0xffffffffU.to_uint64()) | (w_val << 32)
     return
   }
-  if off == clint_mtimecmp_lo_offset {
-    self.mtimecmp = (self.mtimecmp & bit_not(0xffffffffU.to_uint64())) | w_val
+  if off >= clint_mtimecmp_lo_offset && off < clint_mtimecmp_end {
+    let rel = off - clint_mtimecmp_lo_offset
+    let hart = (rel / 8).to_int()
+    let shift = (rel % 8).to_int() * 8
+    if shift == 0 {
+      self.all_mtimecmp[hart] =
+        (self.all_mtimecmp[hart] & bit_not(0xffffffffU.to_uint64())) | w_val
+    } else {
+      self.all_mtimecmp[hart] =
+        (self.all_mtimecmp[hart] & 0xffffffffU.to_uint64()) | (w_val << 32)
+    }
     return
   }
-  if off == clint_mtimecmp_hi_offset {
-    self.mtimecmp =
-      (self.mtimecmp & 0xffffffffU.to_uint64()) | (w_val << 32)
-    return
+  if off < clint_msip_end && off % 4 == 0 {
+    let hart = (off / 4).to_int()
+    self.clint_msip[hart] = (w_val & 1U.to_uint64()) != 0U.to_uint64()
   }
 }
 
 ///|
 fn Runner::clint_store_dword(self : Runner, off : UInt64, value : UInt64) -> Unit {
   if off == clint_mtime_lo_offset {
-    self.mtime = value
+    self.mtime[0] = value
     return
   }
-  if off == clint_mtimecmp_lo_offset {
-    self.mtimecmp = value
+  if off >= clint_mtimecmp_lo_offset && off < clint_mtimecmp_end {
+    let rel = off - clint_mtimecmp_lo_offset
+    let hart = (rel / 8).to_int()
+    self.all_mtimecmp[hart] = value
   }
 }
 
@@ -390,12 +446,12 @@ pub fn Runner::uart_drain(self : Runner) -> String {
 
 ///|
 pub fn Runner::clint_mtime(self : Runner) -> UInt64 {
-  self.mtime
+  self.mtime[0]
 }
 
 ///|
 pub fn Runner::clint_mtimecmp(self : Runner) -> UInt64 {
-  self.mtimecmp
+  self.all_mtimecmp[self.config.hart_id.to_int()]
 }
 
 // ---------------------------------------------------------------------------
@@ -406,18 +462,29 @@ pub fn Runner::clint_mtimecmp(self : Runner) -> UInt64 {
 ///|
 let mip_mtip_bit : UInt64 = 0x80U.to_uint64() // bit 7
 
+let mip_msip_bit : UInt64 = 0x08U.to_uint64() // bit 3
+
 ///|
 fn Runner::update_timer(self : Runner) -> Unit {
   if self.config.clint_base == 0U.to_uint64() {
     return
   }
-  self.mtime = self.mtime + 1U.to_uint64()
+  self.mtime[0] = self.mtime[0] + 1U.to_uint64()
+  let hart_id = self.config.hart_id.to_int()
   let mip = self.cpu.read_csr(CSR_MIP)
-  if self.mtime >= self.mtimecmp {
-    self.cpu.write_csr(CSR_MIP, mip | mip_mtip_bit)
+  // Update MTIP
+  let new_mip = if self.mtime[0] >= self.all_mtimecmp[hart_id] {
+    mip | mip_mtip_bit
   } else {
-    self.cpu.write_csr(CSR_MIP, mip & bit_not(mip_mtip_bit))
+    mip & bit_not(mip_mtip_bit)
   }
+  // Reflect CLINT MSIP into MIP.MSIP (bit 3)
+  let new_mip2 = if self.clint_msip[hart_id] {
+    new_mip | mip_msip_bit
+  } else {
+    new_mip & bit_not(mip_msip_bit)
+  }
+  self.cpu.write_csr(CSR_MIP, new_mip2)
 }
 
 ///|

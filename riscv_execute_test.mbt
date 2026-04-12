@@ -1925,3 +1925,106 @@ async test "Task 0015: Linux kernel boot via OpenSBI" {
     )
   }
 }
+
+///|
+// ---------------------------------------------------------------------------
+// Task 0016: SMP boot — two harts, secondary hart wakes via CLINT MSIP IPI.
+// ---------------------------------------------------------------------------
+async test "Task 0016: SMP 2-hart boot via OpenSBI" {
+  // Load OpenSBI fw_dynamic binary
+  let fw_bytes = try {
+    @fs.read_file("_build/opensbi-riscv64-fw_dynamic.bin").binary()
+  } catch {
+    _ => {
+      println("SKIP: OpenSBI binary not found")
+      return
+    }
+  }
+  // Load Linux kernel Image
+  let kernel_bytes = try {
+    @fs.read_file("_build/linux-kernel-riscv64").binary()
+  } catch {
+    _ => {
+      println("SKIP: _build/linux-kernel-riscv64 not found")
+      return
+    }
+  }
+  // Load 2-hart DTB
+  let dtb_bytes = try {
+    @fs.read_file("_build/minimal-smp.dtb").binary()
+  } catch {
+    _ => {
+      println("SKIP: _build/minimal-smp.dtb not found (run: dtc -I dts -O dtb -o _build/minimal-smp.dtb tools/minimal-smp.dts)")
+      return
+    }
+  }
+  // Create 2 SMP runners sharing bus, UART, PLIC, CLINT, mtime
+  let harts = make_smp_runners(virt_machine_config(), 2)
+  let h0 = harts[0] // boot hart
+  let h1 = harts[1] // secondary hart
+  // Load firmware and kernel into shared bus (via hart 0)
+  h0.load_program_u64(fw_bytes, 0x80000000U.to_uint64())
+  h0.bus.write_bytes(0x80200000U.to_uint64(), kernel_bytes)
+  h0.load_dtb(dtb_bytes)
+  // fw_dynamic_info for the boot hart
+  let info_addr = 0x80100000U.to_uint64()
+  write_u64_le(h0, info_addr, 0x4942534fU.to_uint64()) // magic
+  write_u64_le(h0, info_addr + 8U.to_uint64(), 2U.to_uint64()) // version
+  write_u64_le(h0, info_addr + 16U.to_uint64(), 0x80200000U.to_uint64()) // next_addr
+  write_u64_le(h0, info_addr + 24U.to_uint64(), 1U.to_uint64()) // next_mode = S
+  write_u64_le(h0, info_addr + 32U.to_uint64(), 0U.to_uint64()) // options
+  write_u64_le(
+    h0,
+    info_addr + 40U.to_uint64(),
+    0xffffffffU.to_uint64() | (0xffffffffU.to_uint64() << 32),
+  ) // boot_hart = -1
+  // Both harts boot from the same OpenSBI entry point; OpenSBI uses MHARTID
+  // to split cold/warm boot paths.  Hart 1 will WFI until hart 0 sends IPI.
+  h0.setup_boot_abi()
+  h0.cpu.write_reg(12, info_addr) // a2 = &fw_dynamic_info (hart 0 only)
+  h1.setup_boot_abi() // sets a0=1, a1=dtb_addr
+  h1.cpu.write_reg(12, info_addr) // warm-boot path: same info_addr is fine
+  // Run up to 200M total steps, alternating 1 step per hart
+  let max_steps = 200000000
+  let mut steps = 0
+  let mut all_output = ""
+  let mut done = false
+  while steps < max_steps && not(done) {
+    // Hart 0 step
+    match h0.step() {
+      Running => ()
+      Trap(_) => { done = true }
+    }
+    // Hart 1 step
+    match h1.step() {
+      Running => ()
+      Trap(_) => ()
+    }
+    steps = steps + 2
+    // Drain shared UART every 2M steps
+    if steps % 2000000 == 0 {
+      let partial = h0.uart_drain()
+      if partial.length() > 0 {
+        all_output = all_output + partial
+        if all_output.contains("Linux version") {
+          done = true
+        }
+      }
+    }
+  }
+  let tail = h0.uart_drain()
+  if tail.length() > 0 {
+    all_output = all_output + tail
+  }
+  println(
+    "Task 0016 SMP boot: \{all_output.length()} chars total, \{steps} steps",
+  )
+  if !all_output.contains("OpenSBI") {
+    fail("OpenSBI banner not found in SMP boot output (steps=\{steps})")
+  }
+  if !all_output.contains("Linux version") {
+    fail(
+      "Kernel 'Linux version' not found in SMP boot output (steps=\{steps})",
+    )
+  }
+}

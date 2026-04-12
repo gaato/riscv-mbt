@@ -196,9 +196,10 @@ pub struct Runner {
   bus : Bus
   config : MachineConfig
   uart_output : Array[Byte]
-  mut mtime : UInt64
-  mut mtimecmp : UInt64
-  plic_regs : Array[Byte] // flat PLIC register file (4 MB)
+  mtime : Array[UInt64]      // [0] = current mtime; shared across SMP harts
+  clint_msip : Array[Bool]   // [hart_id] = MSIP bit; shared across SMP harts
+  all_mtimecmp : Array[UInt64] // [hart_id] = mtimecmp; shared across SMP harts
+  plic_regs : Array[Byte]    // flat PLIC register file (4 MB); shared across SMP harts
 }
 
 ///|
@@ -530,14 +531,61 @@ pub fn make_runner(config : MachineConfig) -> Runner {
     bus: Bus::new(config.ram_base, config.ram_size),
     config,
     uart_output: [],
-    mtime: 0U.to_uint64(),
-    mtimecmp: bit_not(0U.to_uint64()),
+    mtime: [0U.to_uint64()],
+    clint_msip: Array::make(2, false),
+    all_mtimecmp: Array::make(2, bit_not(0U.to_uint64())),
     plic_regs: if config.plic_base != 0U.to_uint64() {
       Array::make(0x400000, 0U.to_byte())
     } else {
       []
     },
   }
+}
+
+///|
+/// Create N runners sharing bus, UART, PLIC, CLINT, and mtime for SMP simulation.
+/// All harts start at the same entry point (cold/warm boot path is chosen via MHARTID).
+pub fn make_smp_runners(config : MachineConfig, num_harts : Int) -> Array[Runner] {
+  let shared_bus = Bus::new(config.ram_base, config.ram_size)
+  let shared_uart : Array[Byte] = []
+  let shared_plic : Array[Byte] = if config.plic_base != 0U.to_uint64() {
+    Array::make(0x400000, 0U.to_byte())
+  } else {
+    []
+  }
+  let shared_mtime : Array[UInt64] = [0U.to_uint64()]
+  let shared_msip : Array[Bool] = Array::make(num_harts, false)
+  let shared_mtimecmp : Array[UInt64] = Array::make(
+    num_harts,
+    bit_not(0U.to_uint64()),
+  )
+  let harts : Array[Runner] = []
+  let mut i = 0
+  while i < num_harts {
+    let hart_config : MachineConfig = {
+      xlen: config.xlen,
+      ram_base: config.ram_base,
+      ram_size: config.ram_size,
+      entry_point: config.entry_point,
+      hart_id: i.to_uint64(),
+      uart0_base: config.uart0_base,
+      clint_base: config.clint_base,
+      plic_base: config.plic_base,
+      dtb_addr: config.dtb_addr,
+    }
+    harts.push({
+      cpu: CpuState::new(config.entry_point, i.to_uint64(), config.xlen),
+      bus: shared_bus,
+      config: hart_config,
+      uart_output: shared_uart,
+      mtime: shared_mtime,
+      clint_msip: shared_msip,
+      all_mtimecmp: shared_mtimecmp,
+      plic_regs: shared_plic,
+    })
+    i = i + 1
+  }
+  harts
 }
 
 ///|
