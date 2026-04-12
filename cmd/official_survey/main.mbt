@@ -109,6 +109,12 @@ fn trap_cause_name(cause : @riscv.TrapCause) -> String {
     @riscv.EnvironmentCallFromUMode => "ecall from u-mode"
     @riscv.EnvironmentCallFromSMode => "ecall from s-mode"
     @riscv.EnvironmentCallFromMMode => "ecall from m-mode"
+    @riscv.SupervisorSoftwareInterrupt => "supervisor software interrupt"
+    @riscv.MachineSoftwareInterrupt => "machine software interrupt"
+    @riscv.SupervisorTimerInterrupt => "supervisor timer interrupt"
+    @riscv.MachineTimerInterrupt => "machine timer interrupt"
+    @riscv.SupervisorExternalInterrupt => "supervisor external interrupt"
+    @riscv.MachineExternalInterrupt => "machine external interrupt"
   }
 }
 

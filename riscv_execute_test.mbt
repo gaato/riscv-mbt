@@ -1817,3 +1817,111 @@ async test "Task 0015: S-mode entry stub via OpenSBI handoff" {
     )
   }
 }
+
+///|
+async test "Task 0015: Linux kernel boot via OpenSBI" {
+  // Load OpenSBI fw_dynamic binary
+  let fw_bytes = try {
+    @fs.read_file("_build/opensbi-riscv64-fw_dynamic.bin").binary()
+  } catch {
+    _ => {
+      println("SKIP: OpenSBI binary not found")
+      return
+    }
+  }
+  // Load Linux kernel Image
+  let kernel_bytes = try {
+    @fs.read_file("_build/linux-kernel-riscv64").binary()
+  } catch {
+    _ => {
+      println("SKIP: _build/linux-kernel-riscv64 not found (copy Debian riscv64 vmlinux)")
+      return
+    }
+  }
+  // Load DTB
+  let dtb_bytes = try {
+    @fs.read_file("_build/minimal.dtb").binary()
+  } catch {
+    _ =>
+      try {
+        @fs.read_file("_build/virt.dtb").binary()
+      } catch {
+        _ => {
+          println("SKIP: no DTB found")
+          return
+        }
+      }
+  }
+  let runner = make_runner(virt_machine_config())
+  // Load OpenSBI at 0x80000000
+  runner.load_program_u64(fw_bytes, 0x80000000U.to_uint64())
+  // Load Linux kernel at 0x80200000 (text_offset from RAM base = 2MB)
+  runner.bus.write_bytes(0x80200000U.to_uint64(), kernel_bytes)
+  // Load DTB
+  runner.load_dtb(dtb_bytes)
+  // fw_dynamic_info at 0x80100000: next_addr = Linux kernel entry (0x80200000)
+  let info_addr = 0x80100000U.to_uint64()
+  write_u64_le(runner, info_addr, 0x4942534fU.to_uint64()) // magic
+  write_u64_le(runner, info_addr + 8U.to_uint64(), 2U.to_uint64()) // version
+  write_u64_le(runner, info_addr + 16U.to_uint64(), 0x80200000U.to_uint64()) // next_addr = kernel
+  write_u64_le(runner, info_addr + 24U.to_uint64(), 1U.to_uint64()) // next_mode = S
+  write_u64_le(runner, info_addr + 32U.to_uint64(), 0U.to_uint64()) // options
+  write_u64_le(
+    runner,
+    info_addr + 40U.to_uint64(),
+    0xffffffffU.to_uint64() | (0xffffffffU.to_uint64() << 32),
+  ) // boot_hart = -1
+  runner.setup_boot_abi()
+  runner.cpu.write_reg(12, info_addr) // a2 = &fw_dynamic_info
+  // Run: generous limit to allow OpenSBI + early kernel init
+  let max_steps = 200000000 // 200M steps
+  let mut steps = 0
+  let mut trapped = false
+  let mut trap_pc = 0U.to_uint64()
+  let mut trap_cause = ""
+  let mut all_output = ""
+  while steps < max_steps {
+    match runner.step() {
+      Running => {
+        steps = steps + 1
+        // Drain and accumulate UART output periodically
+        if steps % 1000000 == 0 {
+          let partial = runner.uart_drain()
+          if partial.length() > 0 {
+            all_output = all_output + partial
+            if all_output.contains("Linux version") {
+              break
+            }
+          }
+        }
+      }
+      Trap(info) => {
+        trap_pc = info.faulting_pc
+        trap_cause = trap_cause_name(info.cause)
+        trapped = true
+        break
+      }
+    }
+  }
+  // Drain any remaining output
+  let tail = runner.uart_drain()
+  if tail.length() > 0 {
+    all_output = all_output + tail
+  }
+  println(
+    "Task 0015 Linux boot: \{all_output.length()} chars total, \{steps} steps",
+  )
+  if trapped {
+    println("Trapped: cause=\{trap_cause} pc=\{trap_pc}")
+  }
+  // OpenSBI must boot
+  if !all_output.contains("OpenSBI") {
+    fail("OpenSBI should print its banner (trapped=\{trapped}, steps=\{steps})")
+  }
+  // Kernel must produce 'Linux version' output
+  if !all_output.contains("Linux version") {
+    fail(
+      "Kernel has not produced 'Linux version' output (steps=\{steps}, trapped=\{trapped})",
+    )
+  }
+}

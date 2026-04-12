@@ -206,7 +206,7 @@ def to_moonbit_bytes(data: bytes) -> str:
 
 if __name__ == '__main__':
     dtb = build_minimal_dtb(
-        bootargs="earlycon console=ttyS0,3686400 root=/dev/ram0 rdinit=/init",
+        bootargs="earlycon=sbi earlycon console=ttyS0,3686400 root=/dev/ram0 rdinit=/init",
     )
     if '--moonbit' in sys.argv:
         print(to_moonbit_bytes(dtb))

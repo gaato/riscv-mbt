@@ -224,6 +224,12 @@ fn trap_cause_name(cause : TrapCause) -> String {
     EnvironmentCallFromUMode => "ecall from u-mode"
     EnvironmentCallFromSMode => "ecall from s-mode"
     EnvironmentCallFromMMode => "ecall from m-mode"
+    SupervisorSoftwareInterrupt => "supervisor software interrupt"
+    MachineSoftwareInterrupt => "machine software interrupt"
+    SupervisorTimerInterrupt => "supervisor timer interrupt"
+    MachineTimerInterrupt => "machine timer interrupt"
+    SupervisorExternalInterrupt => "supervisor external interrupt"
+    MachineExternalInterrupt => "machine external interrupt"
   }
 }
 
