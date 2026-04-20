@@ -47,18 +47,19 @@
 - [Bring up scalar `F`](tasks/0040-f-scalar-bring-up.md) — `done`
 - [Bring up `D`](tasks/0041-d-extension-bring-up.md) — `done`
 - [Close the post-`F/D` phase](tasks/0042-post-fd-closure.md) — `done`
-- [Evaluate the first `V` slice](tasks/0043-vector-extension-evaluation.md) — `doing`
+- [Evaluate the first `V` slice](tasks/0043-vector-extension-evaluation.md) — `done`
+- [Bring up `vsetvl*` and the first vector execute slice](tasks/0044-vsetvl-and-first-vector-execute-slice.md) — `doing`
 
 ## Next Task
 
-- Next: define the first concrete `V` slice and its implementation boundary before starting vector code ([Task 0043](tasks/0043-vector-extension-evaluation.md)).
+- Next: implement `vsetvli`, `vsetivli`, and `vsetvl` as the first execute-level vector slice ([Task 0044](tasks/0044-vsetvl-and-first-vector-execute-slice.md)).
 
 ## Known Blockers
 
 - Local `moon test` now expects build artifacts under `_build/riscv-tests-src/isa`; run `./scripts/build-riscv-tests-official.sh` first if they are missing.
 - The built upstream `*-p-*` survey currently stands above the original RV32 checkpoint, but RV64 coverage is still survey-only and has not been promoted into the always-green CI subset.
 - The official QEMU cross-check path remains RV32-only; RV64 system-emulator cross-checking is still deferred.
-- The post-Linux compatibility target is fixed and the required `F/D` gap is closed, but vector scope is still undefined.
+- The post-Linux compatibility target is fixed and the required `F/D` gap is closed. The first `V` state/CSR slice is in place, but no vector execute path exists yet.
 
 ## Read Next
 
@@ -66,6 +67,7 @@
 - [Implementation Notes](guides/implementation-notes.md)
 - [Extensions milestone](milestones/09-extensions-a-fd-v-h.md)
 - [Task 0018](tasks/0018-extensions-a-fd-v-h.md)
+- [Task 0044](tasks/0044-vsetvl-and-first-vector-execute-slice.md)
 - [Task 0043](tasks/0043-vector-extension-evaluation.md)
 - [Task 0042](tasks/0042-post-fd-closure.md)
 - [Task 0041](tasks/0041-d-extension-bring-up.md)

@@ -226,6 +226,19 @@ fn Runner::write_fcsr(self : Runner, value : UInt64) -> Unit {
 }
 
 ///|
+fn Runner::read_vcsr(self : Runner) -> UInt64 {
+  self.cpu.read_csr(CSR_VCSR) & VCSR_VISIBLE_MASK
+}
+
+///|
+fn Runner::write_vcsr(self : Runner, value : UInt64) -> Unit {
+  let visible = value & VCSR_VISIBLE_MASK
+  self.cpu.write_csr(CSR_VCSR, visible)
+  self.cpu.write_csr(CSR_VXSAT, visible & VCSR_VXSAT_MASK)
+  self.cpu.write_csr(CSR_VXRM, (visible & VCSR_VXRM_MASK) >> VCSR_VXRM_SHIFT)
+}
+
+///|
 fn Runner::read_frm(self : Runner) -> UInt {
   ((self.read_fcsr() & FCSR_FRM_MASK) >> FCSR_FRM_SHIFT).to_uint()
 }
@@ -1110,6 +1123,10 @@ fn Runner::read_csr_visible(self : Runner, csr : Int) -> UInt64 {
     CSR_FFLAGS => self.read_fcsr() & FCSR_FFLAGS_MASK
     CSR_FRM => (self.read_fcsr() & FCSR_FRM_MASK) >> FCSR_FRM_SHIFT
     CSR_FCSR => self.read_fcsr()
+    CSR_VXSAT => self.read_vcsr() & VCSR_VXSAT_MASK
+    CSR_VXRM => (self.read_vcsr() & VCSR_VXRM_MASK) >> VCSR_VXRM_SHIFT
+    CSR_VCSR => self.read_vcsr()
+    CSR_VLENB => VLEN_BYTES.to_uint64()
     CSR_SSTATUS => self.cpu.read_csr(CSR_MSTATUS) & SSTATUS_VISIBLE_MASK.to_uint64()
     CSR_SIP => self.cpu.read_csr(CSR_MIP) & SIP_VISIBLE_MASK
     CSR_SIE => self.cpu.read_csr(CSR_MIE) & SIP_VISIBLE_MASK
@@ -1130,6 +1147,16 @@ fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
       self.write_fcsr((fcsr & bit_not(FCSR_FRM_MASK)) | frm_bits)
     }
     CSR_FCSR => self.write_fcsr(value)
+    CSR_VXSAT => {
+      let vcsr = self.read_vcsr()
+      self.write_vcsr((vcsr & bit_not(VCSR_VXSAT_MASK)) | (value & VCSR_VXSAT_MASK))
+    }
+    CSR_VXRM => {
+      let vcsr = self.read_vcsr()
+      let vxrm_bits = (value & 0x3U.to_uint64()) << VCSR_VXRM_SHIFT
+      self.write_vcsr((vcsr & bit_not(VCSR_VXRM_MASK)) | vxrm_bits)
+    }
+    CSR_VCSR => self.write_vcsr(value)
     CSR_SSTATUS => {
       let mstatus = self.cpu.read_csr(CSR_MSTATUS)
       let next_mstatus =
@@ -1170,7 +1197,7 @@ fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
 
 ///|
 fn Runner::read_csr_checked(self : Runner, csr : Int) -> UInt64? {
-  if is_supported_csr(csr) {
+  if is_supported_csr(csr, self.config.extensions) {
     Some(self.read_csr_visible(csr))
   } else {
     None
@@ -1193,7 +1220,7 @@ fn Runner::execute_csr_read_write_checked(
     None => return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
   }
   if should_write {
-    if !is_supported_rw_csr(csr) {
+    if !is_supported_rw_csr(csr, self.config.extensions) {
       return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
     }
     self.write_csr_visible(csr, write_value)

@@ -36,8 +36,10 @@ Extend the post-Linux emulator in software-value order rather than simply by spe
   1. scalar `F`
   2. `D`
   3. post-`F/D` closure and next-family handoff
-  4. `V` evaluation and scope definition
-  5. `H` only after `V`
+  4. `V` state/CSR-only bring-up
+  5. `vsetvl*` and the first execute-level `V` slice
+  6. `H` only after `V`
 - Scalar `F` and `D` are now both in place with the current constrained host-IEEE implementation
 - No additional required compatibility gaps are currently open for `RV64 Linux Profile v1`
-- The next active task is `0043` `V` evaluation
+- The first `V` state/CSR slice is now in place
+- The next active task is `0044` `vsetvl*` and vector configuration execution

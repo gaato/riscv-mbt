@@ -1365,6 +1365,96 @@ test "rv64 machine config resets widened state and misa" {
 }
 
 ///|
+test "rv64fdv machine config resets vector state and exposes vector misa bit" {
+  let runner = make_runner(rv64fdv_machine_config())
+  assert_eq(
+    runner.read_csr_u64(0x301),
+    (2U.to_uint64() << 62) | 0x34112dU.to_uint64(),
+  )
+  assert_eq(runner.read_csr_u64(0x008), 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(0x009), 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(0x00A), 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(0x00F), 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(0xC20), 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(0xC21), 1U.to_uint64() << 63)
+  assert_eq(runner.read_csr_u64(0xC22), 16U.to_uint64())
+  assert_eq(runner.read_vreg_u64(0, 0), 0U.to_uint64())
+  assert_eq(runner.read_vreg_u64(0, 1), 0U.to_uint64())
+  assert_eq(runner.read_vreg_u64(31, 0), 0U.to_uint64())
+  assert_eq(runner.read_vreg_u64(31, 1), 0U.to_uint64())
+}
+
+///|
+test "rv64fdv vector csr visible surface mirrors vcsr state" {
+  let program = words_to_bytes([
+    encode_i(1, 0, 0x0U, 1, 0x13U),
+    encode_i(2, 0, 0x0U, 2, 0x13U),
+    encode_i(9, 0, 0x0U, 3, 0x13U),
+    encode_csr(0x009, 1, 0x1U, 0),
+    encode_csr(0x00A, 2, 0x1U, 0),
+    encode_csr(0x008, 3, 0x1U, 0),
+    encode_csr(0x00F, 0, 0x2U, 4),
+    encode_csr(0x009, 0, 0x2U, 5),
+    encode_csr(0x00A, 0, 0x2U, 6),
+    encode_csr(0x008, 0, 0x2U, 7),
+  ])
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(10) {
+    Running => ()
+    _ => fail("expected vector csr surface path to run")
+  }
+  assert_eq(runner.read_reg_u64(4), 0x5U.to_uint64())
+  assert_eq(runner.read_reg_u64(5), 0x1U.to_uint64())
+  assert_eq(runner.read_reg_u64(6), 0x2U.to_uint64())
+  assert_eq(runner.read_reg_u64(7), 0x9U.to_uint64())
+  assert_eq(runner.read_csr_u64(0x00F), 0x5U.to_uint64())
+  assert_eq(runner.read_csr_u64(0x009), 0x1U.to_uint64())
+  assert_eq(runner.read_csr_u64(0x00A), 0x2U.to_uint64())
+  assert_eq(runner.read_csr_u64(0x008), 0x9U.to_uint64())
+}
+
+///|
+test "rv64fdv rejects writes to read-only vector csrs" {
+  let raws = [
+    encode_csr(0xC20, 1, 0x1U, 0),
+    encode_csr(0xC21, 1, 0x1U, 0),
+    encode_csr(0xC22, 1, 0x1U, 0),
+  ]
+  for raw in raws {
+    let runner = make_runner(rv64fdv_machine_config())
+    runner.load_program(words_to_bytes([raw]), 0U)
+    match runner.step() {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected illegal instruction cause")
+        }
+        assert_eq(info.trap_value, raw.to_uint64())
+      }
+      _ => fail("expected write to read-only vector csr to trap")
+    }
+  }
+}
+
+///|
+test "rv64fd without v rejects vector csr access as illegal" {
+  let raw = encode_csr(0x00F, 0, 0x2U, 1)
+  let runner = make_runner(rv64fd_machine_config())
+  runner.load_program(words_to_bytes([raw]), 0U)
+  match runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+      assert_eq(info.trap_value, raw.to_uint64())
+    }
+    _ => fail("expected vector csr access to trap without v")
+  }
+}
+
+///|
 test "virt machine config exposes virt-like platform addresses" {
   let config = virt_machine_config()
   assert_eq(config.ram_base, 0x80000000U.to_uint64())

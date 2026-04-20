@@ -824,6 +824,20 @@ fn is_modeled_fp_csr(csr : Int) -> Bool {
 }
 
 ///|
+fn is_modeled_vector_csr(csr : Int) -> Bool {
+  match csr {
+    CSR_VSTART => true
+    CSR_VXSAT => true
+    CSR_VXRM => true
+    CSR_VCSR => true
+    CSR_VL => true
+    CSR_VTYPE => true
+    CSR_VLENB => true
+    _ => false
+  }
+}
+
+///|
 fn is_compatibility_storage_csr(csr : Int) -> Bool {
   match csr {
     CSR_SATP => true
@@ -848,21 +862,38 @@ fn is_read_only_csr(csr : Int) -> Bool {
     CSR_MVENDORID => true
     CSR_MARCHID => true
     CSR_MIMPID => true
+    CSR_VL => true
+    CSR_VTYPE => true
+    CSR_VLENB => true
     _ => false
   }
 }
 
 ///|
-fn is_supported_rw_csr(csr : Int) -> Bool {
+fn is_supported_rw_csr(csr : Int, extensions : UInt64) -> Bool {
+  let has_fp = (extensions & (MISA_EXT_F | MISA_EXT_D)) != 0U.to_uint64()
+  let has_v = (extensions & MISA_EXT_V) != 0U.to_uint64()
   (is_modeled_machine_csr(csr) && !is_read_only_csr(csr)) ||
-  is_modeled_fp_csr(csr) ||
+  (has_fp && is_modeled_fp_csr(csr)) ||
+  (has_v && is_modeled_vector_csr(csr) && !is_read_only_csr(csr)) ||
   is_modeled_supervisor_csr(csr) ||
   is_compatibility_storage_csr(csr)
 }
 
 ///|
-fn is_supported_csr(csr : Int) -> Bool {
-  is_supported_rw_csr(csr) || is_read_only_csr(csr)
+fn is_supported_csr(csr : Int, extensions : UInt64) -> Bool {
+  let has_fp = (extensions & (MISA_EXT_F | MISA_EXT_D)) != 0U.to_uint64()
+  let has_v = (extensions & MISA_EXT_V) != 0U.to_uint64()
+  let read_only_supported =
+    if is_modeled_fp_csr(csr) {
+      has_fp
+    } else if is_modeled_vector_csr(csr) {
+      has_v
+    } else {
+      is_read_only_csr(csr)
+    }
+  is_supported_rw_csr(csr, extensions) ||
+  (is_read_only_csr(csr) && read_only_supported)
 }
 
 ///|

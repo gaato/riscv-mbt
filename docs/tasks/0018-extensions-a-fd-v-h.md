@@ -36,4 +36,4 @@ Once compatibility goals are explicit, extension work should proceed in a delibe
 - `F`/`D` is the first required extension family for `RV64 Linux Profile v1`
 - `F`/`D` is now complete in the current repo contract, with the documented constrained host-IEEE implementation
 - There are no additional required compatibility gaps currently open for `RV64 Linux Profile v1`
-- This task now acts as an umbrella for `0040` (`F`), `0041` (`D`), `0042` (post-`F/D` closure), and `0043` (`V` evaluation)
+- This task now acts as an umbrella for `0040` (`F`), `0041` (`D`), `0042` (post-`F/D` closure), `0043` (the first `V` state/CSR-only slice), and `0044` (the first execute-level `V` slice via `vsetvl*`)

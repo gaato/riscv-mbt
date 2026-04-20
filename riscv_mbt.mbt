@@ -45,6 +45,7 @@ pub struct CpuState {
   mut pc : UInt64
   registers : Array[UInt64]
   fregisters : Array[UInt64]
+  vregisters : Array[UInt64]
   csrs : CsrFile
   mut privilege : PrivilegeMode
 }
@@ -316,6 +317,22 @@ pub fn rv64fd_machine_config() -> MachineConfig {
 }
 
 ///|
+pub fn rv64fdv_machine_config() -> MachineConfig {
+  {
+    xlen: Xlen64,
+    extensions: current_base_extensions() | MISA_EXT_F | MISA_EXT_D | MISA_EXT_V,
+    ram_base: 0U.to_uint64(),
+    ram_size: 65536,
+    entry_point: 0U.to_uint64(),
+    hart_id: 0U.to_uint64(),
+    uart0_base: 0U.to_uint64(),
+    clint_base: 0U.to_uint64(),
+    plic_base: 0U.to_uint64(),
+    dtb_addr: 0U.to_uint64(),
+  }
+}
+
+///|
 pub fn virt_machine_config() -> MachineConfig {
   {
     xlen: Xlen64,
@@ -381,6 +398,13 @@ const CSR_MHARTID : Int = 0xF14
 const CSR_MVENDORID : Int = 0xF11
 const CSR_MARCHID : Int = 0xF12
 const CSR_MIMPID : Int = 0xF13
+const CSR_VSTART : Int = 0x008
+const CSR_VXSAT : Int = 0x009
+const CSR_VXRM : Int = 0x00A
+const CSR_VCSR : Int = 0x00F
+const CSR_VL : Int = 0xC20
+const CSR_VTYPE : Int = 0xC21
+const CSR_VLENB : Int = 0xC22
 const XLEN_32 : Int = 32
 const XLEN_64 : Int = 64
 const MSTATUS_SIE_BIT : UInt = 0x2U
@@ -400,6 +424,10 @@ const FCSR_FFLAGS_MASK : UInt64 = 0x1f
 const FCSR_FRM_SHIFT : Int = 5
 const FCSR_FRM_MASK : UInt64 = 0xe0
 const FCSR_VISIBLE_MASK : UInt64 = 0xff
+const VCSR_VXSAT_MASK : UInt64 = 0x1
+const VCSR_VXRM_SHIFT : Int = 1
+const VCSR_VXRM_MASK : UInt64 = 0x6
+const VCSR_VISIBLE_MASK : UInt64 = 0x7
 const MISA_EXT_A : UInt64 = 0x1
 const MISA_EXT_C : UInt64 = 0x4
 const MISA_EXT_D : UInt64 = 0x8
@@ -408,6 +436,10 @@ const MISA_EXT_I : UInt64 = 0x100
 const MISA_EXT_M : UInt64 = 0x1000
 const MISA_EXT_S : UInt64 = 0x40000
 const MISA_EXT_U : UInt64 = 0x100000
+const MISA_EXT_V : UInt64 = 0x200000
+const VREG_COUNT : Int = 32
+const VREG_WORDS_PER_REG : Int = 2
+const VLEN_BYTES : Int = 16
 
 ///|
 fn current_base_extensions() -> UInt64 {
@@ -419,6 +451,14 @@ fn misa_value(xlen : Xlen, extensions : UInt64) -> UInt64 {
   match xlen {
     Xlen32 => (1U.to_uint64() << 30) | extensions
     Xlen64 => (2U.to_uint64() << 62) | extensions
+  }
+}
+
+///|
+fn initial_vtype_value(xlen : Xlen) -> UInt64 {
+  match xlen {
+    Xlen32 => 1U.to_uint64() << 31
+    Xlen64 => 1U.to_uint64() << 63
   }
 }
 
@@ -441,10 +481,18 @@ pub fn CpuState::new(
   let csrs = CsrFile::new()
   csrs.write(CSR_MISA, misa_value(xlen, extensions))
   csrs.write(CSR_MHARTID, hart_id)
+  csrs.write(CSR_VSTART, 0U.to_uint64())
+  csrs.write(CSR_VXSAT, 0U.to_uint64())
+  csrs.write(CSR_VXRM, 0U.to_uint64())
+  csrs.write(CSR_VCSR, 0U.to_uint64())
+  csrs.write(CSR_VL, 0U.to_uint64())
+  csrs.write(CSR_VTYPE, initial_vtype_value(xlen))
+  csrs.write(CSR_VLENB, VLEN_BYTES.to_uint64())
   {
     pc: entry_point,
     registers: Array::make(32, 0U.to_uint64()),
     fregisters: Array::make(32, 0U.to_uint64()),
+    vregisters: Array::make(VREG_COUNT * VREG_WORDS_PER_REG, 0U.to_uint64()),
     csrs,
     privilege: Machine,
   }
@@ -474,6 +522,16 @@ pub fn CpuState::read_freg(self : CpuState, index : Int) -> UInt64 {
 ///|
 pub fn CpuState::write_freg(self : CpuState, index : Int, value : UInt64) -> Unit {
   self.fregisters[index] = value
+}
+
+///|
+pub fn CpuState::read_vreg(self : CpuState, index : Int, word : Int) -> UInt64 {
+  self.vregisters[(index * VREG_WORDS_PER_REG) + word]
+}
+
+///|
+pub fn CpuState::write_vreg(self : CpuState, index : Int, word : Int, value : UInt64) -> Unit {
+  self.vregisters[(index * VREG_WORDS_PER_REG) + word] = value
 }
 
 ///|
@@ -728,6 +786,11 @@ pub fn Runner::read_reg_u64(self : Runner, index : Int) -> UInt64 {
 ///|
 pub fn Runner::read_freg_u64(self : Runner, index : Int) -> UInt64 {
   self.cpu.read_freg(index)
+}
+
+///|
+pub fn Runner::read_vreg_u64(self : Runner, index : Int, word : Int) -> UInt64 {
+  self.cpu.read_vreg(index, word)
 }
 
 ///|
