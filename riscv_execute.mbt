@@ -25,6 +25,223 @@ fn Runner::write_word_reg(self : Runner, rd : Int, value : UInt64) -> Unit {
 }
 
 ///|
+fn Runner::fp_has_d(self : Runner) -> Bool {
+  (self.config.extensions & MISA_EXT_D) != 0U.to_uint64()
+}
+
+///|
+fn Runner::write_freg_single_bits(self : Runner, rd : Int, value : UInt) -> Unit {
+  let stored =
+    if self.fp_has_d() {
+      (0xffffffffU.to_uint64() << 32) | value.to_uint64()
+    } else {
+      value.to_uint64()
+    }
+  self.cpu.write_freg(rd, stored)
+}
+
+///|
+fn Runner::read_freg_single_transfer_bits(self : Runner, rs : Int) -> UInt {
+  low32(self.cpu.read_freg(rs))
+}
+
+///|
+fn Runner::read_freg_single_value_bits(self : Runner, rs : Int) -> UInt {
+  let slot = self.cpu.read_freg(rs)
+  if self.fp_has_d() && (slot >> 32) != 0xffffffffU.to_uint64() {
+    f32_canonical_nan_bits()
+  } else {
+    low32(slot)
+  }
+}
+
+///|
+fn Runner::write_freg_double_bits(self : Runner, rd : Int, value : UInt64) -> Unit {
+  self.cpu.write_freg(rd, value)
+}
+
+///|
+fn Runner::read_freg_double_bits(self : Runner, rs : Int) -> UInt64 {
+  self.cpu.read_freg(rs)
+}
+
+///|
+fn f32_is_nan_bits(bits : UInt) -> Bool {
+  (bits & 0x7f800000U) == 0x7f800000U && (bits & 0x007fffffU) != 0U
+}
+
+///|
+fn f32_is_zero_bits(bits : UInt) -> Bool {
+  (bits & 0x7fffffffU) == 0U
+}
+
+///|
+fn f32_sign_bit(bits : UInt) -> Bool {
+  (bits & 0x80000000U) != 0U
+}
+
+///|
+fn f32_canonical_nan_bits() -> UInt {
+  0x7fc00000U
+}
+
+///|
+fn f32_from_bits(bits : UInt) -> Float {
+  Float::reinterpret_from_uint(bits)
+}
+
+///|
+fn f32_bits_from_host(value : Float) -> UInt {
+  let bits = Float::reinterpret_as_uint(value)
+  if f32_is_nan_bits(bits) {
+    f32_canonical_nan_bits()
+  } else {
+    bits
+  }
+}
+
+///|
+fn f64_is_nan_bits(bits : UInt64) -> Bool {
+  let exponent_mask = 0x7ffU.to_uint64() << 52
+  let fraction_mask = (1U.to_uint64() << 52) - 1U.to_uint64()
+  (bits & exponent_mask) == exponent_mask && (bits & fraction_mask) != 0U.to_uint64()
+}
+
+///|
+fn f64_is_zero_bits(bits : UInt64) -> Bool {
+  let magnitude_mask = (1U.to_uint64() << 63) - 1U.to_uint64()
+  (bits & magnitude_mask) == 0U.to_uint64()
+}
+
+///|
+fn f64_sign_bit(bits : UInt64) -> Bool {
+  let sign_mask = 1U.to_uint64() << 63
+  (bits & sign_mask) != 0U.to_uint64()
+}
+
+///|
+fn f64_canonical_nan_bits() -> UInt64 {
+  (0x7ffU.to_uint64() << 52) | (1U.to_uint64() << 51)
+}
+
+///|
+fn f64_from_bits(bits : UInt64) -> Double {
+  bits.reinterpret_as_double()
+}
+
+///|
+fn f64_bits_from_host(value : Double) -> UInt64 {
+  let bits = value.reinterpret_as_uint64()
+  if f64_is_nan_bits(bits) {
+    f64_canonical_nan_bits()
+  } else {
+    bits
+  }
+}
+
+///|
+fn f32_min_bits(lhs : UInt, rhs : UInt) -> UInt {
+  if f32_is_nan_bits(lhs) && f32_is_nan_bits(rhs) {
+    f32_canonical_nan_bits()
+  } else if f32_is_nan_bits(lhs) {
+    rhs
+  } else if f32_is_nan_bits(rhs) {
+    lhs
+  } else if f32_is_zero_bits(lhs) && f32_is_zero_bits(rhs) {
+    if f32_sign_bit(lhs) || f32_sign_bit(rhs) { 0x80000000U } else { 0U }
+  } else if f32_from_bits(lhs) < f32_from_bits(rhs) {
+    lhs
+  } else {
+    rhs
+  }
+}
+
+///|
+fn f64_min_bits(lhs : UInt64, rhs : UInt64) -> UInt64 {
+  if f64_is_nan_bits(lhs) && f64_is_nan_bits(rhs) {
+    f64_canonical_nan_bits()
+  } else if f64_is_nan_bits(lhs) {
+    rhs
+  } else if f64_is_nan_bits(rhs) {
+    lhs
+  } else if f64_is_zero_bits(lhs) && f64_is_zero_bits(rhs) {
+    if f64_sign_bit(lhs) || f64_sign_bit(rhs) { 1U.to_uint64() << 63 } else { 0U.to_uint64() }
+  } else if f64_from_bits(lhs) < f64_from_bits(rhs) {
+    lhs
+  } else {
+    rhs
+  }
+}
+
+///|
+fn f32_max_bits(lhs : UInt, rhs : UInt) -> UInt {
+  if f32_is_nan_bits(lhs) && f32_is_nan_bits(rhs) {
+    f32_canonical_nan_bits()
+  } else if f32_is_nan_bits(lhs) {
+    rhs
+  } else if f32_is_nan_bits(rhs) {
+    lhs
+  } else if f32_is_zero_bits(lhs) && f32_is_zero_bits(rhs) {
+    if f32_sign_bit(lhs) && !f32_sign_bit(rhs) {
+      rhs
+    } else {
+      lhs
+    }
+  } else if f32_from_bits(lhs) > f32_from_bits(rhs) {
+    lhs
+  } else {
+    rhs
+  }
+}
+
+///|
+fn f64_max_bits(lhs : UInt64, rhs : UInt64) -> UInt64 {
+  if f64_is_nan_bits(lhs) && f64_is_nan_bits(rhs) {
+    f64_canonical_nan_bits()
+  } else if f64_is_nan_bits(lhs) {
+    rhs
+  } else if f64_is_nan_bits(rhs) {
+    lhs
+  } else if f64_is_zero_bits(lhs) && f64_is_zero_bits(rhs) {
+    if f64_sign_bit(lhs) && !f64_sign_bit(rhs) {
+      rhs
+    } else {
+      lhs
+    }
+  } else if f64_from_bits(lhs) > f64_from_bits(rhs) {
+    lhs
+  } else {
+    rhs
+  }
+}
+
+///|
+fn Runner::read_fcsr(self : Runner) -> UInt64 {
+  self.cpu.read_csr(CSR_FCSR) & FCSR_VISIBLE_MASK
+}
+
+///|
+fn Runner::write_fcsr(self : Runner, value : UInt64) -> Unit {
+  self.cpu.write_csr(CSR_FCSR, value & FCSR_VISIBLE_MASK)
+}
+
+///|
+fn Runner::read_frm(self : Runner) -> UInt {
+  ((self.read_fcsr() & FCSR_FRM_MASK) >> FCSR_FRM_SHIFT).to_uint()
+}
+
+///|
+fn Runner::fp_rounding_mode_supported(self : Runner, rm : UInt) -> Bool {
+  if rm == 0U {
+    true
+  } else if rm == 7U {
+    self.read_frm() == 0U
+  } else {
+    false
+  }
+}
+
+///|
 fn Runner::step_next_pc(self : Runner, delta : Int) -> UInt64 {
   self.cpu.pc + int_to_uint64_bits(delta)
 }
@@ -534,6 +751,214 @@ fn Runner::execute_store(
 }
 
 ///|
+fn Runner::execute_fp_load_store(
+  self : Runner,
+  instruction : Instruction,
+  next_pc : UInt64,
+) -> StepResult {
+  match instruction {
+    Flw(rd, rs1, imm) =>
+      self.load_and_write(rs1, imm, 4, next_pc, fn(pa) {
+        self.write_freg_single_bits(rd, self.phy_load_u32(pa).to_uint())
+      })
+    Fld(rd, rs1, imm) =>
+      self.load_and_write(rs1, imm, 8, next_pc, fn(pa) {
+        self.write_freg_double_bits(rd, self.phy_load_u64(pa))
+      })
+    Fsw(rs1, rs2, imm) =>
+      self.store_and_commit(rs1, imm, 4, next_pc, fn(pa) {
+        self.phy_store_u32(pa, self.read_freg_single_transfer_bits(rs2).to_uint64())
+      })
+    Fsd(rs1, rs2, imm) =>
+      self.store_and_commit(rs1, imm, 8, next_pc, fn(pa) {
+        self.phy_store_u64(pa, self.read_freg_double_bits(rs2))
+      })
+    _ => abort("unexpected fp load/store dispatch")
+  }
+}
+
+///|
+fn Runner::execute_fp(
+  self : Runner,
+  instruction : Instruction,
+  current_pc : UInt64,
+  next_pc : UInt64,
+  raw : UInt,
+) -> StepResult {
+  match instruction {
+    FmvXW(rd, rs1) => {
+      self.write_xlen_reg(
+        rd,
+        sign_extend_64(self.read_freg_single_transfer_bits(rs1).to_uint64(), 32),
+      )
+      self.cpu.pc = next_pc
+      Running
+    }
+    FmvWX(rd, rs1) => {
+      self.write_freg_single_bits(rd, low32(self.cpu.read_reg(rs1)))
+      self.cpu.pc = next_pc
+      Running
+    }
+    FmvXD(rd, rs1) => {
+      self.write_xlen_reg(rd, self.read_freg_double_bits(rs1))
+      self.cpu.pc = next_pc
+      Running
+    }
+    FmvDX(rd, rs1) => {
+      self.write_freg_double_bits(rd, self.cpu.read_reg(rs1))
+      self.cpu.pc = next_pc
+      Running
+    }
+    FAddS(rd, rs1, rs2, rm) => {
+      if !self.fp_rounding_mode_supported(rm) {
+        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      }
+      let result = f32_bits_from_host(f32_from_bits(self.read_freg_single_value_bits(rs1)) +
+        f32_from_bits(self.read_freg_single_value_bits(rs2)))
+      self.write_freg_single_bits(rd, result)
+      self.cpu.pc = next_pc
+      Running
+    }
+    FSubS(rd, rs1, rs2, rm) => {
+      if !self.fp_rounding_mode_supported(rm) {
+        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      }
+      let result = f32_bits_from_host(f32_from_bits(self.read_freg_single_value_bits(rs1)) -
+        f32_from_bits(self.read_freg_single_value_bits(rs2)))
+      self.write_freg_single_bits(rd, result)
+      self.cpu.pc = next_pc
+      Running
+    }
+    FMulS(rd, rs1, rs2, rm) => {
+      if !self.fp_rounding_mode_supported(rm) {
+        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      }
+      let result = f32_bits_from_host(f32_from_bits(self.read_freg_single_value_bits(rs1)) *
+        f32_from_bits(self.read_freg_single_value_bits(rs2)))
+      self.write_freg_single_bits(rd, result)
+      self.cpu.pc = next_pc
+      Running
+    }
+    FDivS(rd, rs1, rs2, rm) => {
+      if !self.fp_rounding_mode_supported(rm) {
+        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      }
+      let result = f32_bits_from_host(f32_from_bits(self.read_freg_single_value_bits(rs1)) /
+        f32_from_bits(self.read_freg_single_value_bits(rs2)))
+      self.write_freg_single_bits(rd, result)
+      self.cpu.pc = next_pc
+      Running
+    }
+    FSqrtS(rd, rs1, rm) => {
+      if !self.fp_rounding_mode_supported(rm) {
+        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      }
+      let result = f32_bits_from_host(f32_from_bits(self.read_freg_single_value_bits(rs1)).sqrt())
+      self.write_freg_single_bits(rd, result)
+      self.cpu.pc = next_pc
+      Running
+    }
+    FMinS(rd, rs1, rs2) => {
+      self.write_freg_single_bits(
+        rd,
+        f32_min_bits(self.read_freg_single_value_bits(rs1), self.read_freg_single_value_bits(rs2)),
+      )
+      self.cpu.pc = next_pc
+      Running
+    }
+    FMaxS(rd, rs1, rs2) => {
+      self.write_freg_single_bits(
+        rd,
+        f32_max_bits(self.read_freg_single_value_bits(rs1), self.read_freg_single_value_bits(rs2)),
+      )
+      self.cpu.pc = next_pc
+      Running
+    }
+    FAddD(rd, rs1, rs2, rm) => {
+      if !self.fp_rounding_mode_supported(rm) {
+        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      }
+      let result = f64_bits_from_host(f64_from_bits(self.read_freg_double_bits(rs1)) +
+        f64_from_bits(self.read_freg_double_bits(rs2)))
+      self.write_freg_double_bits(rd, result)
+      self.cpu.pc = next_pc
+      Running
+    }
+    FSubD(rd, rs1, rs2, rm) => {
+      if !self.fp_rounding_mode_supported(rm) {
+        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      }
+      let result = f64_bits_from_host(f64_from_bits(self.read_freg_double_bits(rs1)) -
+        f64_from_bits(self.read_freg_double_bits(rs2)))
+      self.write_freg_double_bits(rd, result)
+      self.cpu.pc = next_pc
+      Running
+    }
+    FMulD(rd, rs1, rs2, rm) => {
+      if !self.fp_rounding_mode_supported(rm) {
+        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      }
+      let result = f64_bits_from_host(f64_from_bits(self.read_freg_double_bits(rs1)) *
+        f64_from_bits(self.read_freg_double_bits(rs2)))
+      self.write_freg_double_bits(rd, result)
+      self.cpu.pc = next_pc
+      Running
+    }
+    FDivD(rd, rs1, rs2, rm) => {
+      if !self.fp_rounding_mode_supported(rm) {
+        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      }
+      let result = f64_bits_from_host(f64_from_bits(self.read_freg_double_bits(rs1)) /
+        f64_from_bits(self.read_freg_double_bits(rs2)))
+      self.write_freg_double_bits(rd, result)
+      self.cpu.pc = next_pc
+      Running
+    }
+    FSqrtD(rd, rs1, rm) => {
+      if !self.fp_rounding_mode_supported(rm) {
+        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      }
+      let result = f64_bits_from_host(f64_from_bits(self.read_freg_double_bits(rs1)).sqrt())
+      self.write_freg_double_bits(rd, result)
+      self.cpu.pc = next_pc
+      Running
+    }
+    FMinD(rd, rs1, rs2) => {
+      self.write_freg_double_bits(
+        rd,
+        f64_min_bits(self.read_freg_double_bits(rs1), self.read_freg_double_bits(rs2)),
+      )
+      self.cpu.pc = next_pc
+      Running
+    }
+    FMaxD(rd, rs1, rs2) => {
+      self.write_freg_double_bits(
+        rd,
+        f64_max_bits(self.read_freg_double_bits(rs1), self.read_freg_double_bits(rs2)),
+      )
+      self.cpu.pc = next_pc
+      Running
+    }
+    FCvtSD(rd, rs1, rm) => {
+      if !self.fp_rounding_mode_supported(rm) {
+        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      }
+      let result = Float::from_double(f64_from_bits(self.read_freg_double_bits(rs1)))
+      self.write_freg_single_bits(rd, f32_bits_from_host(result))
+      self.cpu.pc = next_pc
+      Running
+    }
+    FCvtDS(rd, rs1, _) => {
+      let result = f32_from_bits(self.read_freg_single_value_bits(rs1)).to_double()
+      self.write_freg_double_bits(rd, f64_bits_from_host(result))
+      self.cpu.pc = next_pc
+      Running
+    }
+    _ => abort("unexpected fp dispatch")
+  }
+}
+
+///|
 fn amo_op(funct5 : UInt, old_val : UInt64, src : UInt64, xlen : Int) -> UInt64 {
   match funct5 {
     0x01U => src // AMOSWAP
@@ -682,6 +1107,9 @@ fn Runner::execute_jump(
 
 fn Runner::read_csr_visible(self : Runner, csr : Int) -> UInt64 {
   match csr {
+    CSR_FFLAGS => self.read_fcsr() & FCSR_FFLAGS_MASK
+    CSR_FRM => (self.read_fcsr() & FCSR_FRM_MASK) >> FCSR_FRM_SHIFT
+    CSR_FCSR => self.read_fcsr()
     CSR_SSTATUS => self.cpu.read_csr(CSR_MSTATUS) & SSTATUS_VISIBLE_MASK.to_uint64()
     CSR_SIP => self.cpu.read_csr(CSR_MIP) & SIP_VISIBLE_MASK
     CSR_SIE => self.cpu.read_csr(CSR_MIE) & SIP_VISIBLE_MASK
@@ -692,6 +1120,16 @@ fn Runner::read_csr_visible(self : Runner, csr : Int) -> UInt64 {
 ///|
 fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
   match csr {
+    CSR_FFLAGS => {
+      let fcsr = self.read_fcsr()
+      self.write_fcsr((fcsr & bit_not(FCSR_FFLAGS_MASK)) | (value & FCSR_FFLAGS_MASK))
+    }
+    CSR_FRM => {
+      let fcsr = self.read_fcsr()
+      let frm_bits = (value & 0x7U.to_uint64()) << FCSR_FRM_SHIFT
+      self.write_fcsr((fcsr & bit_not(FCSR_FRM_MASK)) | frm_bits)
+    }
+    CSR_FCSR => self.write_fcsr(value)
     CSR_SSTATUS => {
       let mstatus = self.cpu.read_csr(CSR_MSTATUS)
       let next_mstatus =
@@ -983,7 +1421,12 @@ pub fn Runner::step(self : Runner) -> StepResult {
   } else {
     decode(raw)
   }
-  if !instruction_supported_in_xlen(instruction, self.xlen_bits(), fetched.length) {
+  if !instruction_supported_for_current_config(
+    instruction,
+    self.xlen_bits(),
+    self.config.extensions,
+    fetched.length,
+  ) {
     return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
   }
   match instruction {
@@ -1062,10 +1505,14 @@ pub fn Runner::step(self : Runner) -> StepResult {
     Ld(_, _, _) => self.execute_load(instruction, next_pc)
     Lbu(_, _, _) => self.execute_load(instruction, next_pc)
     Lhu(_, _, _) => self.execute_load(instruction, next_pc)
+    Flw(_, _, _) => self.execute_fp_load_store(instruction, next_pc)
+    Fld(_, _, _) => self.execute_fp_load_store(instruction, next_pc)
     Sb(_, _, _) => self.execute_store(instruction, next_pc)
     Sh(_, _, _) => self.execute_store(instruction, next_pc)
     Sw(_, _, _) => self.execute_store(instruction, next_pc)
     Sd(_, _, _) => self.execute_store(instruction, next_pc)
+    Fsw(_, _, _) => self.execute_fp_load_store(instruction, next_pc)
+    Fsd(_, _, _) => self.execute_fp_load_store(instruction, next_pc)
     Jal(_, _) => self.execute_jump(instruction, next_pc)
     Jalr(_, _, _) => self.execute_jump(instruction, next_pc)
     Csrrw(_, _, _) => self.execute_system(instruction, current_pc, next_pc, raw)
@@ -1081,6 +1528,26 @@ pub fn Runner::step(self : Runner) -> StepResult {
     }
     AmoW(_, _, _, _) => self.execute_amo(instruction, current_pc, next_pc, raw)
     AmoD(_, _, _, _) => self.execute_amo(instruction, current_pc, next_pc, raw)
+    FAddS(_, _, _, _) => self.execute_fp(instruction, current_pc, next_pc, raw)
+    FSubS(_, _, _, _) => self.execute_fp(instruction, current_pc, next_pc, raw)
+    FMulS(_, _, _, _) => self.execute_fp(instruction, current_pc, next_pc, raw)
+    FDivS(_, _, _, _) => self.execute_fp(instruction, current_pc, next_pc, raw)
+    FSqrtS(_, _, _) => self.execute_fp(instruction, current_pc, next_pc, raw)
+    FMinS(_, _, _) => self.execute_fp(instruction, current_pc, next_pc, raw)
+    FMaxS(_, _, _) => self.execute_fp(instruction, current_pc, next_pc, raw)
+    FAddD(_, _, _, _) => self.execute_fp(instruction, current_pc, next_pc, raw)
+    FSubD(_, _, _, _) => self.execute_fp(instruction, current_pc, next_pc, raw)
+    FMulD(_, _, _, _) => self.execute_fp(instruction, current_pc, next_pc, raw)
+    FDivD(_, _, _, _) => self.execute_fp(instruction, current_pc, next_pc, raw)
+    FSqrtD(_, _, _) => self.execute_fp(instruction, current_pc, next_pc, raw)
+    FMinD(_, _, _) => self.execute_fp(instruction, current_pc, next_pc, raw)
+    FMaxD(_, _, _) => self.execute_fp(instruction, current_pc, next_pc, raw)
+    FmvXW(_, _) => self.execute_fp(instruction, current_pc, next_pc, raw)
+    FmvWX(_, _) => self.execute_fp(instruction, current_pc, next_pc, raw)
+    FmvXD(_, _) => self.execute_fp(instruction, current_pc, next_pc, raw)
+    FmvDX(_, _) => self.execute_fp(instruction, current_pc, next_pc, raw)
+    FCvtSD(_, _, _) => self.execute_fp(instruction, current_pc, next_pc, raw)
+    FCvtDS(_, _, _) => self.execute_fp(instruction, current_pc, next_pc, raw)
     Ecall => self.execute_system(instruction, current_pc, next_pc, raw)
     Mret => self.execute_system(instruction, current_pc, next_pc, raw)
     Sret => self.execute_system(instruction, current_pc, next_pc, raw)

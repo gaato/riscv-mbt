@@ -25,9 +25,11 @@ After Linux boots, the project should stop being “whatever extension comes nex
 
 ## Status
 
-- `doing`
+- `done`
 
 ## Progress Notes
 
 - This task is now the active mainline decision point after Linux boot and browser delivery are complete
-- The remaining work is to choose and document the compatibility target that future extension work should follow
+- The repo now uses a profile-driven target instead of claiming `RV64G` or `RV64GC` directly
+- The chosen target is `RV64 Linux Profile v1`
+- Future extension prioritization is anchored to that profile, with `F`/`D` as the first required compatibility family to add

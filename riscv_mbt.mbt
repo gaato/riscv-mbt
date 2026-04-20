@@ -17,6 +17,7 @@ pub fn xlen64() -> Xlen {
 ///|
 pub struct MachineConfig {
   xlen : Xlen
+  extensions : UInt64
   ram_base : UInt64
   ram_size : Int
   entry_point : UInt64
@@ -43,6 +44,7 @@ pub struct CsrFile {
 pub struct CpuState {
   mut pc : UInt64
   registers : Array[UInt64]
+  fregisters : Array[UInt64]
   csrs : CsrFile
   mut privilege : PrivilegeMode
 }
@@ -124,6 +126,8 @@ pub enum Instruction {
   Lb(Int, Int, Int)
   Lh(Int, Int, Int)
   Lw(Int, Int, Int)
+  Flw(Int, Int, Int)
+  Fld(Int, Int, Int)
   Lwu(Int, Int, Int)
   Ld(Int, Int, Int)
   Lbu(Int, Int, Int)
@@ -131,7 +135,29 @@ pub enum Instruction {
   Sb(Int, Int, Int)
   Sh(Int, Int, Int)
   Sw(Int, Int, Int)
+  Fsw(Int, Int, Int)
+  Fsd(Int, Int, Int)
   Sd(Int, Int, Int)
+  FAddS(Int, Int, Int, UInt)
+  FSubS(Int, Int, Int, UInt)
+  FMulS(Int, Int, Int, UInt)
+  FDivS(Int, Int, Int, UInt)
+  FSqrtS(Int, Int, UInt)
+  FMinS(Int, Int, Int)
+  FMaxS(Int, Int, Int)
+  FAddD(Int, Int, Int, UInt)
+  FSubD(Int, Int, Int, UInt)
+  FMulD(Int, Int, Int, UInt)
+  FDivD(Int, Int, Int, UInt)
+  FSqrtD(Int, Int, UInt)
+  FMinD(Int, Int, Int)
+  FMaxD(Int, Int, Int)
+  FmvXW(Int, Int)
+  FmvWX(Int, Int)
+  FmvXD(Int, Int)
+  FmvDX(Int, Int)
+  FCvtSD(Int, Int, UInt)
+  FCvtDS(Int, Int, UInt)
   Jal(Int, Int)
   Jalr(Int, Int, Int)
   Csrrw(Int, Int, Int)
@@ -207,6 +233,7 @@ pub struct Runner {
 pub fn default_machine_config() -> MachineConfig {
   {
     xlen: Xlen32,
+    extensions: current_base_extensions(),
     ram_base: 0U.to_uint64(),
     ram_size: 65536,
     entry_point: 0U.to_uint64(),
@@ -222,6 +249,7 @@ pub fn default_machine_config() -> MachineConfig {
 pub fn official_riscv_tests_machine_config_for_xlen(xlen : Xlen) -> MachineConfig {
   {
     xlen,
+    extensions: current_base_extensions(),
     ram_base: 0x80000000U.to_uint64(),
     ram_size: 0x20000,
     entry_point: 0x80000000U.to_uint64(),
@@ -242,6 +270,40 @@ pub fn official_riscv_tests_machine_config() -> MachineConfig {
 pub fn rv64_machine_config() -> MachineConfig {
   {
     xlen: Xlen64,
+    extensions: current_base_extensions(),
+    ram_base: 0U.to_uint64(),
+    ram_size: 65536,
+    entry_point: 0U.to_uint64(),
+    hart_id: 0U.to_uint64(),
+    uart0_base: 0U.to_uint64(),
+    clint_base: 0U.to_uint64(),
+    plic_base: 0U.to_uint64(),
+    dtb_addr: 0U.to_uint64(),
+  }
+}
+
+///|
+///|
+pub fn rv64f_machine_config() -> MachineConfig {
+  {
+    xlen: Xlen64,
+    extensions: current_base_extensions() | MISA_EXT_F,
+    ram_base: 0U.to_uint64(),
+    ram_size: 65536,
+    entry_point: 0U.to_uint64(),
+    hart_id: 0U.to_uint64(),
+    uart0_base: 0U.to_uint64(),
+    clint_base: 0U.to_uint64(),
+    plic_base: 0U.to_uint64(),
+    dtb_addr: 0U.to_uint64(),
+  }
+}
+
+///|
+pub fn rv64fd_machine_config() -> MachineConfig {
+  {
+    xlen: Xlen64,
+    extensions: current_base_extensions() | MISA_EXT_F | MISA_EXT_D,
     ram_base: 0U.to_uint64(),
     ram_size: 65536,
     entry_point: 0U.to_uint64(),
@@ -257,6 +319,7 @@ pub fn rv64_machine_config() -> MachineConfig {
 pub fn virt_machine_config() -> MachineConfig {
   {
     xlen: Xlen64,
+    extensions: current_base_extensions(),
     ram_base: 0x80000000U.to_uint64(),
     ram_size: 0x08000000,
     entry_point: 0x80000000U.to_uint64(),
@@ -286,6 +349,9 @@ pub fn CsrFile::write(self : CsrFile, index : Int, value : UInt64) -> Unit {
 ///|
 const CSR_MSTATUS : Int = 0x300
 const CSR_MISA : Int = 0x301
+const CSR_FFLAGS : Int = 0x001
+const CSR_FRM : Int = 0x002
+const CSR_FCSR : Int = 0x003
 const CSR_MEDELEG : Int = 0x302
 const CSR_MIDELEG : Int = 0x303
 const CSR_MIE : Int = 0x304
@@ -330,11 +396,26 @@ const SIP_VISIBLE_MASK : UInt64 = 0x222
 const MSTATUS_MPRV_BIT : UInt64 = 0x20000 // bit 17
 const MSTATUS_SUM_BIT : UInt64 = 0x40000 // bit 18
 const MSTATUS_MXR_BIT : UInt64 = 0x80000 // bit 19
+const FCSR_FFLAGS_MASK : UInt64 = 0x1f
+const FCSR_FRM_SHIFT : Int = 5
+const FCSR_FRM_MASK : UInt64 = 0xe0
+const FCSR_VISIBLE_MASK : UInt64 = 0xff
+const MISA_EXT_A : UInt64 = 0x1
+const MISA_EXT_C : UInt64 = 0x4
+const MISA_EXT_D : UInt64 = 0x8
+const MISA_EXT_F : UInt64 = 0x20
+const MISA_EXT_I : UInt64 = 0x100
+const MISA_EXT_M : UInt64 = 0x1000
+const MISA_EXT_S : UInt64 = 0x40000
+const MISA_EXT_U : UInt64 = 0x100000
 
 ///|
-fn misa_value(xlen : Xlen) -> UInt64 {
-  // I=bit8, M=bit12, A=bit0, C=bit2, S=bit18, U=bit20
-  let extensions = 0x141105U.to_uint64()
+fn current_base_extensions() -> UInt64 {
+  MISA_EXT_A | MISA_EXT_C | MISA_EXT_I | MISA_EXT_M | MISA_EXT_S | MISA_EXT_U
+}
+
+///|
+fn misa_value(xlen : Xlen, extensions : UInt64) -> UInt64 {
   match xlen {
     Xlen32 => (1U.to_uint64() << 30) | extensions
     Xlen64 => (2U.to_uint64() << 62) | extensions
@@ -351,13 +432,19 @@ fn xlen_mask(xlen : Int) -> UInt64 {
 }
 
 ///|
-pub fn CpuState::new(entry_point : UInt64, hart_id : UInt64, xlen : Xlen) -> CpuState {
+pub fn CpuState::new(
+  entry_point : UInt64,
+  hart_id : UInt64,
+  xlen : Xlen,
+  extensions : UInt64,
+) -> CpuState {
   let csrs = CsrFile::new()
-  csrs.write(CSR_MISA, misa_value(xlen))
+  csrs.write(CSR_MISA, misa_value(xlen, extensions))
   csrs.write(CSR_MHARTID, hart_id)
   {
     pc: entry_point,
     registers: Array::make(32, 0U.to_uint64()),
+    fregisters: Array::make(32, 0U.to_uint64()),
     csrs,
     privilege: Machine,
   }
@@ -377,6 +464,16 @@ pub fn CpuState::write_reg(self : CpuState, index : Int, value : UInt64) -> Unit
   if index != 0 {
     self.registers[index] = value
   }
+}
+
+///|
+pub fn CpuState::read_freg(self : CpuState, index : Int) -> UInt64 {
+  self.fregisters[index]
+}
+
+///|
+pub fn CpuState::write_freg(self : CpuState, index : Int, value : UInt64) -> Unit {
+  self.fregisters[index] = value
 }
 
 ///|
@@ -528,7 +625,12 @@ fn Bus::fetch_u32(self : Bus, addr : UInt64) -> UInt {
 ///|
 pub fn make_runner(config : MachineConfig) -> Runner {
   {
-    cpu: CpuState::new(config.entry_point, config.hart_id, config.xlen),
+    cpu: CpuState::new(
+      config.entry_point,
+      config.hart_id,
+      config.xlen,
+      config.extensions,
+    ),
     bus: Bus::new(config.ram_base, config.ram_size),
     config,
     uart_output: [],
@@ -567,6 +669,7 @@ pub fn make_smp_runners(config : MachineConfig, num_harts : Int) -> Array[Runner
   while i < num_harts {
     let hart_config : MachineConfig = {
       xlen: config.xlen,
+      extensions: config.extensions,
       ram_base: config.ram_base,
       ram_size: config.ram_size,
       entry_point: config.entry_point,
@@ -577,7 +680,12 @@ pub fn make_smp_runners(config : MachineConfig, num_harts : Int) -> Array[Runner
       dtb_addr: config.dtb_addr,
     }
     harts.push({
-      cpu: CpuState::new(config.entry_point, i.to_uint64(), config.xlen),
+      cpu: CpuState::new(
+        config.entry_point,
+        i.to_uint64(),
+        config.xlen,
+        config.extensions,
+      ),
       bus: shared_bus,
       config: hart_config,
       uart_output: shared_uart,
@@ -615,6 +723,11 @@ pub fn Runner::read_reg(self : Runner, index : Int) -> UInt {
 ///|
 pub fn Runner::read_reg_u64(self : Runner, index : Int) -> UInt64 {
   self.cpu.read_reg(index)
+}
+
+///|
+pub fn Runner::read_freg_u64(self : Runner, index : Int) -> UInt64 {
+  self.cpu.read_freg(index)
 }
 
 ///|

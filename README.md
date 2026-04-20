@@ -43,6 +43,10 @@ This is a general-purpose RISC-V emulator project built in MoonBit. Linux boot a
   - `cmd/browser` is a thin JS-target host over the shared core
   - `./scripts/build-browser-demo.sh` assembles `_build/browser-demo/`
   - the current smoke scope is serial output, UART input, and minimal step/run/reset controls
+- Scalar `F` and `D` are now in place on the post-Linux path:
+  - the current implementation is explicitly constrained to host IEEE arithmetic
+  - only the default rounding mode is supported
+  - `fflags` is visible state, not yet full exception-flag conformance
 
 ## Next Milestone
 
@@ -50,8 +54,10 @@ This is a general-purpose RISC-V emulator project built in MoonBit. Linux boot a
 - The browser delivery milestone is also complete:
   - the hosting decision is fixed on `GitHub Pages`
   - the public smoke demo is live at `https://gaato.github.io/riscv-mbt/`
-- The mainline next step is [Post-Linux compatibility target](docs/milestones/08-post-linux-compatibility.md)
-- The next concrete task is [0017 define the post-Linux compatibility target](docs/tasks/0017-post-linux-compatibility.md)
+- The post-Linux compatibility target is now fixed as `RV64 Linux Profile v1`
+- The first required compatibility gap for that profile, `F/D`, is now closed in the repo docs and implementation
+- The mainline next step is [Extensions In Priority Order](docs/milestones/09-extensions-a-fd-v-h.md)
+- The next concrete task is [0043 evaluate the first `V` slice](docs/tasks/0043-vector-extension-evaluation.md)
 - The optional side branch remains [RV32 supervisor + Sv32](docs/tasks/0009-rv32-supervisor-sv32.md)
 
 ## Read Next
@@ -59,8 +65,10 @@ This is a general-purpose RISC-V emulator project built in MoonBit. Linux boot a
 - [Current State](docs/current.md)
 - [Roadmap](docs/roadmap.md)
 - [Implementation Notes](docs/guides/implementation-notes.md)
-- [Post-Linux Compatibility Milestone](docs/milestones/08-post-linux-compatibility.md)
-- [Task 0017](docs/tasks/0017-post-linux-compatibility.md)
+- [Extensions Milestone](docs/milestones/09-extensions-a-fd-v-h.md)
+- [Task 0018](docs/tasks/0018-extensions-a-fd-v-h.md)
+- [Task 0043](docs/tasks/0043-vector-extension-evaluation.md)
+- [ADR 0005](docs/adr/0005-post-linux-compatibility-profile.md)
 - [Agent Guide](AGENTS.md)
 
 ## Common Commands

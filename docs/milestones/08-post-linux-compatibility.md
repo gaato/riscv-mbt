@@ -26,3 +26,9 @@ Define what “compatible after Linux boots” actually means so future extensio
 ## Prerequisites For Next Milestone
 
 - A fixed compatibility target
+
+## Current Checkpoint
+
+- This milestone is complete
+- The repo now defines `RV64 Linux Profile v1` as its post-Linux compatibility target
+- Future extension work should cite that profile instead of inferring a target from chat context or roadmap proximity

@@ -814,6 +814,16 @@ fn is_modeled_supervisor_csr(csr : Int) -> Bool {
 }
 
 ///|
+fn is_modeled_fp_csr(csr : Int) -> Bool {
+  match csr {
+    CSR_FFLAGS => true
+    CSR_FRM => true
+    CSR_FCSR => true
+    _ => false
+  }
+}
+
+///|
 fn is_compatibility_storage_csr(csr : Int) -> Bool {
   match csr {
     CSR_SATP => true
@@ -845,6 +855,7 @@ fn is_read_only_csr(csr : Int) -> Bool {
 ///|
 fn is_supported_rw_csr(csr : Int) -> Bool {
   (is_modeled_machine_csr(csr) && !is_read_only_csr(csr)) ||
+  is_modeled_fp_csr(csr) ||
   is_modeled_supervisor_csr(csr) ||
   is_compatibility_storage_csr(csr)
 }
@@ -855,11 +866,14 @@ fn is_supported_csr(csr : Int) -> Bool {
 }
 
 ///|
-fn instruction_supported_in_xlen(
+fn instruction_supported_for_current_config(
   instruction : Instruction,
   xlen : Int,
+  extensions : UInt64,
   length : Int,
 ) -> Bool {
+  let has_f = (extensions & MISA_EXT_F) != 0U.to_uint64()
+  let has_d = (extensions & MISA_EXT_D) != 0U.to_uint64()
   match instruction {
     Addiw(_, _, _) => xlen == XLEN_64
     Slliw(_, _, _) => xlen == XLEN_64
@@ -879,6 +893,30 @@ fn instruction_supported_in_xlen(
     Ld(_, _, _) => xlen == XLEN_64
     Sd(_, _, _) => xlen == XLEN_64
     AmoD(_, _, _, _) => xlen == XLEN_64
+    Flw(_, _, _) => has_f
+    Fld(_, _, _) => has_d
+    Fsw(_, _, _) => has_f
+    Fsd(_, _, _) => has_d
+    FAddS(_, _, _, _) => has_f
+    FSubS(_, _, _, _) => has_f
+    FMulS(_, _, _, _) => has_f
+    FDivS(_, _, _, _) => has_f
+    FSqrtS(_, _, _) => has_f
+    FMinS(_, _, _) => has_f
+    FMaxS(_, _, _) => has_f
+    FAddD(_, _, _, _) => has_d
+    FSubD(_, _, _, _) => has_d
+    FMulD(_, _, _, _) => has_d
+    FDivD(_, _, _, _) => has_d
+    FSqrtD(_, _, _) => has_d
+    FMinD(_, _, _) => has_d
+    FMaxD(_, _, _) => has_d
+    FmvXW(_, _) => has_f
+    FmvWX(_, _) => has_f
+    FmvXD(_, _) => has_d && xlen == XLEN_64
+    FmvDX(_, _) => has_d && xlen == XLEN_64
+    FCvtSD(_, _, _) => has_d
+    FCvtDS(_, _, _) => has_d
     // C.JAL exists only on RV32C; the 32-bit JAL x1 form remains legal on both widths.
     Jal(rd, _) => !(length == 2 && rd == 1 && xlen == XLEN_64)
     _ => true
@@ -986,12 +1024,24 @@ pub fn decode(raw : UInt) -> Instruction {
         0x6U => Lwu(rd(raw), rs1(raw), imm_i(raw))
         _ => Unknown(raw)
       }
+    0x07U =>
+      match funct3(raw) {
+        0x2U => Flw(rd(raw), rs1(raw), imm_i(raw))
+        0x3U => Fld(rd(raw), rs1(raw), imm_i(raw))
+        _ => Unknown(raw)
+      }
     0x23U =>
       match funct3(raw) {
         0x0U => Sb(rs1(raw), rs2(raw), imm_s(raw))
         0x1U => Sh(rs1(raw), rs2(raw), imm_s(raw))
         0x2U => Sw(rs1(raw), rs2(raw), imm_s(raw))
         0x3U => Sd(rs1(raw), rs2(raw), imm_s(raw))
+        _ => Unknown(raw)
+      }
+    0x27U =>
+      match funct3(raw) {
+        0x2U => Fsw(rs1(raw), rs2(raw), imm_s(raw))
+        0x3U => Fsd(rs1(raw), rs2(raw), imm_s(raw))
         _ => Unknown(raw)
       }
     0x6fU => Jal(rd(raw), imm_j(raw))
@@ -1026,6 +1076,78 @@ pub fn decode(raw : UInt) -> Instruction {
       match funct3(raw) {
         0x2U => AmoW(funct5(raw), rd(raw), rs1(raw), rs2(raw))
         0x3U => AmoD(funct5(raw), rd(raw), rs1(raw), rs2(raw))
+        _ => Unknown(raw)
+      }
+    0x53U =>
+      match funct7(raw) {
+        0x00U => FAddS(rd(raw), rs1(raw), rs2(raw), funct3(raw))
+        0x01U => FAddD(rd(raw), rs1(raw), rs2(raw), funct3(raw))
+        0x04U => FSubS(rd(raw), rs1(raw), rs2(raw), funct3(raw))
+        0x05U => FSubD(rd(raw), rs1(raw), rs2(raw), funct3(raw))
+        0x08U => FMulS(rd(raw), rs1(raw), rs2(raw), funct3(raw))
+        0x09U => FMulD(rd(raw), rs1(raw), rs2(raw), funct3(raw))
+        0x0CU => FDivS(rd(raw), rs1(raw), rs2(raw), funct3(raw))
+        0x0DU => FDivD(rd(raw), rs1(raw), rs2(raw), funct3(raw))
+        0x14U =>
+          match funct3(raw) {
+            0x0U => FMinS(rd(raw), rs1(raw), rs2(raw))
+            0x1U => FMaxS(rd(raw), rs1(raw), rs2(raw))
+            _ => Unknown(raw)
+          }
+        0x15U =>
+          match funct3(raw) {
+            0x0U => FMinD(rd(raw), rs1(raw), rs2(raw))
+            0x1U => FMaxD(rd(raw), rs1(raw), rs2(raw))
+            _ => Unknown(raw)
+          }
+        0x20U =>
+          if rs2(raw) == 1 {
+            FCvtSD(rd(raw), rs1(raw), funct3(raw))
+          } else {
+            Unknown(raw)
+          }
+        0x21U =>
+          if rs2(raw) == 0 {
+            FCvtDS(rd(raw), rs1(raw), funct3(raw))
+          } else {
+            Unknown(raw)
+          }
+        0x2CU =>
+          if rs2(raw) == 0 {
+            FSqrtS(rd(raw), rs1(raw), funct3(raw))
+          } else {
+            Unknown(raw)
+          }
+        0x2DU =>
+          if rs2(raw) == 0 {
+            FSqrtD(rd(raw), rs1(raw), funct3(raw))
+          } else {
+            Unknown(raw)
+          }
+        0x70U =>
+          if rs2(raw) == 0 && funct3(raw) == 0x0U {
+            FmvXW(rd(raw), rs1(raw))
+          } else {
+            Unknown(raw)
+          }
+        0x71U =>
+          if rs2(raw) == 0 && funct3(raw) == 0x0U {
+            FmvXD(rd(raw), rs1(raw))
+          } else {
+            Unknown(raw)
+          }
+        0x78U =>
+          if rs2(raw) == 0 && funct3(raw) == 0x0U {
+            FmvWX(rd(raw), rs1(raw))
+          } else {
+            Unknown(raw)
+          }
+        0x79U =>
+          if rs2(raw) == 0 && funct3(raw) == 0x0U {
+            FmvDX(rd(raw), rs1(raw))
+          } else {
+            Unknown(raw)
+          }
         _ => Unknown(raw)
       }
     _ => Unknown(raw)
@@ -1195,4 +1317,3 @@ fn decode_compressed(raw : UInt, xlen : Int) -> Instruction {
     _ => Unknown(raw)
   }
 }
-

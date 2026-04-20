@@ -2,7 +2,7 @@
 
 ## Current Milestone
 
-- `Post-Linux compatibility target`
+- `Extensions In Priority Order`
 
 ## Current Tasks
 
@@ -42,25 +42,34 @@
 - [Decide the browser demo hosting target](tasks/0021-browser-hosting-decision.md) — `done`
 - [Deploy the first browser smoke demo](tasks/0022-browser-smoke-demo-deploy.md) — `done`
 - [Enable preview deploys for browser work](tasks/0023-browser-preview-deploys.md) — `done`
-- [Define the post-Linux compatibility target](tasks/0017-post-linux-compatibility.md) — `doing`
+- [Define the post-Linux compatibility target](tasks/0017-post-linux-compatibility.md) — `done`
+- [Add post-Linux extensions in priority order](tasks/0018-extensions-a-fd-v-h.md) — `doing`
+- [Bring up scalar `F`](tasks/0040-f-scalar-bring-up.md) — `done`
+- [Bring up `D`](tasks/0041-d-extension-bring-up.md) — `done`
+- [Close the post-`F/D` phase](tasks/0042-post-fd-closure.md) — `done`
+- [Evaluate the first `V` slice](tasks/0043-vector-extension-evaluation.md) — `doing`
 
 ## Next Task
 
-- Next: define the post-Linux compatibility target for post-Linux extension work ([Task 0017](tasks/0017-post-linux-compatibility.md)).
+- Next: define the first concrete `V` slice and its implementation boundary before starting vector code ([Task 0043](tasks/0043-vector-extension-evaluation.md)).
 
 ## Known Blockers
 
 - Local `moon test` now expects build artifacts under `_build/riscv-tests-src/isa`; run `./scripts/build-riscv-tests-official.sh` first if they are missing.
 - The built upstream `*-p-*` survey currently stands above the original RV32 checkpoint, but RV64 coverage is still survey-only and has not been promoted into the always-green CI subset.
 - The official QEMU cross-check path remains RV32-only; RV64 system-emulator cross-checking is still deferred.
-- The Linux-capable core and browser smoke demo are in place, but the post-Linux compatibility target is still undefined.
+- The post-Linux compatibility target is fixed and the required `F/D` gap is closed, but vector scope is still undefined.
 
 ## Read Next
 
 - [Roadmap](roadmap.md)
 - [Implementation Notes](guides/implementation-notes.md)
-- [Post-Linux compatibility milestone](milestones/08-post-linux-compatibility.md)
-- [Task 0017](tasks/0017-post-linux-compatibility.md)
+- [Extensions milestone](milestones/09-extensions-a-fd-v-h.md)
+- [Task 0018](tasks/0018-extensions-a-fd-v-h.md)
+- [Task 0043](tasks/0043-vector-extension-evaluation.md)
+- [Task 0042](tasks/0042-post-fd-closure.md)
+- [Task 0041](tasks/0041-d-extension-bring-up.md)
 - [Task 0009](tasks/0009-rv32-supervisor-sv32.md)
 - [ADR 0001](adr/0001-rv32i-first.md)
+- [ADR 0005](adr/0005-post-linux-compatibility-profile.md)
 - [ADR 0003](adr/0003-milestone-spine.md)

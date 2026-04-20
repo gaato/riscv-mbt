@@ -6,8 +6,8 @@ Extend the post-Linux emulator in software-value order rather than simply by spe
 
 ## Target Instructions / Features
 
-- `A`
-- `F` and `D`
+- `F`, then `D`
+- Any remaining compatibility gaps required by the chosen profile
 - `V`
 - `H`
 
@@ -27,3 +27,17 @@ Extend the post-Linux emulator in software-value order rather than simply by spe
 ## Prerequisites For Next Milestone
 
 - Stronger verification and observability infrastructure
+
+## Current Checkpoint
+
+- This is now the active mainline milestone
+- The chosen baseline is `RV64 Linux Profile v1`
+- The extension phase is now staged as:
+  1. scalar `F`
+  2. `D`
+  3. post-`F/D` closure and next-family handoff
+  4. `V` evaluation and scope definition
+  5. `H` only after `V`
+- Scalar `F` and `D` are now both in place with the current constrained host-IEEE implementation
+- No additional required compatibility gaps are currently open for `RV64 Linux Profile v1`
+- The next active task is `0043` `V` evaluation

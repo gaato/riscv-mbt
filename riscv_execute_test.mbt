@@ -27,6 +27,26 @@ fn exec_test_u64_to_le_bytes(value : UInt64) -> Bytes {
 }
 
 ///|
+fn exec_test_f32_bits(value : Float) -> UInt {
+  Float::reinterpret_as_uint(value)
+}
+
+///|
+fn exec_test_f64_bits(value : Double) -> UInt64 {
+  value.reinterpret_as_uint64()
+}
+
+///|
+fn exec_test_nan_box_single(value : UInt) -> UInt64 {
+  (0xffffffffU.to_uint64() << 32) | value.to_uint64()
+}
+
+///|
+fn exec_test_f64_canonical_nan_bits() -> UInt64 {
+  (0x7ffU.to_uint64() << 52) | (1U.to_uint64() << 51)
+}
+
+///|
 fn exec_test_setup_basic_sv39_map(runner : Runner) -> Unit {
   let pte_v = 0x1U.to_uint64()
   let pte_r = 0x2U.to_uint64()
@@ -418,6 +438,346 @@ test "rv64 supervisor fetch traps with instruction page fault when satp selects 
   }
   assert_eq(runner.read_csr(0x342), 12U)
   assert_eq(runner.read_csr(0x343), 36U)
+}
+
+///|
+test "rv64f move path preserves raw single-precision bits" {
+  let program = words_to_bytes([
+    encode_u(0xdeadc000U, 1, 0x37U),
+    encode_i(-0x111, 1, 0x0U, 1, 0x13U),
+    encode_fmv_w_x(1, 2),
+    encode_fmv_x_w(2, 3),
+  ])
+  let runner = make_runner(rv64f_machine_config())
+  runner.load_program(program, 0U)
+  for _ in 0..<4 {
+    match runner.step() {
+      Running => ()
+      _ => fail("expected rv64f move path to stay running")
+    }
+  }
+  assert_eq(runner.read_freg_u64(2), 0xdeadbeefU.to_uint64())
+  assert_eq(runner.read_reg_u64(3), test_join_u64(0xffffffffU, 0xdeadbeefU))
+}
+
+///|
+test "rv64f flw and fsw preserve raw payload bits" {
+  let program = words_to_bytes([
+    encode_flw(0x100, 0, 1),
+    encode_fsw(0x104, 1, 0),
+  ])
+  let runner = make_runner(rv64f_machine_config())
+  runner.load_program(words_to_bytes([0x7fc01234U]), 0x100U)
+  runner.load_program(program, 0U)
+  match runner.step() {
+    Running => ()
+    _ => fail("expected flw to run")
+  }
+  assert_eq(runner.read_freg_u64(1), 0x7fc01234U.to_uint64())
+  match runner.step() {
+    Running => ()
+    _ => fail("expected fsw to run")
+  }
+  assert_eq(runner.load_u32(0x104U), 0x7fc01234U)
+}
+
+///|
+test "rv64f basic scalar arithmetic executes with host ieee defaults" {
+  let four = exec_test_f32_bits(4.0)
+  let two = exec_test_f32_bits(2.0)
+  let program = words_to_bytes([
+    encode_flw(0x100, 0, 1),
+    encode_flw(0x104, 0, 2),
+    encode_fp_r(0x00U, 2, 1, 0x0U, 3),
+    encode_fp_r(0x04U, 2, 1, 0x0U, 4),
+    encode_fp_r(0x08U, 2, 1, 0x0U, 5),
+    encode_fp_r(0x0cU, 2, 1, 0x0U, 6),
+    encode_fsqrt_s(1, 0x0U, 7),
+    encode_fp_r(0x14U, 2, 1, 0x0U, 8),
+    encode_fp_r(0x14U, 2, 1, 0x1U, 9),
+  ])
+  let runner = make_runner(rv64f_machine_config())
+  runner.load_program(words_to_bytes([four, two]), 0x100U)
+  runner.load_program(program, 0U)
+  for _ in 0..<9 {
+    match runner.step() {
+      Running => ()
+      Trap(info) =>
+        fail(
+          "expected rv64f arithmetic path to stay running, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+        )
+    }
+  }
+  assert_eq(runner.read_freg_u64(3), exec_test_f32_bits(6.0).to_uint64())
+  assert_eq(runner.read_freg_u64(4), exec_test_f32_bits(2.0).to_uint64())
+  assert_eq(runner.read_freg_u64(5), exec_test_f32_bits(8.0).to_uint64())
+  assert_eq(runner.read_freg_u64(6), exec_test_f32_bits(2.0).to_uint64())
+  assert_eq(runner.read_freg_u64(7), exec_test_f32_bits(2.0).to_uint64())
+  assert_eq(runner.read_freg_u64(8), two.to_uint64())
+  assert_eq(runner.read_freg_u64(9), four.to_uint64())
+}
+
+///|
+test "rv64f min and max handle signed zero and canonical nan fallback" {
+  let neg_zero = exec_test_f32_bits(-0.0)
+  let pos_zero = exec_test_f32_bits(0.0)
+  let nan_bits = 0x7fc01234U
+  let one = exec_test_f32_bits(1.0)
+  let program = words_to_bytes([
+    encode_flw(0x100, 0, 1),
+    encode_flw(0x104, 0, 2),
+    encode_fp_r(0x14U, 2, 1, 0x0U, 3),
+    encode_fp_r(0x14U, 2, 1, 0x1U, 4),
+    encode_flw(0x108, 0, 5),
+    encode_flw(0x10c, 0, 6),
+    encode_fp_r(0x14U, 6, 5, 0x0U, 7),
+    encode_fp_r(0x14U, 6, 5, 0x1U, 8),
+    encode_fp_r(0x14U, 5, 5, 0x0U, 9),
+  ])
+  let runner = make_runner(rv64f_machine_config())
+  runner.load_program(words_to_bytes([neg_zero, pos_zero, nan_bits, one]), 0x100U)
+  runner.load_program(program, 0U)
+  for _ in 0..<9 {
+    match runner.step() {
+      Running => ()
+      Trap(info) =>
+        fail(
+          "expected rv64f min/max path to stay running, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+        )
+    }
+  }
+  assert_eq(runner.read_freg_u64(3), neg_zero.to_uint64())
+  assert_eq(runner.read_freg_u64(4), pos_zero.to_uint64())
+  assert_eq(runner.read_freg_u64(7), one.to_uint64())
+  assert_eq(runner.read_freg_u64(8), one.to_uint64())
+  assert_eq(runner.read_freg_u64(9), 0x7fc00000U.to_uint64())
+}
+
+///|
+test "rv64f fcsr frm and fflags views share one visible register" {
+  let csr_fflags = 0x001
+  let csr_frm = 0x002
+  let csr_fcsr = 0x003
+  let program = words_to_bytes([
+    encode_i(0x6d, 0, 0x0U, 1, 0x13U),
+    encode_csr(csr_fcsr, 1, 0x1U, 0),
+    encode_csr(csr_fflags, 0, 0x2U, 2),
+    encode_csr(csr_frm, 0, 0x2U, 3),
+    encode_i(0x02, 0, 0x0U, 4, 0x13U),
+    encode_csr(csr_frm, 4, 0x1U, 0),
+    encode_csr(csr_fcsr, 0, 0x2U, 5),
+  ])
+  let runner = make_runner(rv64f_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(7) {
+    Running => ()
+    _ => fail("expected fcsr view path to run")
+  }
+  assert_eq(runner.read_reg(2), 0x0dU)
+  assert_eq(runner.read_reg(3), 0x03U)
+  assert_eq(runner.read_reg(5), 0x4dU)
+  assert_eq(runner.read_csr(csr_fcsr), 0x4dU)
+  assert_eq(runner.read_csr(csr_frm), 0x02U)
+  assert_eq(runner.read_csr(csr_fflags), 0x0dU)
+}
+
+///|
+test "rv64f traps on unsupported dynamic rounding mode" {
+  let two = exec_test_f32_bits(2.0)
+  let program = words_to_bytes([
+    encode_flw(0x100, 0, 2),
+    encode_flw(0x104, 0, 3),
+    encode_fp_r(0x00U, 3, 2, 0x1U, 4),
+  ])
+  let raw = encode_fp_r(0x00U, 3, 2, 0x1U, 4)
+  let runner = make_runner(rv64f_machine_config())
+  runner.load_program(words_to_bytes([two, two]), 0x100U)
+  runner.load_program(program, 0U)
+  match runner.run(3) {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction")
+      }
+      assert_eq(info.trap_value, raw.to_uint64())
+    }
+    _ => fail("expected unsupported rounding mode to trap")
+  }
+}
+
+///|
+test "rv64 without f rejects scalar f instructions as illegal" {
+  let fp_words = [
+    encode_flw(0, 0, 1),
+    encode_fp_r(0x00U, 2, 1, 0x0U, 3),
+  ]
+  for raw in fp_words {
+    let runner = make_runner(rv64_machine_config())
+    runner.load_program(words_to_bytes([raw]), 0U)
+    match runner.step() {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected illegal instruction cause")
+        }
+        assert_eq(info.trap_value, raw.to_uint64())
+      }
+      _ => fail("expected scalar f instruction to trap without F")
+    }
+  }
+}
+
+///|
+test "rv64fd move path preserves raw double-precision bits" {
+  let raw = exec_test_f64_bits(1.5)
+  let runner = make_runner(rv64fd_machine_config())
+  runner.load_program_u64(exec_test_u64_to_le_bytes(raw), 0x100U.to_uint64())
+  runner.load_program(words_to_bytes([
+    encode_i(0x100, 0, 0x0U, 5, 0x13U),
+    encode_i(0, 5, 0x3U, 1, 0x03U),
+    encode_fmv_d_x(1, 3),
+    encode_fmv_x_d(3, 4),
+  ]), 0U)
+  match runner.run(4) {
+    Running => ()
+    _ => fail("expected rv64fd move path to stay running")
+  }
+  assert_eq(runner.read_freg_u64(3), raw)
+  assert_eq(runner.read_reg_u64(4), raw)
+}
+
+///|
+test "rv64fd fld and fsd preserve raw payload bits" {
+  let raw = exec_test_f64_canonical_nan_bits() | 0x1234U.to_uint64()
+  let program = words_to_bytes([
+    encode_fld(0x100, 0, 1),
+    encode_fsd(0x108, 1, 0),
+  ])
+  let runner = make_runner(rv64fd_machine_config())
+  runner.load_program_u64(exec_test_u64_to_le_bytes(raw), 0x100U.to_uint64())
+  runner.load_program(program, 0U)
+  match runner.step() {
+    Running => ()
+    _ => fail("expected fld to run")
+  }
+  assert_eq(runner.read_freg_u64(1), raw)
+  match runner.step() {
+    Running => ()
+    _ => fail("expected fsd to run")
+  }
+  assert_eq(runner.bus.load_u64(0x108U.to_uint64()), raw)
+}
+
+///|
+test "rv64fd basic scalar arithmetic executes with host ieee defaults" {
+  let four = exec_test_f64_bits(4.0)
+  let two = exec_test_f64_bits(2.0)
+  let program = words_to_bytes([
+    encode_fld(0x100, 0, 1),
+    encode_fld(0x108, 0, 2),
+    encode_fp_r(0x01U, 2, 1, 0x0U, 3),
+    encode_fp_r(0x05U, 2, 1, 0x0U, 4),
+    encode_fp_r(0x09U, 2, 1, 0x0U, 5),
+    encode_fp_r(0x0dU, 2, 1, 0x0U, 6),
+    encode_fsqrt_d(1, 0x0U, 7),
+    encode_fp_r(0x15U, 2, 1, 0x0U, 8),
+    encode_fp_r(0x15U, 2, 1, 0x1U, 9),
+  ])
+  let runner = make_runner(rv64fd_machine_config())
+  runner.load_program_u64(exec_test_u64_to_le_bytes(four), 0x100U.to_uint64())
+  runner.load_program_u64(exec_test_u64_to_le_bytes(two), 0x108U.to_uint64())
+  runner.load_program(program, 0U)
+  match runner.run(9) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected rv64fd arithmetic path to stay running, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_freg_u64(3), exec_test_f64_bits(6.0))
+  assert_eq(runner.read_freg_u64(4), exec_test_f64_bits(2.0))
+  assert_eq(runner.read_freg_u64(5), exec_test_f64_bits(8.0))
+  assert_eq(runner.read_freg_u64(6), exec_test_f64_bits(2.0))
+  assert_eq(runner.read_freg_u64(7), exec_test_f64_bits(2.0))
+  assert_eq(runner.read_freg_u64(8), two)
+  assert_eq(runner.read_freg_u64(9), four)
+}
+
+///|
+test "rv64fd f and d conversion paths preserve expected values" {
+  let single = exec_test_f32_bits(1.5)
+  let double = exec_test_f64_bits(2.25)
+  let program = words_to_bytes([
+    encode_flw(0x100, 0, 1),
+    encode_fld(0x108, 0, 2),
+    encode_fcvt_d_s(1, 0x0U, 3),
+    encode_fcvt_s_d(2, 0x0U, 4),
+  ])
+  let runner = make_runner(rv64fd_machine_config())
+  runner.load_program(words_to_bytes([single]), 0x100U)
+  runner.load_program_u64(exec_test_u64_to_le_bytes(double), 0x108U.to_uint64())
+  runner.load_program(program, 0U)
+  match runner.run(4) {
+    Running => ()
+    _ => fail("expected rv64fd convert path to run")
+  }
+  assert_eq(runner.read_freg_u64(3), exec_test_f64_bits(1.5))
+  assert_eq(
+    runner.read_freg_u64(4),
+    exec_test_nan_box_single(exec_test_f32_bits(Float::from_double(2.25))),
+  )
+}
+
+///|
+test "rv64fd flw boxes single values and arithmetic treats unboxed input as canonical nan" {
+  let runner = make_runner(rv64fd_machine_config())
+  runner.load_program(words_to_bytes([exec_test_f32_bits(1.0)]), 0x100U)
+  runner.load_program(words_to_bytes([
+    encode_flw(0x100, 0, 1),
+    encode_fp_r(0x00U, 2, 1, 0x0U, 3),
+  ]), 0U)
+  runner.cpu.write_freg(2, exec_test_f32_bits(1.0).to_uint64())
+  match runner.step() {
+    Running => ()
+    Trap(info) =>
+      fail("expected flw to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}")
+  }
+  match runner.step() {
+    Running => ()
+    Trap(info) =>
+      fail("expected fadd.s to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}")
+  }
+  assert_eq(
+    runner.read_freg_u64(1),
+    exec_test_nan_box_single(exec_test_f32_bits(1.0)),
+  )
+  assert_eq(
+    runner.read_freg_u64(3),
+    exec_test_nan_box_single(0x7fc00000U),
+  )
+}
+
+///|
+test "rv64f without d rejects scalar d instructions as illegal" {
+  let d_words = [
+    encode_fld(0, 0, 1),
+    encode_fp_r(0x01U, 2, 1, 0x0U, 3),
+    encode_fcvt_s_d(1, 0x0U, 2),
+  ]
+  for raw in d_words {
+    let runner = make_runner(rv64f_machine_config())
+    runner.load_program(words_to_bytes([raw]), 0U)
+    match runner.step() {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected illegal instruction cause")
+        }
+        assert_eq(info.trap_value, raw.to_uint64())
+      }
+      _ => fail("expected scalar d instruction to trap without D")
+    }
+  }
 }
 
 ///|

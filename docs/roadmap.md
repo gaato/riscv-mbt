@@ -2,9 +2,9 @@
 
 ## Current Position
 
-- Active milestone: `Post-Linux compatibility target`
-- Current checkpoint: the Linux-capable core is implemented, and the browser smoke demo is publicly hosted at `https://gaato.github.io/riscv-mbt/`
-- Next concrete target: define the post-Linux compatibility target so extension work stops depending on ad-hoc choices
+- Active milestone: `Extensions: A, F/D, V, H`
+- Current checkpoint: the repo now defines `RV64 Linux Profile v1` as its post-Linux compatibility target, Linux plus the browser smoke demo are already in place, and the first required `F/D` gap is closed
+- Next concrete target: define the initial `V` slice before starting vector implementation
 - Design rule: protect implementation boundaries first, then add instructions
 - Milestone semantics:
   - `RV32IMC` = core completion checkpoint
@@ -12,6 +12,7 @@
   - `Linux boot` = system integration checkpoint
   - `Browser Demo` = delivery checkpoint for a thin browser host over the validated core
   - `Post-Linux compatibility target` = the point where future extension work gets anchored to an explicit software-compatibility contract
+  - `Extensions: A, F/D, V, H` = the stage where profile-driven compatibility gaps are closed first and non-profile extension families are then taken in explicit order
 
 ## Milestones
 
@@ -49,7 +50,7 @@
 - Linux boot depends on privileged execution, MMU, SBI/boot ABI, and a `QEMU virt`-style platform more than on simply accumulating ISA extensions.
 - Browser demo depends on the Linux-capable core staying UI-independent.
 - Browser delivery is complete once the thin host exists and the public smoke deploy is live.
-- After Linux boot and browser delivery, the next mainline decision is the post-Linux compatibility target that later extension work should honor.
+- After Linux boot and browser delivery, extension work should follow the chosen compatibility profile instead of opportunistic ISA growth.
 
 ## Operating Rules
 

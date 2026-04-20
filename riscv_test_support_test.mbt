@@ -212,6 +212,77 @@ fn encode_fence_i() -> UInt {
 }
 
 ///|
+fn encode_flw(imm : Int, rs1 : Int, rd : Int) -> UInt {
+  encode_i(imm, rs1, 0x2U, rd, 0x07U)
+}
+
+///|
+fn encode_fld(imm : Int, rs1 : Int, rd : Int) -> UInt {
+  encode_i(imm, rs1, 0x3U, rd, 0x07U)
+}
+
+///|
+fn encode_fsw(imm : Int, rs2 : Int, rs1 : Int) -> UInt {
+  encode_s(imm, rs2, rs1, 0x2U, 0x27U)
+}
+
+///|
+fn encode_fsd(imm : Int, rs2 : Int, rs1 : Int) -> UInt {
+  encode_s(imm, rs2, rs1, 0x3U, 0x27U)
+}
+
+///|
+fn encode_fp_r(
+  funct7 : UInt,
+  rs2 : Int,
+  rs1 : Int,
+  rm : UInt,
+  rd : Int,
+) -> UInt {
+  encode_r(funct7, rs2, rs1, rm, rd, 0x53U)
+}
+
+///|
+fn encode_fsqrt_s(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+  encode_fp_r(0x2cU, 0, rs1, rm, rd)
+}
+
+///|
+fn encode_fsqrt_d(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+  encode_fp_r(0x2dU, 0, rs1, rm, rd)
+}
+
+///|
+fn encode_fmv_x_w(rs1 : Int, rd : Int) -> UInt {
+  encode_fp_r(0x70U, 0, rs1, 0x0U, rd)
+}
+
+///|
+fn encode_fmv_w_x(rs1 : Int, rd : Int) -> UInt {
+  encode_fp_r(0x78U, 0, rs1, 0x0U, rd)
+}
+
+///|
+fn encode_fmv_x_d(rs1 : Int, rd : Int) -> UInt {
+  encode_fp_r(0x71U, 0, rs1, 0x0U, rd)
+}
+
+///|
+fn encode_fmv_d_x(rs1 : Int, rd : Int) -> UInt {
+  encode_fp_r(0x79U, 0, rs1, 0x0U, rd)
+}
+
+///|
+fn encode_fcvt_s_d(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+  encode_fp_r(0x20U, 1, rs1, rm, rd)
+}
+
+///|
+fn encode_fcvt_d_s(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+  encode_fp_r(0x21U, 0, rs1, rm, rd)
+}
+
+///|
 fn trap_cause_name(cause : TrapCause) -> String {
   match cause {
     InstructionAccessFault => "instruction access fault"
