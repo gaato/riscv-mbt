@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>riscv-mbt browser demo</title>
+    <link rel="stylesheet" href="styles.css">
+  </head>
+  <body>
+    <main class="layout">
+      <section class="panel hero">
+        <h1>riscv-mbt browser demo</h1>
+        <p id="host-notes">Loading browser host…</p>
+      </section>
+      <section class="panel controls">
+        <div class="button-row">
+          <button id="step" type="button">Step</button>
+          <button id="run-toggle" type="button">Run</button>
+          <button id="reset" type="button">Reset</button>
+        </div>
+        <label class="input-row" for="serial-input">
+          <span>UART input</span>
+          <input id="serial-input" type="text" placeholder="Type and press Enter">
+          <button id="send-input" type="button">Send</button>
+        </label>
+      </section>
+      <section class="panel two-up">
+        <div>
+          <h2>Status</h2>
+          <pre id="status"></pre>
+        </div>
+        <div>
+          <h2>Serial console</h2>
+          <pre id="console"></pre>
+        </div>
+      </section>
+    </main>
+    <script src="browser.js"></script>
+  </body>
+</html>

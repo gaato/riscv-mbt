@@ -38,28 +38,28 @@
 - [Add minimal `env/p` support](tasks/0025-minimal-env-p-support.md) — `done`
 - [Run an official `rv32ui-p-*` subset](tasks/0026-official-rv32ui-runner.md) — `done`
 - [Cross-check official `rv32ui-p-*` with a system emulator](tasks/0027-qemu-cross-check-official-rv32ui.md) — `done`
-- [Browser demo host](tasks/0020-browser-demo.md) — `doing`
+- [Browser demo host](tasks/0020-browser-demo.md) — `done`
 - [Decide the browser demo hosting target](tasks/0021-browser-hosting-decision.md) — `done`
 - [Deploy the first browser smoke demo](tasks/0022-browser-smoke-demo-deploy.md) — `todo`
 - [Enable preview deploys for browser work](tasks/0023-browser-preview-deploys.md) — `todo`
 
 ## Next Task
 
-- Next: build the first minimal browser host artifact ([Task 0020](tasks/0020-browser-demo.md)).
+- Next: deploy the first browser smoke demo ([Task 0022](tasks/0022-browser-smoke-demo-deploy.md)).
 
 ## Known Blockers
 
 - Local `moon test` now expects build artifacts under `_build/riscv-tests-src/isa`; run `./scripts/build-riscv-tests-official.sh` first if they are missing.
 - The built upstream `*-p-*` survey currently stands above the original RV32 checkpoint, but RV64 coverage is still survey-only and has not been promoted into the always-green CI subset.
 - The official QEMU cross-check path remains RV32-only; RV64 system-emulator cross-checking is still deferred.
-- There is still no browser host implementation or deploy config in the repo; `0020` must produce the first minimal artifact before `0022` can publish it.
+- The browser host artifact now exists under `_build/browser-demo/`, but there is still no public deployment path or deploy config in the repo; `0022` must publish the first smoke demo.
 
 ## Read Next
 
 - [Roadmap](roadmap.md)
 - [Implementation Notes](guides/implementation-notes.md)
 - [Browser demo milestone](milestones/11-browser-demo.md)
-- [Task 0020](tasks/0020-browser-demo.md)
+- [Task 0022](tasks/0022-browser-smoke-demo-deploy.md)
 - [Task 0009](tasks/0009-rv32-supervisor-sv32.md)
 - [ADR 0001](adr/0001-rv32i-first.md)
 - [ADR 0003](adr/0003-milestone-spine.md)

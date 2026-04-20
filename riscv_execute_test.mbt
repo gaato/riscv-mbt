@@ -1231,6 +1231,30 @@ test "uart lbu from lsr offset returns tx-ready status" {
 }
 
 ///|
+test "uart input sets data-ready bit and rbr consumes the queued byte" {
+  // LUI x1, 0x10000 → x1 = 0x10000000 (uart base)
+  // LBU x2, 5(x1)   → read LSR with pending RX data: bit 0 should be set
+  // LBU x3, 0(x1)   → dequeue one byte from RBR
+  // LBU x4, 5(x1)   → read LSR again: only TX-ready bits should remain
+  let program = words_to_bytes([
+    encode_u(0x10000000U, 1, 0x37U),
+    encode_i(5, 1, 0x4U, 2, 0x03U),
+    encode_i(0, 1, 0x4U, 3, 0x03U),
+    encode_i(5, 1, 0x4U, 4, 0x03U),
+  ])
+  let runner = make_runner(virt_machine_config())
+  runner.uart_push_input("A")
+  runner.load_program_u64(program, 0x80000000U.to_uint64())
+  match runner.run(4) {
+    Running => ()
+    _ => fail("expected running after uart receive sequence")
+  }
+  assert_eq(runner.read_reg_u64(2), 0x61U.to_uint64())
+  assert_eq(runner.read_reg_u64(3), 65U.to_uint64())
+  assert_eq(runner.read_reg_u64(4), 0x60U.to_uint64())
+}
+
+///|
 test "clint mtime read/write via sd/ld 64-bit" {
   // mtime = clint_base + 0xBFF8 = 0x0200C000 - 8 = 0x0200BFF8
   // LUI x1, 0x200C → x1 = 0x0200C000

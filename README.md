@@ -39,6 +39,10 @@ This is a general-purpose RISC-V emulator project built in MoonBit. Linux boot a
   - `Sv39`, `SFENCE.VMA`, and `MPRV` are covered
   - OpenSBI and a virt-like platform are integrated
   - the Linux boot ABI and SMP follow-through are implemented on the current path
+- The first browser host artifact now exists:
+  - `cmd/browser` is a thin JS-target host over the shared core
+  - `./scripts/build-browser-demo.sh` assembles `_build/browser-demo/`
+  - the current smoke scope is serial output, UART input, and minimal step/run/reset controls
 
 ## Next Milestone
 
@@ -79,6 +83,7 @@ moon run cmd/main
 ./scripts/cross-check-official-rv32ui-with-qemu.pl
 ./scripts/build-rv32i-c-sample.sh
 ./scripts/run-rv32i-c-sample.sh
+./scripts/build-browser-demo.sh
 moon run cmd/c_sample
 moon run cmd/official_survey -- rv32uc
 moon run cmd/official_survey -- rv64ui

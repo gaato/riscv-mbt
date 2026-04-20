@@ -68,9 +68,21 @@ let clint_mtimecmp_hi_offset : UInt64 = 0x4004U.to_uint64()
 
 ///|
 fn Runner::uart_read(self : Runner, off : UInt64) -> UInt64 {
+  // RBR (offset 0): dequeue one pending byte if available.
+  if off == 0U.to_uint64() {
+    match self.uart_input.pop() {
+      Some(byte) => return byte.to_uint64()
+      None => return 0U.to_uint64()
+    }
+  }
   // LSR (offset 5): always report THRE+TEMT (TX empty)
   if off == 5U.to_uint64() {
-    return 0x60U.to_uint64()
+    let data_ready = if self.uart_input.is_empty() {
+      0U.to_uint64()
+    } else {
+      0x1U.to_uint64()
+    }
+    return 0x60U.to_uint64() | data_ready
   }
   0U.to_uint64()
 }
@@ -442,6 +454,13 @@ pub fn Runner::uart_drain(self : Runner) -> String {
   let bytes = self.uart_output.copy()
   self.uart_output.clear()
   String::from_array(bytes.map(fn(b) { b.to_int().unsafe_to_char() }))
+}
+
+///|
+pub fn Runner::uart_push_input(self : Runner, text : String) -> Unit {
+  for ch in text {
+    self.uart_input.push(ch.to_int().to_byte())
+  }
 }
 
 ///|

@@ -4,7 +4,7 @@
 
 - Active milestone: `Browser Demo`
 - Current checkpoint: Linux boot platform integration is complete, including `S`-mode, `Sv39`, OpenSBI, platform integration, Linux boot ABI, and SMP follow-through
-- Next concrete target: publish the first minimal browser smoke demo on the chosen host
+- Next concrete target: deploy the first public smoke demo for the existing browser host artifact
 - Design rule: protect implementation boundaries first, then add instructions
 - Milestone semantics:
   - `RV32IMC` = core completion checkpoint

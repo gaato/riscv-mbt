@@ -41,7 +41,8 @@ Expose the emulator through a browser UI without entangling the core with presen
 
 - This is now the active mainline milestone
 - The default hosting target is `Cloudflare Pages`
-- The next active task is [Task 0020](../tasks/0020-browser-demo.md)
+- The first minimal browser host artifact now exists under `_build/browser-demo/`
+- The next active task is [Task 0022](../tasks/0022-browser-smoke-demo-deploy.md)
 
 ## Prerequisites For Next Milestone
 

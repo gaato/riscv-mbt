@@ -196,6 +196,7 @@ pub struct Runner {
   bus : Bus
   config : MachineConfig
   uart_output : Array[Byte]
+  uart_input : @queue.Queue[Byte]
   mtime : Array[UInt64]      // [0] = current mtime; shared across SMP harts
   clint_msip : Array[Bool]   // [hart_id] = MSIP bit; shared across SMP harts
   all_mtimecmp : Array[UInt64] // [hart_id] = mtimecmp; shared across SMP harts
@@ -531,6 +532,7 @@ pub fn make_runner(config : MachineConfig) -> Runner {
     bus: Bus::new(config.ram_base, config.ram_size),
     config,
     uart_output: [],
+    uart_input: @queue.new(),
     mtime: [0U.to_uint64()],
     clint_msip: Array::make(2, false),
     all_mtimecmp: Array::make(2, bit_not(0U.to_uint64())),
@@ -548,6 +550,7 @@ pub fn make_runner(config : MachineConfig) -> Runner {
 pub fn make_smp_runners(config : MachineConfig, num_harts : Int) -> Array[Runner] {
   let shared_bus = Bus::new(config.ram_base, config.ram_size)
   let shared_uart : Array[Byte] = []
+  let shared_uart_input : @queue.Queue[Byte] = @queue.new()
   let shared_plic : Array[Byte] = if config.plic_base != 0U.to_uint64() {
     Array::make(0x400000, 0U.to_byte())
   } else {
@@ -578,6 +581,7 @@ pub fn make_smp_runners(config : MachineConfig, num_harts : Int) -> Array[Runner
       bus: shared_bus,
       config: hart_config,
       uart_output: shared_uart,
+      uart_input: shared_uart_input,
       mtime: shared_mtime,
       clint_msip: shared_msip,
       all_mtimecmp: shared_mtimecmp,
