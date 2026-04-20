@@ -38,8 +38,9 @@ Treat Linux boot as a system-integration milestone that proves the platform hang
 
 ## Current Checkpoint
 
-- The standalone supervisor baseline is closed through delegation routing and `SRET`
-- The next active task is `Sv39` and `SFENCE.VMA`
+- This milestone is complete
+- `S`-mode and delegation, `Sv39` and `SFENCE.VMA`, OpenSBI/platform integration, Linux boot ABI, and SMP follow-through are all closed in repo tasks
+- Linux-path assumptions are now recorded in repo docs rather than left implicit
 
 ## Prerequisites For Next Milestone
 

@@ -28,4 +28,10 @@ At the moment, `Cloudflare Pages` is the recommended default because it fits sta
 
 ## Status
 
-- `todo`
+- `done`
+
+## Progress Notes
+
+- `Cloudflare Pages` is now the default browser-demo host for this repo
+- The decision stays intentionally narrow: host static browser artifacts first, then reuse the same platform family for preview deploys
+- This choice does not require Linux-in-browser or a richer browser product before the first smoke deploy

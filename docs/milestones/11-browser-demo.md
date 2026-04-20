@@ -31,6 +31,18 @@ Expose the emulator through a browser UI without entangling the core with presen
 - Manual verification checklist for serial interaction
 - Deployment smoke check for the published build artifact
 
+## Implementation Order
+
+1. build the first minimal browser host artifact
+2. deploy the first public smoke demo
+3. enable preview deploys for browser-facing work
+
+## Current Checkpoint
+
+- This is now the active mainline milestone
+- The default hosting target is `Cloudflare Pages`
+- The next active task is [Task 0020](../tasks/0020-browser-demo.md)
+
 ## Prerequisites For Next Milestone
 
 - None

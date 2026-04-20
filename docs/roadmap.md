@@ -2,14 +2,15 @@
 
 ## Current Position
 
-- Active milestone: `Linux boot platform integration`
-- Current checkpoint: practical RV64 core stabilization is complete, including official RV64 survey plumbing
-- Next concrete target: add `S`-mode and delegation before MMU work begins
+- Active milestone: `Browser Demo`
+- Current checkpoint: Linux boot platform integration is complete, including `S`-mode, `Sv39`, OpenSBI, platform integration, Linux boot ABI, and SMP follow-through
+- Next concrete target: publish the first minimal browser smoke demo on the chosen host
 - Design rule: protect implementation boundaries first, then add instructions
 - Milestone semantics:
   - `RV32IMC` = core completion checkpoint
   - `RV32IMC + Zicsr + Zifencei` = first practical standalone CPU checkpoint
   - `Linux boot` = system integration checkpoint
+  - `Browser Demo` = delivery checkpoint for a thin browser host over the validated core
 
 ## Milestones
 

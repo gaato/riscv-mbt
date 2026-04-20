@@ -25,9 +25,12 @@ The browser host is a distinct product layer over the emulator core, not the pla
 
 - [Task 0019](0019-verification-debug-performance.md)
 - [Task 0021](0021-browser-hosting-decision.md)
-- [Task 0022](0022-browser-smoke-demo-deploy.md)
-- [Task 0023](0023-browser-preview-deploys.md)
 
 ## Status
 
-- `todo`
+- `doing`
+
+## Progress Notes
+
+- This is now the active browser implementation task
+- The goal is to produce the first minimal browser host artifact that `0022` can deploy, not to fold deployment work into the host task

@@ -34,20 +34,28 @@ This is a general-purpose RISC-V emulator project built in MoonBit. Linux boot a
   - the current `C`, `Zicsr`, and `Zifencei` surface has explicit RV64 carry-forward regressions
   - `Runner.load_elf(...)` supports both `ELF32` and `ELF64`
   - official `rv64ui` / `rv64um` survey plumbing is in place
+- Linux boot platform integration is now complete:
+  - `S`-mode, delegation, and `SRET` are in place
+  - `Sv39`, `SFENCE.VMA`, and `MPRV` are covered
+  - OpenSBI and a virt-like platform are integrated
+  - the Linux boot ABI and SMP follow-through are implemented on the current path
 
 ## Next Milestone
 
-- The repo has finished the practical RV64 core checkpoint on top of `Minimal M-mode`
-- The mainline next step is [S-mode and delegation](docs/tasks/0012-s-mode-and-delegation.md)
+- The repo has finished the Linux boot platform integration milestone
+- The mainline next step is [Browser Demo](docs/milestones/11-browser-demo.md)
+- The hosting decision is now fixed on `Cloudflare Pages`
+- The next concrete task is [0022 browser smoke demo deploy](docs/tasks/0022-browser-smoke-demo-deploy.md)
 - The optional side branch remains [RV32 supervisor + Sv32](docs/tasks/0009-rv32-supervisor-sv32.md)
-- `Linux boot` is treated as a system-integration gate built from privileged support + MMU + SBI + device model work, not just as “more ISA coverage”
+- Browser work is still staged: hosting decision first, smoke deploy second, preview deploys third
 
 ## Read Next
 
 - [Current State](docs/current.md)
 - [Roadmap](docs/roadmap.md)
 - [Implementation Notes](docs/guides/implementation-notes.md)
-- [RV64 Transition Milestone](docs/milestones/06b-rv64-transition.md)
+- [Browser Demo Milestone](docs/milestones/11-browser-demo.md)
+- [Task 0022](docs/tasks/0022-browser-smoke-demo-deploy.md)
 - [Agent Guide](AGENTS.md)
 
 ## Common Commands

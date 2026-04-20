@@ -21,6 +21,7 @@ The first deployment should happen as soon as there is a small browser artifact 
 
 ## Dependencies
 
+- [Task 0020](0020-browser-demo.md)
 - [Task 0021](0021-browser-hosting-decision.md)
 
 ## Status
