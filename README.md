@@ -48,8 +48,9 @@ This is a general-purpose RISC-V emulator project built in MoonBit. Linux boot a
 
 - The repo has finished the Linux boot platform integration milestone
 - The mainline next step is [Browser Demo](docs/milestones/11-browser-demo.md)
-- The hosting decision is now fixed on `Cloudflare Pages`
+- The hosting decision is now fixed on `GitHub Pages`
 - The next concrete task is [0022 browser smoke demo deploy](docs/tasks/0022-browser-smoke-demo-deploy.md)
+- The repo now includes a GitHub Pages workflow that publishes `_build/browser-demo/`
 - The optional side branch remains [RV32 supervisor + Sv32](docs/tasks/0009-rv32-supervisor-sv32.md)
 - Browser work is still staged: hosting decision first, smoke deploy second, preview deploys third
 

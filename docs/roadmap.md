@@ -4,7 +4,7 @@
 
 - Active milestone: `Browser Demo`
 - Current checkpoint: Linux boot platform integration is complete, including `S`-mode, `Sv39`, OpenSBI, platform integration, Linux boot ABI, and SMP follow-through
-- Next concrete target: deploy the first public smoke demo for the existing browser host artifact
+- Next concrete target: confirm the first public GitHub Pages smoke deploy for the existing browser host artifact
 - Design rule: protect implementation boundaries first, then add instructions
 - Milestone semantics:
   - `RV32IMC` = core completion checkpoint
@@ -50,6 +50,7 @@
 - Deployment should be phased:
   - decide the hosting target early
   - add the first public deploy when a browser smoke demo exists
+  - add a first public smoke deploy on the chosen static host
   - enable per-branch or per-PR preview deploys when the browser demo becomes an active development surface
 
 ## Operating Rules

@@ -40,9 +40,9 @@ Expose the emulator through a browser UI without entangling the core with presen
 ## Current Checkpoint
 
 - This is now the active mainline milestone
-- The default hosting target is `Cloudflare Pages`
+- The default hosting target is `GitHub Pages`
 - The first minimal browser host artifact now exists under `_build/browser-demo/`
-- The next active task is [Task 0022](../tasks/0022-browser-smoke-demo-deploy.md)
+- The next active task is [Task 0022](../tasks/0022-browser-smoke-demo-deploy.md), which now has a GitHub Pages workflow but still needs the first public URL confirmation
 
 ## Prerequisites For Next Milestone
 
