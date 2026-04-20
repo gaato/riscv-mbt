@@ -25,4 +25,9 @@ After Linux boots, the project should stop being “whatever extension comes nex
 
 ## Status
 
-- `todo`
+- `doing`
+
+## Progress Notes
+
+- This task is now the active mainline decision point after Linux boot and browser delivery are complete
+- The remaining work is to choose and document the compatibility target that future extension work should follow

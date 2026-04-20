@@ -2,7 +2,7 @@
 
 ## Current Milestone
 
-- `Browser Demo`
+- `Post-Linux compatibility target`
 
 ## Current Tasks
 
@@ -40,26 +40,27 @@
 - [Cross-check official `rv32ui-p-*` with a system emulator](tasks/0027-qemu-cross-check-official-rv32ui.md) — `done`
 - [Browser demo host](tasks/0020-browser-demo.md) — `done`
 - [Decide the browser demo hosting target](tasks/0021-browser-hosting-decision.md) — `done`
-- [Deploy the first browser smoke demo](tasks/0022-browser-smoke-demo-deploy.md) — `doing`
-- [Enable preview deploys for browser work](tasks/0023-browser-preview-deploys.md) — `todo`
+- [Deploy the first browser smoke demo](tasks/0022-browser-smoke-demo-deploy.md) — `done`
+- [Enable preview deploys for browser work](tasks/0023-browser-preview-deploys.md) — `done`
+- [Define the post-Linux compatibility target](tasks/0017-post-linux-compatibility.md) — `doing`
 
 ## Next Task
 
-- Next: let the GitHub Pages smoke deploy run on `main` and confirm the public URL ([Task 0022](tasks/0022-browser-smoke-demo-deploy.md)).
+- Next: define the post-Linux compatibility target for post-Linux extension work ([Task 0017](tasks/0017-post-linux-compatibility.md)).
 
 ## Known Blockers
 
 - Local `moon test` now expects build artifacts under `_build/riscv-tests-src/isa`; run `./scripts/build-riscv-tests-official.sh` first if they are missing.
 - The built upstream `*-p-*` survey currently stands above the original RV32 checkpoint, but RV64 coverage is still survey-only and has not been promoted into the always-green CI subset.
 - The official QEMU cross-check path remains RV32-only; RV64 system-emulator cross-checking is still deferred.
-- The browser host artifact now exists under `_build/browser-demo/`, and a GitHub Pages workflow is in the repo, but the first public smoke-deploy URL still needs to be confirmed on `main`.
+- The Linux-capable core and browser smoke demo are in place, but the post-Linux compatibility target is still undefined.
 
 ## Read Next
 
 - [Roadmap](roadmap.md)
 - [Implementation Notes](guides/implementation-notes.md)
-- [Browser demo milestone](milestones/11-browser-demo.md)
-- [Task 0022](tasks/0022-browser-smoke-demo-deploy.md)
+- [Post-Linux compatibility milestone](milestones/08-post-linux-compatibility.md)
+- [Task 0017](tasks/0017-post-linux-compatibility.md)
 - [Task 0009](tasks/0009-rv32-supervisor-sv32.md)
 - [ADR 0001](adr/0001-rv32i-first.md)
 - [ADR 0003](adr/0003-milestone-spine.md)

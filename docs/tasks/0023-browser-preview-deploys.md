@@ -6,14 +6,14 @@ Preview deployments are most valuable once the browser demo becomes an active de
 
 ## Work
 
-- Add branch or pull-request preview deployments on the chosen host
+- Re-evaluate whether branch or pull-request preview deployments are necessary after the first public smoke demo is live
 - Keep `main` as the production browser demo path
-- Document when preview deploys are expected to be used during review
+- If preview review remains unnecessary, close the task without adding more hosting machinery
 
 ## Acceptance Criteria
 
-- Browser demo changes can be reviewed from preview URLs
-- Preview deploys do not replace local development or the non-browser test flow
+- The repo docs explicitly state whether preview review is part of the browser milestone contract
+- The browser delivery path no longer depends on inferred preview-hosting requirements
 
 ## Related Milestone
 
@@ -26,4 +26,10 @@ Preview deployments are most valuable once the browser demo becomes an active de
 
 ## Status
 
-- `todo`
+- `done`
+
+## Progress Notes
+
+- The browser milestone now stops at the public GitHub Pages smoke demo
+- Additional preview deploys are intentionally out of scope for the current repo contract
+- Local development plus the public smoke URL at `https://gaato.github.io/riscv-mbt/` are sufficient for the current browser delivery checkpoint

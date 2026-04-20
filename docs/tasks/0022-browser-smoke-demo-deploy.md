@@ -26,11 +26,11 @@ The first deployment should happen as soon as there is a small browser artifact 
 
 ## Status
 
-- `doing`
+- `done`
 
 ## Progress Notes
 
 - The repo now includes a GitHub Pages workflow at `.github/workflows/browser-demo-pages.yml`
 - The deployment build uses `./scripts/build-browser-demo.sh` and uploads `_build/browser-demo/` as the Pages artifact
-- Expected public URL shape for the first smoke deploy is `https://gaato.github.io/riscv-mbt/`
-- This task is not complete until the workflow has run on `main` and the public URL is confirmed
+- The first public smoke deploy is live at `https://gaato.github.io/riscv-mbt/`
+- Manual smoke checks confirmed that the page loads, the console starts with `echo ready`, and UART input is echoed back through the shared core

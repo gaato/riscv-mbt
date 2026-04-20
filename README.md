@@ -47,20 +47,20 @@ This is a general-purpose RISC-V emulator project built in MoonBit. Linux boot a
 ## Next Milestone
 
 - The repo has finished the Linux boot platform integration milestone
-- The mainline next step is [Browser Demo](docs/milestones/11-browser-demo.md)
-- The hosting decision is now fixed on `GitHub Pages`
-- The next concrete task is [0022 browser smoke demo deploy](docs/tasks/0022-browser-smoke-demo-deploy.md)
-- The repo now includes a GitHub Pages workflow that publishes `_build/browser-demo/`
+- The browser delivery milestone is also complete:
+  - the hosting decision is fixed on `GitHub Pages`
+  - the public smoke demo is live at `https://gaato.github.io/riscv-mbt/`
+- The mainline next step is [Post-Linux compatibility target](docs/milestones/08-post-linux-compatibility.md)
+- The next concrete task is [0017 define the post-Linux compatibility target](docs/tasks/0017-post-linux-compatibility.md)
 - The optional side branch remains [RV32 supervisor + Sv32](docs/tasks/0009-rv32-supervisor-sv32.md)
-- Browser work is still staged: hosting decision first, smoke deploy second, preview deploys third
 
 ## Read Next
 
 - [Current State](docs/current.md)
 - [Roadmap](docs/roadmap.md)
 - [Implementation Notes](docs/guides/implementation-notes.md)
-- [Browser Demo Milestone](docs/milestones/11-browser-demo.md)
-- [Task 0022](docs/tasks/0022-browser-smoke-demo-deploy.md)
+- [Post-Linux Compatibility Milestone](docs/milestones/08-post-linux-compatibility.md)
+- [Task 0017](docs/tasks/0017-post-linux-compatibility.md)
 - [Agent Guide](AGENTS.md)
 
 ## Common Commands

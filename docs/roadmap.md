@@ -2,15 +2,16 @@
 
 ## Current Position
 
-- Active milestone: `Browser Demo`
-- Current checkpoint: Linux boot platform integration is complete, including `S`-mode, `Sv39`, OpenSBI, platform integration, Linux boot ABI, and SMP follow-through
-- Next concrete target: confirm the first public GitHub Pages smoke deploy for the existing browser host artifact
+- Active milestone: `Post-Linux compatibility target`
+- Current checkpoint: the Linux-capable core is implemented, and the browser smoke demo is publicly hosted at `https://gaato.github.io/riscv-mbt/`
+- Next concrete target: define the post-Linux compatibility target so extension work stops depending on ad-hoc choices
 - Design rule: protect implementation boundaries first, then add instructions
 - Milestone semantics:
   - `RV32IMC` = core completion checkpoint
   - `RV32IMC + Zicsr + Zifencei` = first practical standalone CPU checkpoint
   - `Linux boot` = system integration checkpoint
   - `Browser Demo` = delivery checkpoint for a thin browser host over the validated core
+  - `Post-Linux compatibility target` = the point where future extension work gets anchored to an explicit software-compatibility contract
 
 ## Milestones
 
@@ -47,11 +48,8 @@
   - SMP only after single-hart boot is stable
 - Linux boot depends on privileged execution, MMU, SBI/boot ABI, and a `QEMU virt`-style platform more than on simply accumulating ISA extensions.
 - Browser demo depends on the Linux-capable core staying UI-independent.
-- Deployment should be phased:
-  - decide the hosting target early
-  - add the first public deploy when a browser smoke demo exists
-  - add a first public smoke deploy on the chosen static host
-  - enable per-branch or per-PR preview deploys when the browser demo becomes an active development surface
+- Browser delivery is complete once the thin host exists and the public smoke deploy is live.
+- After Linux boot and browser delivery, the next mainline decision is the post-Linux compatibility target that later extension work should honor.
 
 ## Operating Rules
 
