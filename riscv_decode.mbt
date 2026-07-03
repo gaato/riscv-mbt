@@ -977,6 +977,7 @@ fn instruction_supported_for_current_config(
     VaddVv(_, _, _) => has_v
     VaddVx(_, _, _) => has_v
     VaddVi(_, _, _) => has_v
+    VlmV(_, _) => has_v
     Vle8V(_, _) => has_v
     Vle16V(_, _) => has_v
     Vle32V(_, _) => has_v
@@ -991,6 +992,7 @@ fn instruction_supported_for_current_config(
     Vsuxei32V(_, _, _) => has_v
     Vsoxei32V(_, _, _) => has_v
     Vsse32V(_, _, _) => has_v
+    VsmV(_, _) => has_v
     // C.JAL exists only on RV32C; the 32-bit JAL x1 form remains legal on both widths.
     Jal(rd, _) => !(length == 2 && rd == 1 && xlen == XLEN_64)
     _ => true
@@ -1104,6 +1106,7 @@ pub fn decode(raw : UInt) -> Instruction {
         ((raw >> 25) & 0x1U) == 1U {
         let mop = (raw >> 26) & 0x3U
         match (mop, funct3(raw)) {
+          (0x0U, 0x0U) if rs2(raw) == 0x0b => VlmV(rd(raw), rs1(raw))
           (0x0U, 0x0U) if rs2(raw) == 0 => Vle8V(rd(raw), rs1(raw))
           (0x0U, 0x5U) if rs2(raw) == 0 => Vle16V(rd(raw), rs1(raw))
           (0x0U, 0x6U) if rs2(raw) == 0 => Vle32V(rd(raw), rs1(raw))
@@ -1136,6 +1139,7 @@ pub fn decode(raw : UInt) -> Instruction {
         ((raw >> 25) & 0x1U) == 1U {
         let mop = (raw >> 26) & 0x3U
         match (mop, funct3(raw)) {
+          (0x0U, 0x0U) if rs2(raw) == 0x0b => VsmV(rd(raw), rs1(raw))
           (0x0U, 0x0U) if rs2(raw) == 0 => Vse8V(rd(raw), rs1(raw))
           (0x0U, 0x5U) if rs2(raw) == 0 => Vse16V(rd(raw), rs1(raw))
           (0x0U, 0x6U) if rs2(raw) == 0 => Vse32V(rd(raw), rs1(raw))

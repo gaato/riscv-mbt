@@ -268,6 +268,13 @@ test "decode vsetvl family" {
 
 ///|
 test "decode first vector memory slice" {
+  match decode(encode_vlm(0, 1)) {
+    VlmV(vd, rs1) => {
+      assert_eq(vd, 0)
+      assert_eq(rs1, 1)
+    }
+    _ => fail("expected vlm.v")
+  }
   match decode(encode_vle8(1, 2, true)) {
     Vle8V(vd, rs1) => {
       assert_eq(vd, 1)
@@ -319,6 +326,13 @@ test "decode first vector memory slice" {
       assert_eq(rs2, 19)
     }
     _ => fail("expected vlse32.v")
+  }
+  match decode(encode_vsm(4, 5)) {
+    VsmV(vs3, rs1) => {
+      assert_eq(vs3, 4)
+      assert_eq(rs1, 5)
+    }
+    _ => fail("expected vsm.v")
   }
   match decode(encode_vse8(9, 10, true)) {
     Vse8V(vs3, rs1) => {

@@ -1477,6 +1477,10 @@ pub fn Runner::step(self : Runner) -> StepResult {
       self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
     VaddVi(_, _, _) =>
       self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VlmV(_, _) =>
+      self.execute_vector_memory_first_slice(
+        instruction, current_pc, next_pc, raw,
+      )
     Vle8V(_, _) =>
       self.execute_vector_memory_first_slice(
         instruction, current_pc, next_pc, raw,
@@ -1530,6 +1534,10 @@ pub fn Runner::step(self : Runner) -> StepResult {
         instruction, current_pc, next_pc, raw,
       )
     Vsse32V(_, _, _) =>
+      self.execute_vector_memory_first_slice(
+        instruction, current_pc, next_pc, raw,
+      )
+    VsmV(_, _) =>
       self.execute_vector_memory_first_slice(
         instruction, current_pc, next_pc, raw,
       )

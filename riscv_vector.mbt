@@ -267,6 +267,24 @@ fn Runner::vector_memory_group_config(
 }
 
 ///|
+fn Runner::vector_mask_memory_config(self : Runner) -> VectorExecConfig? {
+  match self.current_vector_exec_config() {
+    Some(config) =>
+      if self.cpu.read_csr(CSR_VSTART) == 0U.to_uint64() {
+        Some(config)
+      } else {
+        None
+      }
+    None => None
+  }
+}
+
+///|
+fn vector_mask_memory_bytes(vl : UInt64) -> Int {
+  ((vl + 7U.to_uint64()) / 8U.to_uint64()).reinterpret_as_int64().to_int()
+}
+
+///|
 fn Runner::vector_indexed_e32_config(
   self : Runner,
   data_vreg : Int,
@@ -462,6 +480,42 @@ fn Runner::execute_vector_load_indexed_e32(
 }
 
 ///|
+fn Runner::execute_vector_mask_load(
+  self : Runner,
+  vd : Int,
+  rs1 : Int,
+  current_pc : UInt64,
+  next_pc : UInt64,
+  raw : UInt,
+) -> StepResult {
+  let config = match self.vector_mask_memory_config() {
+    Some(config) => config
+    None =>
+      return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+  }
+  let active_bytes = vector_mask_memory_bytes(config.vl)
+  let base = self.cpu.read_reg(rs1)
+  let pas : Array[UInt64] = []
+  let values : Array[UInt64] = []
+  for elem in 0..<active_bytes {
+    let addr = vector_unit_stride_addr(base, elem, 1)
+    let (pa, check) = self.load_check(addr, 1)
+    match check {
+      Some(result) => return result
+      None => pas.push(pa)
+    }
+  }
+  for pa in pas {
+    values.push(self.vector_load_elem_bits(pa, 1))
+  }
+  for commit_elem in 0..<active_bytes {
+    self.write_vreg_elem(vd, commit_elem, 8, values[commit_elem])
+  }
+  self.cpu.pc = next_pc
+  Running
+}
+
+///|
 fn Runner::execute_vector_store_unit_stride(
   self : Runner,
   vs3 : Int,
@@ -498,6 +552,42 @@ fn Runner::execute_vector_store_unit_stride(
       elem_bytes,
       values[commit_elem],
     )
+  }
+  self.cpu.pc = next_pc
+  Running
+}
+
+///|
+fn Runner::execute_vector_mask_store(
+  self : Runner,
+  vs3 : Int,
+  rs1 : Int,
+  current_pc : UInt64,
+  next_pc : UInt64,
+  raw : UInt,
+) -> StepResult {
+  let config = match self.vector_mask_memory_config() {
+    Some(config) => config
+    None =>
+      return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+  }
+  let active_bytes = vector_mask_memory_bytes(config.vl)
+  let base = self.cpu.read_reg(rs1)
+  let pas : Array[UInt64] = []
+  let values : Array[UInt64] = []
+  for elem in 0..<active_bytes {
+    let addr = vector_unit_stride_addr(base, elem, 1)
+    let (pa, check) = self.store_check(addr, 1)
+    match check {
+      Some(result) => return result
+      None => {
+        pas.push(pa)
+        values.push(self.read_vreg_elem(vs3, elem, 8))
+      }
+    }
+  }
+  for commit_elem in 0..<active_bytes {
+    self.vector_store_elem_bits(pas[commit_elem], 1, values[commit_elem])
   }
   self.cpu.pc = next_pc
   Running
@@ -738,6 +828,8 @@ fn Runner::execute_vector_memory_first_slice(
   raw : UInt,
 ) -> StepResult {
   match instruction {
+    VlmV(vd, rs1) =>
+      self.execute_vector_mask_load(vd, rs1, current_pc, next_pc, raw)
     Vle8V(vd, rs1) =>
       self.execute_vector_load_unit_stride(vd, rs1, 1, current_pc, next_pc, raw)
     Vle16V(vd, rs1) =>
@@ -758,6 +850,8 @@ fn Runner::execute_vector_memory_first_slice(
       self.execute_vector_load_strided(
         vd, rs1, rs2, 4, current_pc, next_pc, raw,
       )
+    VsmV(vs3, rs1) =>
+      self.execute_vector_mask_store(vs3, rs1, current_pc, next_pc, raw)
     Vse8V(vs3, rs1) =>
       self.execute_vector_store_unit_stride(
         vs3, rs1, 1, current_pc, next_pc, raw,

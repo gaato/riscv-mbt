@@ -1982,6 +1982,48 @@ test "rv64fdv vector memory supports lmul2 register groups" {
 }
 
 ///|
+test "rv64fdv vector memory supports mask loads and stores" {
+  let load_mask = make_runner(rv64fdv_machine_config())
+  load_mask.load_program(
+    words_to_bytes([
+      encode_vsetivli(0, 10U, test_vector_vtypei_for_sew(8)),
+      encode_vlm(3, 10),
+    ]),
+    0U,
+  )
+  load_mask.cpu.write_reg(10, 0x300U.to_uint64())
+  load_mask.cpu.write_vreg(3, 0, (-1L).reinterpret_as_uint64())
+  load_mask.bus.store_u8(0x300U.to_uint64(), 0xa5U.to_uint64())
+  load_mask.bus.store_u8(0x301U.to_uint64(), 0x02U.to_uint64())
+  match load_mask.run(2) {
+    Running => ()
+    _ => fail("expected vlm.v sequence to run")
+  }
+  assert_eq(
+    load_mask.read_vreg_u64(3, 0) & 0xffffU.to_uint64(),
+    0x02a5U.to_uint64(),
+  )
+
+  let store_mask = make_runner(rv64fdv_machine_config())
+  store_mask.load_program(
+    words_to_bytes([
+      encode_vsetivli(0, 10U, test_vector_vtypei_for_sew(8)),
+      encode_vsm(4, 10),
+    ]),
+    0U,
+  )
+  store_mask.cpu.write_vreg(4, 0, 0x035aU.to_uint64())
+  store_mask.cpu.write_reg(10, 0x320U.to_uint64())
+  match store_mask.run(2) {
+    Running => ()
+    _ => fail("expected vsm.v sequence to run")
+  }
+  assert_eq(store_mask.bus.load_u8(0x320U.to_uint64()), 0x5aU.to_uint64())
+  assert_eq(store_mask.bus.load_u8(0x321U.to_uint64()), 0x03U.to_uint64())
+  assert_eq(store_mask.bus.load_u8(0x322U.to_uint64()), 0U.to_uint64())
+}
+
+///|
 test "rv64fdv vector memory supports strided e32 loads and stores" {
   let load32 = make_runner(rv64fdv_machine_config())
   load32.load_program(
