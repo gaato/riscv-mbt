@@ -2851,6 +2851,38 @@ test "AMO.W access fault is reported as store/AMO access fault" {
 }
 
 ///|
+test "AMO.W operations ignore upper 32 bits of rs2" {
+  let runner = make_runner(virt_machine_config())
+  let addr = runner.cpu.pc + 0x100U.to_uint64()
+  runner.bus.store_u32(addr, 1U.to_uint64())
+  runner.cpu.write_reg(1, addr)
+  runner.cpu.write_reg(2, (1U.to_uint64() << 32) | 2U.to_uint64())
+  runner.bus.store_u32(runner.cpu.pc, encode_amo(0x00U, 2, 1, 0x2U, 3).to_uint64())
+  match runner.step() {
+    Running => ()
+    _ => fail("expected running")
+  }
+  assert_eq(runner.read_reg_u64(3), 1U.to_uint64())
+  assert_eq(runner.bus.load_u32(addr), 3U.to_uint64())
+}
+
+///|
+test "AMOMIN.W compares signed 32-bit operands" {
+  let runner = make_runner(virt_machine_config())
+  let addr = runner.cpu.pc + 0x100U.to_uint64()
+  runner.bus.store_u32(addr, 1U.to_uint64())
+  runner.cpu.write_reg(1, addr)
+  runner.cpu.write_reg(2, 0xffffffffU.to_uint64()) // -1 as a 32-bit word
+  runner.bus.store_u32(runner.cpu.pc, encode_amo(0x10U, 2, 1, 0x2U, 3).to_uint64())
+  match runner.step() {
+    Running => ()
+    _ => fail("expected running")
+  }
+  assert_eq(runner.read_reg_u64(3), 1U.to_uint64())
+  assert_eq(runner.bus.load_u32(addr), 0xffffffffU.to_uint64())
+}
+
+///|
 test "LR.W/SC.W pair succeeds on single hart" {
   let runner = make_runner(virt_machine_config())
   let addr = runner.cpu.pc + 0x100U.to_uint64()

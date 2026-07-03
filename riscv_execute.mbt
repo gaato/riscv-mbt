@@ -649,6 +649,27 @@ fn amo_op(funct5 : UInt, old_val : UInt64, src : UInt64, xlen : Int) -> UInt64 {
 }
 
 ///|
+fn amo_w_op(funct5 : UInt, old_raw : UInt64, src : UInt64) -> UInt64 {
+  let src_word = src & 0xffffffffU.to_uint64()
+  match funct5 {
+    0x01U => src_word // AMOSWAP.W
+    0x00U => old_raw + src_word // AMOADD.W
+    0x04U => old_raw ^ src_word // AMOXOR.W
+    0x0cU => old_raw & src_word // AMOAND.W
+    0x08U => old_raw | src_word // AMOOR.W
+    0x10U => // AMOMIN.W (signed 32-bit)
+      if compare_signed_32(old_raw, src_word) <= 0 { old_raw } else { src_word }
+    0x14U => // AMOMAX.W (signed 32-bit)
+      if compare_signed_32(old_raw, src_word) >= 0 { old_raw } else { src_word }
+    0x18U => // AMOMINU.W
+      if compare_unsigned_32(old_raw, src_word) <= 0 { old_raw } else { src_word }
+    0x1cU => // AMOMAXU.W
+      if compare_unsigned_32(old_raw, src_word) >= 0 { old_raw } else { src_word }
+    _ => old_raw // should not happen; caller validates
+  }
+}
+
+///|
 fn Runner::execute_amo(
   self : Runner,
   instruction : Instruction,
@@ -690,9 +711,10 @@ fn Runner::execute_amo(
         Some(result) => return result
         None => ()
       }
-      let old_val = xlen_sign_extend(self.phy_load_u32(pa), 32, self.xlen_bits())
+      let old_raw = self.phy_load_u32(pa)
+      let old_val = xlen_sign_extend(old_raw, 32, self.xlen_bits())
       let src = self.cpu.read_reg(rs2)
-      let new_val = amo_op(funct5_val, old_val, src, self.xlen_bits())
+      let new_val = amo_w_op(funct5_val, old_raw, src)
       self.phy_store_u32(pa, new_val)
       self.write_xlen_reg(rd, old_val)
       self.cpu.pc = next_pc
