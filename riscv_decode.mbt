@@ -977,6 +977,8 @@ fn instruction_supported_for_current_config(
     VaddVv(_, _, _) => has_v
     VaddVx(_, _, _) => has_v
     VaddVi(_, _, _) => has_v
+    VsubVv(_, _, _) => has_v
+    VsubVx(_, _, _) => has_v
     VlmV(_, _) => has_v
     Vle8V(_, _) => has_v
     Vle16V(_, _) => has_v
@@ -1161,10 +1163,10 @@ pub fn decode(raw : UInt) -> Instruction {
     0x57U =>
       match funct3(raw) {
         0x0U =>
-          if funct6(raw) == 0x00U {
-            VaddVv(rd(raw), rs2(raw), rs1(raw))
-          } else {
-            Unknown(raw)
+          match funct6(raw) {
+            0x00U => VaddVv(rd(raw), rs2(raw), rs1(raw))
+            0x02U => VsubVv(rd(raw), rs2(raw), rs1(raw))
+            _ => Unknown(raw)
           }
         0x3U =>
           match funct6(raw) {
@@ -1181,6 +1183,7 @@ pub fn decode(raw : UInt) -> Instruction {
         0x4U =>
           match funct6(raw) {
             0x00U => VaddVx(rd(raw), rs2(raw), rs1(raw))
+            0x02U => VsubVx(rd(raw), rs2(raw), rs1(raw))
             0x17U =>
               if ((raw >> 25) & 0x1U) == 1U && rs2(raw) == 0 {
                 VmvVX(rd(raw), rs1(raw))

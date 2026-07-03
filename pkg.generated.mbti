@@ -195,6 +195,8 @@ pub enum Instruction {
   VaddVv(Int, Int, Int)
   VaddVx(Int, Int, Int)
   VaddVi(Int, Int, Int)
+  VsubVv(Int, Int, Int)
+  VsubVx(Int, Int, Int)
   VlmV(Int, Int)
   Vle8V(Int, Int)
   Vle16V(Int, Int)

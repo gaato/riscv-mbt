@@ -443,4 +443,20 @@ test "decode first vector arithmetic slice" {
     }
     _ => fail("expected masked vadd.vv")
   }
+  match decode(encode_vsub_vv(14, 15, 16, true)) {
+    VsubVv(vd, vs2, vs1) => {
+      assert_eq(vd, 14)
+      assert_eq(vs2, 15)
+      assert_eq(vs1, 16)
+    }
+    _ => fail("expected vsub.vv")
+  }
+  match decode(encode_vsub_vx(17, 18, 19, true)) {
+    VsubVx(vd, vs2, rs1) => {
+      assert_eq(vd, 17)
+      assert_eq(vs2, 18)
+      assert_eq(rs1, 19)
+    }
+    _ => fail("expected vsub.vx")
+  }
 }

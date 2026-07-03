@@ -528,6 +528,16 @@ fn encode_vadd_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
 }
 
 ///|
+fn encode_vsub_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x02U, vm, vs2, vs1, 0x0U, vd)
+}
+
+///|
+fn encode_vsub_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x02U, vm, vs2, rs1, 0x4U, vd)
+}
+
+///|
 fn encode_flw(imm : Int, rs1 : Int, rd : Int) -> UInt {
   encode_i(imm, rs1, 0x2U, rd, 0x07U)
 }

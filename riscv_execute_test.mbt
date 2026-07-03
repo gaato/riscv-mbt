@@ -1747,11 +1747,14 @@ test "rv64fdv vector arithmetic supports lmul2 register groups" {
     encode_vadd_vv(6, 2, 4, true),
     encode_vadd_vi(8, 6, -1, true),
     encode_vadd_vx(10, 8, 10, true),
+    encode_vsub_vv(12, 10, 4, true),
+    encode_vsub_vx(14, 12, 10, true),
+    encode_vsub_vv(16, 4, 10, true),
   ])
   let runner = make_runner(rv64fdv_machine_config())
   runner.load_program(program, 0U)
   runner.cpu.write_reg(10, 5U.to_uint64())
-  match runner.run(6) {
+  match runner.run(9) {
     Running => ()
     _ => fail("expected lmul2 vector arithmetic sequence to run")
   }
@@ -1767,6 +1770,31 @@ test "rv64fdv vector arithmetic supports lmul2 register groups" {
   assert_eq(runner.read_vreg_u64(10, 1), test_join_u64(7U, 7U))
   assert_eq(runner.read_vreg_u64(11, 0), test_join_u64(7U, 7U))
   assert_eq(runner.read_vreg_u64(11, 1), test_join_u64(7U, 7U))
+  assert_eq(runner.read_vreg_u64(12, 0), test_join_u64(5U, 5U))
+  assert_eq(runner.read_vreg_u64(12, 1), test_join_u64(5U, 5U))
+  assert_eq(runner.read_vreg_u64(13, 0), test_join_u64(5U, 5U))
+  assert_eq(runner.read_vreg_u64(13, 1), test_join_u64(5U, 5U))
+  assert_eq(runner.read_vreg_u64(14, 0), test_join_u64(0U, 0U))
+  assert_eq(runner.read_vreg_u64(14, 1), test_join_u64(0U, 0U))
+  assert_eq(runner.read_vreg_u64(15, 0), test_join_u64(0U, 0U))
+  assert_eq(runner.read_vreg_u64(15, 1), test_join_u64(0U, 0U))
+  // 2 - 7 wraps independently in each e32 lane.
+  assert_eq(
+    runner.read_vreg_u64(16, 0),
+    test_join_u64(0xfffffffbU, 0xfffffffbU),
+  )
+  assert_eq(
+    runner.read_vreg_u64(16, 1),
+    test_join_u64(0xfffffffbU, 0xfffffffbU),
+  )
+  assert_eq(
+    runner.read_vreg_u64(17, 0),
+    test_join_u64(0xfffffffbU, 0xfffffffbU),
+  )
+  assert_eq(
+    runner.read_vreg_u64(17, 1),
+    test_join_u64(0xfffffffbU, 0xfffffffbU),
+  )
 
   let misaligned = make_runner(rv64fdv_machine_config())
   misaligned.load_program(

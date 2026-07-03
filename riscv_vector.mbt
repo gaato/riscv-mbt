@@ -852,6 +852,49 @@ fn Runner::execute_vector_first_slice(
       self.cpu.pc = next_pc
       Running
     }
+    VsubVv(vd, vs2, vs1) => {
+      if !vector_group_aligned(vd, config.lmul_log2) ||
+        !vector_group_aligned(vs2, config.lmul_log2) ||
+        !vector_group_aligned(vs1, config.lmul_log2) {
+        return self.raise_vector_group_misaligned(current_pc, raw)
+      }
+      // RVV integer subtract is modulo the active SEW, just like add. Keep the
+      // mask after the arithmetic so narrower SEW lanes wrap independently.
+      for elem in 0..<active_elems {
+        if !use_mask || mask_bits[elem] {
+          let lhs = self.read_vreg_group_elem(vs2, elem, config.sew_bits)
+          let rhs = self.read_vreg_group_elem(vs1, elem, config.sew_bits)
+          self.write_vreg_group_elem(
+            vd,
+            elem,
+            config.sew_bits,
+            (lhs - rhs) & sew_mask,
+          )
+        }
+      }
+      self.cpu.pc = next_pc
+      Running
+    }
+    VsubVx(vd, vs2, rs1) => {
+      if !vector_group_aligned(vd, config.lmul_log2) ||
+        !vector_group_aligned(vs2, config.lmul_log2) {
+        return self.raise_vector_group_misaligned(current_pc, raw)
+      }
+      let scalar = self.cpu.read_reg(rs1) & sew_mask
+      for elem in 0..<active_elems {
+        if !use_mask || mask_bits[elem] {
+          let lhs = self.read_vreg_group_elem(vs2, elem, config.sew_bits)
+          self.write_vreg_group_elem(
+            vd,
+            elem,
+            config.sew_bits,
+            (lhs - scalar) & sew_mask,
+          )
+        }
+      }
+      self.cpu.pc = next_pc
+      Running
+    }
     _ => abort("unexpected vector first-slice dispatch")
   }
 }
