@@ -30,7 +30,7 @@ Alpine is the first target because the official `riscv64` minirootfs is small, c
 
 - `_build/linux-kernel-riscv64`, `_build/alpine-initramfs-riscv64.cpio`, `_build/alpine-initramfs-riscv64.cpio.gz`, and `_build/minimal-alpine.dtb` can be generated from official Alpine artifacts.
 - The browser demo can load OpenSBI, DTB, kernel, and initrd artifacts from the manifest.
-- Browser serial output reaches a clear Alpine initramfs marker. This is satisfied by the default static `/init` writing `riscv-mbt Alpine initramfs ready` through `/dev/kmsg`; the task remains open until the same path can hand off to a usable Alpine shell.
+- Browser serial output reaches a clear Alpine initramfs marker. This is satisfied by the default static `/init` writing `riscv-mbt Alpine initramfs ready` through `/dev/kmsg`; the task remains open until the BusyBox shell prompt is visible and usable through the browser serial path.
 - The selected backend is justified by measured browser boot time, steps/sec, cache counters, artifact size, and instantiate/compile cost.
 - `moon check`, `moon test`, and `./scripts/build-browser-demo.sh` pass.
 - Work is committed in meaningful increments; generated `outputs/` evidence remains ignored.
@@ -77,4 +77,6 @@ Alpine is the first target because the official `riscv64` minirootfs is small, c
 - QEMU cross-check with the static kmsg init reaches `Run /init as init process`, `riscv-mbt Alpine initramfs ready`, and `riscv-mbt Alpine init exec failed` without kernel panic.
 - Native `moon run cmd/alpine_probe --target native -- xxlong` now reaches `outcome=alpine-marker` at 355,000,000 steps with the default tiny/static artifacts.
 - Browser `wasm-gc` probe against `/?guest=linux&autoRun=1` with 360s Chromium virtual time reaches `riscv-mbt Alpine initramfs ready` with the 1,442,304 byte uncompressed initramfs.
-- The remaining Task 0058 gap is practical userspace handoff: the static `/init` marker proves the browser Wasm path reaches Alpine initramfs userspace, but `execve("/bin/sh", ...)` currently falls through to `riscv-mbt Alpine init exec failed`.
+- The initial static `/init` handoff to `/bin/sh` failed with `EFAULT` because linker relaxation generated `gp`-relative data accesses for `argv`/`envp`, while the freestanding entry point had not initialized `gp`.
+- `tools/alpine-init.S` now initializes `gp` from `__global_pointer$` before accessing static data. QEMU reaches `riscv-mbt Alpine initramfs ready` and then `/bin/sh: can't access tty; job control turned off` followed by a BusyBox `/ #` prompt.
+- Browser `wasm-gc` with the same artifact still reaches the kmsg marker, but a 360s Chromium virtual-time probe for `/ #` did not observe the prompt. The next Task 0058 slice should focus on why BusyBox/TTY output is not visible through riscv-mbt/browser even though QEMU shows it.

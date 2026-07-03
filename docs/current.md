@@ -66,7 +66,7 @@
 
 ## Next Task
 
-- Next: continue the Alpine rootfs boot path after the browser Wasm `riscv-mbt Alpine initramfs ready` marker by making `/init` hand off to a usable Alpine shell instead of reporting `riscv-mbt Alpine init exec failed` ([Task 0058](tasks/0058-alpine-rootfs-browser-boot.md)). The current practical artifact path uses the Alpine `tiny` initramfs profile, a static kmsg-marker `/init`, uncompressed `newc` cpio, a 100MHz DTB timebase, `wasm-gc`, and a virt platform that exposes `F/D` for Alpine hard-float userland. Resume the broader vector memory/addressing and first `LMUL>1` slice ([Task 0048](tasks/0048-broader-vector-memory-and-lmul-slice.md)) after Alpine userspace is usable enough for the browser goal.
+- Next: continue the Alpine rootfs boot path after the browser Wasm `riscv-mbt Alpine initramfs ready` marker by making BusyBox shell TTY output visible in riscv-mbt/browser ([Task 0058](tasks/0058-alpine-rootfs-browser-boot.md)). The current practical artifact path uses the Alpine `tiny` initramfs profile, a static kmsg-marker `/init`, uncompressed `newc` cpio, a 100MHz DTB timebase, `wasm-gc`, and a virt platform that exposes `F/D` for Alpine hard-float userland. Resume the broader vector memory/addressing and first `LMUL>1` slice ([Task 0048](tasks/0048-broader-vector-memory-and-lmul-slice.md)) after Alpine userspace is usable enough for the browser goal.
 
 ## Known Blockers
 
@@ -83,7 +83,7 @@
 - Browser Wasm Linux boot is complete; Alpine rootfs boot is the active task before returning to `0048`.
 - The active goal is now Alpine rootfs boot in browser Wasm. The implementation should alternate spec-driven Linux/RISC-V compatibility work with measured performance work (`moon bench`, browser timing, Context7/DeepWiki/web checks) and periodic git commits. Backend choice between `wasm` and `wasm-gc` is measurement-driven.
 - Initial Alpine probing favors `wasm-gc` for the browser default: it produces a smaller artifact and reaches the same initramfs-unpack point faster than plain `wasm`. Plain `wasm` remains available with `BROWSER_TARGET=wasm`.
-- Alpine bring-up now uses a practical tiny initramfs profile by default. A static `/init` writes the injected marker through `/dev/kmsg`, which avoids relying on inherited stdio or TTY transmit behavior. QEMU, riscv-mbt native `xxlong`, and browser `wasm-gc` now reach `riscv-mbt Alpine initramfs ready`; `C.FLD`/`C.FSD` decode and virt `F/D` exposure are in place. The remaining userspace gap is that the static init currently reports `riscv-mbt Alpine init exec failed` when attempting to hand off to `/bin/sh`.
+- Alpine bring-up now uses a practical tiny initramfs profile by default. A static `/init` writes the injected marker through `/dev/kmsg`, which avoids relying on inherited stdio or TTY transmit behavior. QEMU, riscv-mbt native `xxlong`, and browser `wasm-gc` now reach `riscv-mbt Alpine initramfs ready`; `C.FLD`/`C.FSD` decode and virt `F/D` exposure are in place. The static init now initializes `gp` before using linker-relaxed data references, so QEMU successfully hands off to `/bin/sh` and prints a BusyBox `/ #` prompt. The remaining userspace gap is that the shell prompt is not yet visible in riscv-mbt/browser serial output.
 
 ## Read Next
 
