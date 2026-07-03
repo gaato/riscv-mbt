@@ -2428,6 +2428,30 @@ test "uart thre interrupt is claimable through plic" {
 }
 
 ///|
+test "uart plic pending cache does not leak through ier reads" {
+  let program = words_to_bytes([
+    encode_u(0x0c000000U, 1, 0x37U),
+    encode_i(1, 0, 0x0U, 2, 0x13U),
+    encode_s(40, 2, 1, 0x2U, 0x23U),
+    encode_u(0x0c002000U, 3, 0x37U),
+    encode_i(1, 0, 0x0U, 4, 0x13U),
+    encode_i(10, 4, 0x1U, 4, 0x13U),
+    encode_s(128, 4, 3, 0x2U, 0x23U),
+    encode_u(0x10000000U, 5, 0x37U),
+    encode_i(2, 0, 0x0U, 6, 0x13U),
+    encode_s(1, 6, 5, 0x0U, 0x23U),
+    encode_i(1, 5, 0x4U, 7, 0x03U),
+  ])
+  let runner = make_runner(virt_machine_config())
+  runner.load_program_u64(program, 0x80000000U.to_uint64())
+  match runner.run(11) {
+    Running => ()
+    _ => fail("expected running after uart ier cache sequence")
+  }
+  assert_eq(runner.read_reg_u64(7), 0x02U.to_uint64())
+}
+
+///|
 test "uart receive interrupt is claimable through plic and has iir priority" {
   let program = words_to_bytes([
     encode_u(0x0c000000U, 1, 0x37U),

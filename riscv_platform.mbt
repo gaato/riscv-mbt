@@ -69,6 +69,10 @@ let uart_ier_thri : Byte = 0x02U.to_byte()
 
 let uart_ier_rdi : Byte = 0x01U.to_byte()
 
+let uart_ier_guest_mask : UInt64 = 0x0fU.to_uint64()
+
+let uart_cached_plic_pending_bit : Byte = 0x80U.to_byte()
+
 let uart_iir_no_interrupt : UInt64 = 0x01U.to_uint64()
 
 let uart_iir_thre : UInt64 = 0x02U.to_uint64()
@@ -101,6 +105,11 @@ fn Runner::uart_interrupt_pending(self : Runner) -> Bool {
 }
 
 ///|
+fn Runner::cached_plic_uart_pending(self : Runner) -> Bool {
+  (self.uart_ier[0].to_int() & uart_cached_plic_pending_bit.to_int()) != 0
+}
+
+///|
 fn Runner::uart_read(self : Runner, off : UInt64) -> UInt64 {
   // RBR (offset 0): dequeue one pending byte if available.
   if off == 0U.to_uint64() {
@@ -108,7 +117,10 @@ fn Runner::uart_read(self : Runner, off : UInt64) -> UInt64 {
       return 0U.to_uint64()
     }
     match self.uart_input.pop() {
-      Some(byte) => return byte.to_uint64()
+      Some(byte) => {
+        self.refresh_plic_uart_pending_cache()
+        return byte.to_uint64()
+      }
       None => return 0U.to_uint64()
     }
   }
@@ -117,7 +129,7 @@ fn Runner::uart_read(self : Runner, off : UInt64) -> UInt64 {
     if self.uart_dlab() {
       return 0U.to_uint64()
     }
-    return self.uart_ier[0].to_uint64()
+    return self.uart_ier[0].to_uint64() & uart_ier_guest_mask
   }
   // IIR (offset 2): report receive-data before transmit-empty.
   if off == 2U.to_uint64() {
@@ -160,7 +172,8 @@ fn Runner::uart_write(self : Runner, off : UInt64, value : UInt64) -> Unit {
     if self.uart_dlab() {
       return
     }
-    self.uart_ier[0] = (value & 0x0fU.to_uint64()).to_byte()
+    self.uart_ier[0] = (value & uart_ier_guest_mask).to_byte()
+    self.refresh_plic_uart_pending_cache()
     return
   }
   // FCR (offset 2): accepted but FIFO state is not modeled.
@@ -245,6 +258,17 @@ fn Runner::plic_any_uart_claimable(self : Runner) -> Bool {
 }
 
 ///|
+fn Runner::refresh_plic_uart_pending_cache(self : Runner) -> Unit {
+  let guest_ier = self.uart_ier[0].to_uint64() & uart_ier_guest_mask
+  self.uart_ier[0] = if self.config.plic_base != 0U.to_uint64() &&
+    self.plic_any_uart_claimable() {
+    (guest_ier | uart_cached_plic_pending_bit.to_uint64()).to_byte()
+  } else {
+    guest_ier.to_byte()
+  }
+}
+
+///|
 fn Runner::plic_read_u8(self : Runner, off : UInt64) -> UInt64 {
   let idx = off.to_int()
   if idx >= 0x1000 && idx < 0x1080 {
@@ -301,6 +325,7 @@ fn Runner::plic_write_u8(self : Runner, off : UInt64, value : UInt64) -> Unit {
   let idx = off.to_int()
   if idx < self.plic_regs.length() {
     self.plic_regs[idx] = value.to_byte()
+    self.refresh_plic_uart_pending_cache()
   }
 }
 
@@ -321,6 +346,7 @@ fn Runner::plic_write_u32(
     self.plic_regs[idx + 1] = (value >> 8).to_byte()
     self.plic_regs[idx + 2] = (value >> 16).to_byte()
     self.plic_regs[idx + 3] = (value >> 24).to_byte()
+    self.refresh_plic_uart_pending_cache()
   }
 }
 
@@ -644,11 +670,13 @@ pub fn Runner::uart_push_input(self : Runner, text : String) -> Unit {
   for ch in text {
     self.uart_input.push(ch.to_int().to_byte())
   }
+  self.refresh_plic_uart_pending_cache()
 }
 
 ///|
 pub fn Runner::uart_push_input_byte(self : Runner, value : Int) -> Unit {
   self.uart_input.push((value & 0xff).to_byte())
+  self.refresh_plic_uart_pending_cache()
 }
 
 ///|
@@ -701,8 +729,7 @@ fn Runner::update_timer(self : Runner) -> Unit {
   } else {
     new_mip & mip_msip_clear_mask
   }
-  let external_pending = self.config.plic_base != 0U.to_uint64() &&
-    self.plic_any_uart_claimable()
+  let external_pending = self.cached_plic_uart_pending()
   let new_mip3 = if external_pending {
     new_mip2 | mip_meip_bit | mip_seip_bit
   } else {
