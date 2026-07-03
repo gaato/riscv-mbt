@@ -1,3 +1,4 @@
+///|
 fn Runner::read_vcsr(self : Runner) -> UInt64 {
   self.cpu.read_csr(CSR_VCSR) & VCSR_VISIBLE_MASK
 }
@@ -10,6 +11,7 @@ fn Runner::write_vcsr(self : Runner, value : UInt64) -> Unit {
   self.cpu.write_csr(CSR_VXRM, (visible & VCSR_VXRM_MASK) >> VCSR_VXRM_SHIFT)
 }
 
+///|
 priv struct VectorVtypeConfig {
   normalized_vtype : UInt64
   vsew_log2 : Int
@@ -56,9 +58,9 @@ fn encode_vtype(config : VectorVtypeConfig, _xlen : Int) -> UInt64 {
 
 ///|
 fn compute_vl(avl : UInt64, vsew_log2 : Int, vlmul_log2 : Int) -> UInt64 {
-  let sew = (8U.to_uint64()) << vsew_log2
-  let lmul = (1U.to_uint64()) << vlmul_log2
-  let vlmax = ((VLEN_BYTES.to_uint64() * 8U.to_uint64()) / sew) * lmul
+  let sew = 8U.to_uint64() << vsew_log2
+  let lmul = 1U.to_uint64() << vlmul_log2
+  let vlmax = VLEN_BYTES.to_uint64() * 8U.to_uint64() / sew * lmul
   if avl < vlmax {
     avl
   } else {
@@ -73,16 +75,16 @@ fn apply_vsetvl(
   xlen : Int,
 ) -> (UInt64, UInt64) {
   match decode_vtype(requested_vtype, xlen) {
-    Some(config) => {
+    Some(config) =>
       (
         compute_vl(avl, config.vsew_log2, config.vlmul_log2),
         encode_vtype(config, xlen),
       )
-    }
     None => (0U.to_uint64(), vector_vill_value(xlen))
   }
 }
 
+///|
 priv struct VectorExecConfig {
   vl : UInt64
   sew_bits : Int
@@ -153,7 +155,7 @@ fn vector_lmul_registers(lmul_log2 : Int) -> Int {
 
 ///|
 fn vector_elems_per_register(sew_bits : Int) -> Int {
-  (VLEN_BYTES * 8) / sew_bits
+  VLEN_BYTES * 8 / sew_bits
 }
 
 ///|
@@ -182,9 +184,7 @@ fn Runner::read_vreg_group_elem(
   sew_bits : Int,
 ) -> UInt64 {
   let (vreg, local_elem) = vector_group_elem_vreg(
-    base_vreg,
-    elem_index,
-    sew_bits,
+    base_vreg, elem_index, sew_bits,
   )
   self.read_vreg_elem(vreg, local_elem, sew_bits)
 }
@@ -198,9 +198,7 @@ fn Runner::write_vreg_group_elem(
   value : UInt64,
 ) -> Unit {
   let (vreg, local_elem) = vector_group_elem_vreg(
-    base_vreg,
-    elem_index,
-    sew_bits,
+    base_vreg, elem_index, sew_bits,
   )
   self.write_vreg_elem(vreg, local_elem, sew_bits, value)
 }
@@ -294,7 +292,8 @@ fn Runner::execute_vector_load_unit_stride(
 ) -> StepResult {
   let config = match self.vector_memory_exec_config() {
     Some(config) => config
-    None => return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+    None =>
+      return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
   }
   let sew_bits = elem_bytes * 8
   if config.sew_bits != sew_bits {
@@ -337,7 +336,8 @@ fn Runner::execute_vector_store_unit_stride(
 ) -> StepResult {
   let config = match self.vector_memory_exec_config() {
     Some(config) => config
-    None => return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+    None =>
+      return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
   }
   let sew_bits = elem_bytes * 8
   if config.sew_bits != sew_bits {
@@ -373,11 +373,7 @@ fn Runner::execute_vector_store_unit_stride(
 }
 
 ///|
-fn Runner::vector_avl_from_rs1_rd(
-  self : Runner,
-  rs1 : Int,
-  rd : Int,
-) -> UInt64 {
+fn Runner::vector_avl_from_rs1_rd(self : Runner, rs1 : Int, rd : Int) -> UInt64 {
   if rs1 != 0 {
     self.cpu.read_reg(rs1)
   } else if rd != 0 {
@@ -394,17 +390,11 @@ fn Runner::execute_vsetvl(
   next_pc : UInt64,
 ) -> StepResult {
   let (rd, avl, requested_vtype) = match instruction {
-    Vsetvli(rd, rs1, vtypei) => (
-      rd,
-      self.vector_avl_from_rs1_rd(rs1, rd),
-      vtypei.to_uint64(),
-    )
+    Vsetvli(rd, rs1, vtypei) =>
+      (rd, self.vector_avl_from_rs1_rd(rs1, rd), vtypei.to_uint64())
     Vsetivli(rd, avl, vtypei) => (rd, avl.to_uint64(), vtypei.to_uint64())
-    Vsetvl(rd, rs1, rs2) => (
-      rd,
-      self.vector_avl_from_rs1_rd(rs1, rd),
-      self.cpu.read_reg(rs2),
-    )
+    Vsetvl(rd, rs1, rs2) =>
+      (rd, self.vector_avl_from_rs1_rd(rs1, rd), self.cpu.read_reg(rs2))
     _ => abort("unexpected vsetvl dispatch")
   }
   let (vl, vtype) = apply_vsetvl(avl, requested_vtype, self.xlen_bits())
@@ -426,7 +416,8 @@ fn Runner::execute_vector_first_slice(
 ) -> StepResult {
   let config = match self.vector_exec_supported() {
     Some(config) => config
-    None => return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+    None =>
+      return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
   }
   let active_elems = config.vl.reinterpret_as_int64().to_int()
   let sew_mask = vector_elem_mask(config.sew_bits)
@@ -471,7 +462,12 @@ fn Runner::execute_vector_first_slice(
         if !use_mask || mask_bits[elem] {
           let lhs = self.read_vreg_elem(vs2, elem, config.sew_bits)
           let rhs = self.read_vreg_elem(vs1, elem, config.sew_bits)
-          self.write_vreg_elem(vd, elem, config.sew_bits, (lhs + rhs) & sew_mask)
+          self.write_vreg_elem(
+            vd,
+            elem,
+            config.sew_bits,
+            (lhs + rhs) & sew_mask,
+          )
         }
       }
       self.cpu.pc = next_pc
@@ -482,7 +478,12 @@ fn Runner::execute_vector_first_slice(
       for elem in 0..<active_elems {
         if !use_mask || mask_bits[elem] {
           let lhs = self.read_vreg_elem(vs2, elem, config.sew_bits)
-          self.write_vreg_elem(vd, elem, config.sew_bits, (lhs + scalar) & sew_mask)
+          self.write_vreg_elem(
+            vd,
+            elem,
+            config.sew_bits,
+            (lhs + scalar) & sew_mask,
+          )
         }
       }
       self.cpu.pc = next_pc
@@ -493,7 +494,12 @@ fn Runner::execute_vector_first_slice(
       for elem in 0..<active_elems {
         if !use_mask || mask_bits[elem] {
           let lhs = self.read_vreg_elem(vs2, elem, config.sew_bits)
-          self.write_vreg_elem(vd, elem, config.sew_bits, (lhs + scalar) & sew_mask)
+          self.write_vreg_elem(
+            vd,
+            elem,
+            config.sew_bits,
+            (lhs + scalar) & sew_mask,
+          )
         }
       }
       self.cpu.pc = next_pc
@@ -521,13 +527,21 @@ fn Runner::execute_vector_memory_first_slice(
     Vle64V(vd, rs1) =>
       self.execute_vector_load_unit_stride(vd, rs1, 8, current_pc, next_pc, raw)
     Vse8V(vs3, rs1) =>
-      self.execute_vector_store_unit_stride(vs3, rs1, 1, current_pc, next_pc, raw)
+      self.execute_vector_store_unit_stride(
+        vs3, rs1, 1, current_pc, next_pc, raw,
+      )
     Vse16V(vs3, rs1) =>
-      self.execute_vector_store_unit_stride(vs3, rs1, 2, current_pc, next_pc, raw)
+      self.execute_vector_store_unit_stride(
+        vs3, rs1, 2, current_pc, next_pc, raw,
+      )
     Vse32V(vs3, rs1) =>
-      self.execute_vector_store_unit_stride(vs3, rs1, 4, current_pc, next_pc, raw)
+      self.execute_vector_store_unit_stride(
+        vs3, rs1, 4, current_pc, next_pc, raw,
+      )
     Vse64V(vs3, rs1) =>
-      self.execute_vector_store_unit_stride(vs3, rs1, 8, current_pc, next_pc, raw)
+      self.execute_vector_store_unit_stride(
+        vs3, rs1, 8, current_pc, next_pc, raw,
+      )
     _ => abort("unexpected vector memory first-slice dispatch")
   }
 }

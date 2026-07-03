@@ -1,15 +1,19 @@
+///|
 fn Runner::fp_has_d(self : Runner) -> Bool {
   (self.config.extensions & MISA_EXT_D) != 0U.to_uint64()
 }
 
 ///|
-fn Runner::write_freg_single_bits(self : Runner, rd : Int, value : UInt) -> Unit {
-  let stored =
-    if self.fp_has_d() {
-      (0xffffffffU.to_uint64() << 32) | value.to_uint64()
-    } else {
-      value.to_uint64()
-    }
+fn Runner::write_freg_single_bits(
+  self : Runner,
+  rd : Int,
+  value : UInt,
+) -> Unit {
+  let stored = if self.fp_has_d() {
+    (0xffffffffU.to_uint64() << 32) | value.to_uint64()
+  } else {
+    value.to_uint64()
+  }
   self.cpu.write_freg(rd, stored)
 }
 
@@ -21,7 +25,7 @@ fn Runner::read_freg_single_transfer_bits(self : Runner, rs : Int) -> UInt {
 ///|
 fn Runner::read_freg_single_value_bits(self : Runner, rs : Int) -> UInt {
   let slot = self.cpu.read_freg(rs)
-  if self.fp_has_d() && (slot >> 32) != 0xffffffffU.to_uint64() {
+  if self.fp_has_d() && slot >> 32 != 0xffffffffU.to_uint64() {
     f32_canonical_nan_bits()
   } else {
     low32(slot)
@@ -29,7 +33,11 @@ fn Runner::read_freg_single_value_bits(self : Runner, rs : Int) -> UInt {
 }
 
 ///|
-fn Runner::write_freg_double_bits(self : Runner, rd : Int, value : UInt64) -> Unit {
+fn Runner::write_freg_double_bits(
+  self : Runner,
+  rd : Int,
+  value : UInt64,
+) -> Unit {
   self.cpu.write_freg(rd, value)
 }
 
@@ -77,7 +85,8 @@ fn f32_bits_from_host(value : Float) -> UInt {
 fn f64_is_nan_bits(bits : UInt64) -> Bool {
   let exponent_mask = 0x7ffU.to_uint64() << 52
   let fraction_mask = (1U.to_uint64() << 52) - 1U.to_uint64()
-  (bits & exponent_mask) == exponent_mask && (bits & fraction_mask) != 0U.to_uint64()
+  (bits & exponent_mask) == exponent_mask &&
+  (bits & fraction_mask) != 0U.to_uint64()
 }
 
 ///|
@@ -121,7 +130,11 @@ fn f32_min_bits(lhs : UInt, rhs : UInt) -> UInt {
   } else if f32_is_nan_bits(rhs) {
     lhs
   } else if f32_is_zero_bits(lhs) && f32_is_zero_bits(rhs) {
-    if f32_sign_bit(lhs) || f32_sign_bit(rhs) { 0x80000000U } else { 0U }
+    if f32_sign_bit(lhs) || f32_sign_bit(rhs) {
+      0x80000000U
+    } else {
+      0U
+    }
   } else if f32_from_bits(lhs) < f32_from_bits(rhs) {
     lhs
   } else {
@@ -138,7 +151,11 @@ fn f64_min_bits(lhs : UInt64, rhs : UInt64) -> UInt64 {
   } else if f64_is_nan_bits(rhs) {
     lhs
   } else if f64_is_zero_bits(lhs) && f64_is_zero_bits(rhs) {
-    if f64_sign_bit(lhs) || f64_sign_bit(rhs) { 1U.to_uint64() << 63 } else { 0U.to_uint64() }
+    if f64_sign_bit(lhs) || f64_sign_bit(rhs) {
+      1U.to_uint64() << 63
+    } else {
+      0U.to_uint64()
+    }
   } else if f64_from_bits(lhs) < f64_from_bits(rhs) {
     lhs
   } else {
@@ -231,7 +248,10 @@ fn Runner::execute_fp_load_store(
       })
     Fsw(rs1, rs2, imm) =>
       self.store_and_commit(rs1, imm, 4, next_pc, fn(pa) {
-        self.phy_store_u32(pa, self.read_freg_single_transfer_bits(rs2).to_uint64())
+        self.phy_store_u32(
+          pa,
+          self.read_freg_single_transfer_bits(rs2).to_uint64(),
+        )
       })
     Fsd(rs1, rs2, imm) =>
       self.store_and_commit(rs1, imm, 8, next_pc, fn(pa) {
@@ -277,8 +297,10 @@ fn Runner::execute_fp(
       if !self.fp_rounding_mode_supported(rm) {
         return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
       }
-      let result = f32_bits_from_host(f32_from_bits(self.read_freg_single_value_bits(rs1)) +
-        f32_from_bits(self.read_freg_single_value_bits(rs2)))
+      let result = f32_bits_from_host(
+        f32_from_bits(self.read_freg_single_value_bits(rs1)) +
+        f32_from_bits(self.read_freg_single_value_bits(rs2)),
+      )
       self.write_freg_single_bits(rd, result)
       self.cpu.pc = next_pc
       Running
@@ -287,8 +309,10 @@ fn Runner::execute_fp(
       if !self.fp_rounding_mode_supported(rm) {
         return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
       }
-      let result = f32_bits_from_host(f32_from_bits(self.read_freg_single_value_bits(rs1)) -
-        f32_from_bits(self.read_freg_single_value_bits(rs2)))
+      let result = f32_bits_from_host(
+        f32_from_bits(self.read_freg_single_value_bits(rs1)) -
+        f32_from_bits(self.read_freg_single_value_bits(rs2)),
+      )
       self.write_freg_single_bits(rd, result)
       self.cpu.pc = next_pc
       Running
@@ -297,8 +321,10 @@ fn Runner::execute_fp(
       if !self.fp_rounding_mode_supported(rm) {
         return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
       }
-      let result = f32_bits_from_host(f32_from_bits(self.read_freg_single_value_bits(rs1)) *
-        f32_from_bits(self.read_freg_single_value_bits(rs2)))
+      let result = f32_bits_from_host(
+        f32_from_bits(self.read_freg_single_value_bits(rs1)) *
+        f32_from_bits(self.read_freg_single_value_bits(rs2)),
+      )
       self.write_freg_single_bits(rd, result)
       self.cpu.pc = next_pc
       Running
@@ -307,8 +333,10 @@ fn Runner::execute_fp(
       if !self.fp_rounding_mode_supported(rm) {
         return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
       }
-      let result = f32_bits_from_host(f32_from_bits(self.read_freg_single_value_bits(rs1)) /
-        f32_from_bits(self.read_freg_single_value_bits(rs2)))
+      let result = f32_bits_from_host(
+        f32_from_bits(self.read_freg_single_value_bits(rs1)) /
+        f32_from_bits(self.read_freg_single_value_bits(rs2)),
+      )
       self.write_freg_single_bits(rd, result)
       self.cpu.pc = next_pc
       Running
@@ -317,7 +345,9 @@ fn Runner::execute_fp(
       if !self.fp_rounding_mode_supported(rm) {
         return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
       }
-      let result = f32_bits_from_host(f32_from_bits(self.read_freg_single_value_bits(rs1)).sqrt())
+      let result = f32_bits_from_host(
+        f32_from_bits(self.read_freg_single_value_bits(rs1)).sqrt(),
+      )
       self.write_freg_single_bits(rd, result)
       self.cpu.pc = next_pc
       Running
@@ -325,7 +355,10 @@ fn Runner::execute_fp(
     FMinS(rd, rs1, rs2) => {
       self.write_freg_single_bits(
         rd,
-        f32_min_bits(self.read_freg_single_value_bits(rs1), self.read_freg_single_value_bits(rs2)),
+        f32_min_bits(
+          self.read_freg_single_value_bits(rs1),
+          self.read_freg_single_value_bits(rs2),
+        ),
       )
       self.cpu.pc = next_pc
       Running
@@ -333,7 +366,10 @@ fn Runner::execute_fp(
     FMaxS(rd, rs1, rs2) => {
       self.write_freg_single_bits(
         rd,
-        f32_max_bits(self.read_freg_single_value_bits(rs1), self.read_freg_single_value_bits(rs2)),
+        f32_max_bits(
+          self.read_freg_single_value_bits(rs1),
+          self.read_freg_single_value_bits(rs2),
+        ),
       )
       self.cpu.pc = next_pc
       Running
@@ -342,8 +378,10 @@ fn Runner::execute_fp(
       if !self.fp_rounding_mode_supported(rm) {
         return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
       }
-      let result = f64_bits_from_host(f64_from_bits(self.read_freg_double_bits(rs1)) +
-        f64_from_bits(self.read_freg_double_bits(rs2)))
+      let result = f64_bits_from_host(
+        f64_from_bits(self.read_freg_double_bits(rs1)) +
+        f64_from_bits(self.read_freg_double_bits(rs2)),
+      )
       self.write_freg_double_bits(rd, result)
       self.cpu.pc = next_pc
       Running
@@ -352,8 +390,10 @@ fn Runner::execute_fp(
       if !self.fp_rounding_mode_supported(rm) {
         return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
       }
-      let result = f64_bits_from_host(f64_from_bits(self.read_freg_double_bits(rs1)) -
-        f64_from_bits(self.read_freg_double_bits(rs2)))
+      let result = f64_bits_from_host(
+        f64_from_bits(self.read_freg_double_bits(rs1)) -
+        f64_from_bits(self.read_freg_double_bits(rs2)),
+      )
       self.write_freg_double_bits(rd, result)
       self.cpu.pc = next_pc
       Running
@@ -362,8 +402,10 @@ fn Runner::execute_fp(
       if !self.fp_rounding_mode_supported(rm) {
         return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
       }
-      let result = f64_bits_from_host(f64_from_bits(self.read_freg_double_bits(rs1)) *
-        f64_from_bits(self.read_freg_double_bits(rs2)))
+      let result = f64_bits_from_host(
+        f64_from_bits(self.read_freg_double_bits(rs1)) *
+        f64_from_bits(self.read_freg_double_bits(rs2)),
+      )
       self.write_freg_double_bits(rd, result)
       self.cpu.pc = next_pc
       Running
@@ -372,8 +414,10 @@ fn Runner::execute_fp(
       if !self.fp_rounding_mode_supported(rm) {
         return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
       }
-      let result = f64_bits_from_host(f64_from_bits(self.read_freg_double_bits(rs1)) /
-        f64_from_bits(self.read_freg_double_bits(rs2)))
+      let result = f64_bits_from_host(
+        f64_from_bits(self.read_freg_double_bits(rs1)) /
+        f64_from_bits(self.read_freg_double_bits(rs2)),
+      )
       self.write_freg_double_bits(rd, result)
       self.cpu.pc = next_pc
       Running
@@ -382,7 +426,9 @@ fn Runner::execute_fp(
       if !self.fp_rounding_mode_supported(rm) {
         return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
       }
-      let result = f64_bits_from_host(f64_from_bits(self.read_freg_double_bits(rs1)).sqrt())
+      let result = f64_bits_from_host(
+        f64_from_bits(self.read_freg_double_bits(rs1)).sqrt(),
+      )
       self.write_freg_double_bits(rd, result)
       self.cpu.pc = next_pc
       Running
@@ -390,7 +436,10 @@ fn Runner::execute_fp(
     FMinD(rd, rs1, rs2) => {
       self.write_freg_double_bits(
         rd,
-        f64_min_bits(self.read_freg_double_bits(rs1), self.read_freg_double_bits(rs2)),
+        f64_min_bits(
+          self.read_freg_double_bits(rs1),
+          self.read_freg_double_bits(rs2),
+        ),
       )
       self.cpu.pc = next_pc
       Running
@@ -398,7 +447,10 @@ fn Runner::execute_fp(
     FMaxD(rd, rs1, rs2) => {
       self.write_freg_double_bits(
         rd,
-        f64_max_bits(self.read_freg_double_bits(rs1), self.read_freg_double_bits(rs2)),
+        f64_max_bits(
+          self.read_freg_double_bits(rs1),
+          self.read_freg_double_bits(rs2),
+        ),
       )
       self.cpu.pc = next_pc
       Running
@@ -407,7 +459,9 @@ fn Runner::execute_fp(
       if !self.fp_rounding_mode_supported(rm) {
         return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
       }
-      let result = Float::from_double(f64_from_bits(self.read_freg_double_bits(rs1)))
+      let result = Float::from_double(
+        f64_from_bits(self.read_freg_double_bits(rs1)),
+      )
       self.write_freg_single_bits(rd, f32_bits_from_host(result))
       self.cpu.pc = next_pc
       Running

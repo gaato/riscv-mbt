@@ -1,0 +1,19 @@
+name = "gaato/riscv_mbt"
+
+version = "0.1.0"
+
+import {
+  "moonbitlang/async@0.16.8",
+}
+
+preferred_target = "native"
+
+readme = "README.mbt.md"
+
+repository = "https://github.com/gaato/riscv-mbt"
+
+license = "Apache-2.0"
+
+keywords = [ "riscv", "emulator", "moonbit" ]
+
+description = "A MoonBit RISC-V emulator project that grows milestone by milestone."

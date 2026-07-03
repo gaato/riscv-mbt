@@ -8,15 +8,18 @@ struct OfficialRiscvTestCase {
   max_steps : Int
 }
 
+///|
 let official_riscv_tests_manifest_path = "tools/riscv-tests-manifest.tsv"
+
+///|
 let official_riscv_tests_isa_dir_rv32 = "_build/riscv-tests-src/isa"
+
+///|
 let official_riscv_tests_isa_dir_rv64 = "_build/riscv-tests-src-rv64/isa"
 
 ///|
 async fn read_manifest_text(path : String) -> String {
-  try {
-    @fs.read_file(path).text()
-  } catch {
+  @fs.read_file(path).text() catch {
     _ =>
       abort(
         "missing official riscv-tests manifest: \{path}; verify the repository checkout is complete",
@@ -26,9 +29,7 @@ async fn read_manifest_text(path : String) -> String {
 
 ///|
 async fn read_official_test_elf(path : String) -> Bytes {
-  try {
-    @fs.read_file(path).binary()
-  } catch {
+  @fs.read_file(path).binary() catch {
     _ =>
       abort(
         "missing official riscv-tests ELF: \{path}; run ./scripts/build-riscv-tests-official.sh first",
@@ -165,12 +166,7 @@ fn encode_j(imm : Int, rd : Int, opcode : UInt) -> UInt {
 }
 
 ///|
-fn encode_csr(
-  csr : Int,
-  rs1_or_uimm : Int,
-  funct3 : UInt,
-  rd : Int,
-) -> UInt {
+fn encode_csr(csr : Int, rs1_or_uimm : Int, funct3 : UInt, rd : Int) -> UInt {
   (csr.reinterpret_as_uint() << 20) |
   (rs1_or_uimm.reinterpret_as_uint() << 15) |
   (funct3 << 12) |
@@ -271,7 +267,12 @@ fn encode_vmem_width(elem_bits : Int) -> UInt {
 }
 
 ///|
-fn encode_vload_unit_stride(vd : Int, rs1 : Int, elem_bits : Int, vm : Bool) -> UInt {
+fn encode_vload_unit_stride(
+  vd : Int,
+  rs1 : Int,
+  elem_bits : Int,
+  vm : Bool,
+) -> UInt {
   (((if vm { 1U } else { 0U }) & 0x1U) << 25) |
   (rs1.reinterpret_as_uint() << 15) |
   (encode_vmem_width(elem_bits) << 12) |
@@ -457,7 +458,9 @@ fn trap_cause_name(cause : TrapCause) -> String {
 }
 
 ///|
-async fn run_official_riscv_test_case(test_case : OfficialRiscvTestCase) -> UInt {
+async fn run_official_riscv_test_case(
+  test_case : OfficialRiscvTestCase,
+) -> UInt {
   let runner = make_runner(
     official_riscv_tests_machine_config_for_xlen(
       official_riscv_tests_xlen_for_arch(test_case.arch),
@@ -612,7 +615,10 @@ fn reserve_zero_bytes(buffer : Array[Byte], count : Int) -> Unit {
 }
 
 ///|
-fn build_test_elf_buffer(program : Bytes, reserved_header_bytes : Int) -> Array[Byte] {
+fn build_test_elf_buffer(
+  program : Bytes,
+  reserved_header_bytes : Int,
+) -> Array[Byte] {
   let buffer : Array[Byte] = []
   reserve_zero_bytes(buffer, reserved_header_bytes)
   let program_offset = 0x100
@@ -633,12 +639,15 @@ fn append_test_elf_name_tables(
   let shstrtab : Array[Byte] = []
   shstrtab.push(0U.to_byte())
   let text_name_offset = append_ascii_cstr(shstrtab, [46, 116, 101, 120, 116])
-  let symtab_name_offset = append_ascii_cstr(shstrtab, [46, 115, 121, 109, 116, 97, 98])
-  let strtab_name_offset = append_ascii_cstr(shstrtab, [46, 115, 116, 114, 116, 97, 98])
-  let shstrtab_name_offset = append_ascii_cstr(
-    shstrtab,
-    [46, 115, 104, 115, 116, 114, 116, 97, 98],
-  )
+  let symtab_name_offset = append_ascii_cstr(shstrtab, [
+    46, 115, 121, 109, 116, 97, 98,
+  ])
+  let strtab_name_offset = append_ascii_cstr(shstrtab, [
+    46, 115, 116, 114, 116, 97, 98,
+  ])
+  let shstrtab_name_offset = append_ascii_cstr(shstrtab, [
+    46, 115, 104, 115, 116, 114, 116, 97, 98,
+  ])
   let shstrtab_size = shstrtab.length()
   append_buffer_bytes(buffer, shstrtab)
 
@@ -646,16 +655,18 @@ fn append_test_elf_name_tables(
   let strtab_offset = buffer.length()
   let strtab : Array[Byte] = []
   strtab.push(0U.to_byte())
-  let tohost_name_offset = append_ascii_cstr(strtab, [116, 111, 104, 111, 115, 116])
-  let fromhost_name_offset = append_ascii_cstr(strtab, [102, 114, 111, 109, 104, 111, 115, 116])
-  let begin_signature_name_offset = append_ascii_cstr(
-    strtab,
-    [98, 101, 103, 105, 110, 95, 115, 105, 103, 110, 97, 116, 117, 114, 101],
-  )
-  let end_signature_name_offset = append_ascii_cstr(
-    strtab,
-    [101, 110, 100, 95, 115, 105, 103, 110, 97, 116, 117, 114, 101],
-  )
+  let tohost_name_offset = append_ascii_cstr(strtab, [
+    116, 111, 104, 111, 115, 116,
+  ])
+  let fromhost_name_offset = append_ascii_cstr(strtab, [
+    102, 114, 111, 109, 104, 111, 115, 116,
+  ])
+  let begin_signature_name_offset = append_ascii_cstr(strtab, [
+    98, 101, 103, 105, 110, 95, 115, 105, 103, 110, 97, 116, 117, 114, 101,
+  ])
+  let end_signature_name_offset = append_ascii_cstr(strtab, [
+    101, 110, 100, 95, 115, 105, 103, 110, 97, 116, 117, 114, 101,
+  ])
   let strtab_size = strtab.length()
   append_buffer_bytes(buffer, strtab)
 
@@ -834,8 +845,14 @@ fn build_test_elf64(
   write_symbol(0, 0U.to_uint64())
   write_symbol(tables.tohost_name_offset, load_addr + 0x1000U.to_uint64())
   write_symbol(tables.fromhost_name_offset, load_addr + 0x1004U.to_uint64())
-  write_symbol(tables.begin_signature_name_offset, load_addr + 0x2000U.to_uint64())
-  write_symbol(tables.end_signature_name_offset, load_addr + 0x2010U.to_uint64())
+  write_symbol(
+    tables.begin_signature_name_offset,
+    load_addr + 0x2000U.to_uint64(),
+  )
+  write_symbol(
+    tables.end_signature_name_offset,
+    load_addr + 0x2010U.to_uint64(),
+  )
   let symtab_size = buffer.length() - symtab_offset
 
   align_buffer(buffer, 8)
@@ -950,7 +967,11 @@ fn build_test_elf64(
   patch_u64_le(buffer, 80, load_addr)
   patch_u64_le(buffer, 88, load_addr)
   patch_u64_le(buffer, 96, program.length().reinterpret_as_uint().to_uint64())
-  patch_u64_le(buffer, 104, (program.length() + 16).reinterpret_as_uint().to_uint64())
+  patch_u64_le(
+    buffer,
+    104,
+    (program.length() + 16).reinterpret_as_uint().to_uint64(),
+  )
   patch_u64_le(buffer, 112, 0x1000U.to_uint64())
 
   Bytes::from_array(buffer)

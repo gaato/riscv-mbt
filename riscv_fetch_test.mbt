@@ -79,5 +79,8 @@ test "fence.i flushes the decode cache" {
     Running => ()
     _ => fail("expected fence.i to run")
   }
-  assert_eq(runner.decode_cache_flush_count(), flushes_after_load + 1U.to_uint64())
+  assert_eq(
+    runner.decode_cache_flush_count(),
+    flushes_after_load + 1U.to_uint64(),
+  )
 }

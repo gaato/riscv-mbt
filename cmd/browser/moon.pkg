@@ -2,6 +2,8 @@ import {
   "gaato/riscv_mbt" @riscv,
 }
 
+supported_targets = "+wasm+wasm-gc"
+
 options(
   link: {
     "wasm-gc": {
@@ -70,5 +72,3 @@ options(
     },
   },
 )
-
-supported_targets = "+wasm+wasm-gc"

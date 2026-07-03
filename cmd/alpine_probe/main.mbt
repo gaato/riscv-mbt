@@ -1,27 +1,76 @@
+///|
 let opensbi_path = "_build/opensbi-riscv64-fw_dynamic.bin"
+
+///|
 let kernel_path = "_build/linux-kernel-riscv64"
+
+///|
 let dtb_path = "_build/minimal-alpine.dtb"
+
+///|
 let initrd_path = "_build/alpine-initramfs-riscv64.cpio"
+
+///|
 let initrd_addr : UInt64 = 0x84000000U.to_uint64()
+
+///|
 let fw_dynamic_info_addr : UInt64 = 0x80100000U.to_uint64()
+
+///|
 let kernel_entry_addr : UInt64 = 0x80200000U.to_uint64()
+
+///|
 let alpine_marker = "riscv-mbt Alpine initramfs ready"
+
+///|
 let alpine_shell_marker = "riscv-mbt Alpine shell alive"
+
+///|
 let alpine_shell_prompt_marker = "/ #"
+
+///|
 let initramfs_unpack_marker_old = "Trying to unpack rootfs image as initramfs"
+
+///|
 let initramfs_unpack_marker_new = "Unpacking initramfs..."
+
+///|
 let run_init_marker = "Run /init as init process"
+
+///|
 let free_initmem_marker = "Freeing unused kernel image"
+
+///|
 let free_initrd_marker = "Freeing initrd memory"
+
+///|
 let rootfs_marker = "rootfs"
+
+///|
 let default_max_steps = 300000000
+
+///|
 let drain_interval = 1000000
+
+///|
 let csr_sstatus = 0x100
+
+///|
 let csr_sie = 0x104
+
+///|
 let csr_sepc = 0x141
+
+///|
 let csr_scause = 0x142
+
+///|
 let csr_stval = 0x143
+
+///|
 let csr_sip = 0x144
+
+///|
 let csr_satp = 0x180
 
 ///|
@@ -40,9 +89,7 @@ fn privilege_name(mode : @riscv.PrivilegeMode) -> String {
 
 ///|
 async fn read_binary(path : String) -> Bytes {
-  try {
-    @fs.read_file(path).binary()
-  } catch {
+  @fs.read_file(path).binary() catch {
     _ => abort("missing artifact: " + path)
   }
 }
@@ -113,8 +160,10 @@ async fn main {
       }
       Trap(info) => {
         trapped = true
-        outcome = "trap pc=" + info.faulting_pc.to_string() +
-          " tval=" + info.trap_value.to_string()
+        outcome = "trap pc=" +
+          info.faulting_pc.to_string() +
+          " tval=" +
+          info.trap_value.to_string()
         break
       }
     }
@@ -153,25 +202,37 @@ async fn main {
     "translate_cache=\{runner.translate_cache_hit_count()} hits/\{runner.translate_cache_miss_count()} misses",
   )
   println("output_chars=" + output.length().to_string())
-  println("contains_linux_version=" + output.contains("Linux version").to_string())
+  println(
+    "contains_linux_version=" + output.contains("Linux version").to_string(),
+  )
   println(
     "contains_initramfs_unpack=" +
-    (
-      output.contains(initramfs_unpack_marker_old) ||
-      output.contains(initramfs_unpack_marker_new)
-    ).to_string(),
+    (output.contains(initramfs_unpack_marker_old) ||
+    output.contains(initramfs_unpack_marker_new)).to_string(),
   )
-  println("contains_free_initmem=" + output.contains(free_initmem_marker).to_string())
-  println("contains_free_initrd=" + output.contains(free_initrd_marker).to_string())
+  println(
+    "contains_free_initmem=" + output.contains(free_initmem_marker).to_string(),
+  )
+  println(
+    "contains_free_initrd=" + output.contains(free_initrd_marker).to_string(),
+  )
   println("contains_run_init=" + output.contains(run_init_marker).to_string())
   println("contains_rootfs=" + output.contains(rootfs_marker).to_string())
-  println("contains_alpine_marker=" + output.contains(alpine_marker).to_string())
-  println("contains_alpine_shell=" + output.contains(alpine_shell_marker).to_string())
+  println(
+    "contains_alpine_marker=" + output.contains(alpine_marker).to_string(),
+  )
+  println(
+    "contains_alpine_shell=" + output.contains(alpine_shell_marker).to_string(),
+  )
   println(
     "contains_alpine_shell_prompt=" +
     output.contains(alpine_shell_prompt_marker).to_string(),
   )
-  let tail_start = if output.length() > 5000 { output.length() - 5000 } else { 0 }
+  let tail_start = if output.length() > 5000 {
+    output.length() - 5000
+  } else {
+    0
+  }
   println("tail:")
   println(output[tail_start:].to_owned())
 }

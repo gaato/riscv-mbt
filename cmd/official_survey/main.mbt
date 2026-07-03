@@ -1,7 +1,16 @@
+///|
 let default_official_riscv_tests_manifest_path = "tools/riscv-tests-manifest.tsv"
+
+///|
 let official_riscv_tests_isa_dir_rv32 = "_build/riscv-tests-src/isa"
+
+///|
 let official_riscv_tests_isa_dir_rv64 = "_build/riscv-tests-src-rv64/isa"
+
+///|
 let default_suite = "rv32uc"
+
+///|
 let default_step_budget = 200000
 
 ///|
@@ -26,21 +35,18 @@ enum SurveyOutcome {
 
 ///|
 async fn read_manifest_text(path : String) -> String {
-  try {
-    @fs.read_file(path).text()
-  } catch {
+  @fs.read_file(path).text() catch {
     _ => abort("missing official riscv-tests manifest: " + path)
   }
 }
 
 ///|
 async fn read_official_test_elf(path : String) -> Bytes {
-  try {
-    @fs.read_file(path).binary()
-  } catch {
+  @fs.read_file(path).binary() catch {
     _ =>
       abort(
-        "missing official riscv-tests ELF: " + path +
+        "missing official riscv-tests ELF: " +
+        path +
         "; run ./scripts/build-riscv-tests-official.sh first",
       )
   }
@@ -72,7 +78,11 @@ async fn load_official_riscv_test_cases(
     if suite_filter != "all" && suite != suite_filter {
       continue
     }
-    let path = official_riscv_tests_isa_dir_for_arch(arch) + "/" + suite + "-p-" + name
+    let path = official_riscv_tests_isa_dir_for_arch(arch) +
+      "/" +
+      suite +
+      "-p-" +
+      name
     cases.push({ suite, name, arch, tier, path, max_steps: default_step_budget })
   }
   cases
@@ -216,7 +226,8 @@ async fn main {
   let cases = load_official_riscv_test_cases(suite, manifest_path)
   if cases.is_empty() {
     abort(
-      "no official riscv-tests cases found for suite: " + suite +
+      "no official riscv-tests cases found for suite: " +
+      suite +
       " in manifest: " +
       manifest_path,
     )

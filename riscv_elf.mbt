@@ -1,4 +1,3 @@
-
 ///|
 fn bytes_load_u8(bytes : Bytes, offset : Int) -> UInt {
   bytes[offset].to_uint()
@@ -6,8 +5,7 @@ fn bytes_load_u8(bytes : Bytes, offset : Int) -> UInt {
 
 ///|
 fn bytes_load_u16(bytes : Bytes, offset : Int) -> UInt {
-  bytes_load_u8(bytes, offset) |
-  (bytes_load_u8(bytes, offset + 1) << 8)
+  bytes_load_u8(bytes, offset) | (bytes_load_u8(bytes, offset + 1) << 8)
 }
 
 ///|
@@ -61,7 +59,12 @@ fn elf_symbol_matches(
   name_offset : UInt64,
   expected : Array[Int],
 ) -> Bool {
-  c_string_matches(bytes, string_base, name_offset.reinterpret_as_int64().to_int(), expected)
+  c_string_matches(
+    bytes,
+    string_base,
+    name_offset.reinterpret_as_int64().to_int(),
+    expected,
+  )
 }
 
 ///|
@@ -154,23 +157,17 @@ fn parse_elf32_symbols(
 ) -> (UInt64?, UInt64?, UInt64?, UInt64?) {
   let mut index = 0
   while index < shnum {
-    let sh_offset = shoff + (index * shentsize)
+    let sh_offset = shoff + index * shentsize
     let sh_type = bytes_load_u32(bytes, sh_offset + 4)
     if sh_type == 2U {
       let symtab_offset = bytes_load_u32(bytes, sh_offset + 16).reinterpret_as_int()
       let symtab_size = bytes_load_u32(bytes, sh_offset + 20).reinterpret_as_int()
       let strtab_index = bytes_load_u32(bytes, sh_offset + 24).reinterpret_as_int()
-      let strtab_header = shoff + (strtab_index * shentsize)
+      let strtab_header = shoff + strtab_index * shentsize
       let strtab_offset = bytes_load_u32(bytes, strtab_header + 16).reinterpret_as_int()
       if bytes_range_ok(bytes, symtab_offset, symtab_size) {
         return read_elf_named_symbols(
-          bytes,
-          symtab_offset,
-          symtab_size,
-          strtab_offset,
-          16,
-          4,
-          false,
+          bytes, symtab_offset, symtab_size, strtab_offset, 16, 4, false,
         )
       }
     }
@@ -188,23 +185,23 @@ fn parse_elf64_symbols(
 ) -> (UInt64?, UInt64?, UInt64?, UInt64?) {
   let mut index = 0
   while index < shnum {
-    let sh_offset = shoff + (index * shentsize)
+    let sh_offset = shoff + index * shentsize
     let sh_type = bytes_load_u32(bytes, sh_offset + 4)
     if sh_type == 2U {
-      let symtab_offset = bytes_load_u64(bytes, sh_offset + 24).reinterpret_as_int64().to_int()
-      let symtab_size = bytes_load_u64(bytes, sh_offset + 32).reinterpret_as_int64().to_int()
+      let symtab_offset = bytes_load_u64(bytes, sh_offset + 24)
+        .reinterpret_as_int64()
+        .to_int()
+      let symtab_size = bytes_load_u64(bytes, sh_offset + 32)
+        .reinterpret_as_int64()
+        .to_int()
       let strtab_index = bytes_load_u32(bytes, sh_offset + 40).reinterpret_as_int()
-      let strtab_header = shoff + (strtab_index * shentsize)
-      let strtab_offset = bytes_load_u64(bytes, strtab_header + 24).reinterpret_as_int64().to_int()
+      let strtab_header = shoff + strtab_index * shentsize
+      let strtab_offset = bytes_load_u64(bytes, strtab_header + 24)
+        .reinterpret_as_int64()
+        .to_int()
       if bytes_range_ok(bytes, symtab_offset, symtab_size) {
         return read_elf_named_symbols(
-          bytes,
-          symtab_offset,
-          symtab_size,
-          strtab_offset,
-          24,
-          8,
-          true,
+          bytes, symtab_offset, symtab_size, strtab_offset, 24, 8, true,
         )
       }
     }
@@ -275,7 +272,7 @@ pub fn Runner::load_elf(self : Runner, bytes : Bytes) -> LoadElfResult {
 
       let mut ph_index = 0
       while ph_index < phnum {
-        let ph_offset = phoff + (ph_index * phentsize)
+        let ph_offset = phoff + ph_index * phentsize
         if !bytes_range_ok(bytes, ph_offset, phentsize) {
           return LoadError("program header is truncated")
         }
@@ -284,7 +281,10 @@ pub fn Runner::load_elf(self : Runner, bytes : Bytes) -> LoadElfResult {
           let virtual_addr = bytes_load_u32(bytes, ph_offset + 8).to_uint64()
           let file_size = bytes_load_u32(bytes, ph_offset + 16).reinterpret_as_int()
           let mem_size = bytes_load_u32(bytes, ph_offset + 20).reinterpret_as_int()
-          match self.load_elf_segment(bytes, file_offset, file_size, virtual_addr, mem_size) {
+          match
+            self.load_elf_segment(
+              bytes, file_offset, file_size, virtual_addr, mem_size,
+            ) {
             Some(message) => return LoadError(message)
             None => ()
           }
@@ -293,7 +293,8 @@ pub fn Runner::load_elf(self : Runner, bytes : Bytes) -> LoadElfResult {
       }
 
       let (tohost, fromhost, begin_signature, end_signature) = if shoff != 0 &&
-        shentsize >= 40 && shnum > 0 {
+        shentsize >= 40 &&
+        shnum > 0 {
         parse_elf32_symbols(bytes, shoff, shentsize, shnum)
       } else {
         (None, None, None, None)
@@ -322,16 +323,25 @@ pub fn Runner::load_elf(self : Runner, bytes : Bytes) -> LoadElfResult {
 
       let mut ph_index = 0
       while ph_index < phnum {
-        let ph_offset = phoff + (ph_index * phentsize)
+        let ph_offset = phoff + ph_index * phentsize
         if !bytes_range_ok(bytes, ph_offset, phentsize) {
           return LoadError("program header is truncated")
         }
         if bytes_load_u32(bytes, ph_offset) == 1U {
-          let file_offset = bytes_load_u64(bytes, ph_offset + 8).reinterpret_as_int64().to_int()
+          let file_offset = bytes_load_u64(bytes, ph_offset + 8)
+            .reinterpret_as_int64()
+            .to_int()
           let virtual_addr = bytes_load_u64(bytes, ph_offset + 16)
-          let file_size = bytes_load_u64(bytes, ph_offset + 32).reinterpret_as_int64().to_int()
-          let mem_size = bytes_load_u64(bytes, ph_offset + 40).reinterpret_as_int64().to_int()
-          match self.load_elf_segment(bytes, file_offset, file_size, virtual_addr, mem_size) {
+          let file_size = bytes_load_u64(bytes, ph_offset + 32)
+            .reinterpret_as_int64()
+            .to_int()
+          let mem_size = bytes_load_u64(bytes, ph_offset + 40)
+            .reinterpret_as_int64()
+            .to_int()
+          match
+            self.load_elf_segment(
+              bytes, file_offset, file_size, virtual_addr, mem_size,
+            ) {
             Some(message) => return LoadError(message)
             None => ()
           }
@@ -340,7 +350,8 @@ pub fn Runner::load_elf(self : Runner, bytes : Bytes) -> LoadElfResult {
       }
 
       let (tohost, fromhost, begin_signature, end_signature) = if shoff != 0 &&
-        shentsize >= 64 && shnum > 0 {
+        shentsize >= 64 &&
+        shnum > 0 {
         parse_elf64_symbols(bytes, shoff, shentsize, shnum)
       } else {
         (None, None, None, None)

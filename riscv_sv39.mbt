@@ -1,13 +1,31 @@
 ///|
 const PTE_V : UInt64 = 0x1
+
+///|
 const PTE_R : UInt64 = 0x2
+
+///|
 const PTE_W : UInt64 = 0x4
+
+///|
 const PTE_X : UInt64 = 0x8
+
+///|
 const PTE_U : UInt64 = 0x10
+
+///|
 const PTE_A : UInt64 = 0x40
+
+///|
 const PTE_D : UInt64 = 0x80
+
+///|
 const SV39_LEVELS : Int = 3
+
+///|
 const SV39_PAGESIZE : UInt64 = 4096
+
+///|
 const SV39_PTESIZE : UInt64 = 8
 
 ///|
@@ -81,37 +99,27 @@ pub fn sv39_translate(
       return TranslateFault(fault)
     }
   } nobreak {
-    // Loop exhausted without finding a leaf
-    return TranslateFault(fault)
+    return TranslateFault(
+      // Loop exhausted without finding a leaf
+      fault,
+    )
   }
   // Leaf PTE found at level i
   // Permission checks
   match access_type {
-    Fetch =>
-      if (pte & PTE_X) == 0U.to_uint64() {
-        return TranslateFault(fault)
-      }
+    Fetch => if (pte & PTE_X) == 0U.to_uint64() { return TranslateFault(fault) }
     Load =>
       if (pte & PTE_R) == 0U.to_uint64() &&
         !(mxr && (pte & PTE_X) != 0U.to_uint64()) {
         return TranslateFault(fault)
       }
-    Store =>
-      if (pte & PTE_W) == 0U.to_uint64() {
-        return TranslateFault(fault)
-      }
+    Store => if (pte & PTE_W) == 0U.to_uint64() { return TranslateFault(fault) }
   }
   // U-bit check
   let is_user_page = (pte & PTE_U) != 0U.to_uint64()
   match privilege {
-    User =>
-      if !is_user_page {
-        return TranslateFault(fault)
-      }
-    Supervisor =>
-      if is_user_page && !sum {
-        return TranslateFault(fault)
-      }
+    User => if !is_user_page { return TranslateFault(fault) }
+    Supervisor => if is_user_page && !sum { return TranslateFault(fault) }
     Machine => ()
   }
   // Superpage alignment: for level > 0, lower PPN bits must be zero
@@ -127,10 +135,7 @@ pub fn sv39_translate(
     return TranslateFault(fault)
   }
   match access_type {
-    Store =>
-      if (pte & PTE_D) == 0U.to_uint64() {
-        return TranslateFault(fault)
-      }
+    Store => if (pte & PTE_D) == 0U.to_uint64() { return TranslateFault(fault) }
     _ => ()
   }
   // Compute physical address
@@ -157,7 +162,10 @@ fn Runner::satp_mode(self : Runner) -> UInt64 {
 }
 
 ///|
-fn Runner::sv39_active_for_privilege(self : Runner, privilege : PrivilegeMode) -> Bool {
+fn Runner::sv39_active_for_privilege(
+  self : Runner,
+  privilege : PrivilegeMode,
+) -> Bool {
   match privilege {
     Machine => false
     _ => self.satp_mode() == 8U.to_uint64()
@@ -237,7 +245,8 @@ fn Runner::translate_cached(
     return TranslatedAddr(self.translate_cache_pa_pages[index] + page_offset)
   }
   self.translate_cache_misses = self.translate_cache_misses + 1U.to_uint64()
-  match sv39_translate(self.bus, satp, vaddr, access_type, privilege, sum, mxr) {
+  match
+    sv39_translate(self.bus, satp, vaddr, access_type, privilege, sum, mxr) {
     TranslatedAddr(pa) => {
       self.translate_cache_vpages[index] = vpage
       self.translate_cache_satps[index] = satp
@@ -279,11 +288,7 @@ fn Runner::fetch_instruction(
   if !self.bus.contains_range(addr, length) {
     return None
   }
-  let raw = if length == 2 {
-    low16
-  } else {
-    self.bus.fetch_u32(addr)
-  }
+  let raw = if length == 2 { low16 } else { self.bus.fetch_u32(addr) }
   Some({ raw, length })
 }
 
@@ -293,7 +298,11 @@ fn Runner::address_from(self : Runner, rs1 : Int, imm : Int) -> UInt64 {
 }
 
 ///|
-fn Runner::load_check(self : Runner, addr : UInt64, width : Int) -> (UInt64, StepResult?) {
+fn Runner::load_check(
+  self : Runner,
+  addr : UInt64,
+  width : Int,
+) -> (UInt64, StepResult?) {
   let privilege = self.effective_data_access_privilege()
   let pa = match self.translate_address(addr, Load, privilege) {
     TranslatedAddr(pa) => pa
@@ -308,7 +317,11 @@ fn Runner::load_check(self : Runner, addr : UInt64, width : Int) -> (UInt64, Ste
 }
 
 ///|
-fn Runner::store_check(self : Runner, addr : UInt64, width : Int) -> (UInt64, StepResult?) {
+fn Runner::store_check(
+  self : Runner,
+  addr : UInt64,
+  width : Int,
+) -> (UInt64, StepResult?) {
   let privilege = self.effective_data_access_privilege()
   let pa = match self.translate_address(addr, Store, privilege) {
     TranslatedAddr(pa) => pa

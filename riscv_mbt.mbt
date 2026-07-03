@@ -255,10 +255,10 @@ pub struct Runner {
   uart_input : @queue.Queue[Byte]
   uart_ier : Array[Byte]
   uart_lcr : Array[Byte]
-  mtime : Array[UInt64]      // [0] = current mtime; shared across SMP harts
-  clint_msip : Array[Bool]   // [hart_id] = MSIP bit; shared across SMP harts
+  mtime : Array[UInt64] // [0] = current mtime; shared across SMP harts
+  clint_msip : Array[Bool] // [hart_id] = MSIP bit; shared across SMP harts
   all_mtimecmp : Array[UInt64] // [hart_id] = mtimecmp; shared across SMP harts
-  plic_regs : Array[Byte]    // flat PLIC register file (4 MB); shared across SMP harts
+  plic_regs : Array[Byte] // flat PLIC register file (4 MB); shared across SMP harts
   decode_cache_tags : Array[UInt64]
   decode_cache_raws : Array[UInt]
   decode_cache_lengths : Array[Int]
@@ -298,7 +298,9 @@ pub fn default_machine_config() -> MachineConfig {
 }
 
 ///|
-pub fn official_riscv_tests_machine_config_for_xlen(xlen : Xlen) -> MachineConfig {
+pub fn official_riscv_tests_machine_config_for_xlen(
+  xlen : Xlen,
+) -> MachineConfig {
   {
     xlen,
     extensions: current_base_extensions(),
@@ -335,6 +337,7 @@ pub fn rv64_machine_config() -> MachineConfig {
 }
 
 ///|
+
 ///|
 pub fn rv64f_machine_config() -> MachineConfig {
   {
@@ -416,80 +419,228 @@ pub fn CsrFile::write(self : CsrFile, index : Int, value : UInt64) -> Unit {
 
 ///|
 const CSR_MSTATUS : Int = 0x300
+
+///|
 const CSR_MISA : Int = 0x301
+
+///|
 const CSR_FFLAGS : Int = 0x001
+
+///|
 const CSR_FRM : Int = 0x002
+
+///|
 const CSR_FCSR : Int = 0x003
+
+///|
 const CSR_MEDELEG : Int = 0x302
+
+///|
 const CSR_MIDELEG : Int = 0x303
+
+///|
 const CSR_MIE : Int = 0x304
+
+///|
 const CSR_MTVEC : Int = 0x305
+
+///|
 const CSR_SSTATUS : Int = 0x100
+
+///|
 const CSR_MEPC : Int = 0x341
+
+///|
 const CSR_MCAUSE : Int = 0x342
+
+///|
 const CSR_MTVAL : Int = 0x343
+
+///|
 const CSR_MIP : Int = 0x344
+
+///|
 const CSR_STVEC : Int = 0x105
+
+///|
 const CSR_SSCRATCH : Int = 0x140
+
+///|
 const CSR_SEPC : Int = 0x141
+
+///|
 const CSR_SCAUSE : Int = 0x142
+
+///|
 const CSR_STVAL : Int = 0x143
+
+///|
 const CSR_SIE : Int = 0x104
+
+///|
 const CSR_SIP : Int = 0x144
+
+///|
 const CSR_SATP : Int = 0x180
+
+///|
 const CSR_PMPCFG0 : Int = 0x3A0
+
+///|
 const CSR_PMPADDR0 : Int = 0x3B0
+
+///|
 const CSR_MNSTATUS : Int = 0x744
+
+///|
 const CSR_MSCRATCH : Int = 0x340
+
+///|
 const CSR_MCOUNTEREN : Int = 0x306
+
+///|
 const CSR_SCOUNTEREN : Int = 0x106
+
+///|
 const CSR_MENVCFG : Int = 0x30A
+
+///|
 const CSR_SENVCFG : Int = 0x10A
+
+///|
 const CSR_MHARTID : Int = 0xF14
+
+///|
 const CSR_MVENDORID : Int = 0xF11
+
+///|
 const CSR_MARCHID : Int = 0xF12
+
+///|
 const CSR_MIMPID : Int = 0xF13
+
+///|
 const CSR_VSTART : Int = 0x008
+
+///|
 const CSR_VXSAT : Int = 0x009
+
+///|
 const CSR_VXRM : Int = 0x00A
+
+///|
 const CSR_VCSR : Int = 0x00F
+
+///|
 const CSR_VL : Int = 0xC20
+
+///|
 const CSR_VTYPE : Int = 0xC21
+
+///|
 const CSR_VLENB : Int = 0xC22
+
+///|
 const XLEN_32 : Int = 32
+
+///|
 const XLEN_64 : Int = 64
+
+///|
 const MSTATUS_SIE_BIT : UInt = 0x2U
+
+///|
 const MSTATUS_SPIE_BIT : UInt = 0x20U
+
+///|
 const MSTATUS_SPP_BIT : UInt = 0x100U
+
+///|
 const MSTATUS_MIE_BIT : UInt = 0x8U
+
+///|
 const MSTATUS_MPIE_BIT : UInt = 0x80U
+
+///|
 const MSTATUS_MPP_SHIFT : Int = 11
+
+///|
 const MSTATUS_MPP_MASK : UInt = 0x1800U
+
+///|
 const SSTATUS_VISIBLE_MASK : UInt = 0xC0122U
 // SIP/SIE visible mask: SSIP(bit 1) | STIP(bit 5) | SEIP(bit 9)
+
+///|
 const SIP_VISIBLE_MASK : UInt64 = 0x222
+
+///|
 const MSTATUS_MPRV_BIT : UInt64 = 0x20000 // bit 17
+
+///|
 const MSTATUS_SUM_BIT : UInt64 = 0x40000 // bit 18
+
+///|
 const MSTATUS_MXR_BIT : UInt64 = 0x80000 // bit 19
+
+///|
 const FCSR_FFLAGS_MASK : UInt64 = 0x1f
+
+///|
 const FCSR_FRM_SHIFT : Int = 5
+
+///|
 const FCSR_FRM_MASK : UInt64 = 0xe0
+
+///|
 const FCSR_VISIBLE_MASK : UInt64 = 0xff
+
+///|
 const VCSR_VXSAT_MASK : UInt64 = 0x1
+
+///|
 const VCSR_VXRM_SHIFT : Int = 1
+
+///|
 const VCSR_VXRM_MASK : UInt64 = 0x6
+
+///|
 const VCSR_VISIBLE_MASK : UInt64 = 0x7
+
+///|
 const MISA_EXT_A : UInt64 = 0x1
+
+///|
 const MISA_EXT_C : UInt64 = 0x4
+
+///|
 const MISA_EXT_D : UInt64 = 0x8
+
+///|
 const MISA_EXT_F : UInt64 = 0x20
+
+///|
 const MISA_EXT_I : UInt64 = 0x100
+
+///|
 const MISA_EXT_M : UInt64 = 0x1000
+
+///|
 const MISA_EXT_S : UInt64 = 0x40000
+
+///|
 const MISA_EXT_U : UInt64 = 0x100000
+
+///|
 const MISA_EXT_V : UInt64 = 0x200000
+
+///|
 const VREG_COUNT : Int = 32
+
+///|
 const VREG_WORDS_PER_REG : Int = 2
+
+///|
 const VLEN_BYTES : Int = 16
 
 ///|
@@ -559,7 +710,11 @@ pub fn CpuState::read_reg(self : CpuState, index : Int) -> UInt64 {
 }
 
 ///|
-pub fn CpuState::write_reg(self : CpuState, index : Int, value : UInt64) -> Unit {
+pub fn CpuState::write_reg(
+  self : CpuState,
+  index : Int,
+  value : UInt64,
+) -> Unit {
   if index != 0 {
     self.registers[index] = value
   }
@@ -571,18 +726,27 @@ pub fn CpuState::read_freg(self : CpuState, index : Int) -> UInt64 {
 }
 
 ///|
-pub fn CpuState::write_freg(self : CpuState, index : Int, value : UInt64) -> Unit {
+pub fn CpuState::write_freg(
+  self : CpuState,
+  index : Int,
+  value : UInt64,
+) -> Unit {
   self.fregisters[index] = value
 }
 
 ///|
 pub fn CpuState::read_vreg(self : CpuState, index : Int, word : Int) -> UInt64 {
-  self.vregisters[(index * VREG_WORDS_PER_REG) + word]
+  self.vregisters[index * VREG_WORDS_PER_REG + word]
 }
 
 ///|
-pub fn CpuState::write_vreg(self : CpuState, index : Int, word : Int, value : UInt64) -> Unit {
-  self.vregisters[(index * VREG_WORDS_PER_REG) + word] = value
+pub fn CpuState::write_vreg(
+  self : CpuState,
+  index : Int,
+  word : Int,
+  value : UInt64,
+) -> Unit {
+  self.vregisters[index * VREG_WORDS_PER_REG + word] = value
 }
 
 ///|
@@ -591,7 +755,11 @@ pub fn CpuState::read_csr(self : CpuState, index : Int) -> UInt64 {
 }
 
 ///|
-pub fn CpuState::write_csr(self : CpuState, index : Int, value : UInt64) -> Unit {
+pub fn CpuState::write_csr(
+  self : CpuState,
+  index : Int,
+  value : UInt64,
+) -> Unit {
   self.csrs.write(index, value)
 }
 
@@ -677,42 +845,56 @@ pub fn Bus::store_u8(self : Bus, addr : UInt64, value : UInt64) -> Unit {
 ///|
 pub fn Bus::store_u16(self : Bus, addr : UInt64, value : UInt64) -> Unit {
   self.memory[bus_offset_as_int(addr - self.base_addr)] = value.to_byte()
-  self.memory[bus_offset_as_int((addr + 1U.to_uint64()) - self.base_addr)] = (value >> 8).to_byte()
+  self.memory[bus_offset_as_int(addr + 1U.to_uint64() - self.base_addr)] = (value >>
+  8).to_byte()
 }
 
 ///|
 pub fn Bus::store_u32(self : Bus, addr : UInt64, value : UInt64) -> Unit {
   self.memory[bus_offset_as_int(addr - self.base_addr)] = value.to_byte()
-  self.memory[bus_offset_as_int((addr + 1U.to_uint64()) - self.base_addr)] = (value >> 8).to_byte()
-  self.memory[bus_offset_as_int((addr + 2U.to_uint64()) - self.base_addr)] = (value >> 16).to_byte()
-  self.memory[bus_offset_as_int((addr + 3U.to_uint64()) - self.base_addr)] = (value >> 24).to_byte()
+  self.memory[bus_offset_as_int(addr + 1U.to_uint64() - self.base_addr)] = (value >>
+  8).to_byte()
+  self.memory[bus_offset_as_int(addr + 2U.to_uint64() - self.base_addr)] = (value >>
+  16).to_byte()
+  self.memory[bus_offset_as_int(addr + 3U.to_uint64() - self.base_addr)] = (value >>
+  24).to_byte()
 }
 
 ///|
 pub fn Bus::store_u64(self : Bus, addr : UInt64, value : UInt64) -> Unit {
   self.memory[bus_offset_as_int(addr - self.base_addr)] = value.to_byte()
-  self.memory[bus_offset_as_int((addr + 1U.to_uint64()) - self.base_addr)] = (value >> 8).to_byte()
-  self.memory[bus_offset_as_int((addr + 2U.to_uint64()) - self.base_addr)] = (value >> 16).to_byte()
-  self.memory[bus_offset_as_int((addr + 3U.to_uint64()) - self.base_addr)] = (value >> 24).to_byte()
-  self.memory[bus_offset_as_int((addr + 4U.to_uint64()) - self.base_addr)] = (value >> 32).to_byte()
-  self.memory[bus_offset_as_int((addr + 5U.to_uint64()) - self.base_addr)] = (value >> 40).to_byte()
-  self.memory[bus_offset_as_int((addr + 6U.to_uint64()) - self.base_addr)] = (value >> 48).to_byte()
-  self.memory[bus_offset_as_int((addr + 7U.to_uint64()) - self.base_addr)] = (value >> 56).to_byte()
+  self.memory[bus_offset_as_int(addr + 1U.to_uint64() - self.base_addr)] = (value >>
+  8).to_byte()
+  self.memory[bus_offset_as_int(addr + 2U.to_uint64() - self.base_addr)] = (value >>
+  16).to_byte()
+  self.memory[bus_offset_as_int(addr + 3U.to_uint64() - self.base_addr)] = (value >>
+  24).to_byte()
+  self.memory[bus_offset_as_int(addr + 4U.to_uint64() - self.base_addr)] = (value >>
+  32).to_byte()
+  self.memory[bus_offset_as_int(addr + 5U.to_uint64() - self.base_addr)] = (value >>
+  40).to_byte()
+  self.memory[bus_offset_as_int(addr + 6U.to_uint64() - self.base_addr)] = (value >>
+  48).to_byte()
+  self.memory[bus_offset_as_int(addr + 7U.to_uint64() - self.base_addr)] = (value >>
+  56).to_byte()
 }
 
 ///|
 pub fn Bus::write_bytes(self : Bus, base_addr : UInt64, bytes : Bytes) -> Unit {
   for index in 0..<bytes.length() {
-    self.memory[
-      bus_offset_as_int((base_addr + index.reinterpret_as_uint().to_uint64()) - self.base_addr)
-    ] = bytes[index]
+    self.memory[bus_offset_as_int(
+      base_addr + index.reinterpret_as_uint().to_uint64() - self.base_addr,
+    )] = bytes[index]
   }
 }
 
 ///|
 pub fn Bus::zero_range(self : Bus, base_addr : UInt64, len : Int) -> Unit {
   for index in 0..<len {
-    self.store_u8(base_addr + index.reinterpret_as_uint().to_uint64(), 0U.to_uint64())
+    self.store_u8(
+      base_addr + index.reinterpret_as_uint().to_uint64(),
+      0U.to_uint64(),
+    )
   }
 }
 
@@ -727,6 +909,7 @@ fn Bus::fetch_u32(self : Bus, addr : UInt64) -> UInt {
 }
 
 ///|
+
 ///|
 pub fn make_runner(config : MachineConfig) -> Runner {
   {
@@ -759,7 +942,9 @@ pub fn make_runner(config : MachineConfig) -> Runner {
     decode_cache_misses: 0U.to_uint64(),
     decode_cache_fills: 0U.to_uint64(),
     decode_cache_flushes: 0U.to_uint64(),
-    translate_cache_vpages: Array::make(translate_cache_sets, translate_cache_invalid_vpage),
+    translate_cache_vpages: Array::make(
+      translate_cache_sets, translate_cache_invalid_vpage,
+    ),
     translate_cache_satps: Array::make(translate_cache_sets, 0U.to_uint64()),
     translate_cache_accesses: Array::make(translate_cache_sets, 0),
     translate_cache_privileges: Array::make(translate_cache_sets, 0),
@@ -776,7 +961,10 @@ pub fn make_runner(config : MachineConfig) -> Runner {
 ///|
 /// Create N runners sharing bus, UART, PLIC, CLINT, and mtime for SMP simulation.
 /// All harts start at the same entry point (cold/warm boot path is chosen via MHARTID).
-pub fn make_smp_runners(config : MachineConfig, num_harts : Int) -> Array[Runner] {
+pub fn make_smp_runners(
+  config : MachineConfig,
+  num_harts : Int,
+) -> Array[Runner] {
   let shared_bus = Bus::new(config.ram_base, config.ram_size)
   let shared_uart : Array[Byte] = []
   let shared_uart_input : @queue.Queue[Byte] = @queue.Queue([])
@@ -824,7 +1012,9 @@ pub fn make_smp_runners(config : MachineConfig, num_harts : Int) -> Array[Runner
       clint_msip: shared_msip,
       all_mtimecmp: shared_mtimecmp,
       plic_regs: shared_plic,
-      decode_cache_tags: Array::make(decode_cache_sets, decode_cache_invalid_tag),
+      decode_cache_tags: Array::make(
+        decode_cache_sets, decode_cache_invalid_tag,
+      ),
       decode_cache_raws: Array::make(decode_cache_sets, 0U),
       decode_cache_lengths: Array::make(decode_cache_sets, 0),
       decode_cache_xlens: Array::make(decode_cache_sets, 0),
@@ -833,13 +1023,18 @@ pub fn make_smp_runners(config : MachineConfig, num_harts : Int) -> Array[Runner
       decode_cache_misses: 0U.to_uint64(),
       decode_cache_fills: 0U.to_uint64(),
       decode_cache_flushes: 0U.to_uint64(),
-      translate_cache_vpages: Array::make(translate_cache_sets, translate_cache_invalid_vpage),
+      translate_cache_vpages: Array::make(
+        translate_cache_sets, translate_cache_invalid_vpage,
+      ),
       translate_cache_satps: Array::make(translate_cache_sets, 0U.to_uint64()),
       translate_cache_accesses: Array::make(translate_cache_sets, 0),
       translate_cache_privileges: Array::make(translate_cache_sets, 0),
       translate_cache_sums: Array::make(translate_cache_sets, false),
       translate_cache_mxrs: Array::make(translate_cache_sets, false),
-      translate_cache_pa_pages: Array::make(translate_cache_sets, 0U.to_uint64()),
+      translate_cache_pa_pages: Array::make(
+        translate_cache_sets,
+        0U.to_uint64(),
+      ),
       translate_cache_hits: 0U.to_uint64(),
       translate_cache_misses: 0U.to_uint64(),
       translate_cache_fills: 0U.to_uint64(),

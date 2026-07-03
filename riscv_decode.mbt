@@ -1,3 +1,4 @@
+///|
 fn rd(raw : UInt) -> Int {
   ((raw >> 7) & 0x1fU).reinterpret_as_int()
 }
@@ -68,17 +69,17 @@ fn c_rs2(raw : UInt) -> Int {
 
 ///|
 fn c_rd_prime(raw : UInt) -> Int {
-  8 + (((raw >> 2) & 0x7U).reinterpret_as_int())
+  8 + ((raw >> 2) & 0x7U).reinterpret_as_int()
 }
 
 ///|
 fn c_rs1_prime(raw : UInt) -> Int {
-  8 + (((raw >> 7) & 0x7U).reinterpret_as_int())
+  8 + ((raw >> 7) & 0x7U).reinterpret_as_int()
 }
 
 ///|
 fn c_rs2_prime(raw : UInt) -> Int {
-  8 + (((raw >> 2) & 0x7U).reinterpret_as_int())
+  8 + ((raw >> 2) & 0x7U).reinterpret_as_int()
 }
 
 ///|
@@ -146,8 +147,7 @@ fn c_shamt6(raw : UInt) -> Int {
 
 ///|
 fn c_lui_imm(raw : UInt) -> UInt {
-  (sign_extend((((raw >> 12) & 0x1U) << 5) | ((raw >> 2) & 0x1fU), 6)
-    .reinterpret_as_uint()) <<
+  sign_extend((((raw >> 12) & 0x1U) << 5) | ((raw >> 2) & 0x1fU), 6).reinterpret_as_uint() <<
   12
 }
 
@@ -213,15 +213,13 @@ fn c_uimm_lwsp(raw : UInt) -> Int {
 
 ///|
 fn c_uimm_swsp(raw : UInt) -> Int {
-  ((((raw >> 7) & 0x3U) << 6) |
-  (((raw >> 9) & 0xfU) << 2)).reinterpret_as_int()
+  ((((raw >> 7) & 0x3U) << 6) | (((raw >> 9) & 0xfU) << 2)).reinterpret_as_int()
 }
 
 ///|
 fn c_uimm_ld_sd(raw : UInt) -> Int {
   // C.LD/C.SD: uimm[5:3|7:6] — doubleword offset
-  ((((raw >> 10) & 0x7U) << 3) |
-  (((raw >> 5) & 0x3U) << 6)).reinterpret_as_int()
+  ((((raw >> 10) & 0x7U) << 3) | (((raw >> 5) & 0x3U) << 6)).reinterpret_as_int()
 }
 
 ///|
@@ -235,8 +233,7 @@ fn c_uimm_ldsp(raw : UInt) -> Int {
 ///|
 fn c_uimm_sdsp(raw : UInt) -> Int {
   // C.SDSP: uimm[5:3|8:6]
-  ((((raw >> 7) & 0x7U) << 6) |
-  (((raw >> 10) & 0x7U) << 3)).reinterpret_as_int()
+  ((((raw >> 7) & 0x7U) << 6) | (((raw >> 10) & 0x7U) << 3)).reinterpret_as_int()
 }
 
 ///|
@@ -386,7 +383,17 @@ fn mulhu_64(lhs : UInt64, rhs : UInt64) -> UInt64 {
   let lh = lhs_low * rhs_high
   let hl = lhs_high * rhs_low
   let hh = lhs_high * rhs_high
-  hh + (lh >> 32) + (hl >> 32) + (((ll >> 32) + (lh & 0xffffffffU.to_uint64()) + (hl & 0xffffffffU.to_uint64())) >> 32)
+  hh +
+  (lh >> 32) +
+  (hl >> 32) +
+  (
+    (
+      (ll >> 32) +
+      (lh & 0xffffffffU.to_uint64()) +
+      (hl & 0xffffffffU.to_uint64())
+    ) >>
+    32
+  )
 }
 
 ///|
@@ -466,7 +473,8 @@ fn div_64(lhs : UInt64, rhs : UInt64) -> UInt64 {
   let divisor = as_signed_64(rhs)
   if divisor == 0L {
     bit_not(0U.to_uint64())
-  } else if dividend == (1U.to_uint64() << 63).reinterpret_as_int64() && divisor == -1L {
+  } else if dividend == (1U.to_uint64() << 63).reinterpret_as_int64() &&
+    divisor == -1L {
     lhs
   } else {
     (dividend / divisor).reinterpret_as_uint64()
@@ -488,7 +496,8 @@ fn rem_64(lhs : UInt64, rhs : UInt64) -> UInt64 {
   let divisor = as_signed_64(rhs)
   if divisor == 0L {
     lhs
-  } else if dividend == (1U.to_uint64() << 63).reinterpret_as_int64() && divisor == -1L {
+  } else if dividend == (1U.to_uint64() << 63).reinterpret_as_int64() &&
+    divisor == -1L {
     0U.to_uint64()
   } else {
     (dividend % divisor).reinterpret_as_uint64()
@@ -533,7 +542,11 @@ fn xlen_load_sign_extend(value : UInt64, bits : Int, xlen : Int) -> UInt64 {
 }
 
 ///|
-fn xlen_arithmetic_shift_right(value : UInt64, shamt : Int, xlen : Int) -> UInt64 {
+fn xlen_arithmetic_shift_right(
+  value : UInt64,
+  shamt : Int,
+  xlen : Int,
+) -> UInt64 {
   match xlen {
     XLEN_32 => arithmetic_shift_right_32(value, shamt)
     XLEN_64 => arithmetic_shift_right_64(value, shamt)
@@ -701,8 +714,11 @@ fn mstatus_spp(value : UInt64) -> PrivilegeMode {
   }
 }
 
+///|
 fn mstatus_mpp(value : UInt64) -> PrivilegeMode {
-  privilege_mode_from_code((value & MSTATUS_MPP_MASK.to_uint64()) >> MSTATUS_MPP_SHIFT)
+  privilege_mode_from_code(
+    (value & MSTATUS_MPP_MASK.to_uint64()) >> MSTATUS_MPP_SHIFT,
+  )
 }
 
 ///|
@@ -884,14 +900,13 @@ fn is_supported_rw_csr(csr : Int, extensions : UInt64) -> Bool {
 fn is_supported_csr(csr : Int, extensions : UInt64) -> Bool {
   let has_fp = (extensions & (MISA_EXT_F | MISA_EXT_D)) != 0U.to_uint64()
   let has_v = (extensions & MISA_EXT_V) != 0U.to_uint64()
-  let read_only_supported =
-    if is_modeled_fp_csr(csr) {
-      has_fp
-    } else if is_modeled_vector_csr(csr) {
-      has_v
-    } else {
-      is_read_only_csr(csr)
-    }
+  let read_only_supported = if is_modeled_fp_csr(csr) {
+    has_fp
+  } else if is_modeled_vector_csr(csr) {
+    has_v
+  } else {
+    is_read_only_csr(csr)
+  }
   is_supported_rw_csr(csr, extensions) ||
   (is_read_only_csr(csr) && read_only_supported)
 }
@@ -1074,10 +1089,10 @@ pub fn decode(raw : UInt) -> Instruction {
         _ => Unknown(raw)
       }
     0x07U =>
-      if (((raw >> 29) & 0x7U) == 0U) &&
-        (((raw >> 28) & 0x1U) == 0U) &&
-        (((raw >> 26) & 0x3U) == 0U) &&
-        (((raw >> 20) & 0x1fU) == 0U) {
+      if ((raw >> 29) & 0x7U) == 0U &&
+        ((raw >> 28) & 0x1U) == 0U &&
+        ((raw >> 26) & 0x3U) == 0U &&
+        ((raw >> 20) & 0x1fU) == 0U {
         match funct3(raw) {
           0x0U =>
             if ((raw >> 25) & 0x1U) == 1U {
@@ -1123,10 +1138,10 @@ pub fn decode(raw : UInt) -> Instruction {
         _ => Unknown(raw)
       }
     0x27U =>
-      if (((raw >> 29) & 0x7U) == 0U) &&
-        (((raw >> 28) & 0x1U) == 0U) &&
-        (((raw >> 26) & 0x3U) == 0U) &&
-        (((raw >> 20) & 0x1fU) == 0U) {
+      if ((raw >> 29) & 0x7U) == 0U &&
+        ((raw >> 28) & 0x1U) == 0U &&
+        ((raw >> 26) & 0x3U) == 0U &&
+        ((raw >> 20) & 0x1fU) == 0U {
         match funct3(raw) {
           0x0U =>
             if ((raw >> 25) & 0x1U) == 1U {
@@ -1173,7 +1188,8 @@ pub fn decode(raw : UInt) -> Instruction {
           }
         0x3U =>
           match funct6(raw) {
-            0x00U => VaddVi(rd(raw), rs2(raw), sign_extend((raw >> 15) & 0x1fU, 5))
+            0x00U =>
+              VaddVi(rd(raw), rs2(raw), sign_extend((raw >> 15) & 0x1fU, 5))
             0x17U =>
               if ((raw >> 25) & 0x1U) == 1U && rs2(raw) == 0 {
                 VmvVI(rd(raw), sign_extend((raw >> 15) & 0x1fU, 5))
@@ -1194,9 +1210,7 @@ pub fn decode(raw : UInt) -> Instruction {
             _ => Unknown(raw)
           }
         0x6U =>
-          if ((raw >> 25) & 0x1U) == 1U &&
-            funct6(raw) == 0x10U &&
-            rs1(raw) == 0 {
+          if ((raw >> 25) & 0x1U) == 1U && funct6(raw) == 0x10U && rs1(raw) == 0 {
             VmvXS(rd(raw), rs2(raw))
           } else {
             Unknown(raw)
@@ -1205,7 +1219,7 @@ pub fn decode(raw : UInt) -> Instruction {
           if ((raw >> 31) & 0x1U) == 0U {
             Vsetvli(rd(raw), rs1(raw), (raw >> 20) & 0x7ffU)
           } else if ((raw >> 30) & 0x1U) == 1U {
-            Vsetivli(rd(raw), ((raw >> 15) & 0x1fU), (raw >> 20) & 0x3ffU)
+            Vsetivli(rd(raw), (raw >> 15) & 0x1fU, (raw >> 20) & 0x3ffU)
           } else if ((raw >> 26) & 0x3fU) == 0x20U {
             Vsetvl(rd(raw), rs1(raw), rs2(raw))
           } else {
@@ -1431,16 +1445,22 @@ fn decode_c_q2_cr(raw : UInt) -> Instruction {
   let rs2 = c_rs2(raw)
   if ((raw >> 12) & 0x1U) == 0U {
     if rs2 == 0 {
-      if rd == 0 { Unknown(raw) } else { Jalr(0, rd, 0) }
+      if rd == 0 {
+        Unknown(raw)
+      } else {
+        Jalr(0, rd, 0)
+      }
     } else {
       Add(rd, 0, rs2)
     }
-  } else {
-    if rs2 == 0 {
-      if rd == 0 { Unknown(raw) } else { Jalr(1, rd, 0) }
+  } else if rs2 == 0 {
+    if rd == 0 {
+      Unknown(raw)
     } else {
-      Add(rd, rd, rs2)
+      Jalr(1, rd, 0)
     }
+  } else {
+    Add(rd, rd, rs2)
   }
 }
 

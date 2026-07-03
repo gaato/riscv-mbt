@@ -1,25 +1,16 @@
 ///|
 fn encode_c_addi(rd : Int, imm : Int) -> Int {
-  0x0001 |
-  (((imm >> 5) & 0x1) << 12) |
-  (rd << 7) |
-  ((imm & 0x1f) << 2)
+  0x0001 | (((imm >> 5) & 0x1) << 12) | (rd << 7) | ((imm & 0x1f) << 2)
 }
 
 ///|
 fn encode_c_li(rd : Int, imm : Int) -> Int {
-  0x4001 |
-  (((imm >> 5) & 0x1) << 12) |
-  (rd << 7) |
-  ((imm & 0x1f) << 2)
+  0x4001 | (((imm >> 5) & 0x1) << 12) | (rd << 7) | ((imm & 0x1f) << 2)
 }
 
 ///|
 fn encode_c_lui(rd : Int, imm : Int) -> Int {
-  0x6001 |
-  (((imm >> 5) & 0x1) << 12) |
-  (rd << 7) |
-  ((imm & 0x1f) << 2)
+  0x6001 | (((imm >> 5) & 0x1) << 12) | (rd << 7) | ((imm & 0x1f) << 2)
 }
 
 ///|
@@ -154,10 +145,7 @@ fn encode_c_jalr(rs1 : Int) -> Int {
 
 ///|
 fn encode_c_slli(rd : Int, shamt : Int) -> Int {
-  0x0002 |
-  (((shamt >> 5) & 0x1) << 12) |
-  (rd << 7) |
-  ((shamt & 0x1f) << 2)
+  0x0002 | (((shamt >> 5) & 0x1) << 12) | (rd << 7) | ((shamt & 0x1f) << 2)
 }
 
 ///|
@@ -223,10 +211,7 @@ fn encode_c_lwsp(rd : Int, imm : Int) -> Int {
 
 ///|
 fn encode_c_swsp(rs2 : Int, imm : Int) -> Int {
-  0xc002 |
-  (((imm >> 2) & 0xf) << 9) |
-  (((imm >> 6) & 0x3) << 7) |
-  (rs2 << 2)
+  0xc002 | (((imm >> 2) & 0xf) << 9) | (((imm >> 6) & 0x3) << 7) | (rs2 << 2)
 }
 
 ///|
@@ -240,10 +225,7 @@ fn encode_c_fldsp(rd : Int, imm : Int) -> Int {
 
 ///|
 fn encode_c_fsdsp(rs2 : Int, imm : Int) -> Int {
-  0xa002 |
-  (((imm >> 6) & 0x7) << 7) |
-  (((imm >> 3) & 0x7) << 10) |
-  (rs2 << 2)
+  0xa002 | (((imm >> 6) & 0x7) << 7) | (((imm >> 3) & 0x7) << 10) | (rs2 << 2)
 }
 
 ///|
@@ -483,10 +465,7 @@ test "compressed jump-register forms use jalr semantics with a 2-byte link addre
 ///|
 test "unsupported compressed instructions still trap as illegal instruction" {
   let runner = make_runner(default_machine_config())
-  runner.load_program(
-    mixed_program_bytes([(2, 0x9c25U)]),
-    0U,
-  )
+  runner.load_program(mixed_program_bytes([(2, 0x9c25U)]), 0U)
   match runner.step() {
     Trap(info) => {
       match info.cause {

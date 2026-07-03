@@ -5,9 +5,9 @@ import {
   "moonbitlang/core/env",
 }
 
+supported_targets = "native"
+
 options(
   "is-main": true,
-  "link": { "native": { "cc": "gcc" } },
+  link: { "native": { "cc": "gcc" } },
 )
-
-supported_targets = "native"

@@ -1,12 +1,15 @@
+///|
 let default_sample_path = "_build/c-samples/rv32i-sum/rv32i-sum.elf"
+
+///|
 let sample_result_addr = 0x80003000U
+
+///|
 let sample_step_budget = 256
 
 ///|
 async fn load_sample_bytes(path : String) -> Bytes {
-  try {
-    @fs.read_file(path).binary()
-  } catch {
+  @fs.read_file(path).binary() catch {
     _ => abort("failed to read sample ELF: " + path)
   }
 }
@@ -29,9 +32,7 @@ async fn main {
 
   match runner.load_elf(elf) {
     @riscv.LoadError(message) => abort("failed to load sample ELF: " + message)
-    @riscv.Loaded(info) => {
-      ignore(info)
-    }
+    @riscv.Loaded(info) => ignore(info)
   }
 
   match runner.run(sample_step_budget) {

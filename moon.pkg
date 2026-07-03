@@ -1,6 +1,6 @@
 import {
   "moonbitlang/core/bench",
-  "moonbitlang/core/queue" @queue,
+  "moonbitlang/core/queue",
 }
 
 import {
@@ -10,5 +10,5 @@ import {
 } for "test"
 
 options(
-  "link": { "native": { "cc": "gcc" } },
+  link: { "native": { "cc": "gcc" } },
 )

@@ -115,8 +115,8 @@ fn BrowserRuntime::run_tick(self : BrowserRuntime) -> Unit {
 fn BrowserRuntime::run_for(self : BrowserRuntime, step_budget : Int) -> Unit {
   if self.running {
     self.handle_result(self.runner.run(step_budget))
-    self.total_steps =
-      self.total_steps + step_budget.reinterpret_as_uint().to_uint64()
+    self.total_steps = self.total_steps +
+      step_budget.reinterpret_as_uint().to_uint64()
   }
 }
 
@@ -316,8 +316,8 @@ fn BrowserRuntime::send_input(self : BrowserRuntime, text : String) -> Unit {
     self.runner.uart_push_input("\r\n")
     if !self.running {
       self.handle_result(self.runner.run(browser_run_tick_budget))
-      self.total_steps =
-        self.total_steps + browser_run_tick_budget.reinterpret_as_uint().to_uint64()
+      self.total_steps = self.total_steps +
+        browser_run_tick_budget.reinterpret_as_uint().to_uint64()
     }
   }
 }
@@ -331,8 +331,8 @@ fn BrowserRuntime::send_input_byte(self : BrowserRuntime, value : Int) -> Unit {
 fn BrowserRuntime::flush_input_when_paused(self : BrowserRuntime) -> Unit {
   if !self.running {
     self.handle_result(self.runner.run(browser_run_tick_budget))
-    self.total_steps =
-      self.total_steps + browser_run_tick_budget.reinterpret_as_uint().to_uint64()
+    self.total_steps = self.total_steps +
+      browser_run_tick_budget.reinterpret_as_uint().to_uint64()
   }
 }
 

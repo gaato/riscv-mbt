@@ -56,8 +56,10 @@ fn Runner::phy_contains(self : Runner, pa : UInt64, width : Int) -> Bool {
 // CLINT offsets (from QEMU virt / SiFive CLINT spec)
 let clint_mtime_lo_offset : UInt64 = 0xBFF8U.to_uint64()
 
+///|
 let clint_mtime_hi_offset : UInt64 = 0xBFFCU.to_uint64()
 
+///|
 let clint_mtimecmp_lo_offset : UInt64 = 0x4000U.to_uint64()
 
 // ---------------------------------------------------------------------------
@@ -67,20 +69,28 @@ let clint_mtimecmp_lo_offset : UInt64 = 0x4000U.to_uint64()
 ///|
 let uart_ier_thri : Byte = 0x02U.to_byte()
 
+///|
 let uart_ier_rdi : Byte = 0x01U.to_byte()
 
+///|
 let uart_ier_guest_mask : UInt64 = 0x0fU.to_uint64()
 
+///|
 let uart_cached_plic_pending_bit : Byte = 0x80U.to_byte()
 
+///|
 let uart_iir_no_interrupt : UInt64 = 0x01U.to_uint64()
 
+///|
 let uart_iir_thre : UInt64 = 0x02U.to_uint64()
 
+///|
 let uart_iir_rdi : UInt64 = 0x04U.to_uint64()
 
+///|
 let uart_lcr_dlab : Byte = 0x80U.to_byte()
 
+///|
 let plic_uart_source : Int = 10
 
 ///|
@@ -206,7 +216,11 @@ fn Runner::plic_source_priority(self : Runner, source : Int) -> UInt64 {
 }
 
 ///|
-fn Runner::plic_context_enabled(self : Runner, context : Int, source : Int) -> Bool {
+fn Runner::plic_context_enabled(
+  self : Runner,
+  context : Int,
+  source : Int,
+) -> Bool {
   let idx = 0x2000 + context * 0x80 + source / 8
   if idx < self.plic_regs.length() {
     ((self.plic_regs[idx].to_int() >> (source % 8)) & 1) != 0
@@ -239,7 +253,10 @@ fn Runner::plic_uart_claimable_with_priority(
 }
 
 ///|
-fn Runner::plic_uart_claimable_for_context(self : Runner, context : Int) -> Bool {
+fn Runner::plic_uart_claimable_for_context(
+  self : Runner,
+  context : Int,
+) -> Bool {
   self.uart_interrupt_pending() &&
   self.plic_uart_claimable_with_priority(
     context,
@@ -330,11 +347,7 @@ fn Runner::plic_write_u8(self : Runner, off : UInt64, value : UInt64) -> Unit {
 }
 
 ///|
-fn Runner::plic_write_u32(
-  self : Runner,
-  off : UInt64,
-  value : UInt64,
-) -> Unit {
+fn Runner::plic_write_u32(self : Runner, off : UInt64, value : UInt64) -> Unit {
   let idx = off.to_int()
   // Complete register: same offset as claim (0x200004+ctx*0x1000), write ignored
   let ctx_off = idx - 0x200000
@@ -391,8 +404,7 @@ fn Runner::phy_load_u64(self : Runner, pa : UInt64) -> UInt64 {
     PhyUart(_) => 0U.to_uint64()
     PhyClint(off) => self.clint_reg_dword(off)
     PhyPlic(off) =>
-      self.plic_read_u32(off) |
-      (self.plic_read_u32(off + 4U.to_uint64()) << 32)
+      self.plic_read_u32(off) | (self.plic_read_u32(off + 4U.to_uint64()) << 32)
     _ => self.bus.load_u64(pa)
   }
 }
@@ -456,19 +468,27 @@ fn Runner::phy_store_u64(self : Runner, pa : UInt64, value : UInt64) -> Unit {
 // ---------------------------------------------------------------------------
 
 // Maximum number of harts supported by the CLINT implementation.
+
+///|
 let clint_max_harts : Int = 2
 
 // msip region: 0 <= off < 4 * clint_max_harts
-let clint_msip_end : UInt64 = clint_max_harts.reinterpret_as_uint().to_uint64() * 4U.to_uint64()
+
+///|
+let clint_msip_end : UInt64 = clint_max_harts.reinterpret_as_uint().to_uint64() *
+  4U.to_uint64()
 
 // mtimecmp region: 0x4000 <= off < 0x4000 + 8 * clint_max_harts
+
+///|
 let clint_mtimecmp_end : UInt64 = clint_mtimecmp_lo_offset +
   clint_max_harts.reinterpret_as_uint().to_uint64() * 8U.to_uint64()
 
 ///|
 fn Runner::clint_reg_byte(self : Runner, off : UInt64) -> UInt64 {
   // mtime
-  if off >= clint_mtime_lo_offset && off < clint_mtime_lo_offset + 8U.to_uint64() {
+  if off >= clint_mtime_lo_offset &&
+    off < clint_mtime_lo_offset + 8U.to_uint64() {
     let shift = (off - clint_mtime_lo_offset).to_int() * 8
     return (self.mtime[0] >> shift) & 0xffU.to_uint64()
   }
@@ -545,9 +565,14 @@ fn Runner::clint_reg_dword(self : Runner, off : UInt64) -> UInt64 {
 }
 
 ///|
-fn Runner::clint_store_byte(self : Runner, off : UInt64, value : UInt64) -> Unit {
+fn Runner::clint_store_byte(
+  self : Runner,
+  off : UInt64,
+  value : UInt64,
+) -> Unit {
   let byte_val = value & 0xffU.to_uint64()
-  if off >= clint_mtime_lo_offset && off < clint_mtime_lo_offset + 8U.to_uint64() {
+  if off >= clint_mtime_lo_offset &&
+    off < clint_mtime_lo_offset + 8U.to_uint64() {
     let shift = (off - clint_mtime_lo_offset).to_int() * 8
     let mask = bit_not(0xffU.to_uint64() << shift)
     self.mtime[0] = (self.mtime[0] & mask) | (byte_val << shift)
@@ -558,7 +583,8 @@ fn Runner::clint_store_byte(self : Runner, off : UInt64, value : UInt64) -> Unit
     let hart = (rel / 8).to_int()
     let shift = (rel % 8).to_int() * 8
     let mask = bit_not(0xffU.to_uint64() << shift)
-    self.all_mtimecmp[hart] = (self.all_mtimecmp[hart] & mask) | (byte_val << shift)
+    self.all_mtimecmp[hart] = (self.all_mtimecmp[hart] & mask) |
+      (byte_val << shift)
     return
   }
   if off < clint_msip_end && off % 4 == 0 {
@@ -587,7 +613,8 @@ fn Runner::clint_store_halfword(
     let hart = (rel / 8).to_int()
     let shift = (rel % 8).to_int() * 8
     let mask = bit_not(0xffffU.to_uint64() << shift)
-    self.all_mtimecmp[hart] = (self.all_mtimecmp[hart] & mask) | (hw_val << shift)
+    self.all_mtimecmp[hart] = (self.all_mtimecmp[hart] & mask) |
+      (hw_val << shift)
     return
   }
   if off < clint_msip_end && off % 4 == 0 {
@@ -597,7 +624,11 @@ fn Runner::clint_store_halfword(
 }
 
 ///|
-fn Runner::clint_store_word(self : Runner, off : UInt64, value : UInt64) -> Unit {
+fn Runner::clint_store_word(
+  self : Runner,
+  off : UInt64,
+  value : UInt64,
+) -> Unit {
   let w_val = value & 0xffffffffU.to_uint64()
   if off == clint_mtime_lo_offset {
     self.mtime[0] = (self.mtime[0] & bit_not(0xffffffffU.to_uint64())) | w_val
@@ -612,11 +643,15 @@ fn Runner::clint_store_word(self : Runner, off : UInt64, value : UInt64) -> Unit
     let hart = (rel / 8).to_int()
     let shift = (rel % 8).to_int() * 8
     if shift == 0 {
-      self.all_mtimecmp[hart] =
-        (self.all_mtimecmp[hart] & bit_not(0xffffffffU.to_uint64())) | w_val
+      self.all_mtimecmp[hart] = (
+          self.all_mtimecmp[hart] & bit_not(0xffffffffU.to_uint64())
+        ) |
+        w_val
     } else {
-      self.all_mtimecmp[hart] =
-        (self.all_mtimecmp[hart] & 0xffffffffU.to_uint64()) | (w_val << 32)
+      self.all_mtimecmp[hart] = (
+          self.all_mtimecmp[hart] & 0xffffffffU.to_uint64()
+        ) |
+        (w_val << 32)
     }
     return
   }
@@ -627,7 +662,11 @@ fn Runner::clint_store_word(self : Runner, off : UInt64, value : UInt64) -> Unit
 }
 
 ///|
-fn Runner::clint_store_dword(self : Runner, off : UInt64, value : UInt64) -> Unit {
+fn Runner::clint_store_dword(
+  self : Runner,
+  off : UInt64,
+  value : UInt64,
+) -> Unit {
   if off == clint_mtime_lo_offset {
     self.mtime[0] = value
     return
@@ -697,16 +736,22 @@ pub fn Runner::clint_mtimecmp(self : Runner) -> UInt64 {
 ///|
 let mip_mtip_bit : UInt64 = 0x80U.to_uint64() // bit 7
 
+///|
 let mip_msip_bit : UInt64 = 0x08U.to_uint64() // bit 3
 
+///|
 let mip_meip_bit : UInt64 = 0x800U.to_uint64() // bit 11
 
+///|
 let mip_seip_bit : UInt64 = 0x200U.to_uint64() // bit 9
 
+///|
 let mip_mtip_clear_mask : UInt64 = bit_not(mip_mtip_bit)
 
+///|
 let mip_msip_clear_mask : UInt64 = bit_not(mip_msip_bit)
 
+///|
 let mip_external_clear_mask : UInt64 = bit_not(mip_meip_bit | mip_seip_bit)
 
 ///|
@@ -825,9 +870,12 @@ fn Runner::trap_target_privilege(
 ///|
 fn Runner::trap_cause_is_interrupt(_self : Runner, cause : TrapCause) -> Bool {
   match cause {
-    SupervisorSoftwareInterrupt | MachineSoftwareInterrupt |
-    SupervisorTimerInterrupt | MachineTimerInterrupt |
-    SupervisorExternalInterrupt | MachineExternalInterrupt => true
+    SupervisorSoftwareInterrupt
+    | MachineSoftwareInterrupt
+    | SupervisorTimerInterrupt
+    | MachineTimerInterrupt
+    | SupervisorExternalInterrupt
+    | MachineExternalInterrupt => true
     _ => false
   }
 }
@@ -887,9 +935,14 @@ fn Runner::raise_trap(
   let prior_privilege = self.cpu.privilege
   let target_privilege = self.trap_target_privilege(cause, prior_privilege)
   match target_privilege {
-    Supervisor => self.enter_supervisor_trap(cause, faulting_pc, trap_value, prior_privilege)
-    Machine => self.enter_machine_trap(cause, faulting_pc, trap_value, prior_privilege)
-    User => self.enter_machine_trap(cause, faulting_pc, trap_value, prior_privilege)
+    Supervisor =>
+      self.enter_supervisor_trap(
+        cause, faulting_pc, trap_value, prior_privilege,
+      )
+    Machine =>
+      self.enter_machine_trap(cause, faulting_pc, trap_value, prior_privilege)
+    User =>
+      self.enter_machine_trap(cause, faulting_pc, trap_value, prior_privilege)
   }
   let target = self.trap_target_for_privilege(target_privilege, cause)
   // Jump to trap handler regardless of whether the target is in physical RAM:

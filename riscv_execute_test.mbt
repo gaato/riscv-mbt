@@ -59,10 +59,18 @@ fn exec_test_setup_basic_sv39_map(runner : Runner) -> Unit {
   let l0_ppn = 3U.to_uint64()
   let leaf_ppn = 4U.to_uint64()
 
-  runner.load_program_u64(exec_test_u64_to_le_bytes(exec_test_make_pte(l1_ppn, pte_v)), 0x1000U.to_uint64())
-  runner.load_program_u64(exec_test_u64_to_le_bytes(exec_test_make_pte(l0_ppn, pte_v)), 0x2000U.to_uint64())
   runner.load_program_u64(
-    exec_test_u64_to_le_bytes(exec_test_make_pte(leaf_ppn, pte_v | pte_r | pte_w | pte_a | pte_d)),
+    exec_test_u64_to_le_bytes(exec_test_make_pte(l1_ppn, pte_v)),
+    0x1000U.to_uint64(),
+  )
+  runner.load_program_u64(
+    exec_test_u64_to_le_bytes(exec_test_make_pte(l0_ppn, pte_v)),
+    0x2000U.to_uint64(),
+  )
+  runner.load_program_u64(
+    exec_test_u64_to_le_bytes(
+      exec_test_make_pte(leaf_ppn, pte_v | pte_r | pte_w | pte_a | pte_d),
+    ),
     0x3000U.to_uint64(),
   )
 
@@ -535,7 +543,10 @@ test "rv64f min and max handle signed zero and canonical nan fallback" {
     encode_fp_r(0x14U, 5, 5, 0x0U, 9),
   ])
   let runner = make_runner(rv64f_machine_config())
-  runner.load_program(words_to_bytes([neg_zero, pos_zero, nan_bits, one]), 0x100U)
+  runner.load_program(
+    words_to_bytes([neg_zero, pos_zero, nan_bits, one]),
+    0x100U,
+  )
   runner.load_program(program, 0U)
   for _ in 0..<9 {
     match runner.step() {
@@ -607,10 +618,7 @@ test "rv64f traps on unsupported dynamic rounding mode" {
 
 ///|
 test "rv64 without f rejects scalar f instructions as illegal" {
-  let fp_words = [
-    encode_flw(0, 0, 1),
-    encode_fp_r(0x00U, 2, 1, 0x0U, 3),
-  ]
+  let fp_words = [encode_flw(0, 0, 1), encode_fp_r(0x00U, 2, 1, 0x0U, 3)]
   for raw in fp_words {
     let runner = make_runner(rv64_machine_config())
     runner.load_program(words_to_bytes([raw]), 0U)
@@ -632,12 +640,15 @@ test "rv64fd move path preserves raw double-precision bits" {
   let raw = exec_test_f64_bits(1.5)
   let runner = make_runner(rv64fd_machine_config())
   runner.load_program_u64(exec_test_u64_to_le_bytes(raw), 0x100U.to_uint64())
-  runner.load_program(words_to_bytes([
-    encode_i(0x100, 0, 0x0U, 5, 0x13U),
-    encode_i(0, 5, 0x3U, 1, 0x03U),
-    encode_fmv_d_x(1, 3),
-    encode_fmv_x_d(3, 4),
-  ]), 0U)
+  runner.load_program(
+    words_to_bytes([
+      encode_i(0x100, 0, 0x0U, 5, 0x13U),
+      encode_i(0, 5, 0x3U, 1, 0x03U),
+      encode_fmv_d_x(1, 3),
+      encode_fmv_x_d(3, 4),
+    ]),
+    0U,
+  )
   match runner.run(4) {
     Running => ()
     _ => fail("expected rv64fd move path to stay running")
@@ -732,29 +743,30 @@ test "rv64fd f and d conversion paths preserve expected values" {
 test "rv64fd flw boxes single values and arithmetic treats unboxed input as canonical nan" {
   let runner = make_runner(rv64fd_machine_config())
   runner.load_program(words_to_bytes([exec_test_f32_bits(1.0)]), 0x100U)
-  runner.load_program(words_to_bytes([
-    encode_flw(0x100, 0, 1),
-    encode_fp_r(0x00U, 2, 1, 0x0U, 3),
-  ]), 0U)
+  runner.load_program(
+    words_to_bytes([encode_flw(0x100, 0, 1), encode_fp_r(0x00U, 2, 1, 0x0U, 3)]),
+    0U,
+  )
   runner.cpu.write_freg(2, exec_test_f32_bits(1.0).to_uint64())
   match runner.step() {
     Running => ()
     Trap(info) =>
-      fail("expected flw to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}")
+      fail(
+        "expected flw to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
   }
   match runner.step() {
     Running => ()
     Trap(info) =>
-      fail("expected fadd.s to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}")
+      fail(
+        "expected fadd.s to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
   }
   assert_eq(
     runner.read_freg_u64(1),
     exec_test_nan_box_single(exec_test_f32_bits(1.0)),
   )
-  assert_eq(
-    runner.read_freg_u64(3),
-    exec_test_nan_box_single(0x7fc00000U),
-  )
+  assert_eq(runner.read_freg_u64(3), exec_test_nan_box_single(0x7fc00000U))
 }
 
 ///|
@@ -914,19 +926,15 @@ test "rv64 mprv does not affect machine-mode instruction fetch" {
 
 ///|
 test "trap entry from machine updates mstatus trap fields" {
-  let program = words_to_bytes([
-    encode_csr(0x300, 8, 0x5U, 0),
-    encode_ecall(),
-  ])
+  let program = words_to_bytes([encode_csr(0x300, 8, 0x5U, 0), encode_ecall()])
   let runner = make_runner(default_machine_config())
   runner.load_program(program, 0U)
   match runner.run(2) {
-    Trap(info) => {
+    Trap(info) =>
       match info.cause {
         EnvironmentCallFromMMode => ()
         _ => fail("expected machine ecall trap")
       }
-    }
     _ => fail("expected trap")
   }
   assert_eq(runner.read_csr(0x341), 4U)
@@ -948,12 +956,11 @@ test "trap entry from user updates mstatus trap fields" {
   let runner = make_runner(default_machine_config())
   runner.load_program(program, 0U)
   match runner.run(6) {
-    Trap(info) => {
+    Trap(info) =>
       match info.cause {
         EnvironmentCallFromUMode => ()
         _ => fail("expected user ecall trap")
       }
-    }
     _ => fail("expected trap")
   }
   assert_eq(runner.read_csr(0x341), 20U)
@@ -1610,10 +1617,7 @@ test "rv64fdv vmv.v.i updates active elements and leaves tail undisturbed" {
     Running => ()
     _ => fail("expected vmv.v.i sequence to run")
   }
-  assert_eq(
-    runner.read_vreg_u64(0, 0),
-    (7U.to_uint64() << 32) | 7U.to_uint64(),
-  )
+  assert_eq(runner.read_vreg_u64(0, 0), (7U.to_uint64() << 32) | 7U.to_uint64())
   assert_eq(
     runner.read_vreg_u64(0, 1),
     (0xffffffffU.to_uint64() << 32) | 7U.to_uint64(),
@@ -1659,18 +1663,9 @@ test "rv64fdv first vector arithmetic slice supports unmasked lmul1 integer add"
     _ => fail("expected vector arithmetic sequence to run")
   }
   assert_eq(runner.read_reg_u64(6), 7U.to_uint64())
-  assert_eq(
-    runner.read_vreg_u64(3, 0),
-    (3U.to_uint64() << 32) | 3U.to_uint64(),
-  )
-  assert_eq(
-    runner.read_vreg_u64(4, 0),
-    (8U.to_uint64() << 32) | 8U.to_uint64(),
-  )
-  assert_eq(
-    runner.read_vreg_u64(5, 0),
-    (7U.to_uint64() << 32) | 7U.to_uint64(),
-  )
+  assert_eq(runner.read_vreg_u64(3, 0), (3U.to_uint64() << 32) | 3U.to_uint64())
+  assert_eq(runner.read_vreg_u64(4, 0), (8U.to_uint64() << 32) | 8U.to_uint64())
+  assert_eq(runner.read_vreg_u64(5, 0), (7U.to_uint64() << 32) | 7U.to_uint64())
 }
 
 ///|
@@ -1708,10 +1703,7 @@ test "rv64fdv vector arithmetic rejects masked lmul2 vill and nonzero vstart" {
 
   let lmul2 = make_runner(rv64fdv_machine_config())
   lmul2.load_program(
-    words_to_bytes([
-      encode_vsetivli(1, 2U, 0x11U),
-      encode_vmv_v_i(0, 1),
-    ]),
+    words_to_bytes([encode_vsetivli(1, 2U, 0x11U), encode_vmv_v_i(0, 1)]),
     0U,
   )
   match lmul2.step() {
@@ -1719,21 +1711,17 @@ test "rv64fdv vector arithmetic rejects masked lmul2 vill and nonzero vstart" {
     _ => fail("expected lmul=2 vsetivli to run")
   }
   match lmul2.step() {
-    Trap(info) => {
+    Trap(info) =>
       match info.cause {
         IllegalInstruction => ()
         _ => fail("expected illegal instruction cause")
       }
-    }
     _ => fail("expected lmul=2 vector arithmetic to trap")
   }
 
   let vill = make_runner(rv64fdv_machine_config())
   vill.load_program(
-    words_to_bytes([
-      encode_vsetivli(1, 2U, 0x17U),
-      encode_vmv_v_i(0, 1),
-    ]),
+    words_to_bytes([encode_vsetivli(1, 2U, 0x17U), encode_vmv_v_i(0, 1)]),
     0U,
   )
   match vill.step() {
@@ -1741,12 +1729,11 @@ test "rv64fdv vector arithmetic rejects masked lmul2 vill and nonzero vstart" {
     _ => fail("expected vill-producing vsetivli to run")
   }
   match vill.step() {
-    Trap(info) => {
+    Trap(info) =>
       match info.cause {
         IllegalInstruction => ()
         _ => fail("expected illegal instruction cause")
       }
-    }
     _ => fail("expected vill vector arithmetic to trap")
   }
 
@@ -1754,12 +1741,11 @@ test "rv64fdv vector arithmetic rejects masked lmul2 vill and nonzero vstart" {
   vstart.load_program(words_to_bytes([encode_vmv_v_i(0, 1)]), 0U)
   vstart.cpu.write_csr(0x008, 1U.to_uint64())
   match vstart.step() {
-    Trap(info) => {
+    Trap(info) =>
       match info.cause {
         IllegalInstruction => ()
         _ => fail("expected illegal instruction cause")
       }
-    }
     _ => fail("expected vstart!=0 vector arithmetic to trap")
   }
 }
@@ -1778,10 +1764,13 @@ fn test_vector_vtypei_for_sew(sew_bits : Int) -> UInt {
 ///|
 test "rv64fdv first vector memory slice supports unit-stride integer loads" {
   let load8 = make_runner(rv64fdv_machine_config())
-  load8.load_program(words_to_bytes([
-    encode_vsetivli(0, 4U, test_vector_vtypei_for_sew(8)),
-    encode_vle8(3, 10, true),
-  ]), 0U)
+  load8.load_program(
+    words_to_bytes([
+      encode_vsetivli(0, 4U, test_vector_vtypei_for_sew(8)),
+      encode_vle8(3, 10, true),
+    ]),
+    0U,
+  )
   load8.cpu.write_reg(10, 0x100U.to_uint64())
   load8.bus.store_u8(0x100U.to_uint64(), 0x11U.to_uint64())
   load8.bus.store_u8(0x101U.to_uint64(), 0x22U.to_uint64())
@@ -1794,10 +1783,13 @@ test "rv64fdv first vector memory slice supports unit-stride integer loads" {
   assert_eq(load8.read_vreg_u64(3, 0), 0x44332211U.to_uint64())
 
   let load16 = make_runner(rv64fdv_machine_config())
-  load16.load_program(words_to_bytes([
-    encode_vsetivli(0, 4U, test_vector_vtypei_for_sew(16)),
-    encode_vle16(4, 10, true),
-  ]), 0U)
+  load16.load_program(
+    words_to_bytes([
+      encode_vsetivli(0, 4U, test_vector_vtypei_for_sew(16)),
+      encode_vle16(4, 10, true),
+    ]),
+    0U,
+  )
   load16.cpu.write_reg(10, 0x120U.to_uint64())
   load16.bus.store_u16(0x120U.to_uint64(), 0x0102U.to_uint64())
   load16.bus.store_u16(0x122U.to_uint64(), 0x0304U.to_uint64())
@@ -1811,10 +1803,13 @@ test "rv64fdv first vector memory slice supports unit-stride integer loads" {
   assert_eq(load16.read_vreg_u64(4, 1), 0U.to_uint64())
 
   let load32 = make_runner(rv64fdv_machine_config())
-  load32.load_program(words_to_bytes([
-    encode_vsetivli(0, 2U, test_vector_vtypei_for_sew(32)),
-    encode_vle32(5, 10, true),
-  ]), 0U)
+  load32.load_program(
+    words_to_bytes([
+      encode_vsetivli(0, 2U, test_vector_vtypei_for_sew(32)),
+      encode_vle32(5, 10, true),
+    ]),
+    0U,
+  )
   let all_ones = (-1L).reinterpret_as_uint64()
   load32.cpu.write_vreg(5, 0, all_ones)
   load32.cpu.write_vreg(5, 1, all_ones)
@@ -1832,10 +1827,13 @@ test "rv64fdv first vector memory slice supports unit-stride integer loads" {
   assert_eq(load32.read_vreg_u64(5, 1), all_ones)
 
   let load64 = make_runner(rv64fdv_machine_config())
-  load64.load_program(words_to_bytes([
-    encode_vsetivli(0, 2U, test_vector_vtypei_for_sew(64)),
-    encode_vle64(6, 10, true),
-  ]), 0U)
+  load64.load_program(
+    words_to_bytes([
+      encode_vsetivli(0, 2U, test_vector_vtypei_for_sew(64)),
+      encode_vle64(6, 10, true),
+    ]),
+    0U,
+  )
   load64.cpu.write_reg(10, 0x160U.to_uint64())
   let load64_first = test_join_u64(0x01234567U, 0x89abcdefU)
   let load64_second = test_join_u64(0xfedcba98U, 0x76543210U)
@@ -1852,10 +1850,13 @@ test "rv64fdv first vector memory slice supports unit-stride integer loads" {
 ///|
 test "rv64fdv first vector memory slice supports unit-stride integer stores" {
   let store8 = make_runner(rv64fdv_machine_config())
-  store8.load_program(words_to_bytes([
-    encode_vsetivli(0, 4U, test_vector_vtypei_for_sew(8)),
-    encode_vse8(3, 10, true),
-  ]), 0U)
+  store8.load_program(
+    words_to_bytes([
+      encode_vsetivli(0, 4U, test_vector_vtypei_for_sew(8)),
+      encode_vse8(3, 10, true),
+    ]),
+    0U,
+  )
   store8.cpu.write_vreg(3, 0, 0x44332211U.to_uint64())
   store8.cpu.write_reg(10, 0x180U.to_uint64())
   match store8.run(2) {
@@ -1868,10 +1869,13 @@ test "rv64fdv first vector memory slice supports unit-stride integer stores" {
   assert_eq(store8.bus.load_u8(0x183U.to_uint64()), 0x44U.to_uint64())
 
   let store16 = make_runner(rv64fdv_machine_config())
-  store16.load_program(words_to_bytes([
-    encode_vsetivli(0, 4U, test_vector_vtypei_for_sew(16)),
-    encode_vse16(4, 10, true),
-  ]), 0U)
+  store16.load_program(
+    words_to_bytes([
+      encode_vsetivli(0, 4U, test_vector_vtypei_for_sew(16)),
+      encode_vse16(4, 10, true),
+    ]),
+    0U,
+  )
   store16.cpu.write_vreg(4, 0, test_join_u64(0x07080506U, 0x03040102U))
   store16.cpu.write_vreg(4, 1, 0U.to_uint64())
   store16.cpu.write_reg(10, 0x1A0U.to_uint64())
@@ -1885,10 +1889,13 @@ test "rv64fdv first vector memory slice supports unit-stride integer stores" {
   assert_eq(store16.bus.load_u16(0x1A6U.to_uint64()), 0x0708U.to_uint64())
 
   let store32 = make_runner(rv64fdv_machine_config())
-  store32.load_program(words_to_bytes([
-    encode_vsetivli(0, 2U, test_vector_vtypei_for_sew(32)),
-    encode_vse32(5, 10, true),
-  ]), 0U)
+  store32.load_program(
+    words_to_bytes([
+      encode_vsetivli(0, 2U, test_vector_vtypei_for_sew(32)),
+      encode_vse32(5, 10, true),
+    ]),
+    0U,
+  )
   store32.cpu.write_vreg(
     5,
     0,
@@ -1903,10 +1910,13 @@ test "rv64fdv first vector memory slice supports unit-stride integer stores" {
   assert_eq(store32.bus.load_u32(0x1C4U.to_uint64()), 0x55667788U.to_uint64())
 
   let store64 = make_runner(rv64fdv_machine_config())
-  store64.load_program(words_to_bytes([
-    encode_vsetivli(0, 2U, test_vector_vtypei_for_sew(64)),
-    encode_vse64(6, 10, true),
-  ]), 0U)
+  store64.load_program(
+    words_to_bytes([
+      encode_vsetivli(0, 2U, test_vector_vtypei_for_sew(64)),
+      encode_vse64(6, 10, true),
+    ]),
+    0U,
+  )
   let store64_first = test_join_u64(0x01234567U, 0x89abcdefU)
   let store64_second = test_join_u64(0xfedcba98U, 0x76543210U)
   store64.cpu.write_vreg(6, 0, store64_first)
@@ -1923,10 +1933,10 @@ test "rv64fdv first vector memory slice supports unit-stride integer stores" {
 ///|
 test "rv64fdv vector memory supports lmul2 register groups" {
   let load32 = make_runner(rv64fdv_machine_config())
-  load32.load_program(words_to_bytes([
-    encode_vsetivli(0, 8U, 0x11U),
-    encode_vle32(2, 10, true),
-  ]), 0U)
+  load32.load_program(
+    words_to_bytes([encode_vsetivli(0, 8U, 0x11U), encode_vle32(2, 10, true)]),
+    0U,
+  )
   load32.cpu.write_reg(10, 0x200U.to_uint64())
   for elem in 0..<8 {
     load32.bus.store_u32(
@@ -1944,10 +1954,10 @@ test "rv64fdv vector memory supports lmul2 register groups" {
   assert_eq(load32.read_vreg_u64(3, 1), test_join_u64(0x17U, 0x16U))
 
   let store32 = make_runner(rv64fdv_machine_config())
-  store32.load_program(words_to_bytes([
-    encode_vsetivli(0, 8U, 0x11U),
-    encode_vse32(2, 10, true),
-  ]), 0U)
+  store32.load_program(
+    words_to_bytes([encode_vsetivli(0, 8U, 0x11U), encode_vse32(2, 10, true)]),
+    0U,
+  )
   store32.cpu.write_vreg(2, 0, test_join_u64(0x21U, 0x20U))
   store32.cpu.write_vreg(2, 1, test_join_u64(0x23U, 0x22U))
   store32.cpu.write_vreg(3, 0, test_join_u64(0x25U, 0x24U))
@@ -1984,62 +1994,62 @@ test "rv64fdv vector memory rejects masked width-mismatch lmul2 vill and nonzero
   }
 
   let mismatch = make_runner(rv64fdv_machine_config())
-  mismatch.load_program(words_to_bytes([
-    encode_vsetivli(0, 2U, test_vector_vtypei_for_sew(32)),
-    encode_vle8(1, 10, true),
-  ]), 0U)
+  mismatch.load_program(
+    words_to_bytes([
+      encode_vsetivli(0, 2U, test_vector_vtypei_for_sew(32)),
+      encode_vle8(1, 10, true),
+    ]),
+    0U,
+  )
   mismatch.cpu.write_reg(10, 0x200U.to_uint64())
   match mismatch.step() {
     Running => ()
     _ => fail("expected setup vsetivli to run")
   }
   match mismatch.step() {
-    Trap(info) => {
+    Trap(info) =>
       match info.cause {
         IllegalInstruction => ()
         _ => fail("expected illegal instruction cause")
       }
-    }
     _ => fail("expected width-mismatch vector load to trap")
   }
 
   let lmul2 = make_runner(rv64fdv_machine_config())
-  lmul2.load_program(words_to_bytes([
-    encode_vsetivli(0, 2U, 0x11U),
-    encode_vle32(1, 10, true),
-  ]), 0U)
+  lmul2.load_program(
+    words_to_bytes([encode_vsetivli(0, 2U, 0x11U), encode_vle32(1, 10, true)]),
+    0U,
+  )
   lmul2.cpu.write_reg(10, 0x280U.to_uint64())
   match lmul2.step() {
     Running => ()
     _ => fail("expected lmul=2 vsetivli to run")
   }
   match lmul2.step() {
-    Trap(info) => {
+    Trap(info) =>
       match info.cause {
         IllegalInstruction => ()
         _ => fail("expected illegal instruction cause")
       }
-    }
     _ => fail("expected misaligned lmul=2 vector memory op to trap")
   }
 
   let vill = make_runner(rv64fdv_machine_config())
-  vill.load_program(words_to_bytes([
-    encode_vsetivli(0, 2U, 0x17U),
-    encode_vle32(1, 10, true),
-  ]), 0U)
+  vill.load_program(
+    words_to_bytes([encode_vsetivli(0, 2U, 0x17U), encode_vle32(1, 10, true)]),
+    0U,
+  )
   vill.cpu.write_reg(10, 0x240U.to_uint64())
   match vill.step() {
     Running => ()
     _ => fail("expected vill-producing vsetivli to run")
   }
   match vill.step() {
-    Trap(info) => {
+    Trap(info) =>
       match info.cause {
         IllegalInstruction => ()
         _ => fail("expected illegal instruction cause")
       }
-    }
     _ => fail("expected vill vector memory op to trap")
   }
 
@@ -2048,12 +2058,11 @@ test "rv64fdv vector memory rejects masked width-mismatch lmul2 vill and nonzero
   vstart.cpu.write_reg(10, 0x260U.to_uint64())
   vstart.cpu.write_csr(0x008, 1U.to_uint64())
   match vstart.step() {
-    Trap(info) => {
+    Trap(info) =>
       match info.cause {
         IllegalInstruction => ()
         _ => fail("expected illegal instruction cause")
       }
-    }
     _ => fail("expected vstart!=0 vector memory op to trap")
   }
 }
@@ -2078,13 +2087,17 @@ test "rv64fd without v rejects first vector memory slice as illegal" {
 ///|
 test "rv64fdv vector memory faults without partial commit" {
   let load_fault = make_runner(rv64fdv_machine_config())
-  load_fault.load_program(words_to_bytes([
-    encode_vsetivli(0, 2U, test_vector_vtypei_for_sew(32)),
-    encode_vle32(7, 10, true),
-  ]), 0U)
+  load_fault.load_program(
+    words_to_bytes([
+      encode_vsetivli(0, 2U, test_vector_vtypei_for_sew(32)),
+      encode_vle32(7, 10, true),
+    ]),
+    0U,
+  )
   let all_ones = (-1L).reinterpret_as_uint64()
   let load_addr = load_fault.config.ram_base +
-    load_fault.config.ram_size.reinterpret_as_uint().to_uint64() - 4U.to_uint64()
+    load_fault.config.ram_size.reinterpret_as_uint().to_uint64() -
+    4U.to_uint64()
   load_fault.cpu.write_vreg(7, 0, all_ones)
   load_fault.cpu.write_vreg(7, 1, all_ones)
   load_fault.cpu.write_reg(10, load_addr)
@@ -2094,24 +2107,27 @@ test "rv64fdv vector memory faults without partial commit" {
     _ => fail("expected setup vsetivli to run")
   }
   match load_fault.step() {
-    Trap(info) => {
+    Trap(info) =>
       match info.cause {
         LoadAccessFault => ()
         _ => fail("expected load access fault")
       }
-    }
     _ => fail("expected vector load fault")
   }
   assert_eq(load_fault.read_vreg_u64(7, 0), all_ones)
   assert_eq(load_fault.read_vreg_u64(7, 1), all_ones)
 
   let store_fault = make_runner(rv64fdv_machine_config())
-  store_fault.load_program(words_to_bytes([
-    encode_vsetivli(0, 2U, test_vector_vtypei_for_sew(32)),
-    encode_vse32(8, 10, true),
-  ]), 0U)
+  store_fault.load_program(
+    words_to_bytes([
+      encode_vsetivli(0, 2U, test_vector_vtypei_for_sew(32)),
+      encode_vse32(8, 10, true),
+    ]),
+    0U,
+  )
   let store_addr = store_fault.config.ram_base +
-    store_fault.config.ram_size.reinterpret_as_uint().to_uint64() - 4U.to_uint64()
+    store_fault.config.ram_size.reinterpret_as_uint().to_uint64() -
+    4U.to_uint64()
   store_fault.cpu.write_vreg(
     8,
     0,
@@ -2123,12 +2139,11 @@ test "rv64fdv vector memory faults without partial commit" {
     _ => fail("expected setup vsetivli to run")
   }
   match store_fault.step() {
-    Trap(info) => {
+    Trap(info) =>
       match info.cause {
         StoreAccessFault => ()
         _ => fail("expected store access fault")
       }
-    }
     _ => fail("expected vector store fault")
   }
   assert_eq(store_fault.bus.load_u32(store_addr), 0U.to_uint64())
@@ -2179,7 +2194,7 @@ test "virt machine config exposes virt-like platform addresses" {
   assert_eq(config.clint_base, 0x02000000U.to_uint64())
   assert_eq(config.plic_base, 0x0C000000U.to_uint64())
   assert_eq(config.dtb_addr, 0x87E00000U.to_uint64())
-  assert_eq((runner.read_csr_u64(0x301) & 0x28U.to_uint64()), 0x28U.to_uint64())
+  assert_eq(runner.read_csr_u64(0x301) & 0x28U.to_uint64(), 0x28U.to_uint64())
 }
 
 ///|
@@ -2604,7 +2619,9 @@ test "non-device non-ram physical address faults with Trap" {
 test "mtime auto-increments each step" {
   // Run 10 NOP instructions (ADDI x0, x0, 0) and verify mtime == 10.
   let nop = encode_i(0, 0, 0x0U, 0, 0x13U)
-  let program = words_to_bytes([nop, nop, nop, nop, nop, nop, nop, nop, nop, nop])
+  let program = words_to_bytes([
+    nop, nop, nop, nop, nop, nop, nop, nop, nop, nop,
+  ])
   let runner = make_runner(virt_machine_config())
   runner.load_program_u64(program, 0x80000000U.to_uint64())
   match runner.run(10) {
@@ -2826,7 +2843,12 @@ test "PLIC claim returns 0 (no pending interrupts)" {
 test "load_dtb places bytes at dtb_addr and setup_boot_abi sets a0/a1" {
   let runner = make_runner(virt_machine_config())
   // Small fake DTB: magic 0xD00DFEED in big-endian at offset 0
-  let dtb = Bytes::from_array([0xD0U.to_byte(), 0x0DU.to_byte(), 0xFEU.to_byte(), 0xEDU.to_byte()])
+  let dtb = Bytes::from_array([
+    0xD0U.to_byte(),
+    0x0DU.to_byte(),
+    0xFEU.to_byte(),
+    0xEDU.to_byte(),
+  ])
   runner.load_dtb(dtb)
   runner.setup_boot_abi()
   // a0 = hart_id = 0
@@ -2858,7 +2880,13 @@ test "WFI advances PC without side effects" {
 }
 
 ///|
-fn encode_amo(funct5 : UInt, rs2 : Int, rs1 : Int, funct3 : UInt, rd : Int) -> UInt {
+fn encode_amo(
+  funct5 : UInt,
+  rs2 : Int,
+  rs1 : Int,
+  funct3 : UInt,
+  rd : Int,
+) -> UInt {
   encode_r(funct5 << 2, rs2, rs1, funct3, rd, 0x2fU)
 }
 
@@ -2910,7 +2938,10 @@ test "AMO.W access fault is reported as store/AMO access fault" {
   let addr = 0x20000U.to_uint64()
   runner.cpu.write_reg(1, addr)
   runner.cpu.write_reg(2, 99U.to_uint64())
-  runner.bus.store_u32(runner.cpu.pc, encode_amo(0x00U, 2, 1, 0x2U, 3).to_uint64())
+  runner.bus.store_u32(
+    runner.cpu.pc,
+    encode_amo(0x00U, 2, 1, 0x2U, 3).to_uint64(),
+  )
   match runner.step() {
     Trap(info) =>
       match info.cause {
@@ -2928,7 +2959,10 @@ test "AMO.W operations ignore upper 32 bits of rs2" {
   runner.bus.store_u32(addr, 1U.to_uint64())
   runner.cpu.write_reg(1, addr)
   runner.cpu.write_reg(2, (1U.to_uint64() << 32) | 2U.to_uint64())
-  runner.bus.store_u32(runner.cpu.pc, encode_amo(0x00U, 2, 1, 0x2U, 3).to_uint64())
+  runner.bus.store_u32(
+    runner.cpu.pc,
+    encode_amo(0x00U, 2, 1, 0x2U, 3).to_uint64(),
+  )
   match runner.step() {
     Running => ()
     _ => fail("expected running")
@@ -2944,7 +2978,10 @@ test "AMOMIN.W compares signed 32-bit operands" {
   runner.bus.store_u32(addr, 1U.to_uint64())
   runner.cpu.write_reg(1, addr)
   runner.cpu.write_reg(2, 0xffffffffU.to_uint64()) // -1 as a 32-bit word
-  runner.bus.store_u32(runner.cpu.pc, encode_amo(0x10U, 2, 1, 0x2U, 3).to_uint64())
+  runner.bus.store_u32(
+    runner.cpu.pc,
+    encode_amo(0x10U, 2, 1, 0x2U, 3).to_uint64(),
+  )
   match runner.step() {
     Running => ()
     _ => fail("expected running")
@@ -2963,7 +3000,10 @@ test "LR.W/SC.W pair succeeds on single hart" {
   let pc0 = runner.cpu.pc
   runner.bus.store_u32(pc0, encode_amo(0x02U, 0, 1, 0x2U, 3).to_uint64())
   // SC.W x4, x5, (x1): funct5=0x03, rs2=5, rs1=1, funct3=0x2, rd=4
-  runner.bus.store_u32(pc0 + 4U.to_uint64(), encode_amo(0x03U, 5, 1, 0x2U, 4).to_uint64())
+  runner.bus.store_u32(
+    pc0 + 4U.to_uint64(),
+    encode_amo(0x03U, 5, 1, 0x2U, 4).to_uint64(),
+  )
   runner.cpu.write_reg(5, 88U.to_uint64())
   // Step 1: LR.W
   match runner.step() {
@@ -2988,9 +3028,7 @@ fn write_u64_le(runner : Runner, addr : UInt64, value : UInt64) -> Unit {
 ///|
 async test "OpenSBI fw_dynamic smoke: boots and produces UART output" {
   // Load OpenSBI fw_dynamic binary
-  let fw_bytes = try {
-    @fs.read_file("_build/opensbi-riscv64-fw_dynamic.bin").binary()
-  } catch {
+  let fw_bytes = @fs.read_file("_build/opensbi-riscv64-fw_dynamic.bin").binary() catch {
     _ => {
       // Skip if binary not available
       println("SKIP: OpenSBI binary not found")
@@ -2998,15 +3036,13 @@ async test "OpenSBI fw_dynamic smoke: boots and produces UART output" {
     }
   }
   // Load DTB — use our generated minimal DTB, or fall back to virt.dtb
-  let dtb_bytes = try {
-    @fs.read_file("_build/minimal.dtb").binary()
-  } catch {
+  let dtb_bytes = @fs.read_file("_build/minimal.dtb").binary() catch {
     _ =>
-      try {
-        @fs.read_file("_build/virt.dtb").binary()
-      } catch {
+      @fs.read_file("_build/virt.dtb").binary() catch {
         _ => {
-          println("SKIP: no DTB found (run 'make minimal-dtb' or 'make virt-dtb')")
+          println(
+            "SKIP: no DTB found (run 'make minimal-dtb' or 'make virt-dtb')",
+          )
           return
         }
       }
@@ -3060,42 +3096,36 @@ async test "OpenSBI fw_dynamic smoke: boots and produces UART output" {
   println(output)
   // Require OpenSBI banner in UART output
   if !output.contains("OpenSBI") {
-    fail(
-      "OpenSBI should print its banner (trapped=\{trapped}, steps=\{steps})",
-    )
+    fail("OpenSBI should print its banner (trapped=\{trapped}, steps=\{steps})")
   }
 }
 
 ///|
 async test "Task 0015: S-mode entry stub via OpenSBI handoff" {
   // Load OpenSBI fw_dynamic binary
-  let fw_bytes = try {
-    @fs.read_file("_build/opensbi-riscv64-fw_dynamic.bin").binary()
-  } catch {
+  let fw_bytes = @fs.read_file("_build/opensbi-riscv64-fw_dynamic.bin").binary() catch {
     _ => {
       println("SKIP: OpenSBI binary not found")
       return
     }
   }
   // Load S-mode entry stub
-  let stub_bytes = try {
-    @fs.read_file("_build/smode-entry.bin").binary()
-  } catch {
+  let stub_bytes = @fs.read_file("_build/smode-entry.bin").binary() catch {
     _ => {
-      println("SKIP: smode-entry.bin not found (run scripts/build-smode-entry.sh)")
+      println(
+        "SKIP: smode-entry.bin not found (run scripts/build-smode-entry.sh)",
+      )
       return
     }
   }
   // Load DTB
-  let dtb_bytes = try {
-    @fs.read_file("_build/minimal.dtb").binary()
-  } catch {
+  let dtb_bytes = @fs.read_file("_build/minimal.dtb").binary() catch {
     _ =>
-      try {
-        @fs.read_file("_build/virt.dtb").binary()
-      } catch {
+      @fs.read_file("_build/virt.dtb").binary() catch {
         _ => {
-          println("SKIP: no DTB found (run 'make minimal-dtb' or 'make virt-dtb')")
+          println(
+            "SKIP: no DTB found (run 'make minimal-dtb' or 'make virt-dtb')",
+          )
           return
         }
       }
@@ -3145,15 +3175,11 @@ async test "Task 0015: S-mode entry stub via OpenSBI handoff" {
     }
   }
   let output = runner.uart_drain()
-  println(
-    "Task 0015 UART output (\{output.length()} chars, \{steps} steps):",
-  )
+  println("Task 0015 UART output (\{output.length()} chars, \{steps} steps):")
   println(output)
   // Require OpenSBI banner
   if !output.contains("OpenSBI") {
-    fail(
-      "OpenSBI should print its banner (trapped=\{trapped}, steps=\{steps})",
-    )
+    fail("OpenSBI should print its banner (trapped=\{trapped}, steps=\{steps})")
   }
   // Require S-mode entry confirmation from stub
   if !output.contains("Linux ABI: S-mode entry OK") {
@@ -3166,31 +3192,25 @@ async test "Task 0015: S-mode entry stub via OpenSBI handoff" {
 ///|
 async test "Task 0015: Linux kernel boot via OpenSBI" {
   // Load OpenSBI fw_dynamic binary
-  let fw_bytes = try {
-    @fs.read_file("_build/opensbi-riscv64-fw_dynamic.bin").binary()
-  } catch {
+  let fw_bytes = @fs.read_file("_build/opensbi-riscv64-fw_dynamic.bin").binary() catch {
     _ => {
       println("SKIP: OpenSBI binary not found")
       return
     }
   }
   // Load Linux kernel Image
-  let kernel_bytes = try {
-    @fs.read_file("_build/linux-kernel-riscv64").binary()
-  } catch {
+  let kernel_bytes = @fs.read_file("_build/linux-kernel-riscv64").binary() catch {
     _ => {
-      println("SKIP: _build/linux-kernel-riscv64 not found (copy Debian riscv64 vmlinux)")
+      println(
+        "SKIP: _build/linux-kernel-riscv64 not found (copy Debian riscv64 vmlinux)",
+      )
       return
     }
   }
   // Load DTB
-  let dtb_bytes = try {
-    @fs.read_file("_build/minimal.dtb").binary()
-  } catch {
+  let dtb_bytes = @fs.read_file("_build/minimal.dtb").binary() catch {
     _ =>
-      try {
-        @fs.read_file("_build/virt.dtb").binary()
-      } catch {
+      @fs.read_file("_build/virt.dtb").binary() catch {
         _ => {
           println("SKIP: no DTB found")
           return
@@ -3280,29 +3300,25 @@ async test "Task 0015: Linux kernel boot via OpenSBI" {
 // ---------------------------------------------------------------------------
 async test "Task 0016: SMP 2-hart boot via OpenSBI" {
   // Load OpenSBI fw_dynamic binary
-  let fw_bytes = try {
-    @fs.read_file("_build/opensbi-riscv64-fw_dynamic.bin").binary()
-  } catch {
+  let fw_bytes = @fs.read_file("_build/opensbi-riscv64-fw_dynamic.bin").binary() catch {
     _ => {
       println("SKIP: OpenSBI binary not found")
       return
     }
   }
   // Load Linux kernel Image
-  let kernel_bytes = try {
-    @fs.read_file("_build/linux-kernel-riscv64").binary()
-  } catch {
+  let kernel_bytes = @fs.read_file("_build/linux-kernel-riscv64").binary() catch {
     _ => {
       println("SKIP: _build/linux-kernel-riscv64 not found")
       return
     }
   }
   // Load 2-hart DTB
-  let dtb_bytes = try {
-    @fs.read_file("_build/minimal-smp.dtb").binary()
-  } catch {
+  let dtb_bytes = @fs.read_file("_build/minimal-smp.dtb").binary() catch {
     _ => {
-      println("SKIP: _build/minimal-smp.dtb not found (run: dtc -I dts -O dtb -o _build/minimal-smp.dtb tools/minimal-smp.dts)")
+      println(
+        "SKIP: _build/minimal-smp.dtb not found (run: dtc -I dts -O dtb -o _build/minimal-smp.dtb tools/minimal-smp.dts)",
+      )
       return
     }
   }
@@ -3341,7 +3357,7 @@ async test "Task 0016: SMP 2-hart boot via OpenSBI" {
     // Hart 0 step
     match h0.step() {
       Running => ()
-      Trap(_) => { done = true }
+      Trap(_) => done = true
     }
     // Hart 1 step
     match h1.step() {
@@ -3371,8 +3387,6 @@ async test "Task 0016: SMP 2-hart boot via OpenSBI" {
     fail("OpenSBI banner not found in SMP boot output (steps=\{steps})")
   }
   if !all_output.contains("Linux version") {
-    fail(
-      "Kernel 'Linux version' not found in SMP boot output (steps=\{steps})",
-    )
+    fail("Kernel 'Linux version' not found in SMP boot output (steps=\{steps})")
   }
 }

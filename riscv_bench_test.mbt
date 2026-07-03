@@ -60,7 +60,13 @@ fn make_dword_copy_loop_runner() -> Runner {
 }
 
 ///|
-fn encode_amo_aqrl(funct5 : UInt, rs2 : Int, rs1 : Int, funct3 : UInt, rd : Int) -> UInt {
+fn encode_amo_aqrl(
+  funct5 : UInt,
+  rs2 : Int,
+  rs1 : Int,
+  funct3 : UInt,
+  rd : Int,
+) -> UInt {
   encode_r((funct5 << 2) | 0x3U, rs2, rs1, funct3, rd, 0x2fU)
 }
 
