@@ -1,5 +1,7 @@
 #!/usr/bin/env python3
 import argparse
+import html
+import re
 import socket
 import subprocess
 import sys
@@ -80,6 +82,7 @@ def alpine_interactive_url(
     command: str,
     linux_steps_per_tick: int | None,
     sync_every_ticks: int | None,
+    hot_pc_samples: int | None,
 ) -> str:
     params = {
         "guest": "linux",
@@ -91,8 +94,21 @@ def alpine_interactive_url(
         params["linuxStepsPerTick"] = str(linux_steps_per_tick)
     if sync_every_ticks is not None:
         params["syncEveryTicks"] = str(sync_every_ticks)
+    if hot_pc_samples is not None:
+        params["hotPcSamples"] = str(hot_pc_samples)
     query = urllib.parse.urlencode(params)
     return f"{base_url}/?{query}"
+
+
+def print_hot_pc_summary(dom: str) -> None:
+    status_match = re.search(r'<pre id="status">(.*?)</pre>', dom, flags=re.DOTALL)
+    if status_match is None:
+        print("hot pc summary: status node not found")
+        return
+    status_text = html.unescape(status_match.group(1))
+    for line in status_text.splitlines():
+        if line.startswith("hot pc "):
+            print(line)
 
 
 def main() -> int:
@@ -108,6 +124,7 @@ def main() -> int:
     parser.add_argument("--input-command", default="echo browser-input-ok")
     parser.add_argument("--linux-steps-per-tick", type=int)
     parser.add_argument("--sync-every-ticks", type=int)
+    parser.add_argument("--hot-pc-samples", type=int)
     args = parser.parse_args()
 
     server = None
@@ -130,6 +147,7 @@ def main() -> int:
             args.input_command,
             args.linux_steps_per_tick,
             args.sync_every_ticks,
+            args.hot_pc_samples,
         )
     if url is None:
         parser.error("url is required unless --serve-dir is used")
@@ -148,6 +166,8 @@ def main() -> int:
                 server.kill()
     sys.stdout.write(dom[-5000:])
     sys.stdout.write("\n")
+    if args.hot_pc_samples is not None:
+        print_hot_pc_summary(dom)
 
     missing = [marker for marker in expected if marker not in dom]
     if missing:

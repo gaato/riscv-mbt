@@ -18,6 +18,12 @@ const schedulerPolicy = {
   smokeStepsPerTick: 4096,
   linuxStepsPerTick: 262144,
   syncEveryTicks: 32,
+  hotPcSamples: 0,
+};
+
+const hotPcSampler = {
+  counts: new Map(),
+  samples: 0,
 };
 
 const linuxBootMarkers = [
@@ -67,6 +73,48 @@ function applySchedulerQuery(query) {
     positiveQueryInt(query, "linuxStepsPerTick") ?? schedulerPolicy.linuxStepsPerTick;
   schedulerPolicy.syncEveryTicks =
     positiveQueryInt(query, "syncEveryTicks") ?? schedulerPolicy.syncEveryTicks;
+  schedulerPolicy.hotPcSamples =
+    positiveQueryInt(query, "hotPcSamples") ?? schedulerPolicy.hotPcSamples;
+}
+
+function resetHotPcSamples() {
+  hotPcSampler.counts.clear();
+  hotPcSampler.samples = 0;
+}
+
+function formatGuestHex(value) {
+  if (typeof value === "bigint") {
+    return `0x${BigInt.asUintN(64, value).toString(16)}`;
+  }
+  const numeric = Number(value);
+  const normalized = numeric < 0 ? numeric >>> 0 : numeric;
+  return `0x${normalized.toString(16)}`;
+}
+
+function sampleHotPc(wasm) {
+  if (
+    schedulerPolicy.hotPcSamples <= 0 ||
+    hotPcSampler.samples >= schedulerPolicy.hotPcSamples ||
+    wasm.browser_guest_kind() !== 1
+  ) {
+    return;
+  }
+  const pc = wasm.browser_pc();
+  const key = formatGuestHex(pc);
+  hotPcSampler.counts.set(key, (hotPcSampler.counts.get(key) ?? 0) + 1);
+  hotPcSampler.samples += 1;
+}
+
+function hotPcText() {
+  if (schedulerPolicy.hotPcSamples <= 0) {
+    return [];
+  }
+  const top = Array.from(hotPcSampler.counts.entries())
+    .sort((left, right) => right[1] - left[1])
+    .slice(0, 8)
+    .map(([pc, count]) => `${pc}:${count}`)
+    .join(" ");
+  return [`hot pc samples: ${hotPcSampler.samples}/${schedulerPolicy.hotPcSamples}`, `hot pc top: ${top}`];
 }
 
 function syncUi() {
@@ -97,7 +145,7 @@ function makeBrowserRuntime(wasm) {
     const mode = wasm.browser_is_running() ? "running" : "paused";
     return [
       `mode: ${mode}`,
-      `pc: 0x${wasm.browser_pc().toString(16)}`,
+      `pc: ${formatGuestHex(wasm.browser_pc())}`,
       `privilege: ${privilegeName(wasm.browser_privilege())}`,
       `x1: 0x${wasm.browser_reg(1).toString(16)}`,
       `x2: 0x${wasm.browser_reg(2).toString(16)}`,
@@ -105,6 +153,7 @@ function makeBrowserRuntime(wasm) {
       `x4: 0x${wasm.browser_reg(4).toString(16)}`,
       `decode cache: ${wasm.browser_decode_cache_hits()} hits / ${wasm.browser_decode_cache_misses()} misses`,
       `translate cache: ${wasm.browser_translate_cache_hits()} hits / ${wasm.browser_translate_cache_misses()} misses`,
+      ...hotPcText(),
     ].join("\n");
   };
 
@@ -277,10 +326,12 @@ async function bootHost() {
   });
   resetButton.addEventListener("click", () => {
     runtime.reset();
+    resetHotPcSamples();
     syncUi();
   });
   loadSmokeButton.addEventListener("click", () => {
     runtime.reset();
+    resetHotPcSamples();
     syncUi();
   });
   loadLinuxButton.addEventListener("click", () => {
@@ -303,6 +354,7 @@ async function bootHost() {
   setInterval(() => {
     if (runtime.isRunning()) {
       runtime.runTick();
+      sampleHotPc(instance.exports);
       ticksSinceSync += 1;
       const shouldSync = ticksSinceSync >= schedulerPolicy.syncEveryTicks;
       if (shouldSync) {
