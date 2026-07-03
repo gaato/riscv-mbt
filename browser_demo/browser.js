@@ -140,6 +140,7 @@ function syncUi() {
   setText(statusNode, runtime.statusText());
   setText(artifactStatusNode, runtime.artifactStatusText(consoleText));
   setText(runToggleButton, runtime.isRunning() ? "Pause" : "Run");
+  return consoleText;
 }
 
 function readRuntimeText(wasm, prefix) {
@@ -404,12 +405,12 @@ async function bootHost() {
       const shouldSync = ticksSinceSync >= schedulerPolicy.syncEveryTicks;
       if (shouldSync) {
         ticksSinceSync = 0;
-        syncUi();
+        const consoleText = syncUi();
         if (
           !linuxInputSent &&
           linuxInputAfterMarker &&
           linuxInput &&
-          runtime.consoleText().includes(linuxInputAfterMarker)
+          consoleText.includes(linuxInputAfterMarker)
         ) {
           linuxInputSent = true;
           schedulerStats.linuxInputSentStep = runtime.totalSteps();
@@ -419,7 +420,7 @@ async function bootHost() {
         if (
           schedulerStats.linuxInputExpectedStep === null &&
           linuxInputExpect &&
-          runtime.consoleText().includes(linuxInputExpect)
+          consoleText.includes(linuxInputExpect)
         ) {
           schedulerStats.linuxInputExpectedStep = runtime.totalSteps();
           if (haltOnLinuxInputExpect && runtime.isRunning()) {
