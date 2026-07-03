@@ -197,6 +197,7 @@ These are the recommended refactors to do immediately before specific milestones
 - In `riscv-mbt`, take these in layers. Decode cache and translation cache fit the current boundaries; full basic-block execution should wait until `Runner::step` can be split without blurring trap, interrupt, and device timing.
 - Decode cache entries are invalidated on `FENCE.I` and host-side program/image writes.
 - Sv39 translation cache entries are invalidated on `satp`, `SFENCE.VMA`, and host-side program/image writes.
+- A Linux-path bounded uop/basic-block cache must follow [ADR 0009](../adr/0009-bounded-uop-cache-safety.md): preserve per-instruction timer/interrupt checks, key cached blocks by fetch and translation provenance, and over-flush on `FENCE.I`, `SFENCE.VMA`, `satp`, host image writes, and guest RAM stores until code-page tracking exists.
 - Browser performance evidence should include both wall time and cache counters; a faster browser proof without native `moon test` is not enough.
 - The Alpine browser boot default is currently `wasm-gc` because the first Alpine probe favored it on artifact size and wall time. Keep plain `wasm` available with `BROWSER_TARGET=wasm`, and re-measure before making backend-specific optimizations.
 - Keep generated browser proof logs and benchmark output under `outputs/`; that directory is intentionally ignored.

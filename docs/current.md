@@ -115,6 +115,7 @@
 - [ADR 0006](adr/0006-browser-wasm-linux-boot-goal.md)
 - [ADR 0007](adr/0007-browser-plain-wasm-backend.md)
 - [ADR 0008](adr/0008-browser-wasm-gc-for-alpine-boot.md)
+- [ADR 0009](adr/0009-bounded-uop-cache-safety.md)
 - [ADR 0001](adr/0001-rv32i-first.md)
 - [ADR 0005](adr/0005-post-linux-compatibility-profile.md)
 - [ADR 0003](adr/0003-milestone-spine.md)
