@@ -2080,6 +2080,50 @@ test "rv64fdv vector memory supports indexed unordered e32 loads and stores" {
 }
 
 ///|
+test "rv64fdv vector memory supports indexed ordered e32 loads and stores" {
+  let load32 = make_runner(rv64fdv_machine_config())
+  load32.load_program(
+    words_to_bytes([
+      encode_vsetivli(0, 4U, test_vector_vtypei_for_sew(32)),
+      encode_vloxei32(7, 10, 5, true),
+    ]),
+    0U,
+  )
+  load32.cpu.write_reg(10, 0x400U.to_uint64())
+  load32.cpu.write_vreg(5, 0, test_join_u64(0U, 12U))
+  load32.cpu.write_vreg(5, 1, test_join_u64(4U, 8U))
+  load32.bus.store_u32(0x400U.to_uint64(), 0x70U.to_uint64())
+  load32.bus.store_u32(0x404U.to_uint64(), 0x71U.to_uint64())
+  load32.bus.store_u32(0x408U.to_uint64(), 0x72U.to_uint64())
+  load32.bus.store_u32(0x40cU.to_uint64(), 0x73U.to_uint64())
+  match load32.run(2) {
+    Running => ()
+    _ => fail("expected vloxei32.v sequence to run")
+  }
+  assert_eq(load32.read_vreg_u64(7, 0), test_join_u64(0x70U, 0x73U))
+  assert_eq(load32.read_vreg_u64(7, 1), test_join_u64(0x71U, 0x72U))
+
+  let store32 = make_runner(rv64fdv_machine_config())
+  store32.load_program(
+    words_to_bytes([
+      encode_vsetivli(0, 4U, test_vector_vtypei_for_sew(32)),
+      encode_vsoxei32(7, 10, 5, true),
+    ]),
+    0U,
+  )
+  store32.cpu.write_vreg(5, 0, test_join_u64(0U, 0U))
+  store32.cpu.write_vreg(5, 1, test_join_u64(0U, 0U))
+  store32.cpu.write_vreg(7, 0, test_join_u64(0x81U, 0x80U))
+  store32.cpu.write_vreg(7, 1, test_join_u64(0x83U, 0x82U))
+  store32.cpu.write_reg(10, 0x440U.to_uint64())
+  match store32.run(2) {
+    Running => ()
+    _ => fail("expected vsoxei32.v sequence to run")
+  }
+  assert_eq(store32.bus.load_u32(0x440U.to_uint64()), 0x83U.to_uint64())
+}
+
+///|
 test "rv64fdv vector memory rejects masked width-mismatch lmul2 vill and nonzero vstart" {
   let masked_raw = encode_vle32(1, 10, false)
   let masked = make_runner(rv64fdv_machine_config())

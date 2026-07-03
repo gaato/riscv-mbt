@@ -982,12 +982,14 @@ fn instruction_supported_for_current_config(
     Vle32V(_, _) => has_v
     Vle64V(_, _) => has_v
     Vluxei32V(_, _, _) => has_v
+    Vloxei32V(_, _, _) => has_v
     Vlse32V(_, _, _) => has_v
     Vse8V(_, _) => has_v
     Vse16V(_, _) => has_v
     Vse32V(_, _) => has_v
     Vse64V(_, _) => has_v
     Vsuxei32V(_, _, _) => has_v
+    Vsoxei32V(_, _, _) => has_v
     Vsse32V(_, _, _) => has_v
     // C.JAL exists only on RV32C; the 32-bit JAL x1 form remains legal on both widths.
     Jal(rd, _) => !(length == 2 && rd == 1 && xlen == XLEN_64)
@@ -1108,6 +1110,7 @@ pub fn decode(raw : UInt) -> Instruction {
           (0x0U, 0x7U) if rs2(raw) == 0 => Vle64V(rd(raw), rs1(raw))
           (0x1U, 0x6U) => Vluxei32V(rd(raw), rs1(raw), rs2(raw))
           (0x2U, 0x6U) => Vlse32V(rd(raw), rs1(raw), rs2(raw))
+          (0x3U, 0x6U) => Vloxei32V(rd(raw), rs1(raw), rs2(raw))
           (_, 0x2U) => Flw(rd(raw), rs1(raw), imm_i(raw))
           (_, 0x3U) => Fld(rd(raw), rs1(raw), imm_i(raw))
           _ => Unknown(raw)
@@ -1139,6 +1142,7 @@ pub fn decode(raw : UInt) -> Instruction {
           (0x0U, 0x7U) if rs2(raw) == 0 => Vse64V(rd(raw), rs1(raw))
           (0x1U, 0x6U) => Vsuxei32V(rd(raw), rs1(raw), rs2(raw))
           (0x2U, 0x6U) => Vsse32V(rd(raw), rs1(raw), rs2(raw))
+          (0x3U, 0x6U) => Vsoxei32V(rd(raw), rs1(raw), rs2(raw))
           (_, 0x2U) => Fsw(rs1(raw), rs2(raw), imm_s(raw))
           (_, 0x3U) => Fsd(rs1(raw), rs2(raw), imm_s(raw))
           _ => Unknown(raw)

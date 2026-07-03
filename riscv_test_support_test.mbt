@@ -318,6 +318,23 @@ fn encode_vload_indexed_unordered(
 }
 
 ///|
+fn encode_vload_indexed_ordered(
+  vd : Int,
+  rs1 : Int,
+  vs2 : Int,
+  index_bits : Int,
+  vm : Bool,
+) -> UInt {
+  (((if vm { 1U } else { 0U }) & 0x1U) << 25) |
+  (0x3U << 26) |
+  (vs2.reinterpret_as_uint() << 20) |
+  (rs1.reinterpret_as_uint() << 15) |
+  (encode_vmem_width(index_bits) << 12) |
+  (vd.reinterpret_as_uint() << 7) |
+  0x07U
+}
+
+///|
 fn encode_vstore_unit_stride(
   vs3 : Int,
   rs1 : Int,
@@ -341,6 +358,23 @@ fn encode_vstore_indexed_unordered(
 ) -> UInt {
   (((if vm { 1U } else { 0U }) & 0x1U) << 25) |
   (0x1U << 26) |
+  (vs2.reinterpret_as_uint() << 20) |
+  (rs1.reinterpret_as_uint() << 15) |
+  (encode_vmem_width(index_bits) << 12) |
+  (vs3.reinterpret_as_uint() << 7) |
+  0x27U
+}
+
+///|
+fn encode_vstore_indexed_ordered(
+  vs3 : Int,
+  rs1 : Int,
+  vs2 : Int,
+  index_bits : Int,
+  vm : Bool,
+) -> UInt {
+  (((if vm { 1U } else { 0U }) & 0x1U) << 25) |
+  (0x3U << 26) |
   (vs2.reinterpret_as_uint() << 20) |
   (rs1.reinterpret_as_uint() << 15) |
   (encode_vmem_width(index_bits) << 12) |
@@ -391,6 +425,11 @@ fn encode_vluxei32(vd : Int, rs1 : Int, vs2 : Int, vm : Bool) -> UInt {
 }
 
 ///|
+fn encode_vloxei32(vd : Int, rs1 : Int, vs2 : Int, vm : Bool) -> UInt {
+  encode_vload_indexed_ordered(vd, rs1, vs2, 32, vm)
+}
+
+///|
 fn encode_vlse32(vd : Int, rs1 : Int, rs2 : Int, vm : Bool) -> UInt {
   encode_vload_strided(vd, rs1, rs2, 32, vm)
 }
@@ -418,6 +457,11 @@ fn encode_vse64(vs3 : Int, rs1 : Int, vm : Bool) -> UInt {
 ///|
 fn encode_vsuxei32(vs3 : Int, rs1 : Int, vs2 : Int, vm : Bool) -> UInt {
   encode_vstore_indexed_unordered(vs3, rs1, vs2, 32, vm)
+}
+
+///|
+fn encode_vsoxei32(vs3 : Int, rs1 : Int, vs2 : Int, vm : Bool) -> UInt {
+  encode_vstore_indexed_ordered(vs3, rs1, vs2, 32, vm)
 }
 
 ///|

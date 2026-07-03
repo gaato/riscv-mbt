@@ -421,7 +421,7 @@ fn Runner::execute_vector_load_strided(
 }
 
 ///|
-fn Runner::execute_vector_load_indexed_unordered(
+fn Runner::execute_vector_load_indexed_e32(
   self : Runner,
   vd : Int,
   rs1 : Int,
@@ -504,7 +504,7 @@ fn Runner::execute_vector_store_unit_stride(
 }
 
 ///|
-fn Runner::execute_vector_store_indexed_unordered(
+fn Runner::execute_vector_store_indexed_e32(
   self : Runner,
   vs3 : Int,
   rs1 : Int,
@@ -747,7 +747,11 @@ fn Runner::execute_vector_memory_first_slice(
     Vle64V(vd, rs1) =>
       self.execute_vector_load_unit_stride(vd, rs1, 8, current_pc, next_pc, raw)
     Vluxei32V(vd, rs1, vs2) =>
-      self.execute_vector_load_indexed_unordered(
+      self.execute_vector_load_indexed_e32(
+        vd, rs1, vs2, current_pc, next_pc, raw,
+      )
+    Vloxei32V(vd, rs1, vs2) =>
+      self.execute_vector_load_indexed_e32(
         vd, rs1, vs2, current_pc, next_pc, raw,
       )
     Vlse32V(vd, rs1, rs2) =>
@@ -771,7 +775,11 @@ fn Runner::execute_vector_memory_first_slice(
         vs3, rs1, 8, current_pc, next_pc, raw,
       )
     Vsuxei32V(vs3, rs1, vs2) =>
-      self.execute_vector_store_indexed_unordered(
+      self.execute_vector_store_indexed_e32(
+        vs3, rs1, vs2, current_pc, next_pc, raw,
+      )
+    Vsoxei32V(vs3, rs1, vs2) =>
+      self.execute_vector_store_indexed_e32(
         vs3, rs1, vs2, current_pc, next_pc, raw,
       )
     Vsse32V(vs3, rs1, rs2) =>

@@ -304,6 +304,14 @@ test "decode first vector memory slice" {
     }
     _ => fail("expected vluxei32.v")
   }
+  match decode(encode_vloxei32(29, 30, 31, true)) {
+    Vloxei32V(vd, rs1, vs2) => {
+      assert_eq(vd, 29)
+      assert_eq(rs1, 30)
+      assert_eq(vs2, 31)
+    }
+    _ => fail("expected vloxei32.v")
+  }
   match decode(encode_vlse32(17, 18, 19, true)) {
     Vlse32V(vd, rs1, rs2) => {
       assert_eq(vd, 17)
@@ -347,6 +355,14 @@ test "decode first vector memory slice" {
       assert_eq(vs2, 28)
     }
     _ => fail("expected vsuxei32.v")
+  }
+  match decode(encode_vsoxei32(1, 2, 3, true)) {
+    Vsoxei32V(vs3, rs1, vs2) => {
+      assert_eq(vs3, 1)
+      assert_eq(rs1, 2)
+      assert_eq(vs2, 3)
+    }
+    _ => fail("expected vsoxei32.v")
   }
   match decode(encode_vsse32(20, 21, 22, true)) {
     Vsse32V(vs3, rs1, rs2) => {
