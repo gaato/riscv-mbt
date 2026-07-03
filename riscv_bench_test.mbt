@@ -60,6 +60,30 @@ fn make_dword_copy_loop_runner() -> Runner {
 }
 
 ///|
+fn encode_amo_aqrl(funct5 : UInt, rs2 : Int, rs1 : Int, funct3 : UInt, rd : Int) -> UInt {
+  encode_r((funct5 << 2) | 0x3U, rs2, rs1, funct3, rd, 0x2fU)
+}
+
+///|
+fn make_amoadd_word_loop_runner() -> Runner {
+  let runner = make_runner(virt_machine_config())
+  let pc = 0x80000000U.to_uint64()
+  let lock_addr = 0x80100000U.to_uint64()
+  let iterations = 33333
+  let program = words_to_bytes([
+    encode_amo_aqrl(0x00U, 15, 10, 0x2U, 14), // amoadd.w.aqrl a4, a5, (a0)
+    encode_i(1, 6, 0x0U, 6, 0x13U), // addi t1, t1, 1
+    encode_b(-8, 7, 6, 0x6U, 0x63U), // bltu t1, t2, loop
+  ])
+  runner.load_program_u64(program, pc)
+  runner.bus.store_u32(lock_addr, 0U.to_uint64())
+  runner.cpu.write_reg(10, lock_addr)
+  runner.cpu.write_reg(15, 1U.to_uint64())
+  runner.cpu.write_reg(7, iterations.reinterpret_as_uint().to_uint64())
+  runner
+}
+
+///|
 test (b : @bench.T) {
   b.bench(name="tight_add_loop_100k_steps", fn() {
     let runner = make_tight_add_loop_runner()
@@ -78,6 +102,13 @@ test (b : @bench.T) {
     let runner = make_dword_copy_loop_runner()
     b.keep(runner.run(100000))
     b.keep(runner.bus.load_u64(0x80200000U.to_uint64()))
+    b.keep(runner.decode_cache_hit_count())
+    b.keep(runner.decode_cache_miss_count())
+  })
+  b.bench(name="amoadd_word_loop_100k_steps", fn() {
+    let runner = make_amoadd_word_loop_runner()
+    b.keep(runner.run(100000))
+    b.keep(runner.bus.load_u32(0x80100000U.to_uint64()))
     b.keep(runner.decode_cache_hit_count())
     b.keep(runner.decode_cache_miss_count())
   })

@@ -1,6 +1,7 @@
 #!/usr/bin/env python3
 import argparse
 import html
+from pathlib import Path
 import re
 import socket
 import subprocess
@@ -100,15 +101,65 @@ def alpine_interactive_url(
     return f"{base_url}/?{query}"
 
 
-def print_hot_pc_summary(dom: str) -> None:
+def hot_pc_status_lines(dom: str) -> list[str]:
     status_match = re.search(r'<pre id="status">(.*?)</pre>', dom, flags=re.DOTALL)
     if status_match is None:
+        return []
+    status_text = html.unescape(status_match.group(1))
+    return [line for line in status_text.splitlines() if line.startswith("hot pc ")]
+
+
+def hot_pc_top_pcs(lines: list[str]) -> list[str]:
+    for line in lines:
+        if not line.startswith("hot pc top: "):
+            continue
+        pcs = []
+        for entry in line.removeprefix("hot pc top: ").split():
+            pc, _, _count = entry.rpartition(":")
+            if pc:
+                pcs.append(pc)
+        return pcs
+    return []
+
+
+def print_hot_pc_summary(
+    dom: str,
+    system_map: str | None,
+    image: str | None,
+    context: int,
+) -> None:
+    lines = hot_pc_status_lines(dom)
+    if not lines:
         print("hot pc summary: status node not found")
         return
-    status_text = html.unescape(status_match.group(1))
-    for line in status_text.splitlines():
-        if line.startswith("hot pc "):
-            print(line)
+    for line in lines:
+        print(line)
+    if system_map is None:
+        return
+    pcs = hot_pc_top_pcs(lines)
+    if not pcs:
+        print("hot pc resolve: no top PCs found")
+        return
+    resolver = Path(__file__).with_name("resolve_hot_pcs.py")
+    cmd = [
+        sys.executable,
+        str(resolver),
+        "--system-map",
+        system_map,
+        "--context",
+        str(context),
+    ]
+    if image is not None:
+        cmd.extend(["--image", image])
+    else:
+        cmd.append("--no-disasm")
+    cmd.extend(pcs)
+    result = subprocess.run(cmd, check=False, text=True, stdout=subprocess.PIPE, stderr=subprocess.PIPE)
+    if result.stderr:
+        sys.stderr.write(result.stderr)
+    if result.stdout:
+        print("hot pc resolved:")
+        sys.stdout.write(result.stdout)
 
 
 def main() -> int:
@@ -125,6 +176,9 @@ def main() -> int:
     parser.add_argument("--linux-steps-per-tick", type=int)
     parser.add_argument("--sync-every-ticks", type=int)
     parser.add_argument("--hot-pc-samples", type=int)
+    parser.add_argument("--hot-pc-system-map")
+    parser.add_argument("--hot-pc-image")
+    parser.add_argument("--hot-pc-context", type=int, default=24)
     args = parser.parse_args()
 
     server = None
@@ -167,7 +221,12 @@ def main() -> int:
     sys.stdout.write(dom[-5000:])
     sys.stdout.write("\n")
     if args.hot_pc_samples is not None:
-        print_hot_pc_summary(dom)
+        print_hot_pc_summary(
+            dom,
+            args.hot_pc_system_map,
+            args.hot_pc_image,
+            args.hot_pc_context,
+        )
 
     missing = [marker for marker in expected if marker not in dom]
     if missing:
