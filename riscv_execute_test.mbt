@@ -2033,6 +2033,53 @@ test "rv64fdv vector memory supports strided e32 loads and stores" {
 }
 
 ///|
+test "rv64fdv vector memory supports indexed unordered e32 loads and stores" {
+  let load32 = make_runner(rv64fdv_machine_config())
+  load32.load_program(
+    words_to_bytes([
+      encode_vsetivli(0, 4U, test_vector_vtypei_for_sew(32)),
+      encode_vluxei32(6, 10, 5, true),
+    ]),
+    0U,
+  )
+  load32.cpu.write_reg(10, 0x380U.to_uint64())
+  load32.cpu.write_vreg(5, 0, test_join_u64(0U, 12U))
+  load32.cpu.write_vreg(5, 1, test_join_u64(4U, 8U))
+  load32.bus.store_u32(0x380U.to_uint64(), 0x50U.to_uint64())
+  load32.bus.store_u32(0x384U.to_uint64(), 0x51U.to_uint64())
+  load32.bus.store_u32(0x388U.to_uint64(), 0x52U.to_uint64())
+  load32.bus.store_u32(0x38cU.to_uint64(), 0x53U.to_uint64())
+  match load32.run(2) {
+    Running => ()
+    _ => fail("expected vluxei32.v sequence to run")
+  }
+  assert_eq(load32.read_vreg_u64(6, 0), test_join_u64(0x50U, 0x53U))
+  assert_eq(load32.read_vreg_u64(6, 1), test_join_u64(0x51U, 0x52U))
+
+  let store32 = make_runner(rv64fdv_machine_config())
+  store32.load_program(
+    words_to_bytes([
+      encode_vsetivli(0, 4U, test_vector_vtypei_for_sew(32)),
+      encode_vsuxei32(6, 10, 5, true),
+    ]),
+    0U,
+  )
+  store32.cpu.write_vreg(5, 0, test_join_u64(0U, 12U))
+  store32.cpu.write_vreg(5, 1, test_join_u64(4U, 8U))
+  store32.cpu.write_vreg(6, 0, test_join_u64(0x60U, 0x63U))
+  store32.cpu.write_vreg(6, 1, test_join_u64(0x61U, 0x62U))
+  store32.cpu.write_reg(10, 0x3c0U.to_uint64())
+  match store32.run(2) {
+    Running => ()
+    _ => fail("expected vsuxei32.v sequence to run")
+  }
+  assert_eq(store32.bus.load_u32(0x3c0U.to_uint64()), 0x60U.to_uint64())
+  assert_eq(store32.bus.load_u32(0x3c4U.to_uint64()), 0x61U.to_uint64())
+  assert_eq(store32.bus.load_u32(0x3c8U.to_uint64()), 0x62U.to_uint64())
+  assert_eq(store32.bus.load_u32(0x3ccU.to_uint64()), 0x63U.to_uint64())
+}
+
+///|
 test "rv64fdv vector memory rejects masked width-mismatch lmul2 vill and nonzero vstart" {
   let masked_raw = encode_vle32(1, 10, false)
   let masked = make_runner(rv64fdv_machine_config())

@@ -267,6 +267,26 @@ fn Runner::vector_memory_group_config(
 }
 
 ///|
+fn Runner::vector_indexed_e32_config(
+  self : Runner,
+  data_vreg : Int,
+  index_vreg : Int,
+) -> VectorExecConfig? {
+  match self.vector_memory_group_config(data_vreg, 4) {
+    Some(config) =>
+      // This first indexed slice supports only data SEW=32 with index EEW=32,
+      // so the index EMUL matches the current LMUL.
+      if config.sew_bits == 32 &&
+        vector_group_aligned(index_vreg, config.lmul_log2) {
+        Some(config)
+      } else {
+        None
+      }
+    None => None
+  }
+}
+
+///|
 fn vector_unit_stride_addr(
   base : UInt64,
   elem_index : Int,
@@ -284,6 +304,11 @@ fn vector_strided_addr(
   stride : UInt64,
 ) -> UInt64 {
   base + elem_index.reinterpret_as_uint().to_uint64() * stride
+}
+
+///|
+fn vector_indexed_addr(base : UInt64, offset : UInt64) -> UInt64 {
+  base + offset
 }
 
 ///|
@@ -396,6 +421,47 @@ fn Runner::execute_vector_load_strided(
 }
 
 ///|
+fn Runner::execute_vector_load_indexed_unordered(
+  self : Runner,
+  vd : Int,
+  rs1 : Int,
+  vs2 : Int,
+  current_pc : UInt64,
+  next_pc : UInt64,
+  raw : UInt,
+) -> StepResult {
+  let config = match self.vector_indexed_e32_config(vd, vs2) {
+    Some(config) => config
+    None =>
+      return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+  }
+  let elem_bytes = 4
+  let sew_bits = 32
+  let index_bits = 32
+  let active_elems = config.vl.reinterpret_as_int64().to_int()
+  let base = self.cpu.read_reg(rs1)
+  let pas : Array[UInt64] = []
+  let values : Array[UInt64] = []
+  for elem in 0..<active_elems {
+    let offset = self.read_vreg_group_elem(vs2, elem, index_bits)
+    let addr = vector_indexed_addr(base, offset)
+    let (pa, check) = self.load_check(addr, elem_bytes)
+    match check {
+      Some(result) => return result
+      None => pas.push(pa)
+    }
+  }
+  for pa in pas {
+    values.push(self.vector_load_elem_bits(pa, elem_bytes))
+  }
+  for commit_elem in 0..<active_elems {
+    self.write_vreg_group_elem(vd, commit_elem, sew_bits, values[commit_elem])
+  }
+  self.cpu.pc = next_pc
+  Running
+}
+
+///|
 fn Runner::execute_vector_store_unit_stride(
   self : Runner,
   vs3 : Int,
@@ -417,6 +483,51 @@ fn Runner::execute_vector_store_unit_stride(
   let values : Array[UInt64] = []
   for elem in 0..<active_elems {
     let addr = vector_unit_stride_addr(base, elem, elem_bytes)
+    let (pa, check) = self.store_check(addr, elem_bytes)
+    match check {
+      Some(result) => return result
+      None => {
+        pas.push(pa)
+        values.push(self.read_vreg_group_elem(vs3, elem, sew_bits))
+      }
+    }
+  }
+  for commit_elem in 0..<active_elems {
+    self.vector_store_elem_bits(
+      pas[commit_elem],
+      elem_bytes,
+      values[commit_elem],
+    )
+  }
+  self.cpu.pc = next_pc
+  Running
+}
+
+///|
+fn Runner::execute_vector_store_indexed_unordered(
+  self : Runner,
+  vs3 : Int,
+  rs1 : Int,
+  vs2 : Int,
+  current_pc : UInt64,
+  next_pc : UInt64,
+  raw : UInt,
+) -> StepResult {
+  let config = match self.vector_indexed_e32_config(vs3, vs2) {
+    Some(config) => config
+    None =>
+      return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+  }
+  let elem_bytes = 4
+  let sew_bits = 32
+  let index_bits = 32
+  let active_elems = config.vl.reinterpret_as_int64().to_int()
+  let base = self.cpu.read_reg(rs1)
+  let pas : Array[UInt64] = []
+  let values : Array[UInt64] = []
+  for elem in 0..<active_elems {
+    let offset = self.read_vreg_group_elem(vs2, elem, index_bits)
+    let addr = vector_indexed_addr(base, offset)
     let (pa, check) = self.store_check(addr, elem_bytes)
     match check {
       Some(result) => return result
@@ -635,6 +746,10 @@ fn Runner::execute_vector_memory_first_slice(
       self.execute_vector_load_unit_stride(vd, rs1, 4, current_pc, next_pc, raw)
     Vle64V(vd, rs1) =>
       self.execute_vector_load_unit_stride(vd, rs1, 8, current_pc, next_pc, raw)
+    Vluxei32V(vd, rs1, vs2) =>
+      self.execute_vector_load_indexed_unordered(
+        vd, rs1, vs2, current_pc, next_pc, raw,
+      )
     Vlse32V(vd, rs1, rs2) =>
       self.execute_vector_load_strided(
         vd, rs1, rs2, 4, current_pc, next_pc, raw,
@@ -654,6 +769,10 @@ fn Runner::execute_vector_memory_first_slice(
     Vse64V(vs3, rs1) =>
       self.execute_vector_store_unit_stride(
         vs3, rs1, 8, current_pc, next_pc, raw,
+      )
+    Vsuxei32V(vs3, rs1, vs2) =>
+      self.execute_vector_store_indexed_unordered(
+        vs3, rs1, vs2, current_pc, next_pc, raw,
       )
     Vsse32V(vs3, rs1, rs2) =>
       self.execute_vector_store_strided(
