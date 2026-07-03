@@ -114,9 +114,24 @@ fn parse_max_steps(args : Array[String]) -> Int {
 }
 
 ///|
+fn parse_arg_value(args : Array[String], flag : String) -> String? {
+  if args.length() < 2 {
+    return None
+  }
+  for index in 0..<(args.length() - 1) {
+    if args[index] == flag {
+      return Some(args[index + 1])
+    }
+  }
+  None
+}
+
+///|
 async fn main {
   let args = @env.args()
   let max_steps = parse_max_steps(args)
+  let command = parse_arg_value(args, "--command")
+  let expect = parse_arg_value(args, "--expect")
   let fw_bytes = read_binary(opensbi_path)
   let kernel_bytes = read_binary(kernel_path)
   let dtb_bytes = read_binary(dtb_path)
@@ -138,6 +153,8 @@ async fn main {
   let mut outcome = "timeout"
   let mut trapped = false
   let mut last_output_steps = 0
+  let mut shell_command_sent = false
+  let mut shell_expect_seen = false
   while steps < max_steps {
     match runner.step() {
       Running => {
@@ -149,14 +166,31 @@ async fn main {
             last_output_steps = steps
             if output.contains(alpine_shell_prompt_marker) {
               outcome = "alpine-shell-prompt"
-              break
+              match command {
+                Some(text) =>
+                  if !shell_command_sent {
+                    // Feed the command through the same UART input path that
+                    // the browser host uses. This keeps the console probe
+                    // grounded in guest-visible serial input instead of
+                    // treating prompt reachability as the whole Linux proof.
+                    runner.uart_push_input(text + "\r\n")
+                    shell_command_sent = true
+                  }
+                None => break
+              }
             } else if output.contains(alpine_shell_marker) {
               outcome = "alpine-shell"
             } else if output.contains(alpine_marker) {
               outcome = "alpine-marker"
             }
-            if outcome == "alpine-shell-prompt" {
-              break
+            match expect {
+              Some(marker) =>
+                if shell_command_sent && output.contains(marker) {
+                  shell_expect_seen = true
+                  outcome = "console-command"
+                  break
+                }
+              None => if outcome == "alpine-shell-prompt" { break }
             }
           }
         }
@@ -184,11 +218,21 @@ async fn main {
   if output.contains(alpine_shell_prompt_marker) {
     outcome = "alpine-shell-prompt"
   }
+  match expect {
+    Some(marker) =>
+      if shell_command_sent && output.contains(marker) {
+        shell_expect_seen = true
+        outcome = "console-command"
+      }
+    None => ()
+  }
   println("Alpine native probe")
   println("outcome=" + outcome)
   println("steps=" + steps.to_string())
   println("last_output_steps=" + last_output_steps.to_string())
   println("trapped=" + trapped.to_string())
+  println("shell_command_sent=" + shell_command_sent.to_string())
+  println("shell_expect_seen=" + shell_expect_seen.to_string())
   println("final_pc=" + hex(runner.pc_u64()))
   println("final_privilege=" + privilege_name(runner.privilege_mode()))
   println("csr_sstatus=" + hex(runner.read_csr_u64(csr_sstatus)))

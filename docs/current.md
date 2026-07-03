@@ -63,6 +63,7 @@
 - [Add simmerv-inspired cache performance improvements](tasks/0056-simmerv-inspired-cache-performance.md) — `done`
 - [Refactor MoonBit execution surfaces before the next vector slice](tasks/0057-moonbit-refactoring-pre-0048.md) — `done`
 - [Boot an Alpine rootfs in browser Wasm](tasks/0058-alpine-rootfs-browser-boot.md) — `doing`
+- [Add a console Alpine Linux probe](tasks/0059-console-alpine-linux-probe.md) — `done`
 
 ## Next Task
 
@@ -85,6 +86,7 @@
 - Initial Alpine probing favors `wasm-gc` for the browser default: it produces a smaller artifact and reaches the same initramfs-unpack point faster than plain `wasm`. Plain `wasm` remains available with `BROWSER_TARGET=wasm`.
 - Alpine bring-up now uses a practical tiny initramfs profile by default. A static `/init` writes the injected marker through `/dev/kmsg`, then runs `/bin/sh -c 'echo riscv-mbt Alpine shell alive > /dev/kmsg; exec /bin/sh'`. QEMU, riscv-mbt native `xxlong`, and browser `wasm-gc` now reach `riscv-mbt Alpine initramfs ready`, `riscv-mbt Alpine shell alive`, and the BusyBox `/ #` prompt. Browser `wasm-gc` also accepts UART input after the prompt and returns `browser-input-ok` from `echo browser-input-ok`. The browser scheduler now runs 262,144 Linux steps/tick and throttles DOM sync to every 16 ticks; `python3 tools/browser_linux_probe.py --serve-dir _build/browser-demo --alpine-functional-smoke --budget-ms 45000 --wall-timeout 180` is the current functional Linux usability gate and checks `/proc`, `/sys`, file creation/readback, directory creation, pipe/grep, `uname -m`, `/proc/cpuinfo`, and `linux-functional-ok`. The latest functional smoke after the first vector subtract slice reached the marker at 360,710,144 guest steps and `wall=0:52.04` on this host.
 - The latest console/native Alpine probe after the first vector min/max slice reached the BusyBox `/ #` prompt with `moon run --target native cmd/alpine_probe xxlong`: `outcome=alpine-shell-prompt`, `steps=357000000`, `contains_linux_version=true`, `contains_run_init=true`, and `contains_alpine_shell_prompt=true`.
+- The console/native Alpine probe can now inject a command after the BusyBox prompt and wait for an expected UART marker. The latest command proof used `moon run --target native cmd/alpine_probe xxlong --command "printf '\\143\\157\\156\\163\\157\\154\\145\\055\\162\\165\\156\\055\\157\\153\\012'" --expect console-run-ok` and reached `outcome=console-command`, `steps=361000000`, `shell_command_sent=true`, and `shell_expect_seen=true`.
 - Host Wasm SIMD / `v128` is not used yet. The current guest `V` implementation interprets RISC-V vector operations with scalar MoonBit register-element helpers. MoonBit 0.10 introduced an experimental built-in `V128` type, but the official release notes still describe efficient standard-library operations as future work, so any `v128` experiment should remain measured and isolated before it touches the Linux-facing execution path. `moon bench` now includes `vector_add_lmul2_loop_100k_steps` as the scalar baseline for that work; the first baseline measured `31.18 ms +/- 304.25 us`.
 
 ## Read Next
@@ -102,6 +104,7 @@
 - [Task 0056](tasks/0056-simmerv-inspired-cache-performance.md)
 - [Task 0057](tasks/0057-moonbit-refactoring-pre-0048.md)
 - [Task 0058](tasks/0058-alpine-rootfs-browser-boot.md)
+- [Task 0059](tasks/0059-console-alpine-linux-probe.md)
 - [Performance milestone](milestones/10-verification-debug-performance.md)
 - [Extensions milestone](milestones/09-extensions-a-fd-v-h.md)
 - [Task 0018](tasks/0018-extensions-a-fd-v-h.md)
