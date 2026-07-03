@@ -1,6 +1,10 @@
 // Generated using `moon info`, DON'T EDIT IT
 package "gaato/riscv_mbt"
 
+import {
+  "moonbitlang/core/queue",
+}
+
 // Values
 pub fn access_type_fault(AccessType) -> TrapCause
 
@@ -12,11 +16,19 @@ pub fn demo_program_words() -> Array[UInt]
 
 pub fn make_runner(MachineConfig) -> Runner
 
+pub fn make_smp_runners(MachineConfig, Int) -> Array[Runner]
+
 pub fn official_riscv_tests_machine_config() -> MachineConfig
 
 pub fn official_riscv_tests_machine_config_for_xlen(Xlen) -> MachineConfig
 
 pub fn rv64_machine_config() -> MachineConfig
+
+pub fn rv64f_machine_config() -> MachineConfig
+
+pub fn rv64fd_machine_config() -> MachineConfig
+
+pub fn rv64fdv_machine_config() -> MachineConfig
 
 pub fn sv39_translate(Bus, UInt64, UInt64, AccessType, PrivilegeMode, Bool, Bool) -> TranslateResult
 
@@ -57,14 +69,20 @@ pub fn Bus::zero_range(Self, UInt64, Int) -> Unit
 pub struct CpuState {
   mut pc : UInt64
   registers : Array[UInt64]
+  fregisters : Array[UInt64]
+  vregisters : Array[UInt64]
   csrs : CsrFile
   mut privilege : PrivilegeMode
 }
-pub fn CpuState::new(UInt64, UInt64, Xlen) -> Self
+pub fn CpuState::new(UInt64, UInt64, Xlen, UInt64) -> Self
 pub fn CpuState::read_csr(Self, Int) -> UInt64
+pub fn CpuState::read_freg(Self, Int) -> UInt64
 pub fn CpuState::read_reg(Self, Int) -> UInt64
+pub fn CpuState::read_vreg(Self, Int, Int) -> UInt64
 pub fn CpuState::write_csr(Self, Int, UInt64) -> Unit
+pub fn CpuState::write_freg(Self, Int, UInt64) -> Unit
 pub fn CpuState::write_reg(Self, Int, UInt64) -> Unit
+pub fn CpuState::write_vreg(Self, Int, Int, UInt64) -> Unit
 
 pub struct CsrFile {
   registers : Array[UInt64]
@@ -136,6 +154,8 @@ pub enum Instruction {
   Lb(Int, Int, Int)
   Lh(Int, Int, Int)
   Lw(Int, Int, Int)
+  Flw(Int, Int, Int)
+  Fld(Int, Int, Int)
   Lwu(Int, Int, Int)
   Ld(Int, Int, Int)
   Lbu(Int, Int, Int)
@@ -143,7 +163,48 @@ pub enum Instruction {
   Sb(Int, Int, Int)
   Sh(Int, Int, Int)
   Sw(Int, Int, Int)
+  Fsw(Int, Int, Int)
+  Fsd(Int, Int, Int)
   Sd(Int, Int, Int)
+  FAddS(Int, Int, Int, UInt)
+  FSubS(Int, Int, Int, UInt)
+  FMulS(Int, Int, Int, UInt)
+  FDivS(Int, Int, Int, UInt)
+  FSqrtS(Int, Int, UInt)
+  FMinS(Int, Int, Int)
+  FMaxS(Int, Int, Int)
+  FAddD(Int, Int, Int, UInt)
+  FSubD(Int, Int, Int, UInt)
+  FMulD(Int, Int, Int, UInt)
+  FDivD(Int, Int, Int, UInt)
+  FSqrtD(Int, Int, UInt)
+  FMinD(Int, Int, Int)
+  FMaxD(Int, Int, Int)
+  FmvXW(Int, Int)
+  FmvWX(Int, Int)
+  FmvXD(Int, Int)
+  FmvDX(Int, Int)
+  FCvtSD(Int, Int, UInt)
+  FCvtDS(Int, Int, UInt)
+  Vsetvli(Int, Int, UInt)
+  Vsetivli(Int, UInt, UInt)
+  Vsetvl(Int, Int, Int)
+  VmvVI(Int, Int)
+  VmvVX(Int, Int)
+  VmvXS(Int, Int)
+  VaddVv(Int, Int, Int)
+  VaddVx(Int, Int, Int)
+  VaddVi(Int, Int, Int)
+  Vle8V(Int, Int)
+  Vle16V(Int, Int)
+  Vle32V(Int, Int)
+  Vle64V(Int, Int)
+  Vlse32V(Int, Int, Int)
+  Vse8V(Int, Int)
+  Vse16V(Int, Int)
+  Vse32V(Int, Int)
+  Vse64V(Int, Int)
+  Vsse32V(Int, Int, Int)
   Jal(Int, Int)
   Jalr(Int, Int, Int)
   Csrrw(Int, Int, Int)
@@ -153,6 +214,9 @@ pub enum Instruction {
   Csrrsi(Int, Int, UInt)
   Csrrci(Int, Int, UInt)
   SfenceVma(Int, Int)
+  Wfi
+  AmoW(UInt, Int, Int, Int)
+  AmoD(UInt, Int, Int, Int)
   Ecall
   Mret
   Sret
@@ -166,6 +230,7 @@ pub enum LoadElfResult {
 
 pub struct MachineConfig {
   xlen : Xlen
+  extensions : UInt64
   ram_base : UInt64
   ram_size : Int
   entry_point : UInt64
@@ -174,13 +239,6 @@ pub struct MachineConfig {
   clint_base : UInt64
   plic_base : UInt64
   dtb_addr : UInt64
-}
-
-pub(all) enum PhyTarget {
-  PhyRam
-  PhyUart(UInt64)
-  PhyClint(UInt64)
-  PhyNone
 }
 
 pub(all) enum PrivilegeMode {
@@ -194,12 +252,42 @@ pub struct Runner {
   bus : Bus
   config : MachineConfig
   uart_output : Array[Byte]
-  mut mtime : UInt64
-  mut mtimecmp : UInt64
+  uart_input : @queue.Queue[Byte]
+  uart_ier : Array[Byte]
+  uart_lcr : Array[Byte]
+  mtime : Array[UInt64]
+  clint_msip : Array[Bool]
+  all_mtimecmp : Array[UInt64]
+  plic_regs : Array[Byte]
+  decode_cache_tags : Array[UInt64]
+  decode_cache_raws : Array[UInt]
+  decode_cache_lengths : Array[Int]
+  decode_cache_xlens : Array[Int]
+  decode_cache_instructions : Array[Instruction]
+  mut decode_cache_hits : UInt64
+  mut decode_cache_misses : UInt64
+  mut decode_cache_fills : UInt64
+  mut decode_cache_flushes : UInt64
+  translate_cache_vpages : Array[UInt64]
+  translate_cache_satps : Array[UInt64]
+  translate_cache_accesses : Array[Int]
+  translate_cache_privileges : Array[Int]
+  translate_cache_sums : Array[Bool]
+  translate_cache_mxrs : Array[Bool]
+  translate_cache_pa_pages : Array[UInt64]
+  mut translate_cache_hits : UInt64
+  mut translate_cache_misses : UInt64
+  mut translate_cache_fills : UInt64
+  mut translate_cache_flushes : UInt64
 }
 pub fn Runner::clint_mtime(Self) -> UInt64
 pub fn Runner::clint_mtimecmp(Self) -> UInt64
 pub fn Runner::config(Self) -> MachineConfig
+pub fn Runner::decode_cache_fill_count(Self) -> UInt64
+pub fn Runner::decode_cache_flush_count(Self) -> UInt64
+pub fn Runner::decode_cache_hit_count(Self) -> UInt64
+pub fn Runner::decode_cache_miss_count(Self) -> UInt64
+pub fn Runner::load_dtb(Self, Bytes) -> Unit
 pub fn Runner::load_elf(Self, Bytes) -> LoadElfResult
 pub fn Runner::load_program(Self, Bytes, UInt) -> Unit
 pub fn Runner::load_program_u64(Self, Bytes, UInt64) -> Unit
@@ -210,11 +298,25 @@ pub fn Runner::pc_u64(Self) -> UInt64
 pub fn Runner::privilege_mode(Self) -> PrivilegeMode
 pub fn Runner::read_csr(Self, Int) -> UInt
 pub fn Runner::read_csr_u64(Self, Int) -> UInt64
+pub fn Runner::read_freg_u64(Self, Int) -> UInt64
 pub fn Runner::read_reg(Self, Int) -> UInt
 pub fn Runner::read_reg_u64(Self, Int) -> UInt64
+pub fn Runner::read_vreg_u64(Self, Int, Int) -> UInt64
 pub fn Runner::run(Self, Int) -> StepResult
+pub fn Runner::setup_boot_abi(Self) -> Unit
+pub fn Runner::setup_fw_dynamic_handoff(Self, UInt64, UInt64, UInt64) -> Unit
 pub fn Runner::step(Self) -> StepResult
+pub fn Runner::translate_cache_fill_count(Self) -> UInt64
+pub fn Runner::translate_cache_flush_count(Self) -> UInt64
+pub fn Runner::translate_cache_hit_count(Self) -> UInt64
+pub fn Runner::translate_cache_miss_count(Self) -> UInt64
+pub fn Runner::uart_clear_output(Self) -> Unit
 pub fn Runner::uart_drain(Self) -> String
+pub fn Runner::uart_output_byte_at(Self, Int) -> Int
+pub fn Runner::uart_output_length(Self) -> Int
+pub fn Runner::uart_push_input(Self, String) -> Unit
+pub fn Runner::uart_push_input_byte(Self, Int) -> Unit
+pub fn Runner::write_memory_bytes(Self, UInt64, Bytes) -> Unit
 
 pub enum StepResult {
   Running
@@ -237,6 +339,12 @@ pub enum TrapCause {
   EnvironmentCallFromUMode
   EnvironmentCallFromSMode
   EnvironmentCallFromMMode
+  SupervisorSoftwareInterrupt
+  MachineSoftwareInterrupt
+  SupervisorTimerInterrupt
+  MachineTimerInterrupt
+  SupervisorExternalInterrupt
+  MachineExternalInterrupt
 }
 
 pub struct TrapInfo {

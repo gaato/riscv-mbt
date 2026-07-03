@@ -1,5 +1,6 @@
 // Official rv32ui gating tests that keep the refactored execute path honest
 // against upstream-style pass/fail binaries.
+
 ///|
 async test "refactored execute path keeps official rv32ui gating subset green" {
   let cases = load_official_riscv_test_cases().filter(fn(test_case) {

@@ -1,6 +1,7 @@
 // Scalar instruction execution, trap routing, CSR side effects, fetch/decode
 // dispatch, and Sv39 translation entry points. Code here should preserve
 // architectural ordering: timer update, interrupt delivery, fetch, execute.
+
 ///|
 fn Runner::xlen_bits(self : Runner) -> Int {
   match self.config.xlen {
@@ -1492,6 +1493,10 @@ pub fn Runner::step(self : Runner) -> StepResult {
       self.execute_vector_memory_first_slice(
         instruction, current_pc, next_pc, raw,
       )
+    Vlse32V(_, _, _) =>
+      self.execute_vector_memory_first_slice(
+        instruction, current_pc, next_pc, raw,
+      )
     Vse8V(_, _) =>
       self.execute_vector_memory_first_slice(
         instruction, current_pc, next_pc, raw,
@@ -1505,6 +1510,10 @@ pub fn Runner::step(self : Runner) -> StepResult {
         instruction, current_pc, next_pc, raw,
       )
     Vse64V(_, _) =>
+      self.execute_vector_memory_first_slice(
+        instruction, current_pc, next_pc, raw,
+      )
+    Vsse32V(_, _, _) =>
       self.execute_vector_memory_first_slice(
         instruction, current_pc, next_pc, raw,
       )

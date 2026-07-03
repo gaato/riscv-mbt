@@ -1,4 +1,5 @@
 // Minimal command entry point kept for quick manual smoke checks of the package.
+
 ///|
 fn main {
   let runner = @riscv.make_runner(@riscv.default_machine_config())

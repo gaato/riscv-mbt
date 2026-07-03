@@ -1,6 +1,7 @@
 // Core architectural state, public runner API, memory bus, ELF loading, and
 // machine presets. Keep hardware-facing constants here so execution, decode,
 // and platform code share one architectural vocabulary.
+
 ///|
 pub enum Xlen {
   Xlen32
@@ -175,10 +176,12 @@ pub enum Instruction {
   Vle16V(Int, Int)
   Vle32V(Int, Int)
   Vle64V(Int, Int)
+  Vlse32V(Int, Int, Int)
   Vse8V(Int, Int)
   Vse16V(Int, Int)
   Vse32V(Int, Int)
   Vse64V(Int, Int)
+  Vsse32V(Int, Int, Int)
   Jal(Int, Int)
   Jalr(Int, Int, Int)
   Csrrw(Int, Int, Int)

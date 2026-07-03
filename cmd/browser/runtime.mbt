@@ -1,5 +1,6 @@
 // Browser-facing runtime state and byte-oriented exports. Keep this boundary
 // stable for JavaScript: artifacts, UART bytes, and status counters cross here.
+
 ///|
 let browser_run_tick_budget : Int = 4096
 

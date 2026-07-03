@@ -1,5 +1,6 @@
 // Wasm export surface for the browser demo. This file should stay thin and
 // delegate real guest behavior to BrowserRuntime and the shared Runner.
+
 ///|
 let browser_runtime : Ref[BrowserRuntime] = { val: BrowserRuntime::new_smoke() }
 

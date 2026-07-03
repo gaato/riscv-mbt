@@ -1,5 +1,6 @@
 // Native Alpine boot probe. This command is a host-side integration harness
 // for checking Linux/OpenSBI/Alpine progress without involving the browser UI.
+
 ///|
 let opensbi_path = "_build/opensbi-riscv64-fw_dynamic.bin"
 

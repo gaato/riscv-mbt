@@ -1,5 +1,6 @@
 // Decode-only regressions. These tests should prove bit encodings and extension
 // gating without depending on execution side effects.
+
 ///|
 test "decode addi fields" {
   match decode(encode_i(-4, 2, 0x0U, 1, 0x13U)) {
@@ -295,6 +296,14 @@ test "decode first vector memory slice" {
     }
     _ => fail("expected vle64.v")
   }
+  match decode(encode_vlse32(17, 18, 19, true)) {
+    Vlse32V(vd, rs1, rs2) => {
+      assert_eq(vd, 17)
+      assert_eq(rs1, 18)
+      assert_eq(rs2, 19)
+    }
+    _ => fail("expected vlse32.v")
+  }
   match decode(encode_vse8(9, 10, true)) {
     Vse8V(vs3, rs1) => {
       assert_eq(vs3, 9)
@@ -322,6 +331,14 @@ test "decode first vector memory slice" {
       assert_eq(rs1, 16)
     }
     _ => fail("expected vse64.v")
+  }
+  match decode(encode_vsse32(20, 21, 22, true)) {
+    Vsse32V(vs3, rs1, rs2) => {
+      assert_eq(vs3, 20)
+      assert_eq(rs1, 21)
+      assert_eq(rs2, 22)
+    }
+    _ => fail("expected vsse32.v")
   }
 }
 

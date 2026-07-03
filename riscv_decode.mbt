@@ -1,6 +1,7 @@
 // Instruction bitfield extraction, decode tables, compressed expansion, and
 // extension gating. Decode should classify bits only; architectural side
 // effects belong in the execute files.
+
 ///|
 fn rd(raw : UInt) -> Int {
   ((raw >> 7) & 0x1fU).reinterpret_as_int()
@@ -980,10 +981,12 @@ fn instruction_supported_for_current_config(
     Vle16V(_, _) => has_v
     Vle32V(_, _) => has_v
     Vle64V(_, _) => has_v
+    Vlse32V(_, _, _) => has_v
     Vse8V(_, _) => has_v
     Vse16V(_, _) => has_v
     Vse32V(_, _) => has_v
     Vse64V(_, _) => has_v
+    Vsse32V(_, _, _) => has_v
     // C.JAL exists only on RV32C; the 32-bit JAL x1 form remains legal on both widths.
     Jal(rd, _) => !(length == 2 && rd == 1 && xlen == XLEN_64)
     _ => true
@@ -1094,35 +1097,16 @@ pub fn decode(raw : UInt) -> Instruction {
     0x07U =>
       if ((raw >> 29) & 0x7U) == 0U &&
         ((raw >> 28) & 0x1U) == 0U &&
-        ((raw >> 26) & 0x3U) == 0U &&
-        ((raw >> 20) & 0x1fU) == 0U {
-        match funct3(raw) {
-          0x0U =>
-            if ((raw >> 25) & 0x1U) == 1U {
-              Vle8V(rd(raw), rs1(raw))
-            } else {
-              Unknown(raw)
-            }
-          0x5U =>
-            if ((raw >> 25) & 0x1U) == 1U {
-              Vle16V(rd(raw), rs1(raw))
-            } else {
-              Unknown(raw)
-            }
-          0x6U =>
-            if ((raw >> 25) & 0x1U) == 1U {
-              Vle32V(rd(raw), rs1(raw))
-            } else {
-              Unknown(raw)
-            }
-          0x7U =>
-            if ((raw >> 25) & 0x1U) == 1U {
-              Vle64V(rd(raw), rs1(raw))
-            } else {
-              Unknown(raw)
-            }
-          0x2U => Flw(rd(raw), rs1(raw), imm_i(raw))
-          0x3U => Fld(rd(raw), rs1(raw), imm_i(raw))
+        ((raw >> 25) & 0x1U) == 1U {
+        let mop = (raw >> 26) & 0x3U
+        match (mop, funct3(raw)) {
+          (0x0U, 0x0U) if rs2(raw) == 0 => Vle8V(rd(raw), rs1(raw))
+          (0x0U, 0x5U) if rs2(raw) == 0 => Vle16V(rd(raw), rs1(raw))
+          (0x0U, 0x6U) if rs2(raw) == 0 => Vle32V(rd(raw), rs1(raw))
+          (0x0U, 0x7U) if rs2(raw) == 0 => Vle64V(rd(raw), rs1(raw))
+          (0x2U, 0x6U) => Vlse32V(rd(raw), rs1(raw), rs2(raw))
+          (_, 0x2U) => Flw(rd(raw), rs1(raw), imm_i(raw))
+          (_, 0x3U) => Fld(rd(raw), rs1(raw), imm_i(raw))
           _ => Unknown(raw)
         }
       } else {
@@ -1143,35 +1127,16 @@ pub fn decode(raw : UInt) -> Instruction {
     0x27U =>
       if ((raw >> 29) & 0x7U) == 0U &&
         ((raw >> 28) & 0x1U) == 0U &&
-        ((raw >> 26) & 0x3U) == 0U &&
-        ((raw >> 20) & 0x1fU) == 0U {
-        match funct3(raw) {
-          0x0U =>
-            if ((raw >> 25) & 0x1U) == 1U {
-              Vse8V(rd(raw), rs1(raw))
-            } else {
-              Unknown(raw)
-            }
-          0x5U =>
-            if ((raw >> 25) & 0x1U) == 1U {
-              Vse16V(rd(raw), rs1(raw))
-            } else {
-              Unknown(raw)
-            }
-          0x6U =>
-            if ((raw >> 25) & 0x1U) == 1U {
-              Vse32V(rd(raw), rs1(raw))
-            } else {
-              Unknown(raw)
-            }
-          0x7U =>
-            if ((raw >> 25) & 0x1U) == 1U {
-              Vse64V(rd(raw), rs1(raw))
-            } else {
-              Unknown(raw)
-            }
-          0x2U => Fsw(rs1(raw), rs2(raw), imm_s(raw))
-          0x3U => Fsd(rs1(raw), rs2(raw), imm_s(raw))
+        ((raw >> 25) & 0x1U) == 1U {
+        let mop = (raw >> 26) & 0x3U
+        match (mop, funct3(raw)) {
+          (0x0U, 0x0U) if rs2(raw) == 0 => Vse8V(rd(raw), rs1(raw))
+          (0x0U, 0x5U) if rs2(raw) == 0 => Vse16V(rd(raw), rs1(raw))
+          (0x0U, 0x6U) if rs2(raw) == 0 => Vse32V(rd(raw), rs1(raw))
+          (0x0U, 0x7U) if rs2(raw) == 0 => Vse64V(rd(raw), rs1(raw))
+          (0x2U, 0x6U) => Vsse32V(rd(raw), rs1(raw), rs2(raw))
+          (_, 0x2U) => Fsw(rs1(raw), rs2(raw), imm_s(raw))
+          (_, 0x3U) => Fsd(rs1(raw), rs2(raw), imm_s(raw))
           _ => Unknown(raw)
         }
       } else {

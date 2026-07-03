@@ -1,5 +1,6 @@
 // Loader and artifact tests. These verify host-side byte loading and ELF
 // plumbing before the bytes are handed to the emulated machine.
+
 ///|
 test "load_elf places PT_LOAD segments at linked addresses" {
   let load_addr = 0x80000000U

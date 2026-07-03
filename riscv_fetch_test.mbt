@@ -1,5 +1,6 @@
 // Fetch-path regressions. Keep these separate from execute tests so instruction
 // length, alignment, and memory-read failures stay easy to diagnose.
+
 ///|
 test "32-bit fetch path still advances pc by 4" {
   let runner = make_runner(default_machine_config())

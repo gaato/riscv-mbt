@@ -1,6 +1,7 @@
 // End-to-end execution regressions for scalar, privileged, floating-point,
 // vector, platform, and Linux/OpenSBI paths. Prefer small architectural
 // programs over snapshots so failures point to a specific contract.
+
 ///|
 fn test_sign_extend_word64(value : UInt) -> UInt64 {
   let shifted = value.to_uint64() << 32
@@ -1976,6 +1977,57 @@ test "rv64fdv vector memory supports lmul2 register groups" {
         0x240U.to_uint64() + (elem * 4).reinterpret_as_uint().to_uint64(),
       ),
       (0x20 + elem).reinterpret_as_uint().to_uint64(),
+    )
+  }
+}
+
+///|
+test "rv64fdv vector memory supports strided e32 loads and stores" {
+  let load32 = make_runner(rv64fdv_machine_config())
+  load32.load_program(
+    words_to_bytes([
+      encode_vsetivli(0, 4U, test_vector_vtypei_for_sew(32)),
+      encode_vlse32(4, 10, 11, true),
+    ]),
+    0U,
+  )
+  load32.cpu.write_reg(10, 0x300U.to_uint64())
+  load32.cpu.write_reg(11, 8U.to_uint64())
+  for elem in 0..<4 {
+    load32.bus.store_u32(
+      0x300U.to_uint64() + (elem * 8).reinterpret_as_uint().to_uint64(),
+      (0x30 + elem).reinterpret_as_uint().to_uint64(),
+    )
+  }
+  match load32.run(2) {
+    Running => ()
+    _ => fail("expected vlse32.v sequence to run")
+  }
+  assert_eq(load32.read_vreg_u64(4, 0), test_join_u64(0x31U, 0x30U))
+  assert_eq(load32.read_vreg_u64(4, 1), test_join_u64(0x33U, 0x32U))
+
+  let store32 = make_runner(rv64fdv_machine_config())
+  store32.load_program(
+    words_to_bytes([
+      encode_vsetivli(0, 4U, test_vector_vtypei_for_sew(32)),
+      encode_vsse32(4, 10, 11, true),
+    ]),
+    0U,
+  )
+  store32.cpu.write_vreg(4, 0, test_join_u64(0x41U, 0x40U))
+  store32.cpu.write_vreg(4, 1, test_join_u64(0x43U, 0x42U))
+  store32.cpu.write_reg(10, 0x340U.to_uint64())
+  store32.cpu.write_reg(11, 8U.to_uint64())
+  match store32.run(2) {
+    Running => ()
+    _ => fail("expected vsse32.v sequence to run")
+  }
+  for elem in 0..<4 {
+    assert_eq(
+      store32.bus.load_u32(
+        0x340U.to_uint64() + (elem * 8).reinterpret_as_uint().to_uint64(),
+      ),
+      (0x40 + elem).reinterpret_as_uint().to_uint64(),
     )
   }
 }
