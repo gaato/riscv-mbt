@@ -17,6 +17,7 @@ initrd_format="${ALPINE_INITRD_FORMAT:-cpio}"
 initrd_profile="${ALPINE_INITRD_PROFILE:-tiny}"
 init_style="${ALPINE_INIT_STYLE:-static}"
 timebase_frequency="${ALPINE_TIMEBASE_FREQUENCY:-100000000}"
+bootargs="${ALPINE_BOOTARGS:-earlycon=sbi earlycon console=ttyS0,3686400 root=/dev/ram0 rdinit=/init}"
 case "$initrd_format" in
   cpio|gzip) ;;
   *)
@@ -129,6 +130,7 @@ initrd_start="$((initrd_addr))"
 initrd_end="$((initrd_start + initrd_size))"
 
 python3 "$repo_root/tools/build_minimal_dtb.py" \
+  --bootargs "$bootargs" \
   --timebase-frequency "$timebase_frequency" \
   --initrd-start "$(printf '0x%x' "$initrd_start")" \
   --initrd-end "$(printf '0x%x' "$initrd_end")" \
@@ -146,3 +148,4 @@ printf 'initrd gzip: %s (%s bytes)\n' \
   "$(wc -c < "$repo_root/_build/$initrd_gzip_name")"
 printf 'dtb: %s\n' "$repo_root/_build/minimal-alpine.dtb"
 printf 'timebase-frequency: %s\n' "$timebase_frequency"
+printf 'bootargs: %s\n' "$bootargs"
