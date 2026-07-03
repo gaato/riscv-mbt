@@ -6,6 +6,8 @@ let initrd_addr : UInt64 = 0x84000000U.to_uint64()
 let fw_dynamic_info_addr : UInt64 = 0x80100000U.to_uint64()
 let kernel_entry_addr : UInt64 = 0x80200000U.to_uint64()
 let alpine_marker = "riscv-mbt Alpine initramfs ready"
+let initramfs_unpack_marker_old = "Trying to unpack rootfs image as initramfs"
+let initramfs_unpack_marker_new = "Unpacking initramfs..."
 let default_max_steps = 300000000
 let drain_interval = 1000000
 
@@ -59,7 +61,7 @@ async fn main {
   let mut trapped = false
   while steps < max_steps {
     match runner.step() {
-      @riscv.Running => {
+      Running => {
         steps = steps + 1
         if steps % drain_interval == 0 {
           let partial = runner.uart_drain()
@@ -72,7 +74,7 @@ async fn main {
           }
         }
       }
-      @riscv.Trap(info) => {
+      Trap(info) => {
         trapped = true
         outcome = "trap pc=" + info.faulting_pc.to_string() +
           " tval=" + info.trap_value.to_string()
@@ -101,7 +103,10 @@ async fn main {
   println("contains_linux_version=" + output.contains("Linux version").to_string())
   println(
     "contains_initramfs_unpack=" +
-    output.contains("Trying to unpack rootfs image as initramfs").to_string(),
+    (
+      output.contains(initramfs_unpack_marker_old) ||
+      output.contains(initramfs_unpack_marker_new)
+    ).to_string(),
   )
   println("contains_alpine_marker=" + output.contains(alpine_marker).to_string())
   let tail_start = if output.length() > 2000 { output.length() - 2000 } else { 0 }
