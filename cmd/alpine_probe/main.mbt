@@ -6,6 +6,8 @@ let initrd_addr : UInt64 = 0x84000000U.to_uint64()
 let fw_dynamic_info_addr : UInt64 = 0x80100000U.to_uint64()
 let kernel_entry_addr : UInt64 = 0x80200000U.to_uint64()
 let alpine_marker = "riscv-mbt Alpine initramfs ready"
+let alpine_shell_marker = "riscv-mbt Alpine shell alive"
+let alpine_shell_prompt_marker = "/ #"
 let initramfs_unpack_marker_old = "Trying to unpack rootfs image as initramfs"
 let initramfs_unpack_marker_new = "Unpacking initramfs..."
 let run_init_marker = "Run /init as init process"
@@ -95,8 +97,15 @@ async fn main {
           if partial.length() > 0 {
             output = output + partial
             last_output_steps = steps
-            if output.contains(alpine_marker) {
+            if output.contains(alpine_shell_prompt_marker) {
+              outcome = "alpine-shell-prompt"
+              break
+            } else if output.contains(alpine_shell_marker) {
+              outcome = "alpine-shell"
+            } else if output.contains(alpine_marker) {
               outcome = "alpine-marker"
+            }
+            if outcome == "alpine-shell-prompt" {
               break
             }
           }
@@ -116,6 +125,12 @@ async fn main {
   }
   if outcome == "timeout" && output.contains(alpine_marker) {
     outcome = "alpine-marker"
+  }
+  if output.contains(alpine_shell_marker) {
+    outcome = "alpine-shell"
+  }
+  if output.contains(alpine_shell_prompt_marker) {
+    outcome = "alpine-shell-prompt"
   }
   println("Alpine native probe")
   println("outcome=" + outcome)
@@ -151,6 +166,11 @@ async fn main {
   println("contains_run_init=" + output.contains(run_init_marker).to_string())
   println("contains_rootfs=" + output.contains(rootfs_marker).to_string())
   println("contains_alpine_marker=" + output.contains(alpine_marker).to_string())
+  println("contains_alpine_shell=" + output.contains(alpine_shell_marker).to_string())
+  println(
+    "contains_alpine_shell_prompt=" +
+    output.contains(alpine_shell_prompt_marker).to_string(),
+  )
   let tail_start = if output.length() > 5000 { output.length() - 5000 } else { 0 }
   println("tail:")
   println(output[tail_start:].to_owned())

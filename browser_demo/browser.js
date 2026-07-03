@@ -232,9 +232,13 @@ function startRunning() {
 }
 
 async function bootHost() {
+  const query = new URLSearchParams(window.location.search);
   const module = await WebAssembly.compileStreaming(fetch("browser.wasm"));
   const instance = await WebAssembly.instantiate(module, makeWasmImports(module));
   runtime = makeBrowserRuntime(instance.exports);
+  const linuxInputAfterMarker = query.get("linuxInputAfterMarker");
+  const linuxInput = query.get("linuxInput");
+  let linuxInputSent = false;
 
   runtime.init();
   setText(
@@ -281,17 +285,27 @@ async function bootHost() {
     if (runtime.isRunning()) {
       runtime.runTick();
       syncUi();
+      if (
+        !linuxInputSent &&
+        linuxInputAfterMarker &&
+        linuxInput &&
+        runtime.consoleText().includes(linuxInputAfterMarker)
+      ) {
+        linuxInputSent = true;
+        sendInputText(linuxInput);
+        syncUi();
+      }
     }
   }, schedulerPolicy.intervalMs);
   syncUi();
-  const smokeInput = new URLSearchParams(window.location.search).get("smokeInput");
+  const smokeInput = query.get("smokeInput");
   if (smokeInput) {
     sendInputText(smokeInput);
     syncUi();
   }
-  if (new URLSearchParams(window.location.search).get("guest") === "linux") {
+  if (query.get("guest") === "linux") {
     loadLinuxArtifacts().then(() => {
-      if (new URLSearchParams(window.location.search).get("autoRun") === "1") {
+      if (query.get("autoRun") === "1") {
         startRunning();
       }
     }).catch((error) => {

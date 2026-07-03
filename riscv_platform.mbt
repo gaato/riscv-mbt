@@ -65,13 +65,73 @@ let clint_mtimecmp_lo_offset : UInt64 = 0x4000U.to_uint64()
 // ---------------------------------------------------------------------------
 
 ///|
+let uart_ier_thri : Byte = 0x02U.to_byte()
+
+let uart_ier_rdi : Byte = 0x01U.to_byte()
+
+let uart_iir_no_interrupt : UInt64 = 0x01U.to_uint64()
+
+let uart_iir_thre : UInt64 = 0x02U.to_uint64()
+
+let uart_iir_rdi : UInt64 = 0x04U.to_uint64()
+
+let uart_lcr_dlab : Byte = 0x80U.to_byte()
+
+let plic_uart_source : Int = 10
+
+///|
+fn Runner::uart_dlab(self : Runner) -> Bool {
+  (self.uart_lcr[0].to_int() & uart_lcr_dlab.to_int()) != 0
+}
+
+///|
+fn Runner::uart_thre_interrupt_pending(self : Runner) -> Bool {
+  (self.uart_ier[0].to_int() & uart_ier_thri.to_int()) != 0
+}
+
+///|
+fn Runner::uart_rdi_interrupt_pending(self : Runner) -> Bool {
+  (self.uart_ier[0].to_int() & uart_ier_rdi.to_int()) != 0 &&
+  !self.uart_input.is_empty()
+}
+
+///|
+fn Runner::uart_interrupt_pending(self : Runner) -> Bool {
+  self.uart_rdi_interrupt_pending() || self.uart_thre_interrupt_pending()
+}
+
+///|
 fn Runner::uart_read(self : Runner, off : UInt64) -> UInt64 {
   // RBR (offset 0): dequeue one pending byte if available.
   if off == 0U.to_uint64() {
+    if self.uart_dlab() {
+      return 0U.to_uint64()
+    }
     match self.uart_input.pop() {
       Some(byte) => return byte.to_uint64()
       None => return 0U.to_uint64()
     }
+  }
+  // IER (offset 1) when DLAB is clear.
+  if off == 1U.to_uint64() {
+    if self.uart_dlab() {
+      return 0U.to_uint64()
+    }
+    return self.uart_ier[0].to_uint64()
+  }
+  // IIR (offset 2): report receive-data before transmit-empty.
+  if off == 2U.to_uint64() {
+    return if self.uart_rdi_interrupt_pending() {
+      uart_iir_rdi
+    } else if self.uart_thre_interrupt_pending() {
+      uart_iir_thre
+    } else {
+      uart_iir_no_interrupt
+    }
+  }
+  // LCR (offset 3)
+  if off == 3U.to_uint64() {
+    return self.uart_lcr[0].to_uint64()
   }
   // LSR (offset 5): always report THRE+TEMT (TX empty)
   if off == 5U.to_uint64() {
@@ -89,7 +149,27 @@ fn Runner::uart_read(self : Runner, off : UInt64) -> UInt64 {
 fn Runner::uart_write(self : Runner, off : UInt64, value : UInt64) -> Unit {
   // THR (offset 0): capture the character
   if off == 0U.to_uint64() {
+    if self.uart_dlab() {
+      return
+    }
     self.uart_output.push(value.to_byte())
+    return
+  }
+  // IER (offset 1) when DLAB is clear.
+  if off == 1U.to_uint64() {
+    if self.uart_dlab() {
+      return
+    }
+    self.uart_ier[0] = (value & 0x0fU.to_uint64()).to_byte()
+    return
+  }
+  // FCR (offset 2): accepted but FIFO state is not modeled.
+  if off == 2U.to_uint64() {
+    return
+  }
+  // LCR (offset 3): needed so divisor writes do not look like THR/IER.
+  if off == 3U.to_uint64() {
+    self.uart_lcr[0] = value.to_byte()
   }
 }
 
@@ -100,8 +180,67 @@ fn Runner::uart_write(self : Runner, off : UInt64, value : UInt64) -> Unit {
 // ---------------------------------------------------------------------------
 
 ///|
+fn Runner::plic_source_priority(self : Runner, source : Int) -> UInt64 {
+  let idx = source * 4
+  if idx + 3 < self.plic_regs.length() {
+    self.plic_regs[idx].to_uint64() |
+    (self.plic_regs[idx + 1].to_uint64() << 8) |
+    (self.plic_regs[idx + 2].to_uint64() << 16) |
+    (self.plic_regs[idx + 3].to_uint64() << 24)
+  } else {
+    0U.to_uint64()
+  }
+}
+
+///|
+fn Runner::plic_context_enabled(self : Runner, context : Int, source : Int) -> Bool {
+  let idx = 0x2000 + context * 0x80 + source / 8
+  if idx < self.plic_regs.length() {
+    ((self.plic_regs[idx].to_int() >> (source % 8)) & 1) != 0
+  } else {
+    false
+  }
+}
+
+///|
+fn Runner::plic_context_threshold(self : Runner, context : Int) -> UInt64 {
+  let idx = 0x200000 + context * 0x1000
+  if idx + 3 < self.plic_regs.length() {
+    self.plic_regs[idx].to_uint64() |
+    (self.plic_regs[idx + 1].to_uint64() << 8) |
+    (self.plic_regs[idx + 2].to_uint64() << 16) |
+    (self.plic_regs[idx + 3].to_uint64() << 24)
+  } else {
+    0U.to_uint64()
+  }
+}
+
+///|
+fn Runner::plic_uart_claimable_for_context(self : Runner, context : Int) -> Bool {
+  if !self.uart_interrupt_pending() {
+    return false
+  }
+  let priority = self.plic_source_priority(plic_uart_source)
+  priority > self.plic_context_threshold(context) &&
+  self.plic_context_enabled(context, plic_uart_source)
+}
+
+///|
+fn Runner::plic_any_uart_claimable(self : Runner) -> Bool {
+  self.plic_uart_claimable_for_context(0) ||
+  self.plic_uart_claimable_for_context(1)
+}
+
+///|
 fn Runner::plic_read_u8(self : Runner, off : UInt64) -> UInt64 {
   let idx = off.to_int()
+  if idx >= 0x1000 && idx < 0x1080 {
+    let source_byte = plic_uart_source / 8
+    if idx == 0x1000 + source_byte && self.uart_interrupt_pending() {
+      return self.plic_regs[idx].to_uint64() |
+        (1U.to_uint64() << (plic_uart_source % 8))
+    }
+  }
   if idx < self.plic_regs.length() {
     self.plic_regs[idx].to_uint64()
   } else {
@@ -112,10 +251,27 @@ fn Runner::plic_read_u8(self : Runner, off : UInt64) -> UInt64 {
 ///|
 fn Runner::plic_read_u32(self : Runner, off : UInt64) -> UInt64 {
   let idx = off.to_int()
-  // Claim register: offset 0x200004 + context*0x1000, always returns 0
+  if idx == 0x1000 {
+    let pending = if self.uart_interrupt_pending() {
+      1U.to_uint64() << plic_uart_source
+    } else {
+      0U.to_uint64()
+    }
+    return self.plic_regs[idx].to_uint64() |
+      (self.plic_regs[idx + 1].to_uint64() << 8) |
+      (self.plic_regs[idx + 2].to_uint64() << 16) |
+      (self.plic_regs[idx + 3].to_uint64() << 24) |
+      pending
+  }
+  // Claim register: offset 0x200004 + context*0x1000
   let ctx_off = idx - 0x200000
   if ctx_off >= 0 && ctx_off % 0x1000 == 4 {
-    return 0U.to_uint64()
+    let context = ctx_off / 0x1000
+    return if self.plic_uart_claimable_for_context(context) {
+      plic_uart_source.reinterpret_as_uint().to_uint64()
+    } else {
+      0U.to_uint64()
+    }
   }
   if idx + 3 < self.plic_regs.length() {
     self.plic_regs[idx].to_uint64() |
@@ -502,6 +658,10 @@ let mip_mtip_bit : UInt64 = 0x80U.to_uint64() // bit 7
 
 let mip_msip_bit : UInt64 = 0x08U.to_uint64() // bit 3
 
+let mip_meip_bit : UInt64 = 0x800U.to_uint64() // bit 11
+
+let mip_seip_bit : UInt64 = 0x200U.to_uint64() // bit 9
+
 ///|
 fn Runner::update_timer(self : Runner) -> Unit {
   if self.config.clint_base == 0U.to_uint64() {
@@ -522,7 +682,14 @@ fn Runner::update_timer(self : Runner) -> Unit {
   } else {
     new_mip & bit_not(mip_msip_bit)
   }
-  self.cpu.write_csr(CSR_MIP, new_mip2)
+  let external_pending = self.config.plic_base != 0U.to_uint64() &&
+    self.plic_any_uart_claimable()
+  let new_mip3 = if external_pending {
+    new_mip2 | mip_meip_bit | mip_seip_bit
+  } else {
+    new_mip2 & bit_not(mip_meip_bit | mip_seip_bit)
+  }
+  self.cpu.write_csr(CSR_MIP, new_mip3)
 }
 
 ///|
