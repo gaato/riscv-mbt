@@ -2834,6 +2834,23 @@ test "AMOADD.D loads old value and stores sum" {
 }
 
 ///|
+test "AMO.W access fault is reported as store/AMO access fault" {
+  let runner = make_runner(default_machine_config())
+  let addr = 0x20000U.to_uint64()
+  runner.cpu.write_reg(1, addr)
+  runner.cpu.write_reg(2, 99U.to_uint64())
+  runner.bus.store_u32(runner.cpu.pc, encode_amo(0x00U, 2, 1, 0x2U, 3).to_uint64())
+  match runner.step() {
+    Trap(info) =>
+      match info.cause {
+        StoreAccessFault => ()
+        _ => fail("expected StoreAccessFault for AMO.W")
+      }
+    _ => fail("expected trap")
+  }
+}
+
+///|
 test "LR.W/SC.W pair succeeds on single hart" {
   let runner = make_runner(virt_machine_config())
   let addr = runner.cpu.pc + 0x100U.to_uint64()

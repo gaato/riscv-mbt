@@ -685,20 +685,15 @@ fn Runner::execute_amo(
         return Running
       }
       // Other AMO.W: load-op-store
-      let (pa, lcheck) = self.load_check(addr, 4)
-      match lcheck {
-        Some(result) => return result
-        None => ()
-      }
-      let (spa, scheck) = self.store_check(addr, 4)
-      match scheck {
+      let (pa, check) = self.store_check(addr, 4)
+      match check {
         Some(result) => return result
         None => ()
       }
       let old_val = xlen_sign_extend(self.phy_load_u32(pa), 32, self.xlen_bits())
       let src = self.cpu.read_reg(rs2)
       let new_val = amo_op(funct5_val, old_val, src, self.xlen_bits())
-      self.phy_store_u32(spa, new_val)
+      self.phy_store_u32(pa, new_val)
       self.write_xlen_reg(rd, old_val)
       self.cpu.pc = next_pc
       Running
@@ -730,20 +725,15 @@ fn Runner::execute_amo(
         return Running
       }
       // Other AMO.D: load-op-store
-      let (pa, lcheck) = self.load_check(addr, 8)
-      match lcheck {
-        Some(result) => return result
-        None => ()
-      }
-      let (spa, scheck) = self.store_check(addr, 8)
-      match scheck {
+      let (pa, check) = self.store_check(addr, 8)
+      match check {
         Some(result) => return result
         None => ()
       }
       let old_val = self.phy_load_u64(pa)
       let src = self.cpu.read_reg(rs2)
       let new_val = amo_op(funct5_val, old_val, src, self.xlen_bits())
-      self.phy_store_u64(spa, new_val)
+      self.phy_store_u64(pa, new_val)
       self.write_xlen_reg(rd, old_val)
       self.cpu.pc = next_pc
       Running
