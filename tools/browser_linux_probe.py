@@ -1,7 +1,10 @@
 #!/usr/bin/env python3
 import argparse
+import socket
 import subprocess
 import sys
+import time
+import urllib.parse
 
 
 def chromium_dump_dom(
@@ -28,34 +31,120 @@ def chromium_dump_dom(
     return result.stdout
 
 
+def pick_free_port() -> int:
+    with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+        sock.bind(("127.0.0.1", 0))
+        return int(sock.getsockname()[1])
+
+
+def wait_for_server(port: int) -> None:
+    deadline = time.monotonic() + 5.0
+    while time.monotonic() < deadline:
+        with socket.socket(socket.AF_INET, socket.SOCK_STREAM) as sock:
+            sock.settimeout(0.2)
+            if sock.connect_ex(("127.0.0.1", port)) == 0:
+                return
+        time.sleep(0.05)
+    raise RuntimeError(f"HTTP server did not start on port {port}")
+
+
+def start_http_server(directory: str, port: int) -> subprocess.Popen:
+    process = subprocess.Popen(
+        [
+            sys.executable,
+            "-m",
+            "http.server",
+            str(port),
+            "--bind",
+            "127.0.0.1",
+            "--directory",
+            directory,
+        ],
+        stdout=subprocess.DEVNULL,
+        stderr=subprocess.DEVNULL,
+    )
+    try:
+        wait_for_server(port)
+    except Exception:
+        process.terminate()
+        try:
+            process.wait(timeout=5)
+        except subprocess.TimeoutExpired:
+            process.kill()
+        raise
+    return process
+
+
+def alpine_interactive_url(base_url: str, command: str) -> str:
+    query = urllib.parse.urlencode(
+        {
+            "guest": "linux",
+            "autoRun": "1",
+            "linuxInputAfterMarker": "/ #",
+            "linuxInput": command,
+        }
+    )
+    return f"{base_url}/?{query}"
+
+
 def main() -> int:
     parser = argparse.ArgumentParser()
-    parser.add_argument("url")
+    parser.add_argument("url", nargs="?")
     parser.add_argument("--marker", default="riscv-mbt Alpine initramfs ready")
     parser.add_argument("--budget-ms", type=int, default=600_000)
     parser.add_argument("--wall-timeout", type=float, default=900.0)
     parser.add_argument("--expect", action="append", default=[])
+    parser.add_argument("--serve-dir")
+    parser.add_argument("--port", type=int, default=0)
+    parser.add_argument("--alpine-interactive-smoke", action="store_true")
+    parser.add_argument("--input-command", default="echo browser-input-ok")
     args = parser.parse_args()
 
+    server = None
+    url = args.url
+    marker = args.marker
+    expected = list(args.expect)
+    if args.serve_dir:
+        port = args.port if args.port != 0 else pick_free_port()
+        server = start_http_server(args.serve_dir, port)
+        base_url = f"http://127.0.0.1:{port}"
+        if url is None:
+            url = base_url
+    if args.alpine_interactive_smoke:
+        if url is None:
+            parser.error("--alpine-interactive-smoke requires a url or --serve-dir")
+        marker = "browser-input-ok"
+        expected.extend(["initrd 1443328 bytes", "/ #"])
+        url = alpine_interactive_url(url.rstrip("/"), args.input_command)
+    if url is None:
+        parser.error("url is required unless --serve-dir is used")
+
     try:
-        dom = chromium_dump_dom(args.url, args.budget_ms, args.wall_timeout)
+        dom = chromium_dump_dom(url, args.budget_ms, args.wall_timeout)
     except subprocess.TimeoutExpired:
         print(f"wall-clock timeout after {args.wall_timeout:.1f}s")
         return 4
+    finally:
+        if server is not None:
+            server.terminate()
+            try:
+                server.wait(timeout=5)
+            except subprocess.TimeoutExpired:
+                server.kill()
     sys.stdout.write(dom[-5000:])
     sys.stdout.write("\n")
 
-    missing = [marker for marker in args.expect if marker not in dom]
+    missing = [marker for marker in expected if marker not in dom]
     if missing:
-      print(f"missing expected markers: {', '.join(missing)}")
-      return 2
-    if args.marker in dom:
-        print(f"FOUND marker: {args.marker}")
+        print(f"missing expected markers: {', '.join(missing)}")
+        return 2
+    if marker in dom:
+        print(f"FOUND marker: {marker}")
         return 0
     if "[trap]" in dom:
         print("TRAP marker observed")
         return 3
-    print(f"missing marker: {args.marker}")
+    print(f"missing marker: {marker}")
     return 1
 
 

@@ -100,6 +100,7 @@ moon run cmd/main
 ./scripts/build-rv32i-c-sample.sh
 ./scripts/run-rv32i-c-sample.sh
 ./scripts/build-browser-demo.sh
+python3 tools/browser_linux_probe.py --serve-dir _build/browser-demo --alpine-interactive-smoke --budget-ms 30000 --wall-timeout 180
 moon run cmd/c_sample
 moon run cmd/official_survey -- rv32uc
 moon run cmd/official_survey -- rv64ui
