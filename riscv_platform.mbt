@@ -675,6 +675,12 @@ let mip_meip_bit : UInt64 = 0x800U.to_uint64() // bit 11
 
 let mip_seip_bit : UInt64 = 0x200U.to_uint64() // bit 9
 
+let mip_mtip_clear_mask : UInt64 = bit_not(mip_mtip_bit)
+
+let mip_msip_clear_mask : UInt64 = bit_not(mip_msip_bit)
+
+let mip_external_clear_mask : UInt64 = bit_not(mip_meip_bit | mip_seip_bit)
+
 ///|
 fn Runner::update_timer(self : Runner) -> Unit {
   if self.config.clint_base == 0U.to_uint64() {
@@ -687,20 +693,20 @@ fn Runner::update_timer(self : Runner) -> Unit {
   let new_mip = if self.mtime[0] >= self.all_mtimecmp[hart_id] {
     mip | mip_mtip_bit
   } else {
-    mip & bit_not(mip_mtip_bit)
+    mip & mip_mtip_clear_mask
   }
   // Reflect CLINT MSIP into MIP.MSIP (bit 3)
   let new_mip2 = if self.clint_msip[hart_id] {
     new_mip | mip_msip_bit
   } else {
-    new_mip & bit_not(mip_msip_bit)
+    new_mip & mip_msip_clear_mask
   }
   let external_pending = self.config.plic_base != 0U.to_uint64() &&
     self.plic_any_uart_claimable()
   let new_mip3 = if external_pending {
     new_mip2 | mip_meip_bit | mip_seip_bit
   } else {
-    new_mip2 & bit_not(mip_meip_bit | mip_seip_bit)
+    new_mip2 & mip_external_clear_mask
   }
   if new_mip3 != mip {
     self.cpu.write_csr(CSR_MIP, new_mip3)
