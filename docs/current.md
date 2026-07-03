@@ -66,7 +66,7 @@
 
 ## Next Task
 
-- Next: make the browser Linux artifact path load an Alpine initramfs and measure `wasm` versus `wasm-gc` before committing to a backend ([Task 0058](tasks/0058-alpine-rootfs-browser-boot.md)). Resume the broader vector memory/addressing and first `LMUL>1` slice ([Task 0048](tasks/0048-broader-vector-memory-and-lmul-slice.md)) after the rootfs boot path has a measured baseline.
+- Next: continue the Alpine rootfs boot path after `Run /init as init process` and make the injected `riscv-mbt Alpine initramfs ready` marker observable in browser Wasm ([Task 0058](tasks/0058-alpine-rootfs-browser-boot.md)). The current practical artifact path uses the Alpine `tiny` initramfs profile, uncompressed `newc` cpio, a 100MHz DTB timebase, `wasm-gc`, and a virt platform that exposes `F/D` for Alpine hard-float userland. Resume the broader vector memory/addressing and first `LMUL>1` slice ([Task 0048](tasks/0048-broader-vector-memory-and-lmul-slice.md)) after the Alpine marker is verified.
 
 ## Known Blockers
 
@@ -83,6 +83,7 @@
 - Browser Wasm Linux boot is complete; Alpine rootfs boot is the active task before returning to `0048`.
 - The active goal is now Alpine rootfs boot in browser Wasm. The implementation should alternate spec-driven Linux/RISC-V compatibility work with measured performance work (`moon bench`, browser timing, Context7/DeepWiki/web checks) and periodic git commits. Backend choice between `wasm` and `wasm-gc` is measurement-driven.
 - Initial Alpine probing favors `wasm-gc` for the browser default: it produces a smaller artifact and reaches the same initramfs-unpack point faster than plain `wasm`. Plain `wasm` remains available with `BROWSER_TARGET=wasm`.
+- Alpine bring-up now uses a practical tiny initramfs profile by default. QEMU reaches the injected Alpine marker with that artifact. riscv-mbt native `xxlong` and browser `wasm-gc` both reach `Run /init as init process`; `C.FLD`/`C.FSD` decode and virt `F/D` exposure are in place, but the injected marker is not yet observed in riscv-mbt/browser.
 
 ## Read Next
 

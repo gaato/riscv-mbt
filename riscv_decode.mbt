@@ -1334,6 +1334,7 @@ fn decode_c_q0(raw : UInt, xlen : Int) -> Instruction {
         Addi(c_rd_prime(raw), 2, imm)
       }
     }
+    0x1U => Fld(c_rd_prime(raw), c_rs1_prime(raw), c_uimm_ld_sd(raw))
     0x2U => Lw(c_rd_prime(raw), c_rs1_prime(raw), c_uimm_lw_sw(raw))
     0x3U =>
       if xlen == XLEN_64 {
@@ -1341,6 +1342,7 @@ fn decode_c_q0(raw : UInt, xlen : Int) -> Instruction {
       } else {
         Unknown(raw)
       }
+    0x5U => Fsd(c_rs1_prime(raw), c_rs2_prime(raw), c_uimm_ld_sd(raw))
     0x6U => Sw(c_rs1_prime(raw), c_rs2_prime(raw), c_uimm_lw_sw(raw))
     0x7U =>
       if xlen == XLEN_64 {
@@ -1454,6 +1456,14 @@ fn decode_c_q2(raw : UInt, xlen : Int) -> Instruction {
         Slli(rd, rd, c_imm_ci(raw))
       }
     }
+    0x1U => {
+      let rd = c_rd_rs1(raw)
+      if rd == 0 {
+        Unknown(raw)
+      } else {
+        Fld(rd, 2, c_uimm_ldsp(raw))
+      }
+    }
     0x2U => {
       let rd = c_rd_rs1(raw)
       if rd == 0 {
@@ -1471,6 +1481,7 @@ fn decode_c_q2(raw : UInt, xlen : Int) -> Instruction {
       }
     }
     0x4U => decode_c_q2_cr(raw)
+    0x5U => Fsd(2, c_rs2(raw), c_uimm_sdsp(raw))
     0x6U => Sw(2, c_rs2(raw), c_uimm_swsp(raw))
     0x7U => Sd(2, c_rs2(raw), c_uimm_sdsp(raw))
     _ => Unknown(raw)

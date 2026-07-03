@@ -385,7 +385,7 @@ pub fn rv64fdv_machine_config() -> MachineConfig {
 pub fn virt_machine_config() -> MachineConfig {
   {
     xlen: Xlen64,
-    extensions: current_base_extensions(),
+    extensions: current_base_extensions() | MISA_EXT_F | MISA_EXT_D,
     ram_base: 0x80000000U.to_uint64(),
     ram_size: 0x08000000,
     entry_point: 0x80000000U.to_uint64(),

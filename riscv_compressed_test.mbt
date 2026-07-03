@@ -115,6 +115,24 @@ fn encode_c_sw(rs2 : Int, rs1 : Int, imm : Int) -> Int {
 }
 
 ///|
+fn encode_c_fld(rd : Int, rs1 : Int, imm : Int) -> Int {
+  0x2000 |
+  (((imm >> 3) & 0x7) << 10) |
+  (((rs1 - 8) & 0x7) << 7) |
+  (((imm >> 6) & 0x3) << 5) |
+  (((rd - 8) & 0x7) << 2)
+}
+
+///|
+fn encode_c_fsd(rs2 : Int, rs1 : Int, imm : Int) -> Int {
+  0xa000 |
+  (((imm >> 3) & 0x7) << 10) |
+  (((rs1 - 8) & 0x7) << 7) |
+  (((imm >> 6) & 0x3) << 5) |
+  (((rs2 - 8) & 0x7) << 2)
+}
+
+///|
 fn encode_c_mv(rd : Int, rs2 : Int) -> Int {
   0x8002 | (rd << 7) | (rs2 << 2)
 }
@@ -212,6 +230,23 @@ fn encode_c_swsp(rs2 : Int, imm : Int) -> Int {
 }
 
 ///|
+fn encode_c_fldsp(rd : Int, imm : Int) -> Int {
+  0x2002 |
+  (((imm >> 5) & 0x1) << 12) |
+  (rd << 7) |
+  (((imm >> 6) & 0x7) << 2) |
+  (((imm >> 3) & 0x3) << 5)
+}
+
+///|
+fn encode_c_fsdsp(rs2 : Int, imm : Int) -> Int {
+  0xa002 |
+  (((imm >> 6) & 0x7) << 7) |
+  (((imm >> 3) & 0x7) << 10) |
+  (rs2 << 2)
+}
+
+///|
 fn mixed_program_bytes(parts : Array[(Int, UInt)]) -> Bytes {
   let bytes = []
   for part in parts {
@@ -297,6 +332,31 @@ test "compressed load and store reuse the normal memory execute path" {
   }
   assert_eq(runner.read_reg(11), 7U)
   assert_eq(runner.pc(), 10U)
+}
+
+///|
+test "rv64dc compressed floating load and store reuse double memory path" {
+  let raw = 0x12345678U.to_uint64()
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(8, raw)
+  runner.load_program(
+    mixed_program_bytes([
+      (4, encode_i(32, 0, 0x0U, 10, 0x13U)),
+      (2, encode_c_fsd(8, 10, 112).reinterpret_as_uint()),
+      (2, encode_c_fld(9, 10, 112).reinterpret_as_uint()),
+      (2, encode_c_fsdsp(9, 120).reinterpret_as_uint()),
+      (2, encode_c_fldsp(10, 120).reinterpret_as_uint()),
+    ]),
+    0U,
+  )
+  match runner.run(5) {
+    Running => ()
+    _ => fail("expected compressed floating load/store round trip")
+  }
+  assert_eq(encode_c_fsd(8, 10, 112), 0xb920)
+  assert_eq(runner.read_freg_u64(9), raw)
+  assert_eq(runner.read_freg_u64(10), raw)
+  assert_eq(runner.pc_u64(), 12U.to_uint64())
 }
 
 ///|

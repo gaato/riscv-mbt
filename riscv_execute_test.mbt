@@ -2125,12 +2125,14 @@ test "rv64fdv masked vector arithmetic updates only lanes enabled by v0" {
 ///|
 test "virt machine config exposes virt-like platform addresses" {
   let config = virt_machine_config()
+  let runner = make_runner(config)
   assert_eq(config.ram_base, 0x80000000U.to_uint64())
   assert_eq(config.entry_point, 0x80000000U.to_uint64())
   assert_eq(config.uart0_base, 0x10000000U.to_uint64())
   assert_eq(config.clint_base, 0x02000000U.to_uint64())
   assert_eq(config.plic_base, 0x0C000000U.to_uint64())
   assert_eq(config.dtb_addr, 0x87E00000U.to_uint64())
+  assert_eq((runner.read_csr_u64(0x301) & 0x28U.to_uint64()), 0x28U.to_uint64())
 }
 
 ///|

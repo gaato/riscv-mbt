@@ -14,10 +14,19 @@ uboot_url="$base_url/$uboot_name"
 uboot_sha_url="$uboot_url.sha256"
 initrd_addr="${ALPINE_INITRD_ADDR:-0x84000000}"
 initrd_format="${ALPINE_INITRD_FORMAT:-cpio}"
+initrd_profile="${ALPINE_INITRD_PROFILE:-tiny}"
+timebase_frequency="${ALPINE_TIMEBASE_FREQUENCY:-100000000}"
 case "$initrd_format" in
   cpio|gzip) ;;
   *)
     echo "unsupported ALPINE_INITRD_FORMAT: $initrd_format" >&2
+    exit 1
+    ;;
+esac
+case "$initrd_profile" in
+  full|tiny) ;;
+  *)
+    echo "unsupported ALPINE_INITRD_PROFILE: $initrd_profile" >&2
     exit 1
     ;;
 esac
@@ -57,7 +66,16 @@ tar -xOzf "$build_dir/$uboot_name" ./boot/vmlinuz-lts |
 root_dir="$(mktemp -d "$repo_root/_build/alpine-rootfs.XXXXXX")"
 trap 'rm -rf "$root_dir"' EXIT
 
-tar -xzf "$build_dir/$rootfs_name" -C "$root_dir"
+if [[ "$initrd_profile" == "tiny" ]]; then
+  mkdir -p "$root_dir"/bin "$root_dir"/lib
+  tar -xzf "$build_dir/$rootfs_name" -C "$root_dir" \
+    ./bin/busybox \
+    ./bin/sh \
+    ./lib/ld-musl-riscv64.so.1 \
+    ./lib/libc.musl-riscv64.so.1
+else
+  tar -xzf "$build_dir/$rootfs_name" -C "$root_dir"
+fi
 mkdir -p "$root_dir"/proc "$root_dir"/sys "$root_dir"/dev "$root_dir"/tmp
 cat > "$root_dir/init" <<'EOF'
 #!/bin/sh
@@ -69,17 +87,31 @@ exec /bin/sh
 EOF
 chmod +x "$root_dir/init"
 
-(
-  cd "$root_dir"
-  find . -print0 | cpio --null -o --format=newc > "$repo_root/_build/$initrd_cpio_name"
-  gzip -9c "$repo_root/_build/$initrd_cpio_name" > "$repo_root/_build/$initrd_gzip_name"
-)
+fakeroot sh -c '
+  set -e
+  root_dir="$1"
+  cpio_path="$2"
+  gzip_path="$3"
+  mkdir -p "$root_dir/dev"
+  rm -f "$root_dir/dev/console" "$root_dir/dev/null" "$root_dir/dev/zero" "$root_dir/dev/tty"
+  mknod -m 600 "$root_dir/dev/console" c 5 1
+  mknod -m 666 "$root_dir/dev/null" c 1 3
+  mknod -m 666 "$root_dir/dev/zero" c 1 5
+  mknod -m 666 "$root_dir/dev/tty" c 5 0
+  chown -hR 0:0 "$root_dir"
+  (
+    cd "$root_dir"
+    find . -print0 | cpio --null -o --format=newc > "$cpio_path"
+  )
+  gzip -9c "$cpio_path" > "$gzip_path"
+' sh "$root_dir" "$repo_root/_build/$initrd_cpio_name" "$repo_root/_build/$initrd_gzip_name"
 
 initrd_size="$(wc -c < "$repo_root/_build/$initrd_name")"
 initrd_start="$((initrd_addr))"
 initrd_end="$((initrd_start + initrd_size))"
 
 python3 "$repo_root/tools/build_minimal_dtb.py" \
+  --timebase-frequency "$timebase_frequency" \
   --initrd-start "$(printf '0x%x' "$initrd_start")" \
   --initrd-end "$(printf '0x%x' "$initrd_end")" \
   > "$repo_root/_build/minimal-alpine.dtb"
@@ -88,10 +120,11 @@ printf 'alpine rootfs: %s\n' "$build_dir/$rootfs_name"
 printf 'kernel image: %s (%s bytes)\n' \
   "$repo_root/_build/linux-kernel-riscv64" \
   "$(wc -c < "$repo_root/_build/linux-kernel-riscv64")"
-printf 'initrd: %s (%s bytes, format=%s) @ 0x%x..0x%x\n' \
-  "$repo_root/_build/$initrd_name" "$initrd_size" "$initrd_format" \
+printf 'initrd: %s (%s bytes, format=%s, profile=%s) @ 0x%x..0x%x\n' \
+  "$repo_root/_build/$initrd_name" "$initrd_size" "$initrd_format" "$initrd_profile" \
   "$initrd_start" "$initrd_end"
 printf 'initrd gzip: %s (%s bytes)\n' \
   "$repo_root/_build/$initrd_gzip_name" \
   "$(wc -c < "$repo_root/_build/$initrd_gzip_name")"
 printf 'dtb: %s\n' "$repo_root/_build/minimal-alpine.dtb"
+printf 'timebase-frequency: %s\n' "$timebase_frequency"

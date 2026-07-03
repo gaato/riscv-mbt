@@ -13,6 +13,7 @@ Usage:
   python3 tools/build_minimal_dtb.py > _build/minimal.dtb
   python3 tools/build_minimal_dtb.py --moonbit   # print MoonBit byte literal
   python3 tools/build_minimal_dtb.py --initrd-start 0x84000000 --initrd-end 0x84400000 > _build/minimal-alpine.dtb
+  python3 tools/build_minimal_dtb.py --timebase-frequency 100000000 > _build/minimal-fast-timer.dtb
 """
 
 import argparse
@@ -135,7 +136,7 @@ def build_minimal_dtb(
     b.prop_u32("reg",        0)
     b.prop_str("status",     "okay")
     b.prop_str("compatible", "riscv")
-    b.prop_str("riscv,isa",  "rv64imacsu_zicsr_zifencei")
+    b.prop_str("riscv,isa",  "rv64imafdcsu_zicsr_zifencei")
     b.prop_str("mmu-type",   "riscv,sv39")
 
     b.begin_node("interrupt-controller")
@@ -223,11 +224,13 @@ if __name__ == '__main__':
         "--bootargs",
         default="earlycon=sbi earlycon console=ttyS0,3686400 root=/dev/ram0 rdinit=/init",
     )
+    parser.add_argument("--timebase-frequency", type=lambda value: int(value, 0), default=0x989680)
     parser.add_argument("--initrd-start", type=lambda value: int(value, 0))
     parser.add_argument("--initrd-end", type=lambda value: int(value, 0))
     args = parser.parse_args()
 
     dtb = build_minimal_dtb(
+        timebase_freq=args.timebase_frequency,
         bootargs=args.bootargs,
         initrd_start=args.initrd_start,
         initrd_end=args.initrd_end,

@@ -19,7 +19,7 @@ Alpine is the first target because the official `riscv64` minirootfs is small, c
 ## Work
 
 - Add an initrd artifact path to the browser Linux loader.
-- Build an Alpine `riscv64` initramfs from the official minirootfs.
+- Build an Alpine `riscv64` initramfs from the official minirootfs. The browser-practical default is a `tiny` profile containing Alpine's BusyBox and musl loader/libc; `ALPINE_INITRD_PROFILE=full` still builds the whole minirootfs.
 - Generate a DTB that includes `linux,initrd-start` and `linux,initrd-end` in `/chosen`.
 - Keep OpenSBI handoff aligned with the Linux RISC-V boot ABI: `a0 = hart id`, `a1 = DTB`, `satp = 0`, RV64 kernel at a 2 MiB PMD boundary.
 - Add a repeatable browser proof for reaching the Alpine init process or shell banner.
@@ -65,3 +65,10 @@ Alpine is the first target because the official `riscv64` minirootfs is small, c
 - Switched the default Alpine initramfs artifact to uncompressed `newc` cpio while still generating `.cpio.gz` for comparison. Linux's initramfs buffer format explicitly allows compressed and uncompressed `newc` archives.
 - With the uncompressed cpio initramfs, native Alpine `long` (300M steps) reaches `Unpacking initramfs...` and `workingset` in about 167s wall time. This is still not the injected `/init` marker, but it reaches the initramfs phase much earlier than the prior gzip-based 1B-step observation.
 - Browser `wasm-gc` probe against `/?guest=linux&autoRun=1` with 180s Chromium virtual time loaded the 7,205,888 byte uncompressed initramfs and reached `Unpacking initramfs...`.
+- Added root-owned `/dev/console`, `/dev/null`, `/dev/zero`, and `/dev/tty` device nodes to generated initramfs archives through `fakeroot`, matching Linux early-userspace expectations without requiring host root.
+- Added a `tiny` Alpine initramfs profile sourced from the official minirootfs (`/bin/busybox`, `/bin/sh`, musl loader/libc, `/init`, and minimal pseudo-filesystem directories). This reduces the uncompressed initramfs from about 7.2MB to about 1.4MB and reaches `Freeing initrd memory` in native `long`.
+- Added `ALPINE_TIMEBASE_FREQUENCY`; the practical default is now 100MHz. With the `tiny` profile and 100MHz DTB, native `long` reaches ttyS0 enablement, and native `xxlong` reaches `Run /init as init process`.
+- Cross-checked the same tiny Alpine initramfs under `qemu-system-riscv64`; QEMU reaches the injected `riscv-mbt Alpine initramfs ready` marker, proving the artifact is valid.
+- The native `xxlong` path now reaches `/init`, but the injected marker is still not observed in riscv-mbt. The previous panic was an Alpine hard-float userland issue: musl executed compressed `FSD` (`0xb920`) while the virt machine exposed only `rv64imac`. The emulator now decodes compressed `C.FLD`/`C.FSD` forms, and the virt platform exposes `F/D`; the remaining gap is after `Run /init as init process`.
+- Browser `wasm-gc` probe with the default tiny/100MHz artifacts and 360s Chromium virtual time reaches `Run /init as init process`. The injected Alpine marker is still not observed; the next slice should make the `/init` shell output visible or identify the userland wait after exec.
+- Latest `moon bench` checkpoint: `tight_add_loop_100k_steps` measured about 5.07ms mean across 10 x 20 runs.
