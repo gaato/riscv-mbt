@@ -31,9 +31,13 @@ The first `V` slice is now in place as state/CSR-only bring-up. The next step is
 
 ## Status
 
-- `doing`
+- `done`
 
 ## Progress Notes
 
 - This is the first execute-level `V` slice after state/CSR bring-up
 - The immediate goal is to make vector configuration state executable before widening into arithmetic or vector memory
+- `vsetvli`, `vsetivli`, and `vsetvl` now decode and execute
+- This slice fixes the first concrete config boundary at `VLEN=128`, `SEW={8,16,32,64}`, and `LMUL={1,2,4,8}`
+- Fractional `LMUL` and any other unsupported `vtype` request currently collapse to `vill=1` and `vl=0`
+- Vector arithmetic and vector memory remain out of scope and are deferred to the next task

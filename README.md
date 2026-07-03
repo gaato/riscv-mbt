@@ -40,9 +40,10 @@ This is a general-purpose RISC-V emulator project built in MoonBit. Linux boot a
   - OpenSBI and a virt-like platform are integrated
   - the Linux boot ABI and SMP follow-through are implemented on the current path
 - The first browser host artifact now exists:
-  - `cmd/browser` is a thin JS-target host over the shared core
+  - `cmd/browser` is a thin Wasm-target host over the shared core
   - `./scripts/build-browser-demo.sh` assembles `_build/browser-demo/`
   - the current smoke scope is serial output, UART input, and minimal step/run/reset controls
+- The active browser goal is now to carry this Wasm host through to one-hart Linux boot in the browser
 - Scalar `F` and `D` are now in place on the post-Linux path:
   - the current implementation is explicitly constrained to host IEEE arithmetic
   - only the default rounding mode is supported
@@ -56,8 +57,9 @@ This is a general-purpose RISC-V emulator project built in MoonBit. Linux boot a
   - the public smoke demo is live at `https://gaato.github.io/riscv-mbt/`
 - The post-Linux compatibility target is now fixed as `RV64 Linux Profile v1`
 - The first required compatibility gap for that profile, `F/D`, is now closed in the repo docs and implementation
-- The mainline next step is [Extensions In Priority Order](docs/milestones/09-extensions-a-fd-v-h.md)
-- The next concrete task is [0043 evaluate the first `V` slice](docs/tasks/0043-vector-extension-evaluation.md)
+- The mainline next step is [Browser Wasm Linux Boot](docs/milestones/12-browser-wasm-linux-boot.md)
+- The next concrete task is [0053 boot Linux on one hart in browser Wasm](docs/tasks/0053-browser-one-hart-linux-boot.md)
+- The Wasm browser Linux path alternates implementation and refactor tasks until one-hart Linux boot is repeatable in the browser
 - The optional side branch remains [RV32 supervisor + Sv32](docs/tasks/0009-rv32-supervisor-sv32.md)
 
 ## Read Next
@@ -65,9 +67,15 @@ This is a general-purpose RISC-V emulator project built in MoonBit. Linux boot a
 - [Current State](docs/current.md)
 - [Roadmap](docs/roadmap.md)
 - [Implementation Notes](docs/guides/implementation-notes.md)
+- [Browser Wasm Linux Boot Milestone](docs/milestones/12-browser-wasm-linux-boot.md)
+- [Task 0053](docs/tasks/0053-browser-one-hart-linux-boot.md)
+- [Task 0052](docs/tasks/0052-browser-long-run-refactor.md)
+- [Task 0051](docs/tasks/0051-browser-linux-artifact-loader.md)
+- [Task 0050](docs/tasks/0050-browser-runtime-boundary-refactor.md)
+- [Task 0049](docs/tasks/0049-browser-wasm-smoke-host.md)
 - [Extensions Milestone](docs/milestones/09-extensions-a-fd-v-h.md)
 - [Task 0018](docs/tasks/0018-extensions-a-fd-v-h.md)
-- [Task 0043](docs/tasks/0043-vector-extension-evaluation.md)
+- [ADR 0006](docs/adr/0006-browser-wasm-linux-boot-goal.md)
 - [ADR 0005](docs/adr/0005-post-linux-compatibility-profile.md)
 - [Agent Guide](AGENTS.md)
 

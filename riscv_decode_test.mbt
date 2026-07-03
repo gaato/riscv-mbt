@@ -234,3 +234,148 @@ test "decode scalar d instructions" {
     _ => fail("expected fcvt.d.s")
   }
 }
+
+///|
+test "decode vsetvl family" {
+  match decode(encode_vsetvli(1, 2, 0x10U)) {
+    Vsetvli(rd, rs1, vtypei) => {
+      assert_eq(rd, 1)
+      assert_eq(rs1, 2)
+      assert_eq(vtypei, 0x10U)
+    }
+    _ => fail("expected vsetvli")
+  }
+  match decode(encode_vsetivli(3, 4U, 0x40U)) {
+    Vsetivli(rd, avl, vtypei) => {
+      assert_eq(rd, 3)
+      assert_eq(avl, 4U)
+      assert_eq(vtypei, 0x40U)
+    }
+    _ => fail("expected vsetivli")
+  }
+  match decode(encode_vsetvl(5, 6, 7)) {
+    Vsetvl(rd, rs1, rs2) => {
+      assert_eq(rd, 5)
+      assert_eq(rs1, 6)
+      assert_eq(rs2, 7)
+    }
+    _ => fail("expected vsetvl")
+  }
+}
+
+///|
+test "decode first vector memory slice" {
+  match decode(encode_vle8(1, 2, true)) {
+    Vle8V(vd, rs1) => {
+      assert_eq(vd, 1)
+      assert_eq(rs1, 2)
+    }
+    _ => fail("expected vle8.v")
+  }
+  match decode(encode_vle16(3, 4, true)) {
+    Vle16V(vd, rs1) => {
+      assert_eq(vd, 3)
+      assert_eq(rs1, 4)
+    }
+    _ => fail("expected vle16.v")
+  }
+  match decode(encode_vle32(5, 6, true)) {
+    Vle32V(vd, rs1) => {
+      assert_eq(vd, 5)
+      assert_eq(rs1, 6)
+    }
+    _ => fail("expected vle32.v")
+  }
+  match decode(encode_vle64(7, 8, true)) {
+    Vle64V(vd, rs1) => {
+      assert_eq(vd, 7)
+      assert_eq(rs1, 8)
+    }
+    _ => fail("expected vle64.v")
+  }
+  match decode(encode_vse8(9, 10, true)) {
+    Vse8V(vs3, rs1) => {
+      assert_eq(vs3, 9)
+      assert_eq(rs1, 10)
+    }
+    _ => fail("expected vse8.v")
+  }
+  match decode(encode_vse16(11, 12, true)) {
+    Vse16V(vs3, rs1) => {
+      assert_eq(vs3, 11)
+      assert_eq(rs1, 12)
+    }
+    _ => fail("expected vse16.v")
+  }
+  match decode(encode_vse32(13, 14, true)) {
+    Vse32V(vs3, rs1) => {
+      assert_eq(vs3, 13)
+      assert_eq(rs1, 14)
+    }
+    _ => fail("expected vse32.v")
+  }
+  match decode(encode_vse64(15, 16, true)) {
+    Vse64V(vs3, rs1) => {
+      assert_eq(vs3, 15)
+      assert_eq(rs1, 16)
+    }
+    _ => fail("expected vse64.v")
+  }
+}
+
+///|
+test "decode first vector arithmetic slice" {
+  match decode(encode_vmv_v_i(1, -1)) {
+    VmvVI(vd, imm) => {
+      assert_eq(vd, 1)
+      assert_eq(imm, -1)
+    }
+    _ => fail("expected vmv.v.i")
+  }
+  match decode(encode_vmv_v_x(2, 3)) {
+    VmvVX(vd, rs1) => {
+      assert_eq(vd, 2)
+      assert_eq(rs1, 3)
+    }
+    _ => fail("expected vmv.v.x")
+  }
+  match decode(encode_vmv_x_s(4, 5)) {
+    VmvXS(rd, vs2) => {
+      assert_eq(rd, 4)
+      assert_eq(vs2, 5)
+    }
+    _ => fail("expected vmv.x.s")
+  }
+  match decode(encode_vadd_vv(6, 7, 8, true)) {
+    VaddVv(vd, vs2, vs1) => {
+      assert_eq(vd, 6)
+      assert_eq(vs2, 7)
+      assert_eq(vs1, 8)
+    }
+    _ => fail("expected vadd.vv")
+  }
+  match decode(encode_vadd_vx(9, 10, 11, true)) {
+    VaddVx(vd, vs2, rs1) => {
+      assert_eq(vd, 9)
+      assert_eq(vs2, 10)
+      assert_eq(rs1, 11)
+    }
+    _ => fail("expected vadd.vx")
+  }
+  match decode(encode_vadd_vi(12, 13, -2, true)) {
+    VaddVi(vd, vs2, imm) => {
+      assert_eq(vd, 12)
+      assert_eq(vs2, 13)
+      assert_eq(imm, -2)
+    }
+    _ => fail("expected vadd.vi")
+  }
+  match decode(encode_vadd_vv(1, 2, 3, false)) {
+    VaddVv(vd, vs2, vs1) => {
+      assert_eq(vd, 1)
+      assert_eq(vs2, 2)
+      assert_eq(vs1, 3)
+    }
+    _ => fail("expected masked vadd.vv")
+  }
+}

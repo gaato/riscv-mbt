@@ -54,13 +54,13 @@ async fn load_official_riscv_test_cases(
   let manifest = read_manifest_text(manifest_path)
   let cases : Array[OfficialRiscvTestCase] = []
   for raw_line in manifest.split("\n") {
-    let line = raw_line.to_string().trim().to_string()
+    let line = raw_line.to_owned().trim().to_owned()
     if line == "" || line.has_prefix("#") {
       continue
     }
     let fields : Array[String] = []
     for field in line.split("\t") {
-      fields.push(field.to_string())
+      fields.push(field.to_owned())
     }
     if fields.length() != 4 {
       abort("invalid riscv-tests manifest line: " + line)

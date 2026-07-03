@@ -141,7 +141,7 @@ fn c_imm_ci(raw : UInt) -> Int {
 // For shift instructions (c.srli, c.srai): 6-bit unsigned shift amount.
 // In RV64C, bit12 is the MSB of the 6-bit shift (allows shamt 32-63).
 fn c_shamt6(raw : UInt) -> Int {
-  (((raw >> 12) & 0x1U) << 5 | ((raw >> 2) & 0x1fU)).to_int()
+  ((((raw >> 12) & 0x1U) << 5) | ((raw >> 2) & 0x1fU)).reinterpret_as_int()
 }
 
 ///|
@@ -905,6 +905,7 @@ fn instruction_supported_for_current_config(
 ) -> Bool {
   let has_f = (extensions & MISA_EXT_F) != 0U.to_uint64()
   let has_d = (extensions & MISA_EXT_D) != 0U.to_uint64()
+  let has_v = (extensions & MISA_EXT_V) != 0U.to_uint64()
   match instruction {
     Addiw(_, _, _) => xlen == XLEN_64
     Slliw(_, _, _) => xlen == XLEN_64
@@ -948,6 +949,23 @@ fn instruction_supported_for_current_config(
     FmvDX(_, _) => has_d && xlen == XLEN_64
     FCvtSD(_, _, _) => has_d
     FCvtDS(_, _, _) => has_d
+    Vsetvli(_, _, _) => has_v
+    Vsetivli(_, _, _) => has_v
+    Vsetvl(_, _, _) => has_v
+    VmvVI(_, _) => has_v
+    VmvVX(_, _) => has_v
+    VmvXS(_, _) => has_v
+    VaddVv(_, _, _) => has_v
+    VaddVx(_, _, _) => has_v
+    VaddVi(_, _, _) => has_v
+    Vle8V(_, _) => has_v
+    Vle16V(_, _) => has_v
+    Vle32V(_, _) => has_v
+    Vle64V(_, _) => has_v
+    Vse8V(_, _) => has_v
+    Vse16V(_, _) => has_v
+    Vse32V(_, _) => has_v
+    Vse64V(_, _) => has_v
     // C.JAL exists only on RV32C; the 32-bit JAL x1 form remains legal on both widths.
     Jal(rd, _) => !(length == 2 && rd == 1 && xlen == XLEN_64)
     _ => true
@@ -1056,10 +1074,45 @@ pub fn decode(raw : UInt) -> Instruction {
         _ => Unknown(raw)
       }
     0x07U =>
-      match funct3(raw) {
-        0x2U => Flw(rd(raw), rs1(raw), imm_i(raw))
-        0x3U => Fld(rd(raw), rs1(raw), imm_i(raw))
-        _ => Unknown(raw)
+      if (((raw >> 29) & 0x7U) == 0U) &&
+        (((raw >> 28) & 0x1U) == 0U) &&
+        (((raw >> 26) & 0x3U) == 0U) &&
+        (((raw >> 20) & 0x1fU) == 0U) {
+        match funct3(raw) {
+          0x0U =>
+            if ((raw >> 25) & 0x1U) == 1U {
+              Vle8V(rd(raw), rs1(raw))
+            } else {
+              Unknown(raw)
+            }
+          0x5U =>
+            if ((raw >> 25) & 0x1U) == 1U {
+              Vle16V(rd(raw), rs1(raw))
+            } else {
+              Unknown(raw)
+            }
+          0x6U =>
+            if ((raw >> 25) & 0x1U) == 1U {
+              Vle32V(rd(raw), rs1(raw))
+            } else {
+              Unknown(raw)
+            }
+          0x7U =>
+            if ((raw >> 25) & 0x1U) == 1U {
+              Vle64V(rd(raw), rs1(raw))
+            } else {
+              Unknown(raw)
+            }
+          0x2U => Flw(rd(raw), rs1(raw), imm_i(raw))
+          0x3U => Fld(rd(raw), rs1(raw), imm_i(raw))
+          _ => Unknown(raw)
+        }
+      } else {
+        match funct3(raw) {
+          0x2U => Flw(rd(raw), rs1(raw), imm_i(raw))
+          0x3U => Fld(rd(raw), rs1(raw), imm_i(raw))
+          _ => Unknown(raw)
+        }
       }
     0x23U =>
       match funct3(raw) {
@@ -1070,9 +1123,94 @@ pub fn decode(raw : UInt) -> Instruction {
         _ => Unknown(raw)
       }
     0x27U =>
+      if (((raw >> 29) & 0x7U) == 0U) &&
+        (((raw >> 28) & 0x1U) == 0U) &&
+        (((raw >> 26) & 0x3U) == 0U) &&
+        (((raw >> 20) & 0x1fU) == 0U) {
+        match funct3(raw) {
+          0x0U =>
+            if ((raw >> 25) & 0x1U) == 1U {
+              Vse8V(rd(raw), rs1(raw))
+            } else {
+              Unknown(raw)
+            }
+          0x5U =>
+            if ((raw >> 25) & 0x1U) == 1U {
+              Vse16V(rd(raw), rs1(raw))
+            } else {
+              Unknown(raw)
+            }
+          0x6U =>
+            if ((raw >> 25) & 0x1U) == 1U {
+              Vse32V(rd(raw), rs1(raw))
+            } else {
+              Unknown(raw)
+            }
+          0x7U =>
+            if ((raw >> 25) & 0x1U) == 1U {
+              Vse64V(rd(raw), rs1(raw))
+            } else {
+              Unknown(raw)
+            }
+          0x2U => Fsw(rs1(raw), rs2(raw), imm_s(raw))
+          0x3U => Fsd(rs1(raw), rs2(raw), imm_s(raw))
+          _ => Unknown(raw)
+        }
+      } else {
+        match funct3(raw) {
+          0x2U => Fsw(rs1(raw), rs2(raw), imm_s(raw))
+          0x3U => Fsd(rs1(raw), rs2(raw), imm_s(raw))
+          _ => Unknown(raw)
+        }
+      }
+    0x57U =>
       match funct3(raw) {
-        0x2U => Fsw(rs1(raw), rs2(raw), imm_s(raw))
-        0x3U => Fsd(rs1(raw), rs2(raw), imm_s(raw))
+        0x0U =>
+          if funct6(raw) == 0x00U {
+            VaddVv(rd(raw), rs2(raw), rs1(raw))
+          } else {
+            Unknown(raw)
+          }
+        0x3U =>
+          match funct6(raw) {
+            0x00U => VaddVi(rd(raw), rs2(raw), sign_extend((raw >> 15) & 0x1fU, 5))
+            0x17U =>
+              if ((raw >> 25) & 0x1U) == 1U && rs2(raw) == 0 {
+                VmvVI(rd(raw), sign_extend((raw >> 15) & 0x1fU, 5))
+              } else {
+                Unknown(raw)
+              }
+            _ => Unknown(raw)
+          }
+        0x4U =>
+          match funct6(raw) {
+            0x00U => VaddVx(rd(raw), rs2(raw), rs1(raw))
+            0x17U =>
+              if ((raw >> 25) & 0x1U) == 1U && rs2(raw) == 0 {
+                VmvVX(rd(raw), rs1(raw))
+              } else {
+                Unknown(raw)
+              }
+            _ => Unknown(raw)
+          }
+        0x6U =>
+          if ((raw >> 25) & 0x1U) == 1U &&
+            funct6(raw) == 0x10U &&
+            rs1(raw) == 0 {
+            VmvXS(rd(raw), rs2(raw))
+          } else {
+            Unknown(raw)
+          }
+        0x7U =>
+          if ((raw >> 31) & 0x1U) == 0U {
+            Vsetvli(rd(raw), rs1(raw), (raw >> 20) & 0x7ffU)
+          } else if ((raw >> 30) & 0x1U) == 1U {
+            Vsetivli(rd(raw), ((raw >> 15) & 0x1fU), (raw >> 20) & 0x3ffU)
+          } else if ((raw >> 26) & 0x3fU) == 0x20U {
+            Vsetvl(rd(raw), rs1(raw), rs2(raw))
+          } else {
+            Unknown(raw)
+          }
         _ => Unknown(raw)
       }
     0x6fU => Jal(rd(raw), imm_j(raw))

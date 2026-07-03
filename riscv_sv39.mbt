@@ -116,12 +116,10 @@ pub fn sv39_translate(
   }
   // Superpage alignment: for level > 0, lower PPN bits must be zero
   if i > 0 {
-    let mut level = 0
-    while level < i {
+    for level in 0..<i {
       if pte_ppn_i(pte, level) != 0U.to_uint64() {
         return TranslateFault(fault)
       }
-      level = level + 1
     }
   }
   // A/D bit checks
@@ -140,13 +138,11 @@ pub fn sv39_translate(
   let mut pa = pte_ppn(pte) * SV39_PAGESIZE + page_offset
   // For superpages, substitute VPN bits into PPN
   if i > 0 {
-    let mut level = 0
-    while level < i {
+    for level in 0..<i {
       let vpn_bits = sv39_vpn(vaddr, level)
       let shift = 12 + level * 9
       let mask = 0x1FFU.to_uint64() << shift
       pa = (pa & bit_not(mask)) | (vpn_bits << shift)
-      level = level + 1
     }
   }
   TranslatedAddr(pa)
@@ -182,7 +178,79 @@ fn Runner::translate_address(
   let mstatus = self.cpu.read_csr(CSR_MSTATUS)
   let sum = (mstatus & MSTATUS_SUM_BIT) != 0U.to_uint64()
   let mxr = (mstatus & MSTATUS_MXR_BIT) != 0U.to_uint64()
-  sv39_translate(self.bus, satp, vaddr, access_type, privilege, sum, mxr)
+  self.translate_cached(vaddr, access_type, privilege, satp, sum, mxr)
+}
+
+///|
+fn translate_cache_access_id(access_type : AccessType) -> Int {
+  match access_type {
+    Fetch => 0
+    Load => 1
+    Store => 2
+  }
+}
+
+///|
+fn translate_cache_privilege_id(privilege : PrivilegeMode) -> Int {
+  match privilege {
+    User => 0
+    Supervisor => 1
+    Machine => 3
+  }
+}
+
+///|
+fn translate_cache_index(vpage : UInt64) -> Int {
+  (vpage & (translate_cache_sets - 1).reinterpret_as_uint().to_uint64()).to_int()
+}
+
+///|
+fn Runner::flush_translate_cache(self : Runner) -> Unit {
+  for index in 0..<translate_cache_sets {
+    self.translate_cache_vpages[index] = translate_cache_invalid_vpage
+  }
+  self.translate_cache_flushes = self.translate_cache_flushes + 1U.to_uint64()
+}
+
+///|
+fn Runner::translate_cached(
+  self : Runner,
+  vaddr : UInt64,
+  access_type : AccessType,
+  privilege : PrivilegeMode,
+  satp : UInt64,
+  sum : Bool,
+  mxr : Bool,
+) -> TranslateResult {
+  let page_offset = vaddr & (SV39_PAGESIZE - 1U.to_uint64())
+  let vpage = vaddr >> 12
+  let index = translate_cache_index(vpage)
+  let access_id = translate_cache_access_id(access_type)
+  let privilege_id = translate_cache_privilege_id(privilege)
+  if self.translate_cache_vpages[index] == vpage &&
+    self.translate_cache_satps[index] == satp &&
+    self.translate_cache_accesses[index] == access_id &&
+    self.translate_cache_privileges[index] == privilege_id &&
+    self.translate_cache_sums[index] == sum &&
+    self.translate_cache_mxrs[index] == mxr {
+    self.translate_cache_hits = self.translate_cache_hits + 1U.to_uint64()
+    return TranslatedAddr(self.translate_cache_pa_pages[index] + page_offset)
+  }
+  self.translate_cache_misses = self.translate_cache_misses + 1U.to_uint64()
+  match sv39_translate(self.bus, satp, vaddr, access_type, privilege, sum, mxr) {
+    TranslatedAddr(pa) => {
+      self.translate_cache_vpages[index] = vpage
+      self.translate_cache_satps[index] = satp
+      self.translate_cache_accesses[index] = access_id
+      self.translate_cache_privileges[index] = privilege_id
+      self.translate_cache_sums[index] = sum
+      self.translate_cache_mxrs[index] = mxr
+      self.translate_cache_pa_pages[index] = pa - page_offset
+      self.translate_cache_fills = self.translate_cache_fills + 1U.to_uint64()
+      TranslatedAddr(pa)
+    }
+    TranslateFault(cause) => TranslateFault(cause)
+  }
 }
 
 ///|
@@ -253,4 +321,3 @@ fn Runner::store_check(self : Runner, addr : UInt64, width : Int) -> (UInt64, St
     (addr, Some(self.raise_trap(StoreAccessFault, self.cpu.pc, addr)))
   }
 }
-

@@ -3,8 +3,8 @@
 ## Current Position
 
 - Active milestone: `Extensions: A, F/D, V, H`
-- Current checkpoint: the repo now defines `RV64 Linux Profile v1` as its post-Linux compatibility target, Linux plus the browser smoke demo are already in place, and the first required `F/D` gap is closed
-- Next concrete target: define the initial `V` slice before starting vector implementation
+- Current checkpoint: browser Wasm Linux boot is complete, the shipped browser host now uses MoonBit's plain `wasm` backend, and extension work resumes after the first masked `V` arithmetic slice
+- Next concrete target: broader vector memory/addressing and the first `LMUL>1` path
 - Design rule: protect implementation boundaries first, then add instructions
 - Milestone semantics:
   - `RV32IMC` = core completion checkpoint
@@ -13,6 +13,7 @@
   - `Browser Demo` = delivery checkpoint for a thin browser host over the validated core
   - `Post-Linux compatibility target` = the point where future extension work gets anchored to an explicit software-compatibility contract
   - `Extensions: A, F/D, V, H` = the stage where profile-driven compatibility gaps are closed first and non-profile extension families are then taken in explicit order
+  - `Browser Wasm Linux Boot` = the stage where the Linux-capable core is delivered through a Wasm browser host
 
 ## Milestones
 
@@ -28,6 +29,7 @@
 10. [Extensions: A, F/D, V, H](milestones/09-extensions-a-fd-v-h.md)
 11. [Verification, debug, and performance](milestones/10-verification-debug-performance.md)
 12. [Browser Demo](milestones/11-browser-demo.md)
+13. [Browser Wasm Linux Boot](milestones/12-browser-wasm-linux-boot.md)
 
 ## Dependency Spine
 
@@ -50,7 +52,8 @@
 - Linux boot depends on privileged execution, MMU, SBI/boot ABI, and a `QEMU virt`-style platform more than on simply accumulating ISA extensions.
 - Browser demo depends on the Linux-capable core staying UI-independent.
 - Browser delivery is complete once the thin host exists and the public smoke deploy is live.
-- After Linux boot and browser delivery, extension work should follow the chosen compatibility profile instead of opportunistic ISA growth.
+- Browser Wasm Linux boot depends on preserving the shared core boundary while adding a Wasm artifact, browser-loadable Linux artifacts, long-run scheduling, and browser serial observability.
+- Browser Wasm Linux boot is now stable enough to resume extension work against the chosen compatibility profile instead of opportunistic ISA growth.
 
 ## Operating Rules
 

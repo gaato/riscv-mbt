@@ -49,3 +49,35 @@ test "32-bit-looking truncated fetch traps as instruction access fault" {
     _ => fail("expected instruction access fault")
   }
 }
+
+///|
+test "decode cache records hits after a small instruction loop" {
+  let runner = make_runner(default_machine_config())
+  let program = words_to_bytes([
+    encode_i(1, 1, 0x0U, 1, 0x13U),
+    encode_j(-4, 0, 0x6fU),
+  ])
+  runner.load_program(program, 0U)
+  assert_eq(runner.decode_cache_hit_count(), 0U.to_uint64())
+  assert_eq(runner.decode_cache_miss_count(), 0U.to_uint64())
+  match runner.run(10) {
+    Running => ()
+    _ => fail("expected loop to keep running")
+  }
+  assert_eq(runner.decode_cache_miss_count(), 2U.to_uint64())
+  assert_eq(runner.decode_cache_fill_count(), 2U.to_uint64())
+  assert_eq(runner.decode_cache_hit_count(), 8U.to_uint64())
+  assert_eq(runner.read_reg(1), 5U)
+}
+
+///|
+test "fence.i flushes the decode cache" {
+  let runner = make_runner(default_machine_config())
+  runner.load_program(words_to_bytes([encode_fence_i()]), 0U)
+  let flushes_after_load = runner.decode_cache_flush_count()
+  match runner.step() {
+    Running => ()
+    _ => fail("expected fence.i to run")
+  }
+  assert_eq(runner.decode_cache_flush_count(), flushes_after_load + 1U.to_uint64())
+}

@@ -116,6 +116,11 @@ pre {
   background: #f7f0e4;
 }
 
+#artifact-status {
+  min-height: 72px;
+  background: #f7f0e4;
+}
+
 #console {
   background: var(--console);
   color: var(--console-ink);

@@ -1,274 +1,143 @@
 ///|
-#cfg(target="js")
-extern "js" fn dom_set_text(id : String, text : String) -> Unit =
-  #| function(id, text) {
-  #|   const node = document.getElementById(id);
-  #|   if (!node) return;
-  #|   node.textContent = text;
-  #| }
+let browser_runtime : Ref[BrowserRuntime] = { val: BrowserRuntime::new_smoke() }
 
 ///|
-#cfg(target="js")
-extern "js" fn dom_bind_click(id : String, callback : () -> Unit) -> Unit =
-  #| function(id, callback) {
-  #|   const node = document.getElementById(id);
-  #|   if (!node) return;
-  #|   node.addEventListener("click", () => callback());
-  #| }
-
-///|
-#cfg(target="js")
-extern "js" fn dom_bind_input_submit(
-  input_id : String,
-  button_id : String,
-  callback : (String) -> Unit,
-) -> Unit =
-  #| function(inputId, buttonId, callback) {
-  #|   const input = document.getElementById(inputId);
-  #|   const button = document.getElementById(buttonId);
-  #|   if (!input || !button) return;
-  #|   const submit = () => {
-  #|     const value = input.value;
-  #|     input.value = "";
-  #|     callback(value);
-  #|   };
-  #|   button.addEventListener("click", submit);
-  #|   input.addEventListener("keydown", (event) => {
-  #|     if (event.key === "Enter") {
-  #|       event.preventDefault();
-  #|       submit();
-  #|     }
-  #|   });
-  #| }
-
-///|
-#cfg(target="js")
-extern "js" fn dom_focus(id : String) -> Unit =
-  #| function(id) {
-  #|   const node = document.getElementById(id);
-  #|   if (node && typeof node.focus === "function") {
-  #|     node.focus();
-  #|   }
-  #| }
-
-///|
-#cfg(target="js")
-extern "js" fn dom_set_interval(ms : Int, callback : () -> Unit) -> Unit =
-  #| function(ms, callback) {
-  #|   setInterval(() => callback(), ms);
-  #| }
-
-///|
-fn encode_i(
-  imm : Int,
-  rs1 : Int,
-  funct3 : UInt,
-  rd : Int,
-  opcode : UInt,
-) -> UInt {
-  ((imm & 0xfff).reinterpret_as_uint() << 20) |
-  (rs1.reinterpret_as_uint() << 15) |
-  (funct3 << 12) |
-  (rd.reinterpret_as_uint() << 7) |
-  opcode
+pub fn browser_init() -> Unit {
+  browser_runtime.val = BrowserRuntime::new_smoke()
 }
 
 ///|
-fn encode_s(
-  imm : Int,
-  rs2 : Int,
-  rs1 : Int,
-  funct3 : UInt,
-  opcode : UInt,
-) -> UInt {
-  let encoded = (imm & 0xfff).reinterpret_as_uint()
-  (((encoded >> 5) & 0x7fU) << 25) |
-  (rs2.reinterpret_as_uint() << 20) |
-  (rs1.reinterpret_as_uint() << 15) |
-  (funct3 << 12) |
-  ((encoded & 0x1fU) << 7) |
-  opcode
+pub fn browser_step() -> Unit {
+  browser_runtime.val.step_when_paused()
 }
 
 ///|
-fn encode_b(
-  imm : Int,
-  rs2 : Int,
-  rs1 : Int,
-  funct3 : UInt,
-  opcode : UInt,
-) -> UInt {
-  let encoded = (imm & 0x1fff).reinterpret_as_uint()
-  (((encoded >> 12) & 0x1U) << 31) |
-  (((encoded >> 5) & 0x3fU) << 25) |
-  (rs2.reinterpret_as_uint() << 20) |
-  (rs1.reinterpret_as_uint() << 15) |
-  (funct3 << 12) |
-  (((encoded >> 1) & 0xfU) << 8) |
-  (((encoded >> 11) & 0x1U) << 7) |
-  opcode
+pub fn browser_run_tick() -> Unit {
+  browser_runtime.val.run_tick()
 }
 
 ///|
-fn encode_u(imm : UInt, rd : Int, opcode : UInt) -> UInt {
-  (imm & 0xfffff000U) | (rd.reinterpret_as_uint() << 7) | opcode
+pub fn browser_run_for(step_budget : Int) -> Unit {
+  browser_runtime.val.run_for(step_budget)
 }
 
 ///|
-fn encode_j(imm : Int, rd : Int, opcode : UInt) -> UInt {
-  let encoded = (imm & 0x1fffff).reinterpret_as_uint()
-  (((encoded >> 20) & 0x1U) << 31) |
-  (((encoded >> 1) & 0x3ffU) << 21) |
-  (((encoded >> 11) & 0x1U) << 20) |
-  (((encoded >> 12) & 0xffU) << 12) |
-  (rd.reinterpret_as_uint() << 7) |
-  opcode
+pub fn browser_toggle_run() -> Unit {
+  browser_runtime.val.toggle_run()
 }
 
 ///|
-fn browser_demo_program_words() -> Array[UInt] {
-  let words = [encode_u(0x10000000U, 1, 0x37U)]
-  for ch in "echo ready\r\n> " {
-    words.push(encode_i(ch.to_int(), 0, 0x0U, 2, 0x13U))
-    words.push(encode_s(0, 2, 1, 0x0U, 0x23U))
-  }
-  words.push(encode_i(5, 1, 0x4U, 2, 0x03U))
-  words.push(encode_i(1, 2, 0x7U, 2, 0x13U))
-  words.push(encode_b(-8, 0, 2, 0x0U, 0x63U))
-  words.push(encode_i(0, 1, 0x4U, 3, 0x03U))
-  words.push(encode_s(0, 3, 1, 0x0U, 0x23U))
-  words.push(encode_j(-20, 0, 0x6fU))
-  words
+pub fn browser_reset() -> Unit {
+  browser_init()
 }
 
 ///|
-fn make_browser_demo_runner() -> @riscv.Runner {
-  let config = @riscv.virt_machine_config()
-  let runner = @riscv.make_runner(config)
-  runner.load_program_u64(
-    @riscv.words_to_bytes(browser_demo_program_words()),
-    config.entry_point,
-  )
-  ignore(runner.run(256))
-  runner
+pub fn browser_send_input(text : String) -> Unit {
+  browser_runtime.val.send_input(text)
 }
 
 ///|
-fn privilege_name(mode : @riscv.PrivilegeMode) -> String {
-  match mode {
-    User => "User"
-    Supervisor => "Supervisor"
-    Machine => "Machine"
-  }
+pub fn browser_send_input_byte(value : Int) -> Unit {
+  browser_runtime.val.send_input_byte(value)
 }
 
 ///|
-fn trap_cause_name(cause : @riscv.TrapCause) -> String {
-  match cause {
-    InstructionAccessFault => "instruction access fault"
-    IllegalInstruction => "illegal instruction"
-    LoadAccessFault => "load access fault"
-    StoreAccessFault => "store access fault"
-    InstructionPageFault => "instruction page fault"
-    LoadPageFault => "load page fault"
-    StorePageFault => "store page fault"
-    EnvironmentCallFromUMode => "ecall from user mode"
-    EnvironmentCallFromSMode => "ecall from supervisor mode"
-    EnvironmentCallFromMMode => "ecall from machine mode"
-    SupervisorSoftwareInterrupt => "supervisor software interrupt"
-    MachineSoftwareInterrupt => "machine software interrupt"
-    SupervisorTimerInterrupt => "supervisor timer interrupt"
-    MachineTimerInterrupt => "machine timer interrupt"
-    SupervisorExternalInterrupt => "supervisor external interrupt"
-    MachineExternalInterrupt => "machine external interrupt"
-  }
+pub fn browser_flush_input() -> Unit {
+  browser_runtime.val.flush_input_when_paused()
 }
 
 ///|
-fn runner_status_text(runner : @riscv.Runner, running : Bool) -> String {
-  let mode = if running { "running" } else { "paused" }
-  "mode: \{mode}\n" +
-  "pc: 0x\{runner.pc_u64().to_string(radix=16)}\n" +
-  "privilege: \{privilege_name(runner.privilege_mode())}\n" +
-  "x1: 0x\{runner.read_reg_u64(1).to_string(radix=16)}\n" +
-  "x2: 0x\{runner.read_reg_u64(2).to_string(radix=16)}\n" +
-  "x3: 0x\{runner.read_reg_u64(3).to_string(radix=16)}\n" +
-  "x4: 0x\{runner.read_reg_u64(4).to_string(radix=16)}"
+pub fn browser_begin_artifact(kind : Int) -> Unit {
+  browser_runtime.val.begin_artifact(kind)
 }
 
 ///|
-fn main {
-  let mut runner = make_browser_demo_runner()
-  let mut console_text = runner.uart_drain()
-  let mut running = false
+pub fn browser_push_artifact_byte(value : Int) -> Unit {
+  browser_runtime.val.push_artifact_byte(value)
+}
 
-  let sync_ui = fn() {
-    dom_set_text("console", console_text)
-    dom_set_text("status", runner_status_text(runner, running))
-    dom_set_text("run-toggle", if running { "Pause" } else { "Run" })
-  }
+///|
+pub fn browser_push_artifact_words4(
+  word0 : Int,
+  word1 : Int,
+  word2 : Int,
+  word3 : Int,
+  count : Int,
+) -> Unit {
+  browser_runtime.val.push_artifact_words4(word0, word1, word2, word3, count)
+}
 
-  let pull_uart = fn() {
-    let chunk = runner.uart_drain()
-    if chunk != "" {
-      console_text = console_text + chunk
-    }
-  }
+///|
+pub fn browser_finish_artifact() -> Bool {
+  browser_runtime.val.finish_artifact()
+}
 
-  let handle_result = fn(result : @riscv.StepResult) {
-    pull_uart()
-    match result {
-      Running => ()
-      Trap(info) => {
-        running = false
-        console_text = console_text +
-          "\n[trap] \{trap_cause_name(info.cause)} @ pc=0x\{info.faulting_pc.to_string(radix=16)} value=0x\{info.trap_value.to_string(radix=16)}\n"
-      }
-    }
-    sync_ui()
-  }
+///|
+pub fn browser_artifact_loaded_mask() -> Int {
+  browser_runtime.val.artifact_loaded_mask()
+}
 
-  let drive_guest = fn(step_budget : Int) {
-    handle_result(runner.run(step_budget))
-  }
+///|
+pub fn browser_artifact_size(kind : Int) -> Int {
+  browser_runtime.val.artifact_size(kind)
+}
 
-  let reset_demo = fn() {
-    running = false
-    runner = make_browser_demo_runner()
-    console_text = runner.uart_drain()
-    sync_ui()
-  }
+///|
+pub fn browser_guest_kind() -> Int {
+  browser_runtime.val.guest()
+}
 
-  dom_set_text(
-    "host-notes",
-    "Shared core host. Input is pushed into the emulated UART RX queue and echoed by the guest.",
-  )
-  dom_bind_click("step", fn() {
-    if !running {
-      handle_result(runner.step())
-    }
-  })
-  dom_bind_click("run-toggle", fn() {
-    running = !running
-    sync_ui()
-  })
-  dom_bind_click("reset", reset_demo)
-  dom_bind_input_submit("serial-input", "send-input", fn(text) {
-    if text != "" {
-      runner.uart_push_input(text)
-      runner.uart_push_input("\r\n")
-      if !running {
-        drive_guest(4096)
-      } else {
-        sync_ui()
-      }
-    }
-  })
-  dom_set_interval(16, fn() {
-    if running {
-      drive_guest(4096)
-    }
-  })
-  sync_ui()
-  dom_focus("serial-input")
+///|
+pub fn browser_total_steps() -> UInt64 {
+  browser_runtime.val.steps()
+}
+
+///|
+pub fn browser_decode_cache_hits() -> UInt64 {
+  browser_runtime.val.decode_cache_hits()
+}
+
+///|
+pub fn browser_decode_cache_misses() -> UInt64 {
+  browser_runtime.val.decode_cache_misses()
+}
+
+///|
+pub fn browser_translate_cache_hits() -> UInt64 {
+  browser_runtime.val.translate_cache_hits()
+}
+
+///|
+pub fn browser_translate_cache_misses() -> UInt64 {
+  browser_runtime.val.translate_cache_misses()
+}
+
+///|
+pub fn browser_console_length() -> Int {
+  browser_runtime.val.console_length()
+}
+
+///|
+pub fn browser_console_code_at(index : Int) -> Int {
+  browser_runtime.val.console_code_at(index)
+}
+
+///|
+pub fn browser_pc() -> UInt64 {
+  browser_runtime.val.pc()
+}
+
+///|
+pub fn browser_privilege() -> Int {
+  browser_runtime.val.privilege()
+}
+
+///|
+pub fn browser_reg(index : Int) -> UInt64 {
+  browser_runtime.val.reg(index)
+}
+
+///|
+pub fn browser_is_running() -> Bool {
+  browser_runtime.val.is_running()
 }

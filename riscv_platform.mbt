@@ -5,7 +5,7 @@
 // ---------------------------------------------------------------------------
 
 ///|
-pub(all) enum PhyTarget {
+priv enum PhyTarget {
   PhyRam
   PhyUart(UInt64) // offset within UART register bank
   PhyClint(UInt64) // offset within CLINT region
@@ -59,8 +59,6 @@ let clint_mtime_lo_offset : UInt64 = 0xBFF8U.to_uint64()
 let clint_mtime_hi_offset : UInt64 = 0xBFFCU.to_uint64()
 
 let clint_mtimecmp_lo_offset : UInt64 = 0x4000U.to_uint64()
-
-let clint_mtimecmp_hi_offset : UInt64 = 0x4004U.to_uint64()
 
 // ---------------------------------------------------------------------------
 // UART register read/write (16550A minimum)
@@ -266,10 +264,11 @@ fn Runner::phy_store_u64(self : Runner, pa : UInt64, value : UInt64) -> Unit {
 let clint_max_harts : Int = 2
 
 // msip region: 0 <= off < 4 * clint_max_harts
-let clint_msip_end : UInt64 = 8U.to_uint64() // 4 * 2
+let clint_msip_end : UInt64 = clint_max_harts.reinterpret_as_uint().to_uint64() * 4U.to_uint64()
 
 // mtimecmp region: 0x4000 <= off < 0x4000 + 8 * clint_max_harts
-let clint_mtimecmp_end : UInt64 = 0x4010U.to_uint64() // 0x4000 + 8*2
+let clint_mtimecmp_end : UInt64 = clint_mtimecmp_lo_offset +
+  clint_max_harts.reinterpret_as_uint().to_uint64() * 8U.to_uint64()
 
 ///|
 fn Runner::clint_reg_byte(self : Runner, off : UInt64) -> UInt64 {
@@ -457,10 +456,30 @@ pub fn Runner::uart_drain(self : Runner) -> String {
 }
 
 ///|
+pub fn Runner::uart_output_length(self : Runner) -> Int {
+  self.uart_output.length()
+}
+
+///|
+pub fn Runner::uart_output_byte_at(self : Runner, index : Int) -> Int {
+  self.uart_output[index].to_int()
+}
+
+///|
+pub fn Runner::uart_clear_output(self : Runner) -> Unit {
+  self.uart_output.clear()
+}
+
+///|
 pub fn Runner::uart_push_input(self : Runner, text : String) -> Unit {
   for ch in text {
     self.uart_input.push(ch.to_int().to_byte())
   }
+}
+
+///|
+pub fn Runner::uart_push_input_byte(self : Runner, value : Int) -> Unit {
+  self.uart_input.push((value & 0xff).to_byte())
 }
 
 ///|

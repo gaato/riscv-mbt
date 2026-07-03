@@ -9,6 +9,7 @@ This document captures the practical cautions that matter across milestones, esp
 - Treat Linux boot as a platform-integration problem, not as proof that “enough instructions” exist.
 - Keep one-hart bring-up as the baseline; add SMP only after single-hart boot is stable.
 - For MoonBit runtime and IO APIs, prefer MoonBit official docs and Context7 over memory when choosing async or native-backend behavior.
+- For Linux-on-RISC-V behavior, start from the upstream Linux RISC-V documentation index before relying on repo-local summaries: <https://docs.kernel.org/arch/riscv/index.html>.
 
 ## By Stage
 
@@ -56,6 +57,8 @@ This document captures the practical cautions that matter across milestones, esp
 
 - Treat `satp`, page-table updates, and `SFENCE.VMA` as a single correctness surface.
 - A simple global flush is acceptable at first, but missing the fence semantics entirely is not.
+- Translation caching may sit behind `Runner::translate_address`, but its key must include at least virtual page, `satp`, access type, effective privilege, `SUM`, and `MXR`.
+- Flush translation caches on `satp` writes and `SFENCE.VMA`. Host-side memory image writes should also flush while tests and loaders mutate RAM directly.
 
 ### OpenSBI + Virt-Like Platform
 
@@ -65,7 +68,22 @@ This document captures the practical cautions that matter across milestones, esp
 ### Linux Boot ABI
 
 - Separate “MMU works” from “Linux sees the right initial machine state”.
-- Keep `a0`, `a1`, `satp = 0`, and image-placement assumptions explicit and documented.
+- Treat the upstream Linux RISC-V boot requirements as the normative source for entry-state rules: <https://docs.kernel.org/arch/riscv/boot.html>.
+- On direct devicetree boot, enter the kernel with `a0` holding the current hart id and `a1` holding the guest physical address of the devicetree.
+- Enter the kernel with `satp = 0`; the kernel expects the MMU to be disabled before its early mapping setup.
+- Place the kernel Image at the required PMD boundary. For the current RV64 path, that means 2 MiB alignment.
+- Keep resident firmware or protected memory out of Linux's direct map by describing it through `/reserved-memory` or an equivalent firmware memory description before relying on it for a real platform model.
+- Keep one-hart boot as the default baseline. For SMP, prefer the ordered booting model with SBI HSM once hart lifecycle support is the active task.
+
+### Linux RISC-V Kernel Docs
+
+Use the upstream Linux RISC-V architecture index as the entry point for Linux-specific behavior: <https://docs.kernel.org/arch/riscv/index.html>.
+
+- Boot entry and early constraints: <https://docs.kernel.org/arch/riscv/boot.html>
+- Kernel Image header details before changing loaders or artifact validation: <https://docs.kernel.org/arch/riscv/boot-image-header.html>
+- Kernel virtual memory layout before changing Sv39/Sv48/Sv57 assumptions or interpreting Linux virtual addresses: <https://docs.kernel.org/arch/riscv/vm-layout.html>
+- Hardware probing before claiming post-Linux userspace-visible ISA or CPU feature compatibility: <https://docs.kernel.org/arch/riscv/hwprobe.html>
+- Vector extension support before treating `V` work as Linux-userspace compatible: <https://docs.kernel.org/arch/riscv/vector.html>
 
 ### SMP
 
@@ -163,3 +181,19 @@ These are the recommended refactors to do immediately before specific milestones
 - Move instruction encoding helpers into a reusable test-support layer before `C` and `RV64` increase test variety.
 - Add helpers for runner setup, stepping multiple instructions, and asserting register or memory state.
 - Keep decode tests, single-step execute tests, and small-program integration tests clearly separated even as the suite grows.
+
+### Before Broader `V` Memory And `LMUL`
+
+- Keep `riscv_vector.mbt` as the home for vector CSR/config, element access, mask handling, and vector execution helpers.
+- Keep `riscv_fp.mbt` as the home for floating-point register/FCSR helpers and `F/D` execution.
+- Keep `riscv_execute.mbt` focused on the central dispatcher and non-vector execution families until a larger `Runner::step` boundary split is justified.
+- `sv39_translate`, `AccessType`, and `TranslateResult` remain public because black-box Sv39 translation tests use them directly as a verification surface.
+- Prefer range loops for simple element/register/cache sweeps; keep stateful `while` loops where the algorithm mutates loop state in non-trivial ways, such as page-table walks.
+
+## Performance Notes
+
+- `simmerv` is a useful reference for the direction of travel: predecoded block/uop caching, split translation caches, and common-instruction fast paths.
+- In `riscv-mbt`, take these in layers. Decode cache and translation cache fit the current boundaries; full basic-block execution should wait until `Runner::step` can be split without blurring trap, interrupt, and device timing.
+- Decode cache entries are invalidated on `FENCE.I` and host-side program/image writes.
+- Sv39 translation cache entries are invalidated on `satp`, `SFENCE.VMA`, and host-side program/image writes.
+- Browser performance evidence should include both wall time and cache counters; a faster browser proof without native `moon test` is not enough.

@@ -2,7 +2,7 @@
 
 ## Current Milestone
 
-- `Extensions In Priority Order`
+- `Extensions: A, F/D, V, H`
 
 ## Current Tasks
 
@@ -48,30 +48,67 @@
 - [Bring up `D`](tasks/0041-d-extension-bring-up.md) — `done`
 - [Close the post-`F/D` phase](tasks/0042-post-fd-closure.md) — `done`
 - [Evaluate the first `V` slice](tasks/0043-vector-extension-evaluation.md) — `done`
-- [Bring up `vsetvl*` and the first vector execute slice](tasks/0044-vsetvl-and-first-vector-execute-slice.md) — `doing`
+- [Bring up `vsetvl*` and the first vector execute slice](tasks/0044-vsetvl-and-first-vector-execute-slice.md) — `done`
+- [Implement the first vector arithmetic slice](tasks/0045-first-vector-arithmetic-slice.md) — `done`
+- [Implement the first vector memory slice](tasks/0046-first-vector-memory-slice.md) — `done`
+- [Implement the first masked and broader vector execute slice](tasks/0047-masked-and-broader-vector-execute-slice.md) — `done`
+- [Implement the next broader vector memory and `LMUL` slice](tasks/0048-broader-vector-memory-and-lmul-slice.md) — `todo`
+- [Move the browser smoke host to Wasm](tasks/0049-browser-wasm-smoke-host.md) — `done`
+- [Refactor the browser runtime boundary](tasks/0050-browser-runtime-boundary-refactor.md) — `done`
+- [Add a browser Linux artifact loader](tasks/0051-browser-linux-artifact-loader.md) — `done`
+- [Refactor browser long-run behavior](tasks/0052-browser-long-run-refactor.md) — `done`
+- [Boot Linux on one hart in browser Wasm](tasks/0053-browser-one-hart-linux-boot.md) — `done`
+- [Refactor browser Linux observability](tasks/0054-browser-linux-observability-refactor.md) — `done`
+- [Move the browser host to the plain Wasm backend](tasks/0055-browser-plain-wasm-backend.md) — `done`
+- [Add simmerv-inspired cache performance improvements](tasks/0056-simmerv-inspired-cache-performance.md) — `done`
+- [Refactor MoonBit execution surfaces before the next vector slice](tasks/0057-moonbit-refactoring-pre-0048.md) — `done`
 
 ## Next Task
 
-- Next: implement `vsetvli`, `vsetivli`, and `vsetvl` as the first execute-level vector slice ([Task 0044](tasks/0044-vsetvl-and-first-vector-execute-slice.md)).
+- Next: resume the post-Linux extension sequence with the broader vector memory/addressing and first `LMUL>1` slice ([Task 0048](tasks/0048-broader-vector-memory-and-lmul-slice.md)).
 
 ## Known Blockers
 
 - Local `moon test` now expects build artifacts under `_build/riscv-tests-src/isa`; run `./scripts/build-riscv-tests-official.sh` first if they are missing.
 - The built upstream `*-p-*` survey currently stands above the original RV32 checkpoint, but RV64 coverage is still survey-only and has not been promoted into the always-green CI subset.
 - The official QEMU cross-check path remains RV32-only; RV64 system-emulator cross-checking is still deferred.
-- The post-Linux compatibility target is fixed and the required `F/D` gap is closed. The first `V` state/CSR slice is in place, but no vector execute path exists yet.
+- The post-Linux compatibility target is fixed and the required `F/D` gap is closed. The first `V` state/CSR slice, `vsetvl*` execute path, first narrow arithmetic slice, first narrow unit-stride memory slice, and first masked arithmetic slice are now in place, but broader vector memory/addressing, `LMUL>1`, and wider `V` execution semantics have not started yet.
+- The browser host now builds as a plain Wasm artifact and the bare-metal browser smoke path is green. The browser runtime boundary is split between guest image construction, browser runtime state, Wasm exports, and JS UI glue. The browser can load OpenSBI, DTB, and kernel artifact bytes through a manifest, switch to the Linux artifact guest, expose explicit long-run scheduling, report boot marker progress, and reach early Linux serial output in browser Wasm.
+- JS string interop is no longer required for the active browser artifact; UART input and Linux artifacts use byte-oriented exports.
+- The first `simmerv`-inspired performance slice is in place: decode cache, Sv39 translation cache, cache counters in tests/browser UI, and Linux boot timing observations. Basic-block/uop caching and a larger common-instruction fast executor are intentionally left as follow-up work.
+- The Linux boot ABI contract is pinned to the upstream Linux RISC-V boot requirements: kernel entry uses `a0` for hart id, `a1` for DTB address, `satp = 0`, and RV64 kernel Image placement at a 2 MiB PMD boundary.
+- Future Linux-specific compatibility checks should start from the upstream Linux RISC-V architecture documentation index, especially boot image header, VM layout, hwprobe, and vector support.
+- A MoonBit refactor slice split FP execution into `riscv_fp.mbt` and vector execution into `riscv_vector.mbt`; `riscv_execute.mbt` is now below the 2k-line guideline and remains the central dispatcher.
+- Browser Wasm Linux boot is complete; `0048` is no longer deferred and is the next extension task.
 
 ## Read Next
 
 - [Roadmap](roadmap.md)
 - [Implementation Notes](guides/implementation-notes.md)
+- [Browser Wasm Linux Boot milestone](milestones/12-browser-wasm-linux-boot.md)
+- [Task 0049](tasks/0049-browser-wasm-smoke-host.md)
+- [Task 0050](tasks/0050-browser-runtime-boundary-refactor.md)
+- [Task 0051](tasks/0051-browser-linux-artifact-loader.md)
+- [Task 0052](tasks/0052-browser-long-run-refactor.md)
+- [Task 0053](tasks/0053-browser-one-hart-linux-boot.md)
+- [Task 0054](tasks/0054-browser-linux-observability-refactor.md)
+- [Task 0055](tasks/0055-browser-plain-wasm-backend.md)
+- [Task 0056](tasks/0056-simmerv-inspired-cache-performance.md)
+- [Task 0057](tasks/0057-moonbit-refactoring-pre-0048.md)
+- [Performance milestone](milestones/10-verification-debug-performance.md)
 - [Extensions milestone](milestones/09-extensions-a-fd-v-h.md)
 - [Task 0018](tasks/0018-extensions-a-fd-v-h.md)
+- [Task 0048](tasks/0048-broader-vector-memory-and-lmul-slice.md)
+- [Task 0047](tasks/0047-masked-and-broader-vector-execute-slice.md)
+- [Task 0046](tasks/0046-first-vector-memory-slice.md)
+- [Task 0045](tasks/0045-first-vector-arithmetic-slice.md)
 - [Task 0044](tasks/0044-vsetvl-and-first-vector-execute-slice.md)
 - [Task 0043](tasks/0043-vector-extension-evaluation.md)
 - [Task 0042](tasks/0042-post-fd-closure.md)
 - [Task 0041](tasks/0041-d-extension-bring-up.md)
 - [Task 0009](tasks/0009-rv32-supervisor-sv32.md)
+- [ADR 0006](adr/0006-browser-wasm-linux-boot-goal.md)
+- [ADR 0007](adr/0007-browser-plain-wasm-backend.md)
 - [ADR 0001](adr/0001-rv32i-first.md)
 - [ADR 0005](adr/0005-post-linux-compatibility-profile.md)
 - [ADR 0003](adr/0003-milestone-spine.md)

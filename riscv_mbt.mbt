@@ -159,6 +159,23 @@ pub enum Instruction {
   FmvDX(Int, Int)
   FCvtSD(Int, Int, UInt)
   FCvtDS(Int, Int, UInt)
+  Vsetvli(Int, Int, UInt)
+  Vsetivli(Int, UInt, UInt)
+  Vsetvl(Int, Int, Int)
+  VmvVI(Int, Int)
+  VmvVX(Int, Int)
+  VmvXS(Int, Int)
+  VaddVv(Int, Int, Int)
+  VaddVx(Int, Int, Int)
+  VaddVi(Int, Int, Int)
+  Vle8V(Int, Int)
+  Vle16V(Int, Int)
+  Vle32V(Int, Int)
+  Vle64V(Int, Int)
+  Vse8V(Int, Int)
+  Vse16V(Int, Int)
+  Vse32V(Int, Int)
+  Vse64V(Int, Int)
   Jal(Int, Int)
   Jalr(Int, Int, Int)
   Csrrw(Int, Int, Int)
@@ -218,6 +235,18 @@ priv struct FetchedInstruction {
 }
 
 ///|
+let decode_cache_sets : Int = 4096
+
+///|
+let decode_cache_invalid_tag : UInt64 = bit_not(0U.to_uint64())
+
+///|
+let translate_cache_sets : Int = 4096
+
+///|
+let translate_cache_invalid_vpage : UInt64 = bit_not(0U.to_uint64())
+
+///|
 pub struct Runner {
   cpu : CpuState
   bus : Bus
@@ -228,6 +257,26 @@ pub struct Runner {
   clint_msip : Array[Bool]   // [hart_id] = MSIP bit; shared across SMP harts
   all_mtimecmp : Array[UInt64] // [hart_id] = mtimecmp; shared across SMP harts
   plic_regs : Array[Byte]    // flat PLIC register file (4 MB); shared across SMP harts
+  decode_cache_tags : Array[UInt64]
+  decode_cache_raws : Array[UInt]
+  decode_cache_lengths : Array[Int]
+  decode_cache_xlens : Array[Int]
+  decode_cache_instructions : Array[Instruction]
+  mut decode_cache_hits : UInt64
+  mut decode_cache_misses : UInt64
+  mut decode_cache_fills : UInt64
+  mut decode_cache_flushes : UInt64
+  translate_cache_vpages : Array[UInt64]
+  translate_cache_satps : Array[UInt64]
+  translate_cache_accesses : Array[Int]
+  translate_cache_privileges : Array[Int]
+  translate_cache_sums : Array[Bool]
+  translate_cache_mxrs : Array[Bool]
+  translate_cache_pa_pages : Array[UInt64]
+  mut translate_cache_hits : UInt64
+  mut translate_cache_misses : UInt64
+  mut translate_cache_fills : UInt64
+  mut translate_cache_flushes : UInt64
 }
 
 ///|
@@ -651,21 +700,17 @@ pub fn Bus::store_u64(self : Bus, addr : UInt64, value : UInt64) -> Unit {
 
 ///|
 pub fn Bus::write_bytes(self : Bus, base_addr : UInt64, bytes : Bytes) -> Unit {
-  let mut index = 0
-  while index < bytes.length() {
+  for index in 0..<bytes.length() {
     self.memory[
       bus_offset_as_int((base_addr + index.reinterpret_as_uint().to_uint64()) - self.base_addr)
     ] = bytes[index]
-    index = index + 1
   }
 }
 
 ///|
 pub fn Bus::zero_range(self : Bus, base_addr : UInt64, len : Int) -> Unit {
-  let mut index = 0
-  while index < len {
+  for index in 0..<len {
     self.store_u8(base_addr + index.reinterpret_as_uint().to_uint64(), 0U.to_uint64())
-    index = index + 1
   }
 }
 
@@ -692,7 +737,7 @@ pub fn make_runner(config : MachineConfig) -> Runner {
     bus: Bus::new(config.ram_base, config.ram_size),
     config,
     uart_output: [],
-    uart_input: @queue.new(),
+    uart_input: @queue.Queue([]),
     mtime: [0U.to_uint64()],
     clint_msip: Array::make(2, false),
     all_mtimecmp: Array::make(2, bit_not(0U.to_uint64())),
@@ -701,6 +746,26 @@ pub fn make_runner(config : MachineConfig) -> Runner {
     } else {
       []
     },
+    decode_cache_tags: Array::make(decode_cache_sets, decode_cache_invalid_tag),
+    decode_cache_raws: Array::make(decode_cache_sets, 0U),
+    decode_cache_lengths: Array::make(decode_cache_sets, 0),
+    decode_cache_xlens: Array::make(decode_cache_sets, 0),
+    decode_cache_instructions: Array::make(decode_cache_sets, Unknown(0U)),
+    decode_cache_hits: 0U.to_uint64(),
+    decode_cache_misses: 0U.to_uint64(),
+    decode_cache_fills: 0U.to_uint64(),
+    decode_cache_flushes: 0U.to_uint64(),
+    translate_cache_vpages: Array::make(translate_cache_sets, translate_cache_invalid_vpage),
+    translate_cache_satps: Array::make(translate_cache_sets, 0U.to_uint64()),
+    translate_cache_accesses: Array::make(translate_cache_sets, 0),
+    translate_cache_privileges: Array::make(translate_cache_sets, 0),
+    translate_cache_sums: Array::make(translate_cache_sets, false),
+    translate_cache_mxrs: Array::make(translate_cache_sets, false),
+    translate_cache_pa_pages: Array::make(translate_cache_sets, 0U.to_uint64()),
+    translate_cache_hits: 0U.to_uint64(),
+    translate_cache_misses: 0U.to_uint64(),
+    translate_cache_fills: 0U.to_uint64(),
+    translate_cache_flushes: 0U.to_uint64(),
   }
 }
 
@@ -710,7 +775,7 @@ pub fn make_runner(config : MachineConfig) -> Runner {
 pub fn make_smp_runners(config : MachineConfig, num_harts : Int) -> Array[Runner] {
   let shared_bus = Bus::new(config.ram_base, config.ram_size)
   let shared_uart : Array[Byte] = []
-  let shared_uart_input : @queue.Queue[Byte] = @queue.new()
+  let shared_uart_input : @queue.Queue[Byte] = @queue.Queue([])
   let shared_plic : Array[Byte] = if config.plic_base != 0U.to_uint64() {
     Array::make(0x400000, 0U.to_byte())
   } else {
@@ -723,8 +788,7 @@ pub fn make_smp_runners(config : MachineConfig, num_harts : Int) -> Array[Runner
     bit_not(0U.to_uint64()),
   )
   let harts : Array[Runner] = []
-  let mut i = 0
-  while i < num_harts {
+  for i in 0..<num_harts {
     let hart_config : MachineConfig = {
       xlen: config.xlen,
       extensions: config.extensions,
@@ -752,8 +816,27 @@ pub fn make_smp_runners(config : MachineConfig, num_harts : Int) -> Array[Runner
       clint_msip: shared_msip,
       all_mtimecmp: shared_mtimecmp,
       plic_regs: shared_plic,
+      decode_cache_tags: Array::make(decode_cache_sets, decode_cache_invalid_tag),
+      decode_cache_raws: Array::make(decode_cache_sets, 0U),
+      decode_cache_lengths: Array::make(decode_cache_sets, 0),
+      decode_cache_xlens: Array::make(decode_cache_sets, 0),
+      decode_cache_instructions: Array::make(decode_cache_sets, Unknown(0U)),
+      decode_cache_hits: 0U.to_uint64(),
+      decode_cache_misses: 0U.to_uint64(),
+      decode_cache_fills: 0U.to_uint64(),
+      decode_cache_flushes: 0U.to_uint64(),
+      translate_cache_vpages: Array::make(translate_cache_sets, translate_cache_invalid_vpage),
+      translate_cache_satps: Array::make(translate_cache_sets, 0U.to_uint64()),
+      translate_cache_accesses: Array::make(translate_cache_sets, 0),
+      translate_cache_privileges: Array::make(translate_cache_sets, 0),
+      translate_cache_sums: Array::make(translate_cache_sets, false),
+      translate_cache_mxrs: Array::make(translate_cache_sets, false),
+      translate_cache_pa_pages: Array::make(translate_cache_sets, 0U.to_uint64()),
+      translate_cache_hits: 0U.to_uint64(),
+      translate_cache_misses: 0U.to_uint64(),
+      translate_cache_fills: 0U.to_uint64(),
+      translate_cache_flushes: 0U.to_uint64(),
     })
-    i = i + 1
   }
   harts
 }
@@ -835,6 +918,59 @@ pub fn Runner::load_program_u64(
 ) -> Unit {
   self.bus.write_bytes(base_addr, bytes)
   self.cpu.pc = base_addr
+  self.flush_decode_cache()
+  self.flush_translate_cache()
+}
+
+///|
+pub fn Runner::write_memory_bytes(
+  self : Runner,
+  base_addr : UInt64,
+  bytes : Bytes,
+) -> Unit {
+  self.bus.write_bytes(base_addr, bytes)
+  self.flush_decode_cache()
+  self.flush_translate_cache()
+}
+
+///|
+pub fn Runner::decode_cache_hit_count(self : Runner) -> UInt64 {
+  self.decode_cache_hits
+}
+
+///|
+pub fn Runner::decode_cache_miss_count(self : Runner) -> UInt64 {
+  self.decode_cache_misses
+}
+
+///|
+pub fn Runner::decode_cache_fill_count(self : Runner) -> UInt64 {
+  self.decode_cache_fills
+}
+
+///|
+pub fn Runner::decode_cache_flush_count(self : Runner) -> UInt64 {
+  self.decode_cache_flushes
+}
+
+///|
+pub fn Runner::translate_cache_hit_count(self : Runner) -> UInt64 {
+  self.translate_cache_hits
+}
+
+///|
+pub fn Runner::translate_cache_miss_count(self : Runner) -> UInt64 {
+  self.translate_cache_misses
+}
+
+///|
+pub fn Runner::translate_cache_fill_count(self : Runner) -> UInt64 {
+  self.translate_cache_fills
+}
+
+///|
+pub fn Runner::translate_cache_flush_count(self : Runner) -> UInt64 {
+  self.translate_cache_flushes
 }
 
 ///|
@@ -848,4 +984,24 @@ pub fn Runner::load_dtb(self : Runner, dtb : Bytes) -> Unit {
 pub fn Runner::setup_boot_abi(self : Runner) -> Unit {
   self.cpu.write_reg(10, self.config.hart_id) // a0 = hart_id
   self.cpu.write_reg(11, self.config.dtb_addr) // a1 = dtb_addr
+}
+
+///|
+pub fn Runner::setup_fw_dynamic_handoff(
+  self : Runner,
+  info_addr : UInt64,
+  next_addr : UInt64,
+  next_mode : UInt64,
+) -> Unit {
+  self.bus.store_u64(info_addr, 0x4942534fU.to_uint64()) // magic = "OSBI"
+  self.bus.store_u64(info_addr + 8U.to_uint64(), 2U.to_uint64()) // version = 2
+  self.bus.store_u64(info_addr + 16U.to_uint64(), next_addr)
+  self.bus.store_u64(info_addr + 24U.to_uint64(), next_mode)
+  self.bus.store_u64(info_addr + 32U.to_uint64(), 0U.to_uint64()) // options = 0
+  self.bus.store_u64(
+    info_addr + 40U.to_uint64(),
+    0xffffffffU.to_uint64() | (0xffffffffU.to_uint64() << 32),
+  ) // boot_hart = -1
+  self.setup_boot_abi()
+  self.cpu.write_reg(12, info_addr) // a2 = &fw_dynamic_info
 }

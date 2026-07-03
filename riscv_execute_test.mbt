@@ -810,6 +810,65 @@ test "rv64 mprv makes machine load and store follow Sv39 using mpp privilege" {
 }
 
 ///|
+test "sv39 translation cache records repeated data-page hits" {
+  let program = words_to_bytes([
+    encode_i(0x100, 0, 0x0U, 1, 0x13U),
+    encode_i(8, 0, 0x0U, 2, 0x13U),
+    encode_i(60, 2, 0x1U, 2, 0x13U),
+    encode_i(1, 2, 0x0U, 2, 0x13U),
+    encode_csr(0x180, 2, 0x1U, 0),
+    encode_i(1, 0, 0x0U, 3, 0x13U),
+    encode_i(17, 3, 0x1U, 3, 0x13U),
+    encode_i(1, 0, 0x0U, 4, 0x13U),
+    encode_i(11, 4, 0x1U, 4, 0x13U),
+    encode_r(0x00U, 4, 3, 0x6U, 3, 0x33U),
+    encode_csr(0x300, 3, 0x1U, 0),
+    encode_i(0, 1, 0x2U, 10, 0x03U),
+    encode_i(0, 1, 0x2U, 11, 0x03U),
+  ])
+  let runner = make_runner(rv64_machine_config())
+  exec_test_setup_basic_sv39_map(runner)
+  runner.load_program(program, 0U)
+  match runner.run(13) {
+    Running => ()
+    _ => fail("expected repeated mprv loads to run")
+  }
+  assert_eq(runner.read_reg(10), 0x12345678U)
+  assert_eq(runner.read_reg(11), 0x12345678U)
+  assert_eq(runner.translate_cache_miss_count(), 1U.to_uint64())
+  assert_eq(runner.translate_cache_fill_count(), 1U.to_uint64())
+  assert_eq(runner.translate_cache_hit_count(), 1U.to_uint64())
+}
+
+///|
+test "sfence.vma flushes the translation cache" {
+  let program = words_to_bytes([
+    encode_i(0x100, 0, 0x0U, 1, 0x13U),
+    encode_i(8, 0, 0x0U, 2, 0x13U),
+    encode_i(60, 2, 0x1U, 2, 0x13U),
+    encode_i(1, 2, 0x0U, 2, 0x13U),
+    encode_csr(0x180, 2, 0x1U, 0),
+    encode_i(1, 0, 0x0U, 3, 0x13U),
+    encode_i(17, 3, 0x1U, 3, 0x13U),
+    encode_i(1, 0, 0x0U, 4, 0x13U),
+    encode_i(11, 4, 0x1U, 4, 0x13U),
+    encode_r(0x00U, 4, 3, 0x6U, 3, 0x33U),
+    encode_csr(0x300, 3, 0x1U, 0),
+    encode_i(0, 1, 0x2U, 10, 0x03U),
+    encode_sfence_vma(0, 0),
+  ])
+  let runner = make_runner(rv64_machine_config())
+  exec_test_setup_basic_sv39_map(runner)
+  runner.load_program(program, 0U)
+  match runner.run(13) {
+    Running => ()
+    _ => fail("expected sfence.vma sequence to run")
+  }
+  assert_eq(runner.translate_cache_fill_count(), 1U.to_uint64())
+  assert_eq(runner.translate_cache_flush_count() >= 3U.to_uint64(), true)
+}
+
+///|
 test "rv64 machine load remains physical when mprv is clear" {
   let program = words_to_bytes([
     encode_i(0x100, 0, 0x0U, 1, 0x13U),
@@ -1452,6 +1511,615 @@ test "rv64fd without v rejects vector csr access as illegal" {
     }
     _ => fail("expected vector csr access to trap without v")
   }
+}
+
+///|
+test "rv64fdv vsetvli updates vl and vtype for supported e32 m1 request" {
+  let program = words_to_bytes([
+    encode_i(3, 0, 0x0U, 1, 0x13U),
+    encode_vsetvli(2, 1, 0x10U),
+  ])
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(2) {
+    Running => ()
+    _ => fail("expected vsetvli sequence to run")
+  }
+  assert_eq(runner.read_reg_u64(2), 3U.to_uint64())
+  assert_eq(runner.read_csr_u64(0xC20), 3U.to_uint64())
+  assert_eq(runner.read_csr_u64(0xC21), 0x10U.to_uint64())
+  assert_eq(runner.read_csr_u64(0x008), 0U.to_uint64())
+}
+
+///|
+test "rv64fdv vsetivli clamps vl to vlmax" {
+  let program = words_to_bytes([encode_vsetivli(1, 31U, 0x10U)])
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.load_program(program, 0U)
+  match runner.step() {
+    Running => ()
+    _ => fail("expected vsetivli to run")
+  }
+  assert_eq(runner.read_reg_u64(1), 4U.to_uint64())
+  assert_eq(runner.read_csr_u64(0xC20), 4U.to_uint64())
+  assert_eq(runner.read_csr_u64(0xC21), 0x10U.to_uint64())
+}
+
+///|
+test "rv64fdv vsetvl uses register avl and vtype" {
+  let program = words_to_bytes([
+    encode_i(2, 0, 0x0U, 1, 0x13U),
+    encode_i(0x18, 0, 0x0U, 2, 0x13U),
+    encode_vsetvl(3, 1, 2),
+  ])
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(3) {
+    Running => ()
+    _ => fail("expected vsetvl sequence to run")
+  }
+  assert_eq(runner.read_reg_u64(3), 2U.to_uint64())
+  assert_eq(runner.read_csr_u64(0xC20), 2U.to_uint64())
+  assert_eq(runner.read_csr_u64(0xC21), 0x18U.to_uint64())
+}
+
+///|
+test "rv64fdv unsupported fractional lmul sets vill and zero vl" {
+  let program = words_to_bytes([encode_vsetivli(1, 7U, 0x17U)])
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.load_program(program, 0U)
+  match runner.step() {
+    Running => ()
+    _ => fail("expected unsupported vsetivli request to complete without trap")
+  }
+  assert_eq(runner.read_reg_u64(1), 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(0xC20), 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(0xC21), 1U.to_uint64() << 63)
+}
+
+///|
+test "rv64fd without v rejects vsetvli as illegal" {
+  let raw = encode_vsetvli(1, 0, 0x10U)
+  let runner = make_runner(rv64fd_machine_config())
+  runner.load_program(words_to_bytes([raw]), 0U)
+  match runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+      assert_eq(info.trap_value, raw.to_uint64())
+    }
+    _ => fail("expected vsetvli to trap without v")
+  }
+}
+
+///|
+test "rv64fdv vmv.v.i updates active elements and leaves tail undisturbed" {
+  let program = words_to_bytes([
+    encode_i(3, 0, 0x0U, 1, 0x13U),
+    encode_vsetvli(2, 1, 0x10U),
+    encode_vmv_v_i(0, 7),
+  ])
+  let runner = make_runner(rv64fdv_machine_config())
+  let all_ones = (-1L).reinterpret_as_uint64()
+  runner.cpu.write_vreg(0, 0, all_ones)
+  runner.cpu.write_vreg(0, 1, all_ones)
+  runner.load_program(program, 0U)
+  match runner.run(3) {
+    Running => ()
+    _ => fail("expected vmv.v.i sequence to run")
+  }
+  assert_eq(
+    runner.read_vreg_u64(0, 0),
+    (7U.to_uint64() << 32) | 7U.to_uint64(),
+  )
+  assert_eq(
+    runner.read_vreg_u64(0, 1),
+    (0xffffffffU.to_uint64() << 32) | 7U.to_uint64(),
+  )
+}
+
+///|
+test "rv64fdv vmv.v.x and vmv.x.s honor sew and sign extension" {
+  let program = words_to_bytes([
+    encode_i(4, 0, 0x0U, 1, 0x13U),
+    encode_vsetvli(2, 1, 0x0U),
+    encode_i(-1, 0, 0x0U, 3, 0x13U),
+    encode_vmv_v_x(4, 3),
+    encode_vmv_x_s(5, 4),
+  ])
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(5) {
+    Running => ()
+    _ => fail("expected vmv.v.x/vmv.x.s sequence to run")
+  }
+  assert_eq(runner.read_reg_u64(5), (-1L).reinterpret_as_uint64())
+  assert_eq(runner.read_vreg_u64(4, 0), 0xffffffffU.to_uint64())
+}
+
+///|
+test "rv64fdv first vector arithmetic slice supports unmasked lmul1 integer add" {
+  let program = words_to_bytes([
+    encode_i(2, 0, 0x0U, 1, 0x13U),
+    encode_vsetvli(2, 1, 0x10U),
+    encode_vmv_v_i(1, 1),
+    encode_vmv_v_i(2, 2),
+    encode_vadd_vv(3, 1, 2, true),
+    encode_i(5, 0, 0x0U, 4, 0x13U),
+    encode_vadd_vx(4, 3, 4, true),
+    encode_vadd_vi(5, 4, -1, true),
+    encode_vmv_x_s(6, 5),
+  ])
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(9) {
+    Running => ()
+    _ => fail("expected vector arithmetic sequence to run")
+  }
+  assert_eq(runner.read_reg_u64(6), 7U.to_uint64())
+  assert_eq(
+    runner.read_vreg_u64(3, 0),
+    (3U.to_uint64() << 32) | 3U.to_uint64(),
+  )
+  assert_eq(
+    runner.read_vreg_u64(4, 0),
+    (8U.to_uint64() << 32) | 8U.to_uint64(),
+  )
+  assert_eq(
+    runner.read_vreg_u64(5, 0),
+    (7U.to_uint64() << 32) | 7U.to_uint64(),
+  )
+}
+
+///|
+test "rv64fd without v rejects first vector arithmetic slice as illegal" {
+  let raw = encode_vadd_vv(1, 2, 3, true)
+  let runner = make_runner(rv64fd_machine_config())
+  runner.load_program(words_to_bytes([raw]), 0U)
+  match runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+      assert_eq(info.trap_value, raw.to_uint64())
+    }
+    _ => fail("expected vector arithmetic to trap without v")
+  }
+}
+
+///|
+test "rv64fdv vector arithmetic rejects masked lmul2 vill and nonzero vstart" {
+  let masked_raw = encode_vadd_vv(1, 2, 3, false)
+  let masked = make_runner(rv64fdv_machine_config())
+  masked.load_program(words_to_bytes([masked_raw]), 0U)
+  match masked.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+      assert_eq(info.trap_value, masked_raw.to_uint64())
+    }
+    _ => fail("expected masked vector arithmetic to trap")
+  }
+
+  let lmul2 = make_runner(rv64fdv_machine_config())
+  lmul2.load_program(
+    words_to_bytes([
+      encode_vsetivli(1, 2U, 0x11U),
+      encode_vmv_v_i(0, 1),
+    ]),
+    0U,
+  )
+  match lmul2.step() {
+    Running => ()
+    _ => fail("expected lmul=2 vsetivli to run")
+  }
+  match lmul2.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+    }
+    _ => fail("expected lmul=2 vector arithmetic to trap")
+  }
+
+  let vill = make_runner(rv64fdv_machine_config())
+  vill.load_program(
+    words_to_bytes([
+      encode_vsetivli(1, 2U, 0x17U),
+      encode_vmv_v_i(0, 1),
+    ]),
+    0U,
+  )
+  match vill.step() {
+    Running => ()
+    _ => fail("expected vill-producing vsetivli to run")
+  }
+  match vill.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+    }
+    _ => fail("expected vill vector arithmetic to trap")
+  }
+
+  let vstart = make_runner(rv64fdv_machine_config())
+  vstart.load_program(words_to_bytes([encode_vmv_v_i(0, 1)]), 0U)
+  vstart.cpu.write_csr(0x008, 1U.to_uint64())
+  match vstart.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+    }
+    _ => fail("expected vstart!=0 vector arithmetic to trap")
+  }
+}
+
+///|
+fn test_vector_vtypei_for_sew(sew_bits : Int) -> UInt {
+  match sew_bits {
+    8 => 0x00U
+    16 => 0x08U
+    32 => 0x10U
+    64 => 0x18U
+    _ => abort("unsupported test vector sew")
+  }
+}
+
+///|
+test "rv64fdv first vector memory slice supports unit-stride integer loads" {
+  let load8 = make_runner(rv64fdv_machine_config())
+  load8.load_program(words_to_bytes([
+    encode_vsetivli(0, 4U, test_vector_vtypei_for_sew(8)),
+    encode_vle8(3, 10, true),
+  ]), 0U)
+  load8.cpu.write_reg(10, 0x100U.to_uint64())
+  load8.bus.store_u8(0x100U.to_uint64(), 0x11U.to_uint64())
+  load8.bus.store_u8(0x101U.to_uint64(), 0x22U.to_uint64())
+  load8.bus.store_u8(0x102U.to_uint64(), 0x33U.to_uint64())
+  load8.bus.store_u8(0x103U.to_uint64(), 0x44U.to_uint64())
+  match load8.run(2) {
+    Running => ()
+    _ => fail("expected vle8.v sequence to run")
+  }
+  assert_eq(load8.read_vreg_u64(3, 0), 0x44332211U.to_uint64())
+
+  let load16 = make_runner(rv64fdv_machine_config())
+  load16.load_program(words_to_bytes([
+    encode_vsetivli(0, 4U, test_vector_vtypei_for_sew(16)),
+    encode_vle16(4, 10, true),
+  ]), 0U)
+  load16.cpu.write_reg(10, 0x120U.to_uint64())
+  load16.bus.store_u16(0x120U.to_uint64(), 0x0102U.to_uint64())
+  load16.bus.store_u16(0x122U.to_uint64(), 0x0304U.to_uint64())
+  load16.bus.store_u16(0x124U.to_uint64(), 0x0506U.to_uint64())
+  load16.bus.store_u16(0x126U.to_uint64(), 0x0708U.to_uint64())
+  match load16.run(2) {
+    Running => ()
+    _ => fail("expected vle16.v sequence to run")
+  }
+  assert_eq(load16.read_vreg_u64(4, 0), test_join_u64(0x07080506U, 0x03040102U))
+  assert_eq(load16.read_vreg_u64(4, 1), 0U.to_uint64())
+
+  let load32 = make_runner(rv64fdv_machine_config())
+  load32.load_program(words_to_bytes([
+    encode_vsetivli(0, 2U, test_vector_vtypei_for_sew(32)),
+    encode_vle32(5, 10, true),
+  ]), 0U)
+  let all_ones = (-1L).reinterpret_as_uint64()
+  load32.cpu.write_vreg(5, 0, all_ones)
+  load32.cpu.write_vreg(5, 1, all_ones)
+  load32.cpu.write_reg(10, 0x140U.to_uint64())
+  load32.bus.store_u32(0x140U.to_uint64(), 0x11223344U.to_uint64())
+  load32.bus.store_u32(0x144U.to_uint64(), 0x55667788U.to_uint64())
+  match load32.run(2) {
+    Running => ()
+    _ => fail("expected vle32.v sequence to run")
+  }
+  assert_eq(
+    load32.read_vreg_u64(5, 0),
+    (0x55667788U.to_uint64() << 32) | 0x11223344U.to_uint64(),
+  )
+  assert_eq(load32.read_vreg_u64(5, 1), all_ones)
+
+  let load64 = make_runner(rv64fdv_machine_config())
+  load64.load_program(words_to_bytes([
+    encode_vsetivli(0, 2U, test_vector_vtypei_for_sew(64)),
+    encode_vle64(6, 10, true),
+  ]), 0U)
+  load64.cpu.write_reg(10, 0x160U.to_uint64())
+  let load64_first = test_join_u64(0x01234567U, 0x89abcdefU)
+  let load64_second = test_join_u64(0xfedcba98U, 0x76543210U)
+  load64.bus.store_u64(0x160U.to_uint64(), load64_first)
+  load64.bus.store_u64(0x168U.to_uint64(), load64_second)
+  match load64.run(2) {
+    Running => ()
+    _ => fail("expected vle64.v sequence to run")
+  }
+  assert_eq(load64.read_vreg_u64(6, 0), load64_first)
+  assert_eq(load64.read_vreg_u64(6, 1), load64_second)
+}
+
+///|
+test "rv64fdv first vector memory slice supports unit-stride integer stores" {
+  let store8 = make_runner(rv64fdv_machine_config())
+  store8.load_program(words_to_bytes([
+    encode_vsetivli(0, 4U, test_vector_vtypei_for_sew(8)),
+    encode_vse8(3, 10, true),
+  ]), 0U)
+  store8.cpu.write_vreg(3, 0, 0x44332211U.to_uint64())
+  store8.cpu.write_reg(10, 0x180U.to_uint64())
+  match store8.run(2) {
+    Running => ()
+    _ => fail("expected vse8.v sequence to run")
+  }
+  assert_eq(store8.bus.load_u8(0x180U.to_uint64()), 0x11U.to_uint64())
+  assert_eq(store8.bus.load_u8(0x181U.to_uint64()), 0x22U.to_uint64())
+  assert_eq(store8.bus.load_u8(0x182U.to_uint64()), 0x33U.to_uint64())
+  assert_eq(store8.bus.load_u8(0x183U.to_uint64()), 0x44U.to_uint64())
+
+  let store16 = make_runner(rv64fdv_machine_config())
+  store16.load_program(words_to_bytes([
+    encode_vsetivli(0, 4U, test_vector_vtypei_for_sew(16)),
+    encode_vse16(4, 10, true),
+  ]), 0U)
+  store16.cpu.write_vreg(4, 0, test_join_u64(0x07080506U, 0x03040102U))
+  store16.cpu.write_vreg(4, 1, 0U.to_uint64())
+  store16.cpu.write_reg(10, 0x1A0U.to_uint64())
+  match store16.run(2) {
+    Running => ()
+    _ => fail("expected vse16.v sequence to run")
+  }
+  assert_eq(store16.bus.load_u16(0x1A0U.to_uint64()), 0x0102U.to_uint64())
+  assert_eq(store16.bus.load_u16(0x1A2U.to_uint64()), 0x0304U.to_uint64())
+  assert_eq(store16.bus.load_u16(0x1A4U.to_uint64()), 0x0506U.to_uint64())
+  assert_eq(store16.bus.load_u16(0x1A6U.to_uint64()), 0x0708U.to_uint64())
+
+  let store32 = make_runner(rv64fdv_machine_config())
+  store32.load_program(words_to_bytes([
+    encode_vsetivli(0, 2U, test_vector_vtypei_for_sew(32)),
+    encode_vse32(5, 10, true),
+  ]), 0U)
+  store32.cpu.write_vreg(
+    5,
+    0,
+    (0x55667788U.to_uint64() << 32) | 0x11223344U.to_uint64(),
+  )
+  store32.cpu.write_reg(10, 0x1C0U.to_uint64())
+  match store32.run(2) {
+    Running => ()
+    _ => fail("expected vse32.v sequence to run")
+  }
+  assert_eq(store32.bus.load_u32(0x1C0U.to_uint64()), 0x11223344U.to_uint64())
+  assert_eq(store32.bus.load_u32(0x1C4U.to_uint64()), 0x55667788U.to_uint64())
+
+  let store64 = make_runner(rv64fdv_machine_config())
+  store64.load_program(words_to_bytes([
+    encode_vsetivli(0, 2U, test_vector_vtypei_for_sew(64)),
+    encode_vse64(6, 10, true),
+  ]), 0U)
+  let store64_first = test_join_u64(0x01234567U, 0x89abcdefU)
+  let store64_second = test_join_u64(0xfedcba98U, 0x76543210U)
+  store64.cpu.write_vreg(6, 0, store64_first)
+  store64.cpu.write_vreg(6, 1, store64_second)
+  store64.cpu.write_reg(10, 0x1E0U.to_uint64())
+  match store64.run(2) {
+    Running => ()
+    _ => fail("expected vse64.v sequence to run")
+  }
+  assert_eq(store64.bus.load_u64(0x1E0U.to_uint64()), store64_first)
+  assert_eq(store64.bus.load_u64(0x1E8U.to_uint64()), store64_second)
+}
+
+///|
+test "rv64fdv vector memory rejects masked width-mismatch lmul2 vill and nonzero vstart" {
+  let masked_raw = encode_vle32(1, 10, false)
+  let masked = make_runner(rv64fdv_machine_config())
+  masked.load_program(words_to_bytes([masked_raw]), 0U)
+  match masked.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+      assert_eq(info.trap_value, masked_raw.to_uint64())
+    }
+    _ => fail("expected masked vector memory op to trap")
+  }
+
+  let mismatch = make_runner(rv64fdv_machine_config())
+  mismatch.load_program(words_to_bytes([
+    encode_vsetivli(0, 2U, test_vector_vtypei_for_sew(32)),
+    encode_vle8(1, 10, true),
+  ]), 0U)
+  mismatch.cpu.write_reg(10, 0x200U.to_uint64())
+  match mismatch.step() {
+    Running => ()
+    _ => fail("expected setup vsetivli to run")
+  }
+  match mismatch.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+    }
+    _ => fail("expected width-mismatch vector load to trap")
+  }
+
+  let lmul2 = make_runner(rv64fdv_machine_config())
+  lmul2.load_program(words_to_bytes([
+    encode_vsetivli(0, 2U, 0x11U),
+    encode_vle32(1, 10, true),
+  ]), 0U)
+  lmul2.cpu.write_reg(10, 0x220U.to_uint64())
+  match lmul2.step() {
+    Running => ()
+    _ => fail("expected lmul=2 vsetivli to run")
+  }
+  match lmul2.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+    }
+    _ => fail("expected lmul=2 vector memory op to trap")
+  }
+
+  let vill = make_runner(rv64fdv_machine_config())
+  vill.load_program(words_to_bytes([
+    encode_vsetivli(0, 2U, 0x17U),
+    encode_vle32(1, 10, true),
+  ]), 0U)
+  vill.cpu.write_reg(10, 0x240U.to_uint64())
+  match vill.step() {
+    Running => ()
+    _ => fail("expected vill-producing vsetivli to run")
+  }
+  match vill.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+    }
+    _ => fail("expected vill vector memory op to trap")
+  }
+
+  let vstart = make_runner(rv64fdv_machine_config())
+  vstart.load_program(words_to_bytes([encode_vle32(1, 10, true)]), 0U)
+  vstart.cpu.write_reg(10, 0x260U.to_uint64())
+  vstart.cpu.write_csr(0x008, 1U.to_uint64())
+  match vstart.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+    }
+    _ => fail("expected vstart!=0 vector memory op to trap")
+  }
+}
+
+///|
+test "rv64fd without v rejects first vector memory slice as illegal" {
+  let raw = encode_vle32(1, 10, true)
+  let runner = make_runner(rv64fd_machine_config())
+  runner.load_program(words_to_bytes([raw]), 0U)
+  match runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+      assert_eq(info.trap_value, raw.to_uint64())
+    }
+    _ => fail("expected vector memory op to trap without v")
+  }
+}
+
+///|
+test "rv64fdv vector memory faults without partial commit" {
+  let load_fault = make_runner(rv64fdv_machine_config())
+  load_fault.load_program(words_to_bytes([
+    encode_vsetivli(0, 2U, test_vector_vtypei_for_sew(32)),
+    encode_vle32(7, 10, true),
+  ]), 0U)
+  let all_ones = (-1L).reinterpret_as_uint64()
+  let load_addr = load_fault.config.ram_base +
+    load_fault.config.ram_size.reinterpret_as_uint().to_uint64() - 4U.to_uint64()
+  load_fault.cpu.write_vreg(7, 0, all_ones)
+  load_fault.cpu.write_vreg(7, 1, all_ones)
+  load_fault.cpu.write_reg(10, load_addr)
+  load_fault.bus.store_u32(load_addr, 0x11223344U.to_uint64())
+  match load_fault.step() {
+    Running => ()
+    _ => fail("expected setup vsetivli to run")
+  }
+  match load_fault.step() {
+    Trap(info) => {
+      match info.cause {
+        LoadAccessFault => ()
+        _ => fail("expected load access fault")
+      }
+    }
+    _ => fail("expected vector load fault")
+  }
+  assert_eq(load_fault.read_vreg_u64(7, 0), all_ones)
+  assert_eq(load_fault.read_vreg_u64(7, 1), all_ones)
+
+  let store_fault = make_runner(rv64fdv_machine_config())
+  store_fault.load_program(words_to_bytes([
+    encode_vsetivli(0, 2U, test_vector_vtypei_for_sew(32)),
+    encode_vse32(8, 10, true),
+  ]), 0U)
+  let store_addr = store_fault.config.ram_base +
+    store_fault.config.ram_size.reinterpret_as_uint().to_uint64() - 4U.to_uint64()
+  store_fault.cpu.write_vreg(
+    8,
+    0,
+    (0x55667788U.to_uint64() << 32) | 0x11223344U.to_uint64(),
+  )
+  store_fault.cpu.write_reg(10, store_addr)
+  match store_fault.step() {
+    Running => ()
+    _ => fail("expected setup vsetivli to run")
+  }
+  match store_fault.step() {
+    Trap(info) => {
+      match info.cause {
+        StoreAccessFault => ()
+        _ => fail("expected store access fault")
+      }
+    }
+    _ => fail("expected vector store fault")
+  }
+  assert_eq(store_fault.bus.load_u32(store_addr), 0U.to_uint64())
+}
+
+///|
+test "rv64fdv masked vector arithmetic updates only lanes enabled by v0" {
+  let program = words_to_bytes([
+    encode_vsetivli(0, 4U, test_vector_vtypei_for_sew(32)),
+    encode_vadd_vv(3, 1, 2, false),
+    encode_vadd_vx(4, 1, 10, false),
+    encode_vadd_vi(5, 1, -1, false),
+  ])
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.load_program(program, 0U)
+  runner.cpu.write_reg(10, 5U.to_uint64())
+  runner.cpu.write_vreg(0, 0, 0x5U.to_uint64())
+  runner.cpu.write_vreg(0, 1, 0U.to_uint64())
+  runner.cpu.write_vreg(1, 0, test_join_u64(20U, 10U))
+  runner.cpu.write_vreg(1, 1, test_join_u64(40U, 30U))
+  runner.cpu.write_vreg(2, 0, test_join_u64(2U, 1U))
+  runner.cpu.write_vreg(2, 1, test_join_u64(4U, 3U))
+  runner.cpu.write_vreg(3, 0, test_join_u64(0xdeadbeefU, 0xaaaaaaaaU))
+  runner.cpu.write_vreg(3, 1, test_join_u64(0xcafebabeU, 0xbbbbbbbbU))
+  runner.cpu.write_vreg(4, 0, test_join_u64(0x11111111U, 0xccccccccU))
+  runner.cpu.write_vreg(4, 1, test_join_u64(0x22222222U, 0xddddddddU))
+  runner.cpu.write_vreg(5, 0, test_join_u64(0x33333333U, 0xeeeeeeeeU))
+  runner.cpu.write_vreg(5, 1, test_join_u64(0x44444444U, 0xffffffffU))
+  match runner.run(4) {
+    Running => ()
+    _ => fail("expected masked vector arithmetic sequence to run")
+  }
+  assert_eq(runner.read_vreg_u64(3, 0), test_join_u64(0xdeadbeefU, 11U))
+  assert_eq(runner.read_vreg_u64(3, 1), test_join_u64(0xcafebabeU, 33U))
+  assert_eq(runner.read_vreg_u64(4, 0), test_join_u64(0x11111111U, 15U))
+  assert_eq(runner.read_vreg_u64(4, 1), test_join_u64(0x22222222U, 35U))
+  assert_eq(runner.read_vreg_u64(5, 0), test_join_u64(0x33333333U, 9U))
+  assert_eq(runner.read_vreg_u64(5, 1), test_join_u64(0x44444444U, 29U))
 }
 
 ///|
@@ -2385,6 +3053,9 @@ async test "Task 0015: Linux kernel boot via OpenSBI" {
   println(
     "Task 0015 Linux boot: \{all_output.length()} chars total, \{steps} steps",
   )
+  println(
+    "Task 0015 cache stats: decode=\{runner.decode_cache_hit_count()} hits/\{runner.decode_cache_miss_count()} misses translate=\{runner.translate_cache_hit_count()} hits/\{runner.translate_cache_miss_count()} misses",
+  )
   if trapped {
     println("Trapped: cause=\{trap_cause} pc=\{trap_pc}")
   }
@@ -2463,7 +3134,7 @@ async test "Task 0016: SMP 2-hart boot via OpenSBI" {
   let mut steps = 0
   let mut all_output = ""
   let mut done = false
-  while steps < max_steps && not(done) {
+  while steps < max_steps && !done {
     // Hart 0 step
     match h0.step() {
       Running => ()

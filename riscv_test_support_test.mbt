@@ -41,13 +41,13 @@ async fn load_official_riscv_test_cases() -> Array[OfficialRiscvTestCase] {
   let manifest = read_manifest_text(official_riscv_tests_manifest_path)
   let cases : Array[OfficialRiscvTestCase] = []
   for raw_line in manifest.split("\n") {
-    let line = raw_line.to_string().trim().to_string()
+    let line = raw_line.to_owned().trim().to_owned()
     if line == "" || line.has_prefix("#") {
       continue
     }
     let fields : Array[String] = []
     for field in line.split("\t") {
-      fields.push(field.to_string())
+      fields.push(field.to_owned())
     }
     if fields.length() != 4 {
       abort("invalid riscv-tests manifest line: \{line}")
@@ -209,6 +209,158 @@ fn encode_fence() -> UInt {
 ///|
 fn encode_fence_i() -> UInt {
   0x0000100fU
+}
+
+///|
+fn encode_vsetvli(rd : Int, rs1 : Int, vtypei : UInt) -> UInt {
+  ((vtypei & 0x7ffU) << 20) |
+  (rs1.reinterpret_as_uint() << 15) |
+  (0x7U << 12) |
+  (rd.reinterpret_as_uint() << 7) |
+  0x57U
+}
+
+///|
+fn encode_vsetivli(rd : Int, avl : UInt, vtypei : UInt) -> UInt {
+  (1U << 31) |
+  (1U << 30) |
+  ((vtypei & 0x3ffU) << 20) |
+  ((avl & 0x1fU) << 15) |
+  (0x7U << 12) |
+  (rd.reinterpret_as_uint() << 7) |
+  0x57U
+}
+
+///|
+fn encode_vsetvl(rd : Int, rs1 : Int, rs2 : Int) -> UInt {
+  (0x20U << 26) |
+  (rs2.reinterpret_as_uint() << 20) |
+  (rs1.reinterpret_as_uint() << 15) |
+  (0x7U << 12) |
+  (rd.reinterpret_as_uint() << 7) |
+  0x57U
+}
+
+///|
+fn encode_vop(
+  funct6 : UInt,
+  vm : Bool,
+  vs2 : Int,
+  rs1_or_imm : Int,
+  funct3 : UInt,
+  vd_or_rd : Int,
+) -> UInt {
+  (funct6 << 26) |
+  ((if vm { 1U } else { 0U }) << 25) |
+  (vs2.reinterpret_as_uint() << 20) |
+  ((rs1_or_imm & 0x1f).reinterpret_as_uint() << 15) |
+  (funct3 << 12) |
+  (vd_or_rd.reinterpret_as_uint() << 7) |
+  0x57U
+}
+
+///|
+fn encode_vmem_width(elem_bits : Int) -> UInt {
+  match elem_bits {
+    8 => 0x0U
+    16 => 0x5U
+    32 => 0x6U
+    64 => 0x7U
+    _ => abort("unsupported vector memory width")
+  }
+}
+
+///|
+fn encode_vload_unit_stride(vd : Int, rs1 : Int, elem_bits : Int, vm : Bool) -> UInt {
+  (((if vm { 1U } else { 0U }) & 0x1U) << 25) |
+  (rs1.reinterpret_as_uint() << 15) |
+  (encode_vmem_width(elem_bits) << 12) |
+  (vd.reinterpret_as_uint() << 7) |
+  0x07U
+}
+
+///|
+fn encode_vstore_unit_stride(
+  vs3 : Int,
+  rs1 : Int,
+  elem_bits : Int,
+  vm : Bool,
+) -> UInt {
+  (((if vm { 1U } else { 0U }) & 0x1U) << 25) |
+  (rs1.reinterpret_as_uint() << 15) |
+  (encode_vmem_width(elem_bits) << 12) |
+  (vs3.reinterpret_as_uint() << 7) |
+  0x27U
+}
+
+///|
+fn encode_vle8(vd : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vload_unit_stride(vd, rs1, 8, vm)
+}
+
+///|
+fn encode_vle16(vd : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vload_unit_stride(vd, rs1, 16, vm)
+}
+
+///|
+fn encode_vle32(vd : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vload_unit_stride(vd, rs1, 32, vm)
+}
+
+///|
+fn encode_vle64(vd : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vload_unit_stride(vd, rs1, 64, vm)
+}
+
+///|
+fn encode_vse8(vs3 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vstore_unit_stride(vs3, rs1, 8, vm)
+}
+
+///|
+fn encode_vse16(vs3 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vstore_unit_stride(vs3, rs1, 16, vm)
+}
+
+///|
+fn encode_vse32(vs3 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vstore_unit_stride(vs3, rs1, 32, vm)
+}
+
+///|
+fn encode_vse64(vs3 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vstore_unit_stride(vs3, rs1, 64, vm)
+}
+
+///|
+fn encode_vmv_v_i(vd : Int, imm : Int) -> UInt {
+  encode_vop(0x17U, true, 0, imm, 0x3U, vd)
+}
+
+///|
+fn encode_vmv_v_x(vd : Int, rs1 : Int) -> UInt {
+  encode_vop(0x17U, true, 0, rs1, 0x4U, vd)
+}
+
+///|
+fn encode_vmv_x_s(rd : Int, vs2 : Int) -> UInt {
+  encode_vop(0x10U, true, vs2, 0, 0x6U, rd)
+}
+
+///|
+fn encode_vadd_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x00U, vm, vs2, vs1, 0x0U, vd)
+}
+
+///|
+fn encode_vadd_vi(vd : Int, vs2 : Int, imm : Int, vm : Bool) -> UInt {
+  encode_vop(0x00U, vm, vs2, imm, 0x3U, vd)
+}
+
+///|
+fn encode_vadd_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x00U, vm, vs2, rs1, 0x4U, vd)
 }
 
 ///|

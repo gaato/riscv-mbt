@@ -1,0 +1,298 @@
+const hostNotes = document.getElementById("host-notes");
+const consoleNode = document.getElementById("console");
+const statusNode = document.getElementById("status");
+const stepButton = document.getElementById("step");
+const runToggleButton = document.getElementById("run-toggle");
+const resetButton = document.getElementById("reset");
+const loadSmokeButton = document.getElementById("load-smoke");
+const loadLinuxButton = document.getElementById("load-linux");
+const serialInput = document.getElementById("serial-input");
+const sendInputButton = document.getElementById("send-input");
+const artifactStatusNode = document.getElementById("artifact-status");
+
+let runtime;
+const textEncoder = new TextEncoder();
+
+const schedulerPolicy = {
+  intervalMs: 16,
+  smokeStepsPerTick: 4096,
+  linuxStepsPerTick: 65536,
+};
+
+const linuxBootMarkers = [
+  ["OpenSBI", "OpenSBI v"],
+  ["Linux version", "Linux version"],
+  ["earlycon", "earlycon:"],
+  ["kernel command line", "Kernel command line:"],
+  ["ttyS0 console", "ttyS0"],
+];
+
+function makeWasmImports(module) {
+  const stringConstants = {};
+  for (const imported of WebAssembly.Module.imports(module)) {
+    if (imported.module === "_" && imported.kind === "global") {
+      stringConstants[imported.name] = imported.name;
+    }
+  }
+  return {
+    "_": stringConstants,
+    "wasm:js-string": {
+      length: (value) => value.length,
+      charCodeAt: (value, index) => value.charCodeAt(index),
+      equals: (left, right) => left === right,
+      concat: (left, right) => left + right,
+      fromCharCodeArray: () => "",
+    },
+  };
+}
+
+function setText(node, text) {
+  if (node) {
+    node.textContent = text;
+  }
+}
+
+function syncUi() {
+  const consoleText = runtime.consoleText();
+  setText(consoleNode, consoleText);
+  setText(statusNode, runtime.statusText());
+  setText(artifactStatusNode, runtime.artifactStatusText(consoleText));
+  setText(runToggleButton, runtime.isRunning() ? "Pause" : "Run");
+}
+
+function readRuntimeText(wasm, prefix) {
+  const length = wasm[`${prefix}_length`]();
+  let text = "";
+  for (let index = 0; index < length; index += 1) {
+    text += String.fromCodePoint(wasm[`${prefix}_code_at`](index));
+  }
+  return text;
+}
+
+function makeBrowserRuntime(wasm) {
+  const privilegeName = (value) => ({
+    0: "User",
+    1: "Supervisor",
+    3: "Machine",
+  })[value] ?? "Unknown";
+
+  const statusText = () => {
+    const mode = wasm.browser_is_running() ? "running" : "paused";
+    return [
+      `mode: ${mode}`,
+      `pc: 0x${wasm.browser_pc().toString(16)}`,
+      `privilege: ${privilegeName(wasm.browser_privilege())}`,
+      `x1: 0x${wasm.browser_reg(1).toString(16)}`,
+      `x2: 0x${wasm.browser_reg(2).toString(16)}`,
+      `x3: 0x${wasm.browser_reg(3).toString(16)}`,
+      `x4: 0x${wasm.browser_reg(4).toString(16)}`,
+      `decode cache: ${wasm.browser_decode_cache_hits()} hits / ${wasm.browser_decode_cache_misses()} misses`,
+      `translate cache: ${wasm.browser_translate_cache_hits()} hits / ${wasm.browser_translate_cache_misses()} misses`,
+    ].join("\n");
+  };
+
+  return {
+    init: () => wasm.browser_init(),
+    step: () => wasm.browser_step(),
+    runTick: () => wasm.browser_run_for(stepBudgetForGuest(wasm.browser_guest_kind())),
+    toggleRun: () => wasm.browser_toggle_run(),
+    reset: () => wasm.browser_reset(),
+    sendInputByte: (value) => wasm.browser_send_input_byte(value),
+    flushInput: () => wasm.browser_flush_input(),
+    beginArtifact: (kind) => wasm.browser_begin_artifact(kind),
+    pushArtifactByte: (value) => wasm.browser_push_artifact_byte(value),
+    pushArtifactWords4: (word0, word1, word2, word3, count) => {
+      wasm.browser_push_artifact_words4(word0, word1, word2, word3, count);
+    },
+    finishArtifact: () => wasm.browser_finish_artifact(),
+    artifactMask: () => wasm.browser_artifact_loaded_mask(),
+    artifactSize: (kind) => wasm.browser_artifact_size(kind),
+    guestKind: () => wasm.browser_guest_kind(),
+    totalSteps: () => wasm.browser_total_steps(),
+    consoleText: () => readRuntimeText(wasm, "browser_console"),
+    statusText,
+    artifactStatusText: (consoleText) => artifactStatusText(wasm, consoleText),
+    isRunning: () => wasm.browser_is_running(),
+  };
+}
+
+function stepBudgetForGuest(guestKind) {
+  return guestKind === 1 ?
+    schedulerPolicy.linuxStepsPerTick :
+    schedulerPolicy.smokeStepsPerTick;
+}
+
+function linuxBootProgressText(consoleText) {
+  if (consoleText.includes("[trap]")) {
+    return "boot: trap reported";
+  }
+  const reached = [];
+  for (const [label, marker] of linuxBootMarkers) {
+    if (consoleText.includes(marker)) {
+      reached.push(label);
+    }
+  }
+  return reached.length > 0 ?
+    `boot: ${reached.join(" -> ")}` :
+    "boot: waiting for firmware output";
+}
+
+function artifactStatusText(wasm, consoleText) {
+  const mask = wasm.browser_artifact_loaded_mask();
+  const guestKind = wasm.browser_guest_kind();
+  const loaded = [
+    mask & 1 ? `OpenSBI ${wasm.browser_artifact_size(1)} bytes` : "OpenSBI: missing",
+    mask & 2 ? `DTB ${wasm.browser_artifact_size(2)} bytes` : "DTB: missing",
+    mask & 4 ? `kernel ${wasm.browser_artifact_size(3)} bytes` : "kernel: missing",
+  ].join(" / ");
+  const guest = guestKind === 1 ? "linux artifacts loaded" : "smoke guest";
+  return [
+    `guest: ${guest}`,
+    `artifacts: ${loaded}`,
+    `scheduler: ${stepBudgetForGuest(guestKind)} steps every ${schedulerPolicy.intervalMs}ms`,
+    linuxBootProgressText(consoleText),
+    `executed: ${wasm.browser_total_steps()} steps`,
+  ].join("\n");
+}
+
+function submitInput() {
+  const value = serialInput.value;
+  serialInput.value = "";
+  sendInputText(value);
+  syncUi();
+}
+
+function sendInputText(text) {
+  const bytes = textEncoder.encode(`${text}\r\n`);
+  for (const byte of bytes) {
+    runtime.sendInputByte(byte);
+  }
+  runtime.flushInput();
+}
+
+async function loadArtifact(kind, url) {
+  const response = await fetch(url);
+  if (!response.ok) {
+    throw new Error(`${url}: HTTP ${response.status}`);
+  }
+  const bytes = new Uint8Array(await response.arrayBuffer());
+  runtime.beginArtifact(kind);
+  for (let offset = 0; offset < bytes.length; offset += 16) {
+    const remaining = Math.min(16, bytes.length - offset);
+    runtime.pushArtifactWords4(
+      packWord(bytes, offset),
+      packWord(bytes, offset + 4),
+      packWord(bytes, offset + 8),
+      packWord(bytes, offset + 12),
+      remaining,
+    );
+  }
+  return runtime.finishArtifact();
+}
+
+function packWord(bytes, offset) {
+  return (
+    (bytes[offset] ?? 0) |
+    ((bytes[offset + 1] ?? 0) << 8) |
+    ((bytes[offset + 2] ?? 0) << 16) |
+    ((bytes[offset + 3] ?? 0) << 24)
+  );
+}
+
+async function loadLinuxArtifacts(manifestUrl = "linux-artifacts/manifest.json") {
+  setText(artifactStatusNode, "loading linux artifact manifest...");
+  const manifestResponse = await fetch(manifestUrl);
+  if (!manifestResponse.ok) {
+    throw new Error(`${manifestUrl}: HTTP ${manifestResponse.status}`);
+  }
+  const manifest = await manifestResponse.json();
+  await loadArtifact(1, new URL(manifest.opensbi, manifestResponse.url));
+  syncUi();
+  await loadArtifact(2, new URL(manifest.dtb, manifestResponse.url));
+  syncUi();
+  await loadArtifact(3, new URL(manifest.kernel, manifestResponse.url));
+  syncUi();
+}
+
+function startRunning() {
+  if (!runtime.isRunning()) {
+    runtime.toggleRun();
+  }
+  syncUi();
+}
+
+async function bootHost() {
+  const module = await WebAssembly.compileStreaming(fetch("browser.wasm"));
+  const instance = await WebAssembly.instantiate(module, makeWasmImports(module));
+  runtime = makeBrowserRuntime(instance.exports);
+
+  runtime.init();
+  setText(
+    hostNotes,
+    "Shared core Wasm host. Input is pushed into the emulated UART RX queue and echoed by the guest.",
+  );
+
+  stepButton.addEventListener("click", () => {
+    if (!runtime.isRunning()) {
+      runtime.step();
+      syncUi();
+    }
+  });
+  runToggleButton.addEventListener("click", () => {
+    runtime.toggleRun();
+    syncUi();
+  });
+  resetButton.addEventListener("click", () => {
+    runtime.reset();
+    syncUi();
+  });
+  loadSmokeButton.addEventListener("click", () => {
+    runtime.reset();
+    syncUi();
+  });
+  loadLinuxButton.addEventListener("click", () => {
+    loadLinuxArtifacts().then(() => {
+      if (new URLSearchParams(window.location.search).get("autoRun") === "1") {
+        startRunning();
+      }
+    }).catch((error) => {
+      console.error(error);
+      setText(artifactStatusNode, `linux artifact load failed: ${error.message}`);
+    });
+  });
+  sendInputButton.addEventListener("click", submitInput);
+  serialInput.addEventListener("keydown", (event) => {
+    if (event.key === "Enter") {
+      event.preventDefault();
+      submitInput();
+    }
+  });
+  setInterval(() => {
+    if (runtime.isRunning()) {
+      runtime.runTick();
+      syncUi();
+    }
+  }, schedulerPolicy.intervalMs);
+  syncUi();
+  const smokeInput = new URLSearchParams(window.location.search).get("smokeInput");
+  if (smokeInput) {
+    sendInputText(smokeInput);
+    syncUi();
+  }
+  if (new URLSearchParams(window.location.search).get("guest") === "linux") {
+    loadLinuxArtifacts().then(() => {
+      if (new URLSearchParams(window.location.search).get("autoRun") === "1") {
+        startRunning();
+      }
+    }).catch((error) => {
+      console.error(error);
+      setText(artifactStatusNode, `linux artifact load failed: ${error.message}`);
+    });
+  }
+  serialInput.focus();
+}
+
+bootHost().catch((error) => {
+  console.error(error);
+  setText(hostNotes, `Failed to start Wasm host: ${error}`);
+});

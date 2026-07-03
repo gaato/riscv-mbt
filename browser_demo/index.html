@@ -17,12 +17,15 @@
           <button id="step" type="button">Step</button>
           <button id="run-toggle" type="button">Run</button>
           <button id="reset" type="button">Reset</button>
+          <button id="load-smoke" type="button">Smoke</button>
+          <button id="load-linux" type="button">Load Linux</button>
         </div>
         <label class="input-row" for="serial-input">
           <span>UART input</span>
           <input id="serial-input" type="text" placeholder="Type and press Enter">
           <button id="send-input" type="button">Send</button>
         </label>
+        <pre id="artifact-status"></pre>
       </section>
       <section class="panel two-up">
         <div>
@@ -35,6 +38,6 @@
         </div>
       </section>
     </main>
-    <script src="browser.js"></script>
+    <script type="module" src="browser.js"></script>
   </body>
 </html>

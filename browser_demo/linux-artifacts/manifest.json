@@ -1,0 +1,5 @@
+{
+  "opensbi": "opensbi-riscv64-fw_dynamic.bin",
+  "dtb": "minimal.dtb",
+  "kernel": "linux-kernel-riscv64"
+}
