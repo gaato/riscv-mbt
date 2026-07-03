@@ -12,8 +12,10 @@ Describes only the devices the emulator actually implements:
 Usage:
   python3 tools/build_minimal_dtb.py > _build/minimal.dtb
   python3 tools/build_minimal_dtb.py --moonbit   # print MoonBit byte literal
+  python3 tools/build_minimal_dtb.py --initrd-start 0x84000000 --initrd-end 0x84400000 > _build/minimal-alpine.dtb
 """
 
+import argparse
 import struct
 import sys
 
@@ -103,6 +105,8 @@ def build_minimal_dtb(
     clint_base: int = 0x02000000,
     plic_base: int  = 0x0c000000,
     bootargs: str   = "",
+    initrd_start: int | None = None,
+    initrd_end: int | None = None,
 ) -> bytes:
     b = DTBBuilder()
 
@@ -151,6 +155,13 @@ def build_minimal_dtb(
     b.prop_str("stdout-path", stdout)
     if bootargs:
         b.prop_str("bootargs", bootargs)
+    if initrd_start is not None or initrd_end is not None:
+        if initrd_start is None or initrd_end is None:
+            raise ValueError("initrd_start and initrd_end must be provided together")
+        if initrd_end <= initrd_start:
+            raise ValueError("initrd_end must be greater than initrd_start")
+        b.prop_u64("linux,initrd-start", initrd_start)
+        b.prop_u64("linux,initrd-end", initrd_end)
     b.end_node()
 
     # SoC bus
@@ -205,12 +216,25 @@ def to_moonbit_bytes(data: bytes) -> str:
 
 
 if __name__ == '__main__':
-    dtb = build_minimal_dtb(
-        bootargs="earlycon=sbi earlycon console=ttyS0,3686400 root=/dev/ram0 rdinit=/init",
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--moonbit", action="store_true")
+    parser.add_argument("--verify", action="store_true")
+    parser.add_argument(
+        "--bootargs",
+        default="earlycon=sbi earlycon console=ttyS0,3686400 root=/dev/ram0 rdinit=/init",
     )
-    if '--moonbit' in sys.argv:
+    parser.add_argument("--initrd-start", type=lambda value: int(value, 0))
+    parser.add_argument("--initrd-end", type=lambda value: int(value, 0))
+    args = parser.parse_args()
+
+    dtb = build_minimal_dtb(
+        bootargs=args.bootargs,
+        initrd_start=args.initrd_start,
+        initrd_end=args.initrd_end,
+    )
+    if args.moonbit:
         print(to_moonbit_bytes(dtb))
-    elif '--verify' in sys.argv:
+    elif args.verify:
         # Just print size and first/last bytes for sanity
         print(f"DTB size: {len(dtb)} bytes")
         print(f"Magic: 0x{int.from_bytes(dtb[:4], 'big'):08x}")

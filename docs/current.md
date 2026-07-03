@@ -62,10 +62,11 @@
 - [Move the browser host to the plain Wasm backend](tasks/0055-browser-plain-wasm-backend.md) — `done`
 - [Add simmerv-inspired cache performance improvements](tasks/0056-simmerv-inspired-cache-performance.md) — `done`
 - [Refactor MoonBit execution surfaces before the next vector slice](tasks/0057-moonbit-refactoring-pre-0048.md) — `done`
+- [Boot an Alpine rootfs in browser Wasm](tasks/0058-alpine-rootfs-browser-boot.md) — `doing`
 
 ## Next Task
 
-- Next: resume the post-Linux extension sequence with the broader vector memory/addressing and first `LMUL>1` slice ([Task 0048](tasks/0048-broader-vector-memory-and-lmul-slice.md)).
+- Next: make the browser Linux artifact path load an Alpine initramfs and measure `wasm` versus `wasm-gc` before committing to a backend ([Task 0058](tasks/0058-alpine-rootfs-browser-boot.md)). Resume the broader vector memory/addressing and first `LMUL>1` slice ([Task 0048](tasks/0048-broader-vector-memory-and-lmul-slice.md)) after the rootfs boot path has a measured baseline.
 
 ## Known Blockers
 
@@ -80,6 +81,7 @@
 - Future Linux-specific compatibility checks should start from the upstream Linux RISC-V architecture documentation index, especially boot image header, VM layout, hwprobe, and vector support.
 - A MoonBit refactor slice split FP execution into `riscv_fp.mbt` and vector execution into `riscv_vector.mbt`; `riscv_execute.mbt` is now below the 2k-line guideline and remains the central dispatcher.
 - Browser Wasm Linux boot is complete; `0048` is no longer deferred and is the next extension task.
+- The active goal is now Alpine rootfs boot in browser Wasm. The implementation should alternate spec-driven Linux/RISC-V compatibility work with measured performance work (`moon bench`, browser timing, Context7/DeepWiki/web checks) and periodic git commits. Backend choice between `wasm` and `wasm-gc` is measurement-driven.
 
 ## Read Next
 
@@ -95,6 +97,7 @@
 - [Task 0055](tasks/0055-browser-plain-wasm-backend.md)
 - [Task 0056](tasks/0056-simmerv-inspired-cache-performance.md)
 - [Task 0057](tasks/0057-moonbit-refactoring-pre-0048.md)
+- [Task 0058](tasks/0058-alpine-rootfs-browser-boot.md)
 - [Performance milestone](milestones/10-verification-debug-performance.md)
 - [Extensions milestone](milestones/09-extensions-a-fd-v-h.md)
 - [Task 0018](tasks/0018-extensions-a-fd-v-h.md)

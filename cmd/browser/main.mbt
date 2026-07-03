@@ -73,6 +73,11 @@ pub fn browser_finish_artifact() -> Bool {
 }
 
 ///|
+pub fn browser_load_linux_from_artifacts() -> Bool {
+  browser_runtime.val.try_load_linux_from_artifacts()
+}
+
+///|
 pub fn browser_artifact_loaded_mask() -> Int {
   browser_runtime.val.artifact_loaded_mask()
 }

@@ -72,6 +72,7 @@ This document captures the practical cautions that matter across milestones, esp
 - On direct devicetree boot, enter the kernel with `a0` holding the current hart id and `a1` holding the guest physical address of the devicetree.
 - Enter the kernel with `satp = 0`; the kernel expects the MMU to be disabled before its early mapping setup.
 - Place the kernel Image at the required PMD boundary. For the current RV64 path, that means 2 MiB alignment.
+- For initramfs/rootfs boot, describe the initrd through `/chosen/linux,initrd-start` and `/chosen/linux,initrd-end` in the DTB and keep the initrd inside RAM without overlapping firmware, kernel, or DTB placement.
 - Keep resident firmware or protected memory out of Linux's direct map by describing it through `/reserved-memory` or an equivalent firmware memory description before relying on it for a real platform model.
 - Keep one-hart boot as the default baseline. For SMP, prefer the ordered booting model with SBI HSM once hart lifecycle support is the active task.
 
@@ -197,3 +198,5 @@ These are the recommended refactors to do immediately before specific milestones
 - Decode cache entries are invalidated on `FENCE.I` and host-side program/image writes.
 - Sv39 translation cache entries are invalidated on `satp`, `SFENCE.VMA`, and host-side program/image writes.
 - Browser performance evidence should include both wall time and cache counters; a faster browser proof without native `moon test` is not enough.
+- The browser backend is not fixed by policy. Compare `wasm` and `wasm-gc` with the same Alpine/rootfs workload before making backend-specific optimizations.
+- Keep generated browser proof logs and benchmark output under `outputs/`; that directory is intentionally ignored.

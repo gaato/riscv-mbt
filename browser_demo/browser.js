@@ -105,6 +105,7 @@ function makeBrowserRuntime(wasm) {
       wasm.browser_push_artifact_words4(word0, word1, word2, word3, count);
     },
     finishArtifact: () => wasm.browser_finish_artifact(),
+    loadLinuxFromArtifacts: () => wasm.browser_load_linux_from_artifacts(),
     artifactMask: () => wasm.browser_artifact_loaded_mask(),
     artifactSize: (kind) => wasm.browser_artifact_size(kind),
     guestKind: () => wasm.browser_guest_kind(),
@@ -144,6 +145,7 @@ function artifactStatusText(wasm, consoleText) {
     mask & 1 ? `OpenSBI ${wasm.browser_artifact_size(1)} bytes` : "OpenSBI: missing",
     mask & 2 ? `DTB ${wasm.browser_artifact_size(2)} bytes` : "DTB: missing",
     mask & 4 ? `kernel ${wasm.browser_artifact_size(3)} bytes` : "kernel: missing",
+    mask & 8 ? `initrd ${wasm.browser_artifact_size(4)} bytes` : "initrd: optional",
   ].join(" / ");
   const guest = guestKind === 1 ? "linux artifacts loaded" : "smoke guest";
   return [
@@ -211,6 +213,14 @@ async function loadLinuxArtifacts(manifestUrl = "linux-artifacts/manifest.json")
   await loadArtifact(2, new URL(manifest.dtb, manifestResponse.url));
   syncUi();
   await loadArtifact(3, new URL(manifest.kernel, manifestResponse.url));
+  syncUi();
+  if (manifest.initrd) {
+    await loadArtifact(4, new URL(manifest.initrd, manifestResponse.url));
+    syncUi();
+  }
+  if (!runtime.loadLinuxFromArtifacts()) {
+    throw new Error("linux artifacts are incomplete");
+  }
   syncUi();
 }
 

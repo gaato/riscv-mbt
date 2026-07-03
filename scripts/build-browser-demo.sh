@@ -22,7 +22,9 @@ cp "$repo_root/browser_demo/linux-artifacts/manifest.json" "$out_dir/linux-artif
 for artifact in \
   opensbi-riscv64-fw_dynamic.bin \
   minimal.dtb \
-  linux-kernel-riscv64
+  minimal-alpine.dtb \
+  linux-kernel-riscv64 \
+  alpine-initramfs-riscv64.cpio.gz
 do
   if [[ -f "$repo_root/_build/$artifact" ]]; then
     cp "$repo_root/_build/$artifact" "$out_dir/linux-artifacts/$artifact"

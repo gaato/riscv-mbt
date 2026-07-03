@@ -11,6 +11,12 @@ let browser_artifact_dtb : Int = 2
 let browser_artifact_kernel : Int = 3
 
 ///|
+let browser_artifact_initrd : Int = 4
+
+///|
+let browser_linux_initrd_addr : UInt64 = 0x84000000U.to_uint64()
+
+///|
 let browser_guest_smoke : Int = 0
 
 ///|
@@ -31,6 +37,8 @@ priv struct BrowserRuntime {
   mut dtb_bytes : Array[Byte]
   mut has_kernel : Bool
   mut kernel_bytes : Array[Byte]
+  mut has_initrd : Bool
+  mut initrd_bytes : Array[Byte]
 }
 
 ///|
@@ -50,6 +58,8 @@ fn BrowserRuntime::new_smoke() -> BrowserRuntime {
     dtb_bytes: [],
     has_kernel: false,
     kernel_bytes: [],
+    has_initrd: false,
+    initrd_bytes: [],
   }
   runtime.drain_uart()
   runtime
@@ -179,16 +189,15 @@ fn BrowserRuntime::finish_artifact(self : BrowserRuntime) -> Bool {
       self.kernel_bytes = self.pending_artifact_bytes
       self.has_kernel = true
     }
+    _ if self.pending_artifact_kind == browser_artifact_initrd => {
+      self.initrd_bytes = self.pending_artifact_bytes
+      self.has_initrd = true
+    }
     _ => ()
   }
   self.pending_artifact_kind = 0
   self.pending_artifact_bytes = []
-  if self.linux_artifacts_ready() {
-    self.load_linux_from_artifacts()
-    true
-  } else {
-    false
-  }
+  self.linux_artifacts_ready()
 }
 
 ///|
@@ -198,6 +207,10 @@ fn BrowserRuntime::linux_artifacts_ready(self : BrowserRuntime) -> Bool {
 
 ///|
 fn BrowserRuntime::load_linux_from_artifacts(self : BrowserRuntime) -> Unit {
+  if !self.linux_artifacts_ready() {
+    self.append_text("\n[linux artifacts incomplete]\n")
+    return
+  }
   let runner = @riscv.make_runner(@riscv.virt_machine_config())
   runner.load_program_u64(
     Bytes::from_array(self.opensbi_bytes),
@@ -208,6 +221,12 @@ fn BrowserRuntime::load_linux_from_artifacts(self : BrowserRuntime) -> Unit {
     Bytes::from_array(self.kernel_bytes),
   )
   runner.load_dtb(Bytes::from_array(self.dtb_bytes))
+  if self.has_initrd {
+    runner.write_memory_bytes(
+      browser_linux_initrd_addr,
+      Bytes::from_array(self.initrd_bytes),
+    )
+  }
   runner.setup_fw_dynamic_handoff(
     0x80100000U.to_uint64(),
     0x80200000U.to_uint64(),
@@ -222,6 +241,16 @@ fn BrowserRuntime::load_linux_from_artifacts(self : BrowserRuntime) -> Unit {
 }
 
 ///|
+fn BrowserRuntime::try_load_linux_from_artifacts(self : BrowserRuntime) -> Bool {
+  if self.linux_artifacts_ready() {
+    self.load_linux_from_artifacts()
+    true
+  } else {
+    false
+  }
+}
+
+///|
 fn BrowserRuntime::artifact_loaded_mask(self : BrowserRuntime) -> Int {
   let mut mask = 0
   if self.has_opensbi {
@@ -232,6 +261,9 @@ fn BrowserRuntime::artifact_loaded_mask(self : BrowserRuntime) -> Int {
   }
   if self.has_kernel {
     mask = mask | 4
+  }
+  if self.has_initrd {
+    mask = mask | 8
   }
   mask
 }
@@ -247,6 +279,7 @@ fn BrowserRuntime::artifact_size(self : BrowserRuntime, kind : Int) -> Int {
     _ if kind == browser_artifact_opensbi => self.opensbi_bytes.length()
     _ if kind == browser_artifact_dtb => self.dtb_bytes.length()
     _ if kind == browser_artifact_kernel => self.kernel_bytes.length()
+    _ if kind == browser_artifact_initrd => self.initrd_bytes.length()
     _ => 0
   }
 }
