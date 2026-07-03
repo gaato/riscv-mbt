@@ -2,5 +2,5 @@
   "opensbi": "opensbi-riscv64-fw_dynamic.bin",
   "dtb": "minimal-alpine.dtb",
   "kernel": "linux-kernel-riscv64",
-  "initrd": "alpine-initramfs-riscv64.cpio.gz"
+  "initrd": "alpine-initramfs-riscv64.cpio"
 }

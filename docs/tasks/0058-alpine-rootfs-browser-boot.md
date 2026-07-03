@@ -10,6 +10,7 @@ Alpine is the first target because the official `riscv64` minirootfs is small, c
 
 - Linux RISC-V boot requirements: <https://docs.kernel.org/arch/riscv/boot.html>
 - Linux RISC-V architecture index: <https://docs.kernel.org/arch/riscv/index.html>
+- Linux initramfs buffer format: <https://docs.kernel.org/driver-api/early-userspace/buffer-format.html>
 - Alpine downloads page: <https://alpinelinux.org/downloads/>
 - Alpine `riscv64` release directory: <https://dl-cdn.alpinelinux.org/alpine/latest-stable/releases/riscv64/>
 - MoonBit bench/profile/tooling docs should be rechecked with official docs or Context7 before changing benchmark harnesses.
@@ -27,7 +28,7 @@ Alpine is the first target because the official `riscv64` minirootfs is small, c
 
 ## Acceptance Criteria
 
-- `_build/linux-kernel-riscv64`, `_build/alpine-initramfs-riscv64.cpio.gz`, and `_build/minimal-alpine.dtb` can be generated from official Alpine artifacts.
+- `_build/linux-kernel-riscv64`, `_build/alpine-initramfs-riscv64.cpio`, `_build/alpine-initramfs-riscv64.cpio.gz`, and `_build/minimal-alpine.dtb` can be generated from official Alpine artifacts.
 - The browser demo can load OpenSBI, DTB, kernel, and initrd artifacts from the manifest.
 - Browser serial output reaches a clear Alpine initramfs marker.
 - The selected backend is justified by measured browser boot time, steps/sec, cache counters, artifact size, and instantiate/compile cost.
@@ -61,3 +62,6 @@ Alpine is the first target because the official `riscv64` minirootfs is small, c
 - Added a native Alpine probe marker check for Alpine's `Unpacking initramfs...` log form as well as the older Debian-style initramfs message.
 - Added a first `moon bench` CPU loop checkpoint. On this host, `tight_add_loop_100k_steps` measured about 4.93ms mean across 10 x 21 runs.
 - Tried increasing the direct-mapped decode cache from 4096 to 65536 sets. It reduced the native Alpine `medium` decode misses from about 15.8M to 0.9M, but did not improve wall time (about 56.6s baseline versus about 57.9s with the larger cache), so the cache size remains 4096 and the next performance work should look past simple decode-cache capacity.
+- Switched the default Alpine initramfs artifact to uncompressed `newc` cpio while still generating `.cpio.gz` for comparison. Linux's initramfs buffer format explicitly allows compressed and uncompressed `newc` archives.
+- With the uncompressed cpio initramfs, native Alpine `long` (300M steps) reaches `Unpacking initramfs...` and `workingset` in about 167s wall time. This is still not the injected `/init` marker, but it reaches the initramfs phase much earlier than the prior gzip-based 1B-step observation.
+- Browser `wasm-gc` probe against `/?guest=linux&autoRun=1` with 180s Chromium virtual time loaded the 7,205,888 byte uncompressed initramfs and reached `Unpacking initramfs...`.

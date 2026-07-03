@@ -33,6 +33,7 @@ for artifact in \
   minimal.dtb \
   minimal-alpine.dtb \
   linux-kernel-riscv64 \
+  alpine-initramfs-riscv64.cpio \
   alpine-initramfs-riscv64.cpio.gz
 do
   if [[ -f "$repo_root/_build/$artifact" ]]; then

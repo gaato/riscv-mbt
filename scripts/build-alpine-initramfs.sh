@@ -13,7 +13,21 @@ uboot_name="alpine-uboot-$version-$arch.tar.gz"
 uboot_url="$base_url/$uboot_name"
 uboot_sha_url="$uboot_url.sha256"
 initrd_addr="${ALPINE_INITRD_ADDR:-0x84000000}"
-initrd_name="alpine-initramfs-$arch.cpio.gz"
+initrd_format="${ALPINE_INITRD_FORMAT:-cpio}"
+case "$initrd_format" in
+  cpio|gzip) ;;
+  *)
+    echo "unsupported ALPINE_INITRD_FORMAT: $initrd_format" >&2
+    exit 1
+    ;;
+esac
+initrd_cpio_name="alpine-initramfs-$arch.cpio"
+initrd_gzip_name="alpine-initramfs-$arch.cpio.gz"
+if [[ "$initrd_format" == "gzip" ]]; then
+  initrd_name="$initrd_gzip_name"
+else
+  initrd_name="$initrd_cpio_name"
+fi
 
 mkdir -p "$build_dir" "$repo_root/_build"
 
@@ -57,7 +71,8 @@ chmod +x "$root_dir/init"
 
 (
   cd "$root_dir"
-  find . -print0 | cpio --null -o --format=newc | gzip -9 > "$repo_root/_build/$initrd_name"
+  find . -print0 | cpio --null -o --format=newc > "$repo_root/_build/$initrd_cpio_name"
+  gzip -9c "$repo_root/_build/$initrd_cpio_name" > "$repo_root/_build/$initrd_gzip_name"
 )
 
 initrd_size="$(wc -c < "$repo_root/_build/$initrd_name")"
@@ -73,6 +88,10 @@ printf 'alpine rootfs: %s\n' "$build_dir/$rootfs_name"
 printf 'kernel image: %s (%s bytes)\n' \
   "$repo_root/_build/linux-kernel-riscv64" \
   "$(wc -c < "$repo_root/_build/linux-kernel-riscv64")"
-printf 'initrd: %s (%s bytes) @ 0x%x..0x%x\n' \
-  "$repo_root/_build/$initrd_name" "$initrd_size" "$initrd_start" "$initrd_end"
+printf 'initrd: %s (%s bytes, format=%s) @ 0x%x..0x%x\n' \
+  "$repo_root/_build/$initrd_name" "$initrd_size" "$initrd_format" \
+  "$initrd_start" "$initrd_end"
+printf 'initrd gzip: %s (%s bytes)\n' \
+  "$repo_root/_build/$initrd_gzip_name" \
+  "$(wc -c < "$repo_root/_build/$initrd_gzip_name")"
 printf 'dtb: %s\n' "$repo_root/_build/minimal-alpine.dtb"

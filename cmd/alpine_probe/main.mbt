@@ -1,7 +1,7 @@
 let opensbi_path = "_build/opensbi-riscv64-fw_dynamic.bin"
 let kernel_path = "_build/linux-kernel-riscv64"
 let dtb_path = "_build/minimal-alpine.dtb"
-let initrd_path = "_build/alpine-initramfs-riscv64.cpio.gz"
+let initrd_path = "_build/alpine-initramfs-riscv64.cpio"
 let initrd_addr : UInt64 = 0x84000000U.to_uint64()
 let fw_dynamic_info_addr : UInt64 = 0x80100000U.to_uint64()
 let kernel_entry_addr : UInt64 = 0x80200000U.to_uint64()
