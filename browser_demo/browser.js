@@ -16,7 +16,8 @@ const textEncoder = new TextEncoder();
 const schedulerPolicy = {
   intervalMs: 16,
   smokeStepsPerTick: 4096,
-  linuxStepsPerTick: 65536,
+  linuxStepsPerTick: 262144,
+  syncEveryTicks: 16,
 };
 
 const linuxBootMarkers = [
@@ -239,6 +240,7 @@ async function bootHost() {
   const linuxInputAfterMarker = query.get("linuxInputAfterMarker");
   const linuxInput = query.get("linuxInput");
   let linuxInputSent = false;
+  let ticksSinceSync = 0;
 
   runtime.init();
   setText(
@@ -284,16 +286,21 @@ async function bootHost() {
   setInterval(() => {
     if (runtime.isRunning()) {
       runtime.runTick();
-      syncUi();
-      if (
-        !linuxInputSent &&
-        linuxInputAfterMarker &&
-        linuxInput &&
-        runtime.consoleText().includes(linuxInputAfterMarker)
-      ) {
-        linuxInputSent = true;
-        sendInputText(linuxInput);
+      ticksSinceSync += 1;
+      const shouldSync = ticksSinceSync >= schedulerPolicy.syncEveryTicks;
+      if (shouldSync) {
+        ticksSinceSync = 0;
         syncUi();
+        if (
+          !linuxInputSent &&
+          linuxInputAfterMarker &&
+          linuxInput &&
+          runtime.consoleText().includes(linuxInputAfterMarker)
+        ) {
+          linuxInputSent = true;
+          sendInputText(linuxInput);
+          syncUi();
+        }
       }
     }
   }, schedulerPolicy.intervalMs);
