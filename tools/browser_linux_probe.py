@@ -81,6 +81,7 @@ def start_http_server(directory: str, port: int) -> subprocess.Popen:
 def alpine_interactive_url(
     base_url: str,
     command: str,
+    expect_marker: str,
     linux_steps_per_tick: int | None,
     sync_every_ticks: int | None,
     hot_pc_samples: int | None,
@@ -90,7 +91,7 @@ def alpine_interactive_url(
         "autoRun": "1",
         "linuxInputAfterMarker": "/ #",
         "linuxInput": command,
-        "linuxInputExpect": "browser-input-ok",
+        "linuxInputExpect": expect_marker,
         "haltOnLinuxInputExpect": "1",
     }
     if linux_steps_per_tick is not None:
@@ -192,6 +193,7 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=0)
     parser.add_argument("--alpine-interactive-smoke", action="store_true")
     parser.add_argument("--input-command", default="echo browser-input-ok")
+    parser.add_argument("--alpine-functional-smoke", action="store_true")
     parser.add_argument("--linux-steps-per-tick", type=int)
     parser.add_argument("--sync-every-ticks", type=int)
     parser.add_argument("--hot-pc-samples", type=int)
@@ -210,6 +212,8 @@ def main() -> int:
         base_url = f"http://127.0.0.1:{port}"
         if url is None:
             url = base_url
+    if args.alpine_interactive_smoke and args.alpine_functional_smoke:
+        parser.error("choose only one Alpine smoke mode")
     if args.alpine_interactive_smoke:
         if url is None:
             parser.error("--alpine-interactive-smoke requires a url or --serve-dir")
@@ -218,6 +222,31 @@ def main() -> int:
         url = alpine_interactive_url(
             url.rstrip("/"),
             args.input_command,
+            marker,
+            args.linux_steps_per_tick,
+            args.sync_every_ticks,
+            args.hot_pc_samples,
+        )
+    if args.alpine_functional_smoke:
+        if url is None:
+            parser.error("--alpine-functional-smoke requires a url or --serve-dir")
+        marker = "linux-functional-ok"
+        command = (
+            "mount -t proc proc /proc && "
+            "mount -t sysfs sysfs /sys && "
+            "echo file-ok > /tmp/riscv-mbt-file && "
+            "cat /tmp/riscv-mbt-file && "
+            "mkdir -p /tmp/riscv-mbt-dir && "
+            "/bin/sh -c 'echo pipe-ok' | grep pipe-ok && "
+            "uname -m && "
+            "cat /proc/cpuinfo > /tmp/riscv-mbt-cpuinfo && "
+            "echo linux-functional-ok"
+        )
+        expected.extend(["initrd 1443328 bytes", "/ #", "file-ok", "pipe-ok", "riscv64"])
+        url = alpine_interactive_url(
+            url.rstrip("/"),
+            command,
+            marker,
             args.linux_steps_per_tick,
             args.sync_every_ticks,
             args.hot_pc_samples,

@@ -33,7 +33,7 @@ The first vector arithmetic, first unit-stride memory subset, and first masked a
 
 ## Status
 
-- `todo`
+- `doing`
 
 ## Progress Notes
 
@@ -41,3 +41,4 @@ The first vector arithmetic, first unit-stride memory subset, and first masked a
 - The main open `V` gaps are now broader vector memory/addressing forms, `LMUL>1`, and wider execution semantics
 - Browser Wasm Linux boot is now complete, so this task is the next normal post-Linux extension slice
 - Task 0057 split vector helpers and first-slice execution into `riscv_vector.mbt`; Task 0048 should extend that file instead of growing unrelated dispatcher or FP code.
+- The mainline priority has resumed here after the Alpine browser boot proof. Continue with RISC-V spec-aligned `V` extension coverage first; use browser Alpine probes as integration gates and performance measurements as guardrails, not as the primary work queue.
