@@ -424,6 +424,17 @@ fn Runner::execute_branch(
 }
 
 ///|
+fn Runner::checked_load_pa(
+  self : Runner,
+  rs1 : Int,
+  imm : Int,
+  width : Int,
+) -> (UInt64, StepResult?) {
+  let addr = self.address_from(rs1, imm)
+  self.load_check(addr, width)
+}
+
+///|
 fn Runner::load_and_write(
   self : Runner,
   rs1 : Int,
@@ -432,8 +443,7 @@ fn Runner::load_and_write(
   next_pc : UInt64,
   write : (UInt64) -> Unit,
 ) -> StepResult {
-  let addr = self.address_from(rs1, imm)
-  let (pa, check) = self.load_check(addr, width)
+  let (pa, check) = self.checked_load_pa(rs1, imm, width)
   match check {
     Some(result) => result
     None => {
@@ -452,36 +462,96 @@ fn Runner::execute_load(
 ) -> StepResult {
   let xlen = self.xlen_bits()
   match instruction {
-    Lb(rd, rs1, imm) =>
-      self.load_and_write(rs1, imm, 1, next_pc, fn(pa) {
-        self.write_xlen_reg(rd, xlen_load_sign_extend(self.phy_load_u8(pa), 8, xlen))
-      })
-    Lh(rd, rs1, imm) =>
-      self.load_and_write(rs1, imm, 2, next_pc, fn(pa) {
-        self.write_xlen_reg(rd, xlen_load_sign_extend(self.phy_load_u16(pa), 16, xlen))
-      })
-    Lw(rd, rs1, imm) =>
-      self.load_and_write(rs1, imm, 4, next_pc, fn(pa) {
-        self.write_word_reg(rd, self.phy_load_u32(pa))
-      })
-    Lwu(rd, rs1, imm) =>
-      self.load_and_write(rs1, imm, 4, next_pc, fn(pa) {
-        self.write_xlen_reg(rd, self.phy_load_u32(pa))
-      })
-    Ld(rd, rs1, imm) =>
-      self.load_and_write(rs1, imm, 8, next_pc, fn(pa) {
-        self.write_xlen_reg(rd, self.phy_load_u64(pa))
-      })
-    Lbu(rd, rs1, imm) =>
-      self.load_and_write(rs1, imm, 1, next_pc, fn(pa) {
-        self.write_xlen_reg(rd, self.phy_load_u8(pa))
-      })
-    Lhu(rd, rs1, imm) =>
-      self.load_and_write(rs1, imm, 2, next_pc, fn(pa) {
-        self.write_xlen_reg(rd, self.phy_load_u16(pa))
-      })
+    Lb(rd, rs1, imm) => {
+      let (pa, check) = self.checked_load_pa(rs1, imm, 1)
+      match check {
+        Some(result) => result
+        None => {
+          self.write_xlen_reg(rd, xlen_load_sign_extend(self.phy_load_u8(pa), 8, xlen))
+          self.cpu.pc = next_pc
+          Running
+        }
+      }
+    }
+    Lh(rd, rs1, imm) => {
+      let (pa, check) = self.checked_load_pa(rs1, imm, 2)
+      match check {
+        Some(result) => result
+        None => {
+          self.write_xlen_reg(rd, xlen_load_sign_extend(self.phy_load_u16(pa), 16, xlen))
+          self.cpu.pc = next_pc
+          Running
+        }
+      }
+    }
+    Lw(rd, rs1, imm) => {
+      let (pa, check) = self.checked_load_pa(rs1, imm, 4)
+      match check {
+        Some(result) => result
+        None => {
+          self.write_word_reg(rd, self.phy_load_u32(pa))
+          self.cpu.pc = next_pc
+          Running
+        }
+      }
+    }
+    Lwu(rd, rs1, imm) => {
+      let (pa, check) = self.checked_load_pa(rs1, imm, 4)
+      match check {
+        Some(result) => result
+        None => {
+          self.write_xlen_reg(rd, self.phy_load_u32(pa))
+          self.cpu.pc = next_pc
+          Running
+        }
+      }
+    }
+    Ld(rd, rs1, imm) => {
+      let (pa, check) = self.checked_load_pa(rs1, imm, 8)
+      match check {
+        Some(result) => result
+        None => {
+          self.write_xlen_reg(rd, self.phy_load_u64(pa))
+          self.cpu.pc = next_pc
+          Running
+        }
+      }
+    }
+    Lbu(rd, rs1, imm) => {
+      let (pa, check) = self.checked_load_pa(rs1, imm, 1)
+      match check {
+        Some(result) => result
+        None => {
+          self.write_xlen_reg(rd, self.phy_load_u8(pa))
+          self.cpu.pc = next_pc
+          Running
+        }
+      }
+    }
+    Lhu(rd, rs1, imm) => {
+      let (pa, check) = self.checked_load_pa(rs1, imm, 2)
+      match check {
+        Some(result) => result
+        None => {
+          self.write_xlen_reg(rd, self.phy_load_u16(pa))
+          self.cpu.pc = next_pc
+          Running
+        }
+      }
+    }
     _ => abort("unexpected load dispatch")
   }
+}
+
+///|
+fn Runner::checked_store_pa(
+  self : Runner,
+  rs1 : Int,
+  imm : Int,
+  width : Int,
+) -> (UInt64, StepResult?) {
+  let addr = self.address_from(rs1, imm)
+  self.store_check(addr, width)
 }
 
 ///|
@@ -493,8 +563,7 @@ fn Runner::store_and_commit(
   next_pc : UInt64,
   store : (UInt64) -> Unit,
 ) -> StepResult {
-  let addr = self.address_from(rs1, imm)
-  let (pa, check) = self.store_check(addr, width)
+  let (pa, check) = self.checked_store_pa(rs1, imm, width)
   match check {
     Some(result) => result
     None => {
@@ -512,22 +581,50 @@ fn Runner::execute_store(
   next_pc : UInt64,
 ) -> StepResult {
   match instruction {
-    Sb(rs1, rs2, imm) =>
-      self.store_and_commit(rs1, imm, 1, next_pc, fn(pa) {
-        self.phy_store_u8(pa, self.cpu.read_reg(rs2))
-      })
-    Sh(rs1, rs2, imm) =>
-      self.store_and_commit(rs1, imm, 2, next_pc, fn(pa) {
-        self.phy_store_u16(pa, self.cpu.read_reg(rs2))
-      })
-    Sw(rs1, rs2, imm) =>
-      self.store_and_commit(rs1, imm, 4, next_pc, fn(pa) {
-        self.phy_store_u32(pa, self.cpu.read_reg(rs2))
-      })
-    Sd(rs1, rs2, imm) =>
-      self.store_and_commit(rs1, imm, 8, next_pc, fn(pa) {
-        self.phy_store_u64(pa, self.cpu.read_reg(rs2))
-      })
+    Sb(rs1, rs2, imm) => {
+      let (pa, check) = self.checked_store_pa(rs1, imm, 1)
+      match check {
+        Some(result) => result
+        None => {
+          self.phy_store_u8(pa, self.cpu.read_reg(rs2))
+          self.cpu.pc = next_pc
+          Running
+        }
+      }
+    }
+    Sh(rs1, rs2, imm) => {
+      let (pa, check) = self.checked_store_pa(rs1, imm, 2)
+      match check {
+        Some(result) => result
+        None => {
+          self.phy_store_u16(pa, self.cpu.read_reg(rs2))
+          self.cpu.pc = next_pc
+          Running
+        }
+      }
+    }
+    Sw(rs1, rs2, imm) => {
+      let (pa, check) = self.checked_store_pa(rs1, imm, 4)
+      match check {
+        Some(result) => result
+        None => {
+          self.phy_store_u32(pa, self.cpu.read_reg(rs2))
+          self.cpu.pc = next_pc
+          Running
+        }
+      }
+    }
+    Sd(rs1, rs2, imm) => {
+      let (pa, check) = self.checked_store_pa(rs1, imm, 8)
+      match check {
+        Some(result) => result
+        None => {
+          self.phy_store_u64(pa, self.cpu.read_reg(rs2))
+          self.cpu.pc = next_pc
+          Running
+        }
+      }
+    }
     _ => abort("unexpected store dispatch")
   }
 }
