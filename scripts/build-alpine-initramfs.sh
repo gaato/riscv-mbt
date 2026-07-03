@@ -15,6 +15,7 @@ uboot_sha_url="$uboot_url.sha256"
 initrd_addr="${ALPINE_INITRD_ADDR:-0x84000000}"
 initrd_format="${ALPINE_INITRD_FORMAT:-cpio}"
 initrd_profile="${ALPINE_INITRD_PROFILE:-tiny}"
+init_style="${ALPINE_INIT_STYLE:-static}"
 timebase_frequency="${ALPINE_TIMEBASE_FREQUENCY:-100000000}"
 case "$initrd_format" in
   cpio|gzip) ;;
@@ -27,6 +28,13 @@ case "$initrd_profile" in
   full|tiny) ;;
   *)
     echo "unsupported ALPINE_INITRD_PROFILE: $initrd_profile" >&2
+    exit 1
+    ;;
+esac
+case "$init_style" in
+  shell|static) ;;
+  *)
+    echo "unsupported ALPINE_INIT_STYLE: $init_style" >&2
     exit 1
     ;;
 esac
@@ -77,7 +85,15 @@ else
   tar -xzf "$build_dir/$rootfs_name" -C "$root_dir"
 fi
 mkdir -p "$root_dir"/proc "$root_dir"/sys "$root_dir"/dev "$root_dir"/tmp
-cat > "$root_dir/init" <<'EOF'
+if [[ "$init_style" == "static" ]]; then
+  riscv64-elf-as -march=rv64imac -mabi=lp64 \
+    -o "$repo_root/_build/alpine-init.o" \
+    "$repo_root/tools/alpine-init.S"
+  riscv64-elf-ld -nostdlib -static \
+    -o "$root_dir/init" \
+    "$repo_root/_build/alpine-init.o"
+else
+  cat > "$root_dir/init" <<'EOF'
 #!/bin/sh
 mount -t proc proc /proc 2>/dev/null || true
 mount -t sysfs sysfs /sys 2>/dev/null || true
@@ -85,6 +101,7 @@ mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
 echo "riscv-mbt Alpine initramfs ready"
 exec /bin/sh
 EOF
+fi
 chmod +x "$root_dir/init"
 
 fakeroot sh -c '
@@ -93,8 +110,9 @@ fakeroot sh -c '
   cpio_path="$2"
   gzip_path="$3"
   mkdir -p "$root_dir/dev"
-  rm -f "$root_dir/dev/console" "$root_dir/dev/null" "$root_dir/dev/zero" "$root_dir/dev/tty"
+  rm -f "$root_dir/dev/console" "$root_dir/dev/kmsg" "$root_dir/dev/null" "$root_dir/dev/zero" "$root_dir/dev/tty"
   mknod -m 600 "$root_dir/dev/console" c 5 1
+  mknod -m 600 "$root_dir/dev/kmsg" c 1 11
   mknod -m 666 "$root_dir/dev/null" c 1 3
   mknod -m 666 "$root_dir/dev/zero" c 1 5
   mknod -m 666 "$root_dir/dev/tty" c 5 0
@@ -120,8 +138,8 @@ printf 'alpine rootfs: %s\n' "$build_dir/$rootfs_name"
 printf 'kernel image: %s (%s bytes)\n' \
   "$repo_root/_build/linux-kernel-riscv64" \
   "$(wc -c < "$repo_root/_build/linux-kernel-riscv64")"
-printf 'initrd: %s (%s bytes, format=%s, profile=%s) @ 0x%x..0x%x\n' \
-  "$repo_root/_build/$initrd_name" "$initrd_size" "$initrd_format" "$initrd_profile" \
+printf 'initrd: %s (%s bytes, format=%s, profile=%s, init=%s) @ 0x%x..0x%x\n' \
+  "$repo_root/_build/$initrd_name" "$initrd_size" "$initrd_format" "$initrd_profile" "$init_style" \
   "$initrd_start" "$initrd_end"
 printf 'initrd gzip: %s (%s bytes)\n' \
   "$repo_root/_build/$initrd_gzip_name" \

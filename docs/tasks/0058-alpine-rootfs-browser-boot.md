@@ -30,7 +30,7 @@ Alpine is the first target because the official `riscv64` minirootfs is small, c
 
 - `_build/linux-kernel-riscv64`, `_build/alpine-initramfs-riscv64.cpio`, `_build/alpine-initramfs-riscv64.cpio.gz`, and `_build/minimal-alpine.dtb` can be generated from official Alpine artifacts.
 - The browser demo can load OpenSBI, DTB, kernel, and initrd artifacts from the manifest.
-- Browser serial output reaches a clear Alpine initramfs marker.
+- Browser serial output reaches a clear Alpine initramfs marker. This is satisfied by the default static `/init` writing `riscv-mbt Alpine initramfs ready` through `/dev/kmsg`; the task remains open until the same path can hand off to a usable Alpine shell.
 - The selected backend is justified by measured browser boot time, steps/sec, cache counters, artifact size, and instantiate/compile cost.
 - `moon check`, `moon test`, and `./scripts/build-browser-demo.sh` pass.
 - Work is committed in meaningful increments; generated `outputs/` evidence remains ignored.
@@ -72,3 +72,9 @@ Alpine is the first target because the official `riscv64` minirootfs is small, c
 - The native `xxlong` path now reaches `/init`, but the injected marker is still not observed in riscv-mbt. The previous panic was an Alpine hard-float userland issue: musl executed compressed `FSD` (`0xb920`) while the virt machine exposed only `rv64imac`. The emulator now decodes compressed `C.FLD`/`C.FSD` forms, and the virt platform exposes `F/D`; the remaining gap is after `Run /init as init process`.
 - Browser `wasm-gc` probe with the default tiny/100MHz artifacts and 360s Chromium virtual time reaches `Run /init as init process`. The injected Alpine marker is still not observed; the next slice should make the `/init` shell output visible or identify the userland wait after exec.
 - Latest `moon bench` checkpoint: `tight_add_loop_100k_steps` measured about 5.07ms mean across 10 x 20 runs.
+- Added `ALPINE_INIT_STYLE=static|shell`. The default `static` style assembles `tools/alpine-init.S` into a freestanding RV64 `/init`; the old shell script remains available with `ALPINE_INIT_STYLE=shell`.
+- Added `/dev/kmsg` to the generated initramfs and changed the static `/init` marker path to write through kmsg. Direct writes to inherited stdio and `/dev/console` reached the static init loop under riscv-mbt native but did not appear in the captured serial log; kmsg goes through the existing kernel log path and is visible in QEMU, native, and browser probes.
+- QEMU cross-check with the static kmsg init reaches `Run /init as init process`, `riscv-mbt Alpine initramfs ready`, and `riscv-mbt Alpine init exec failed` without kernel panic.
+- Native `moon run cmd/alpine_probe --target native -- xxlong` now reaches `outcome=alpine-marker` at 355,000,000 steps with the default tiny/static artifacts.
+- Browser `wasm-gc` probe against `/?guest=linux&autoRun=1` with 360s Chromium virtual time reaches `riscv-mbt Alpine initramfs ready` with the 1,442,304 byte uncompressed initramfs.
+- The remaining Task 0058 gap is practical userspace handoff: the static `/init` marker proves the browser Wasm path reaches Alpine initramfs userspace, but `execve("/bin/sh", ...)` currently falls through to `riscv-mbt Alpine init exec failed`.
