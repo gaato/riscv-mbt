@@ -198,5 +198,5 @@ These are the recommended refactors to do immediately before specific milestones
 - Decode cache entries are invalidated on `FENCE.I` and host-side program/image writes.
 - Sv39 translation cache entries are invalidated on `satp`, `SFENCE.VMA`, and host-side program/image writes.
 - Browser performance evidence should include both wall time and cache counters; a faster browser proof without native `moon test` is not enough.
-- The browser backend is not fixed by policy. Compare `wasm` and `wasm-gc` with the same Alpine/rootfs workload before making backend-specific optimizations.
+- The Alpine browser boot default is currently `wasm-gc` because the first Alpine probe favored it on artifact size and wall time. Keep plain `wasm` available with `BROWSER_TARGET=wasm`, and re-measure before making backend-specific optimizations.
 - Keep generated browser proof logs and benchmark output under `outputs/`; that directory is intentionally ignored.

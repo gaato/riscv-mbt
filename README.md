@@ -43,7 +43,7 @@ This is a general-purpose RISC-V emulator project built in MoonBit. Linux boot a
   - `cmd/browser` is a thin Wasm-target host over the shared core
   - `./scripts/build-browser-demo.sh` assembles `_build/browser-demo/`
   - the current smoke scope is serial output, UART input, and minimal step/run/reset controls
-- The active browser goal is now to carry this Wasm host through to one-hart Linux boot in the browser
+- The active browser goal is now to carry the browser Linux path through to an Alpine rootfs boot in practical time
 - Scalar `F` and `D` are now in place on the post-Linux path:
   - the current implementation is explicitly constrained to host IEEE arithmetic
   - only the default rounding mode is supported
@@ -57,9 +57,8 @@ This is a general-purpose RISC-V emulator project built in MoonBit. Linux boot a
   - the public smoke demo is live at `https://gaato.github.io/riscv-mbt/`
 - The post-Linux compatibility target is now fixed as `RV64 Linux Profile v1`
 - The first required compatibility gap for that profile, `F/D`, is now closed in the repo docs and implementation
-- The mainline next step is [Browser Wasm Linux Boot](docs/milestones/12-browser-wasm-linux-boot.md)
-- The next concrete task is [0053 boot Linux on one hart in browser Wasm](docs/tasks/0053-browser-one-hart-linux-boot.md)
-- The Wasm browser Linux path alternates implementation and refactor tasks until one-hart Linux boot is repeatable in the browser
+- The mainline next step is [0058 boot an Alpine rootfs in browser Wasm](docs/tasks/0058-alpine-rootfs-browser-boot.md)
+- The browser Linux path alternates specification work, measured tuning, and refactoring until Alpine reaches userspace in practical time
 - The optional side branch remains [RV32 supervisor + Sv32](docs/tasks/0009-rv32-supervisor-sv32.md)
 
 ## Read Next

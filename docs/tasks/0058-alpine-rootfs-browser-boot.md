@@ -52,3 +52,4 @@ Alpine is the first target because the official `riscv64` minirootfs is small, c
 - Generated Alpine 3.24.1 `riscv64` initramfs from the official minirootfs. The compressed initramfs is 3,442,976 bytes at `0x84000000..0x84348920`.
 - Browser Chromium probe with 180s virtual time loaded OpenSBI, DTB, kernel, and initrd, reached Linux rootfs unpack (`Trying to unpack rootfs image as initramfs...`), but did not reach the injected `/init` marker yet.
 - A 600s virtual-time probe was still running after roughly ten minutes of wall time and was interrupted; this confirms the next slice needs backend comparison and boot-path performance work before claiming practical Alpine userspace boot.
+- `wasm-gc` built and ran the same Alpine probe successfully to the same initramfs-unpack point with a smaller artifact and substantially lower wall time than plain `wasm`; the browser demo now defaults to `wasm-gc` while keeping `BROWSER_TARGET=wasm` for comparison.

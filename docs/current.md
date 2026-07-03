@@ -82,6 +82,7 @@
 - A MoonBit refactor slice split FP execution into `riscv_fp.mbt` and vector execution into `riscv_vector.mbt`; `riscv_execute.mbt` is now below the 2k-line guideline and remains the central dispatcher.
 - Browser Wasm Linux boot is complete; `0048` is no longer deferred and is the next extension task.
 - The active goal is now Alpine rootfs boot in browser Wasm. The implementation should alternate spec-driven Linux/RISC-V compatibility work with measured performance work (`moon bench`, browser timing, Context7/DeepWiki/web checks) and periodic git commits. Backend choice between `wasm` and `wasm-gc` is measurement-driven.
+- Initial Alpine probing favors `wasm-gc` for the browser default: it produces a smaller artifact and reaches the same initramfs-unpack point faster than plain `wasm`. Plain `wasm` remains available with `BROWSER_TARGET=wasm`.
 
 ## Read Next
 
@@ -112,6 +113,7 @@
 - [Task 0009](tasks/0009-rv32-supervisor-sv32.md)
 - [ADR 0006](adr/0006-browser-wasm-linux-boot-goal.md)
 - [ADR 0007](adr/0007-browser-plain-wasm-backend.md)
+- [ADR 0008](adr/0008-browser-wasm-gc-for-alpine-boot.md)
 - [ADR 0001](adr/0001-rv32i-first.md)
 - [ADR 0005](adr/0005-post-linux-compatibility-profile.md)
 - [ADR 0003](adr/0003-milestone-spine.md)

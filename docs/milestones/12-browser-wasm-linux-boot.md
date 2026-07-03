@@ -49,13 +49,13 @@ Run the existing Linux-capable emulator core in the browser through the MoonBit 
 - This milestone is complete
 - The prior browser milestone delivered a JS-target bare-metal smoke demo
 - The non-browser emulator already has a Linux boot path
-- The browser artifact first moved through the Wasm GC target and now ships through MoonBit's plain `wasm` backend while preserving the bare-metal echo smoke path
+- The browser artifact first moved through the Wasm GC target, then plain `wasm`, and now defaults back to `wasm-gc` for the Alpine rootfs path based on initial measurement while preserving `BROWSER_TARGET=wasm` as a fallback
 - The runtime boundary now separates guest construction, browser runtime state, Wasm exports, and JS UI glue
 - The browser can load OpenSBI, DTB, and kernel artifact bytes through a manifest and switch to the Linux artifact guest
 - Long-run scheduling, executed-step reporting, and artifact-size visibility are now explicit in the browser host
 - Real OpenSBI, generated DTB, and the Debian riscv64 kernel artifact now reach early Linux serial output in browser Wasm
 - Browser status reporting now surfaces compact boot marker progress alongside raw serial output
-- The shipped browser demo now builds with MoonBit's plain `wasm` backend instead of `wasm-gc`
+- The shipped browser demo now builds with MoonBit's `wasm-gc` backend by default for Alpine boot work
 - Browser host input and artifact loading now use a byte-oriented ABI rather than JS builtin string interop
 
 ## Prerequisites For Next Milestone

@@ -3,8 +3,8 @@
 ## Current Position
 
 - Active milestone: `Extensions: A, F/D, V, H`
-- Current checkpoint: browser Wasm Linux boot is complete, the shipped browser host now uses MoonBit's plain `wasm` backend, and extension work resumes after the first masked `V` arithmetic slice
-- Next concrete target: broader vector memory/addressing and the first `LMUL>1` path
+- Current checkpoint: browser Wasm Linux boot is complete, and the active browser path now targets Alpine rootfs boot with a measured `wasm-gc` default
+- Next concrete target: Alpine initramfs reaches userspace in browser Wasm practical time, then broader vector memory/addressing and the first `LMUL>1` path resumes
 - Design rule: protect implementation boundaries first, then add instructions
 - Milestone semantics:
   - `RV32IMC` = core completion checkpoint

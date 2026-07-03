@@ -3,11 +3,20 @@ set -euo pipefail
 
 repo_root="$(cd "$(dirname "$0")/.." && pwd)"
 out_dir="$repo_root/_build/browser-demo"
-wasm_build_dir="$repo_root/_build/wasm/debug/build/cmd/browser"
+browser_target="${BROWSER_TARGET:-wasm-gc}"
+wasm_build_dir="$repo_root/_build/$browser_target/debug/build/cmd/browser"
 
 cd "$repo_root"
 
-moon build --target wasm cmd/browser
+case "$browser_target" in
+  wasm|wasm-gc) ;;
+  *)
+    echo "unsupported BROWSER_TARGET: $browser_target" >&2
+    exit 1
+    ;;
+esac
+
+moon build --target "$browser_target" cmd/browser
 
 mkdir -p "$out_dir"
 rm -f "$out_dir/browser.js" "$out_dir/browser.js.map" "$out_dir/browser.wasm"
