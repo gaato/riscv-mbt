@@ -1816,6 +1816,75 @@ test "rv64fdv vector arithmetic supports lmul2 register groups" {
 }
 
 ///|
+test "rv64fdv vector logical slice supports lmul2 register groups" {
+  let program = words_to_bytes([
+    encode_vsetivli(0, 8U, 0x11U),
+    encode_vmv_v_i(2, 10),
+    encode_vmv_v_i(4, 12),
+    encode_vand_vv(6, 2, 4, true),
+    encode_vand_vx(8, 2, 10, true),
+    encode_vand_vi(10, 4, 3, true),
+    encode_vor_vv(12, 2, 4, true),
+    encode_vor_vx(14, 2, 10, true),
+    encode_vxor_vv(16, 2, 4, true),
+    encode_vxor_vx(18, 2, 10, true),
+    encode_vxor_vi(20, 2, -1, true),
+  ])
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.load_program(program, 0U)
+  runner.cpu.write_reg(10, 5U.to_uint64())
+  match runner.run(11) {
+    Running => ()
+    _ => fail("expected lmul2 vector logical sequence to run")
+  }
+  assert_eq(runner.read_vreg_u64(6, 0), test_join_u64(8U, 8U))
+  assert_eq(runner.read_vreg_u64(6, 1), test_join_u64(8U, 8U))
+  assert_eq(runner.read_vreg_u64(7, 0), test_join_u64(8U, 8U))
+  assert_eq(runner.read_vreg_u64(7, 1), test_join_u64(8U, 8U))
+  assert_eq(runner.read_vreg_u64(8, 0), test_join_u64(0U, 0U))
+  assert_eq(runner.read_vreg_u64(8, 1), test_join_u64(0U, 0U))
+  assert_eq(runner.read_vreg_u64(9, 0), test_join_u64(0U, 0U))
+  assert_eq(runner.read_vreg_u64(9, 1), test_join_u64(0U, 0U))
+  assert_eq(runner.read_vreg_u64(10, 0), test_join_u64(0U, 0U))
+  assert_eq(runner.read_vreg_u64(10, 1), test_join_u64(0U, 0U))
+  assert_eq(runner.read_vreg_u64(11, 0), test_join_u64(0U, 0U))
+  assert_eq(runner.read_vreg_u64(11, 1), test_join_u64(0U, 0U))
+  assert_eq(runner.read_vreg_u64(12, 0), test_join_u64(14U, 14U))
+  assert_eq(runner.read_vreg_u64(12, 1), test_join_u64(14U, 14U))
+  assert_eq(runner.read_vreg_u64(13, 0), test_join_u64(14U, 14U))
+  assert_eq(runner.read_vreg_u64(13, 1), test_join_u64(14U, 14U))
+  assert_eq(runner.read_vreg_u64(14, 0), test_join_u64(15U, 15U))
+  assert_eq(runner.read_vreg_u64(14, 1), test_join_u64(15U, 15U))
+  assert_eq(runner.read_vreg_u64(15, 0), test_join_u64(15U, 15U))
+  assert_eq(runner.read_vreg_u64(15, 1), test_join_u64(15U, 15U))
+  assert_eq(runner.read_vreg_u64(16, 0), test_join_u64(6U, 6U))
+  assert_eq(runner.read_vreg_u64(16, 1), test_join_u64(6U, 6U))
+  assert_eq(runner.read_vreg_u64(17, 0), test_join_u64(6U, 6U))
+  assert_eq(runner.read_vreg_u64(17, 1), test_join_u64(6U, 6U))
+  assert_eq(runner.read_vreg_u64(18, 0), test_join_u64(15U, 15U))
+  assert_eq(runner.read_vreg_u64(18, 1), test_join_u64(15U, 15U))
+  assert_eq(runner.read_vreg_u64(19, 0), test_join_u64(15U, 15U))
+  assert_eq(runner.read_vreg_u64(19, 1), test_join_u64(15U, 15U))
+  // vxor.vi with -1 is the architectural vnot pseudoinstruction shape.
+  assert_eq(
+    runner.read_vreg_u64(20, 0),
+    test_join_u64(0xfffffff5U, 0xfffffff5U),
+  )
+  assert_eq(
+    runner.read_vreg_u64(20, 1),
+    test_join_u64(0xfffffff5U, 0xfffffff5U),
+  )
+  assert_eq(
+    runner.read_vreg_u64(21, 0),
+    test_join_u64(0xfffffff5U, 0xfffffff5U),
+  )
+  assert_eq(
+    runner.read_vreg_u64(21, 1),
+    test_join_u64(0xfffffff5U, 0xfffffff5U),
+  )
+}
+
+///|
 fn test_vector_vtypei_for_sew(sew_bits : Int) -> UInt {
   match sew_bits {
     8 => 0x00U

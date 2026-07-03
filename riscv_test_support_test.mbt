@@ -538,6 +538,51 @@ fn encode_vsub_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
 }
 
 ///|
+fn encode_vand_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x09U, vm, vs2, vs1, 0x0U, vd)
+}
+
+///|
+fn encode_vand_vi(vd : Int, vs2 : Int, imm : Int, vm : Bool) -> UInt {
+  encode_vop(0x09U, vm, vs2, imm, 0x3U, vd)
+}
+
+///|
+fn encode_vand_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x09U, vm, vs2, rs1, 0x4U, vd)
+}
+
+///|
+fn encode_vor_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x0aU, vm, vs2, vs1, 0x0U, vd)
+}
+
+///|
+fn encode_vor_vi(vd : Int, vs2 : Int, imm : Int, vm : Bool) -> UInt {
+  encode_vop(0x0aU, vm, vs2, imm, 0x3U, vd)
+}
+
+///|
+fn encode_vor_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x0aU, vm, vs2, rs1, 0x4U, vd)
+}
+
+///|
+fn encode_vxor_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x0bU, vm, vs2, vs1, 0x0U, vd)
+}
+
+///|
+fn encode_vxor_vi(vd : Int, vs2 : Int, imm : Int, vm : Bool) -> UInt {
+  encode_vop(0x0bU, vm, vs2, imm, 0x3U, vd)
+}
+
+///|
+fn encode_vxor_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x0bU, vm, vs2, rs1, 0x4U, vd)
+}
+
+///|
 fn encode_flw(imm : Int, rs1 : Int, rd : Int) -> UInt {
   encode_i(imm, rs1, 0x2U, rd, 0x07U)
 }

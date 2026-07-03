@@ -250,6 +250,102 @@ fn Runner::raise_vector_group_misaligned(
 }
 
 ///|
+priv enum VectorBinaryOp {
+  VectorBinAdd
+  VectorBinSub
+  VectorBinAnd
+  VectorBinOr
+  VectorBinXor
+}
+
+///|
+fn vector_apply_binary(
+  lhs : UInt64,
+  rhs : UInt64,
+  op : VectorBinaryOp,
+) -> UInt64 {
+  match op {
+    VectorBinAdd => lhs + rhs
+    VectorBinSub => lhs - rhs
+    VectorBinAnd => lhs & rhs
+    VectorBinOr => lhs | rhs
+    VectorBinXor => lhs ^ rhs
+  }
+}
+
+///|
+fn Runner::execute_vector_binary_vv(
+  self : Runner,
+  vd : Int,
+  vs2 : Int,
+  vs1 : Int,
+  config : VectorExecConfig,
+  active_elems : Int,
+  sew_mask : UInt64,
+  mask_bits : Array[Bool],
+  use_mask : Bool,
+  op : VectorBinaryOp,
+  current_pc : UInt64,
+  next_pc : UInt64,
+  raw : UInt,
+) -> StepResult {
+  if !vector_group_aligned(vd, config.lmul_log2) ||
+    !vector_group_aligned(vs2, config.lmul_log2) ||
+    !vector_group_aligned(vs1, config.lmul_log2) {
+    return self.raise_vector_group_misaligned(current_pc, raw)
+  }
+  for elem in 0..<active_elems {
+    if !use_mask || mask_bits[elem] {
+      let lhs = self.read_vreg_group_elem(vs2, elem, config.sew_bits)
+      let rhs = self.read_vreg_group_elem(vs1, elem, config.sew_bits)
+      self.write_vreg_group_elem(
+        vd,
+        elem,
+        config.sew_bits,
+        vector_apply_binary(lhs, rhs, op) & sew_mask,
+      )
+    }
+  }
+  self.cpu.pc = next_pc
+  Running
+}
+
+///|
+fn Runner::execute_vector_binary_scalar(
+  self : Runner,
+  vd : Int,
+  vs2 : Int,
+  scalar : UInt64,
+  config : VectorExecConfig,
+  active_elems : Int,
+  sew_mask : UInt64,
+  mask_bits : Array[Bool],
+  use_mask : Bool,
+  op : VectorBinaryOp,
+  current_pc : UInt64,
+  next_pc : UInt64,
+  raw : UInt,
+) -> StepResult {
+  if !vector_group_aligned(vd, config.lmul_log2) ||
+    !vector_group_aligned(vs2, config.lmul_log2) {
+    return self.raise_vector_group_misaligned(current_pc, raw)
+  }
+  for elem in 0..<active_elems {
+    if !use_mask || mask_bits[elem] {
+      let lhs = self.read_vreg_group_elem(vs2, elem, config.sew_bits)
+      self.write_vreg_group_elem(
+        vd,
+        elem,
+        config.sew_bits,
+        vector_apply_binary(lhs, scalar, op) & sew_mask,
+      )
+    }
+  }
+  self.cpu.pc = next_pc
+  Running
+}
+
+///|
 fn Runner::vector_memory_exec_config(self : Runner) -> VectorExecConfig? {
   match self.current_vector_exec_config() {
     Some(config) =>
@@ -791,109 +887,235 @@ fn Runner::execute_vector_first_slice(
       self.cpu.pc = next_pc
       Running
     }
-    VaddVv(vd, vs2, vs1) => {
-      if !vector_group_aligned(vd, config.lmul_log2) ||
-        !vector_group_aligned(vs2, config.lmul_log2) ||
-        !vector_group_aligned(vs1, config.lmul_log2) {
-        return self.raise_vector_group_misaligned(current_pc, raw)
-      }
-      for elem in 0..<active_elems {
-        if !use_mask || mask_bits[elem] {
-          let lhs = self.read_vreg_group_elem(vs2, elem, config.sew_bits)
-          let rhs = self.read_vreg_group_elem(vs1, elem, config.sew_bits)
-          self.write_vreg_group_elem(
-            vd,
-            elem,
-            config.sew_bits,
-            (lhs + rhs) & sew_mask,
-          )
-        }
-      }
-      self.cpu.pc = next_pc
-      Running
-    }
+    VaddVv(vd, vs2, vs1) =>
+      self.execute_vector_binary_vv(
+        vd,
+        vs2,
+        vs1,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinAdd,
+        current_pc,
+        next_pc,
+        raw,
+      )
     VaddVx(vd, vs2, rs1) => {
-      if !vector_group_aligned(vd, config.lmul_log2) ||
-        !vector_group_aligned(vs2, config.lmul_log2) {
-        return self.raise_vector_group_misaligned(current_pc, raw)
-      }
       let scalar = self.cpu.read_reg(rs1) & sew_mask
-      for elem in 0..<active_elems {
-        if !use_mask || mask_bits[elem] {
-          let lhs = self.read_vreg_group_elem(vs2, elem, config.sew_bits)
-          self.write_vreg_group_elem(
-            vd,
-            elem,
-            config.sew_bits,
-            (lhs + scalar) & sew_mask,
-          )
-        }
-      }
-      self.cpu.pc = next_pc
-      Running
+      self.execute_vector_binary_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinAdd,
+        current_pc,
+        next_pc,
+        raw,
+      )
     }
     VaddVi(vd, vs2, imm) => {
-      if !vector_group_aligned(vd, config.lmul_log2) ||
-        !vector_group_aligned(vs2, config.lmul_log2) {
-        return self.raise_vector_group_misaligned(current_pc, raw)
-      }
       let scalar = int_to_uint64_bits(imm) & sew_mask
-      for elem in 0..<active_elems {
-        if !use_mask || mask_bits[elem] {
-          let lhs = self.read_vreg_group_elem(vs2, elem, config.sew_bits)
-          self.write_vreg_group_elem(
-            vd,
-            elem,
-            config.sew_bits,
-            (lhs + scalar) & sew_mask,
-          )
-        }
-      }
-      self.cpu.pc = next_pc
-      Running
+      self.execute_vector_binary_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinAdd,
+        current_pc,
+        next_pc,
+        raw,
+      )
     }
-    VsubVv(vd, vs2, vs1) => {
-      if !vector_group_aligned(vd, config.lmul_log2) ||
-        !vector_group_aligned(vs2, config.lmul_log2) ||
-        !vector_group_aligned(vs1, config.lmul_log2) {
-        return self.raise_vector_group_misaligned(current_pc, raw)
-      }
+    VsubVv(vd, vs2, vs1) =>
       // RVV integer subtract is modulo the active SEW, just like add. Keep the
       // mask after the arithmetic so narrower SEW lanes wrap independently.
-      for elem in 0..<active_elems {
-        if !use_mask || mask_bits[elem] {
-          let lhs = self.read_vreg_group_elem(vs2, elem, config.sew_bits)
-          let rhs = self.read_vreg_group_elem(vs1, elem, config.sew_bits)
-          self.write_vreg_group_elem(
-            vd,
-            elem,
-            config.sew_bits,
-            (lhs - rhs) & sew_mask,
-          )
-        }
-      }
-      self.cpu.pc = next_pc
-      Running
-    }
+      self.execute_vector_binary_vv(
+        vd,
+        vs2,
+        vs1,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinSub,
+        current_pc,
+        next_pc,
+        raw,
+      )
     VsubVx(vd, vs2, rs1) => {
-      if !vector_group_aligned(vd, config.lmul_log2) ||
-        !vector_group_aligned(vs2, config.lmul_log2) {
-        return self.raise_vector_group_misaligned(current_pc, raw)
-      }
       let scalar = self.cpu.read_reg(rs1) & sew_mask
-      for elem in 0..<active_elems {
-        if !use_mask || mask_bits[elem] {
-          let lhs = self.read_vreg_group_elem(vs2, elem, config.sew_bits)
-          self.write_vreg_group_elem(
-            vd,
-            elem,
-            config.sew_bits,
-            (lhs - scalar) & sew_mask,
-          )
-        }
-      }
-      self.cpu.pc = next_pc
-      Running
+      self.execute_vector_binary_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinSub,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VandVv(vd, vs2, vs1) =>
+      self.execute_vector_binary_vv(
+        vd,
+        vs2,
+        vs1,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinAnd,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    VandVx(vd, vs2, rs1) => {
+      let scalar = self.cpu.read_reg(rs1) & sew_mask
+      self.execute_vector_binary_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinAnd,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VandVi(vd, vs2, imm) => {
+      let scalar = int_to_uint64_bits(imm) & sew_mask
+      self.execute_vector_binary_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinAnd,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VorVv(vd, vs2, vs1) =>
+      self.execute_vector_binary_vv(
+        vd,
+        vs2,
+        vs1,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinOr,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    VorVx(vd, vs2, rs1) => {
+      let scalar = self.cpu.read_reg(rs1) & sew_mask
+      self.execute_vector_binary_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinOr,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VorVi(vd, vs2, imm) => {
+      let scalar = int_to_uint64_bits(imm) & sew_mask
+      self.execute_vector_binary_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinOr,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VxorVv(vd, vs2, vs1) =>
+      self.execute_vector_binary_vv(
+        vd,
+        vs2,
+        vs1,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinXor,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    VxorVx(vd, vs2, rs1) => {
+      let scalar = self.cpu.read_reg(rs1) & sew_mask
+      self.execute_vector_binary_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinXor,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VxorVi(vd, vs2, imm) => {
+      let scalar = int_to_uint64_bits(imm) & sew_mask
+      self.execute_vector_binary_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinXor,
+        current_pc,
+        next_pc,
+        raw,
+      )
     }
     _ => abort("unexpected vector first-slice dispatch")
   }

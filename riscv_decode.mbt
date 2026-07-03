@@ -979,6 +979,15 @@ fn instruction_supported_for_current_config(
     VaddVi(_, _, _) => has_v
     VsubVv(_, _, _) => has_v
     VsubVx(_, _, _) => has_v
+    VandVv(_, _, _) => has_v
+    VandVx(_, _, _) => has_v
+    VandVi(_, _, _) => has_v
+    VorVv(_, _, _) => has_v
+    VorVx(_, _, _) => has_v
+    VorVi(_, _, _) => has_v
+    VxorVv(_, _, _) => has_v
+    VxorVx(_, _, _) => has_v
+    VxorVi(_, _, _) => has_v
     VlmV(_, _) => has_v
     Vle8V(_, _) => has_v
     Vle16V(_, _) => has_v
@@ -1166,12 +1175,21 @@ pub fn decode(raw : UInt) -> Instruction {
           match funct6(raw) {
             0x00U => VaddVv(rd(raw), rs2(raw), rs1(raw))
             0x02U => VsubVv(rd(raw), rs2(raw), rs1(raw))
+            0x09U => VandVv(rd(raw), rs2(raw), rs1(raw))
+            0x0aU => VorVv(rd(raw), rs2(raw), rs1(raw))
+            0x0bU => VxorVv(rd(raw), rs2(raw), rs1(raw))
             _ => Unknown(raw)
           }
         0x3U =>
           match funct6(raw) {
             0x00U =>
               VaddVi(rd(raw), rs2(raw), sign_extend((raw >> 15) & 0x1fU, 5))
+            0x09U =>
+              VandVi(rd(raw), rs2(raw), sign_extend((raw >> 15) & 0x1fU, 5))
+            0x0aU =>
+              VorVi(rd(raw), rs2(raw), sign_extend((raw >> 15) & 0x1fU, 5))
+            0x0bU =>
+              VxorVi(rd(raw), rs2(raw), sign_extend((raw >> 15) & 0x1fU, 5))
             0x17U =>
               if ((raw >> 25) & 0x1U) == 1U && rs2(raw) == 0 {
                 VmvVI(rd(raw), sign_extend((raw >> 15) & 0x1fU, 5))
@@ -1184,6 +1202,9 @@ pub fn decode(raw : UInt) -> Instruction {
           match funct6(raw) {
             0x00U => VaddVx(rd(raw), rs2(raw), rs1(raw))
             0x02U => VsubVx(rd(raw), rs2(raw), rs1(raw))
+            0x09U => VandVx(rd(raw), rs2(raw), rs1(raw))
+            0x0aU => VorVx(rd(raw), rs2(raw), rs1(raw))
+            0x0bU => VxorVx(rd(raw), rs2(raw), rs1(raw))
             0x17U =>
               if ((raw >> 25) & 0x1U) == 1U && rs2(raw) == 0 {
                 VmvVX(rd(raw), rs1(raw))

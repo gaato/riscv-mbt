@@ -459,4 +459,76 @@ test "decode first vector arithmetic slice" {
     }
     _ => fail("expected vsub.vx")
   }
+  match decode(encode_vand_vv(20, 21, 22, true)) {
+    VandVv(vd, vs2, vs1) => {
+      assert_eq(vd, 20)
+      assert_eq(vs2, 21)
+      assert_eq(vs1, 22)
+    }
+    _ => fail("expected vand.vv")
+  }
+  match decode(encode_vand_vx(23, 24, 25, true)) {
+    VandVx(vd, vs2, rs1) => {
+      assert_eq(vd, 23)
+      assert_eq(vs2, 24)
+      assert_eq(rs1, 25)
+    }
+    _ => fail("expected vand.vx")
+  }
+  match decode(encode_vand_vi(26, 27, -1, true)) {
+    VandVi(vd, vs2, imm) => {
+      assert_eq(vd, 26)
+      assert_eq(vs2, 27)
+      assert_eq(imm, -1)
+    }
+    _ => fail("expected vand.vi")
+  }
+  match decode(encode_vor_vv(1, 2, 3, true)) {
+    VorVv(vd, vs2, vs1) => {
+      assert_eq(vd, 1)
+      assert_eq(vs2, 2)
+      assert_eq(vs1, 3)
+    }
+    _ => fail("expected vor.vv")
+  }
+  match decode(encode_vor_vx(4, 5, 6, true)) {
+    VorVx(vd, vs2, rs1) => {
+      assert_eq(vd, 4)
+      assert_eq(vs2, 5)
+      assert_eq(rs1, 6)
+    }
+    _ => fail("expected vor.vx")
+  }
+  match decode(encode_vor_vi(7, 8, 9, true)) {
+    VorVi(vd, vs2, imm) => {
+      assert_eq(vd, 7)
+      assert_eq(vs2, 8)
+      assert_eq(imm, 9)
+    }
+    _ => fail("expected vor.vi")
+  }
+  match decode(encode_vxor_vv(9, 10, 11, true)) {
+    VxorVv(vd, vs2, vs1) => {
+      assert_eq(vd, 9)
+      assert_eq(vs2, 10)
+      assert_eq(vs1, 11)
+    }
+    _ => fail("expected vxor.vv")
+  }
+  match decode(encode_vxor_vx(12, 13, 14, true)) {
+    VxorVx(vd, vs2, rs1) => {
+      assert_eq(vd, 12)
+      assert_eq(vs2, 13)
+      assert_eq(rs1, 14)
+    }
+    _ => fail("expected vxor.vx")
+  }
+  match decode(encode_vxor_vi(15, 16, -1, true)) {
+    VxorVi(vd, vs2, imm) => {
+      assert_eq(vd, 15)
+      assert_eq(vs2, 16)
+      assert_eq(imm, -1)
+    }
+    _ => fail("expected vxor.vi")
+  }
 }
