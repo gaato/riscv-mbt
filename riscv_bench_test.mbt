@@ -132,6 +132,29 @@ fn make_spinlock_shape_loop_runner() -> Runner {
 }
 
 ///|
+fn make_vector_add_lmul2_loop_runner() -> Runner {
+  let runner = make_runner(rv64fdv_machine_config())
+  let iterations = 20000
+  let program = words_to_bytes([
+    encode_vsetivli(0, 8U, 0x11U), // e32,m2: eight active elements.
+    encode_vmv_v_i(2, 1),
+    encode_vmv_v_i(4, 2),
+    // Keep this loop close to the first LMUL2 arithmetic slice. It gives
+    // future V128/SIMD experiments a stable scalar baseline before they touch
+    // the Linux-facing execution path.
+    encode_vadd_vv(6, 2, 4, true),
+    encode_vadd_vi(8, 6, 1, true),
+    encode_vadd_vx(10, 8, 10, true),
+    encode_i(1, 6, 0x0U, 6, 0x13U), // addi t1, t1, 1
+    encode_b(-16, 7, 6, 0x6U, 0x63U), // bltu t1, t2, loop
+  ])
+  runner.load_program(program, 0U)
+  runner.cpu.write_reg(10, 5U.to_uint64())
+  runner.cpu.write_reg(7, iterations.reinterpret_as_uint().to_uint64())
+  runner
+}
+
+///|
 test (b : @bench.T) {
   b.bench(name="tight_add_loop_100k_steps", fn() {
     let runner = make_tight_add_loop_runner()
@@ -164,6 +187,13 @@ test (b : @bench.T) {
     let runner = make_spinlock_shape_loop_runner()
     b.keep(runner.run(100000))
     b.keep(runner.bus.load_u32(0x80400000U.to_uint64()))
+    b.keep(runner.decode_cache_hit_count())
+    b.keep(runner.decode_cache_miss_count())
+  })
+  b.bench(name="vector_add_lmul2_loop_100k_steps", fn() {
+    let runner = make_vector_add_lmul2_loop_runner()
+    b.keep(runner.run(100000))
+    b.keep(runner.read_vreg_u64(10, 0))
     b.keep(runner.decode_cache_hit_count())
     b.keep(runner.decode_cache_miss_count())
   })
