@@ -17,7 +17,7 @@ const schedulerPolicy = {
   intervalMs: 16,
   smokeStepsPerTick: 4096,
   linuxStepsPerTick: 262144,
-  syncEveryTicks: 16,
+  syncEveryTicks: 32,
 };
 
 const linuxBootMarkers = [
@@ -51,6 +51,22 @@ function setText(node, text) {
   if (node) {
     node.textContent = text;
   }
+}
+
+function positiveQueryInt(query, name) {
+  const value = query.get(name);
+  if (!value) {
+    return null;
+  }
+  const parsed = Number.parseInt(value, 10);
+  return Number.isFinite(parsed) && parsed > 0 ? parsed : null;
+}
+
+function applySchedulerQuery(query) {
+  schedulerPolicy.linuxStepsPerTick =
+    positiveQueryInt(query, "linuxStepsPerTick") ?? schedulerPolicy.linuxStepsPerTick;
+  schedulerPolicy.syncEveryTicks =
+    positiveQueryInt(query, "syncEveryTicks") ?? schedulerPolicy.syncEveryTicks;
 }
 
 function syncUi() {
@@ -234,6 +250,7 @@ function startRunning() {
 
 async function bootHost() {
   const query = new URLSearchParams(window.location.search);
+  applySchedulerQuery(query);
   const module = await WebAssembly.compileStreaming(fetch("browser.wasm"));
   const instance = await WebAssembly.instantiate(module, makeWasmImports(module));
   runtime = makeBrowserRuntime(instance.exports);

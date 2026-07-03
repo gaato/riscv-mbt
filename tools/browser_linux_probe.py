@@ -75,15 +75,23 @@ def start_http_server(directory: str, port: int) -> subprocess.Popen:
     return process
 
 
-def alpine_interactive_url(base_url: str, command: str) -> str:
-    query = urllib.parse.urlencode(
-        {
-            "guest": "linux",
-            "autoRun": "1",
-            "linuxInputAfterMarker": "/ #",
-            "linuxInput": command,
-        }
-    )
+def alpine_interactive_url(
+    base_url: str,
+    command: str,
+    linux_steps_per_tick: int | None,
+    sync_every_ticks: int | None,
+) -> str:
+    params = {
+        "guest": "linux",
+        "autoRun": "1",
+        "linuxInputAfterMarker": "/ #",
+        "linuxInput": command,
+    }
+    if linux_steps_per_tick is not None:
+        params["linuxStepsPerTick"] = str(linux_steps_per_tick)
+    if sync_every_ticks is not None:
+        params["syncEveryTicks"] = str(sync_every_ticks)
+    query = urllib.parse.urlencode(params)
     return f"{base_url}/?{query}"
 
 
@@ -98,6 +106,8 @@ def main() -> int:
     parser.add_argument("--port", type=int, default=0)
     parser.add_argument("--alpine-interactive-smoke", action="store_true")
     parser.add_argument("--input-command", default="echo browser-input-ok")
+    parser.add_argument("--linux-steps-per-tick", type=int)
+    parser.add_argument("--sync-every-ticks", type=int)
     args = parser.parse_args()
 
     server = None
@@ -115,7 +125,12 @@ def main() -> int:
             parser.error("--alpine-interactive-smoke requires a url or --serve-dir")
         marker = "browser-input-ok"
         expected.extend(["initrd 1443328 bytes", "/ #"])
-        url = alpine_interactive_url(url.rstrip("/"), args.input_command)
+        url = alpine_interactive_url(
+            url.rstrip("/"),
+            args.input_command,
+            args.linux_steps_per_tick,
+            args.sync_every_ticks,
+        )
     if url is None:
         parser.error("url is required unless --serve-dir is used")
 
