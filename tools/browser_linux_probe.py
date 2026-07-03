@@ -91,6 +91,7 @@ def alpine_interactive_url(
         "linuxInputAfterMarker": "/ #",
         "linuxInput": command,
         "linuxInputExpect": "browser-input-ok",
+        "haltOnLinuxInputExpect": "1",
     }
     if linux_steps_per_tick is not None:
         params["linuxStepsPerTick"] = str(linux_steps_per_tick)

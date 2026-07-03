@@ -346,6 +346,7 @@ async function bootHost() {
   const linuxInputAfterMarker = query.get("linuxInputAfterMarker");
   const linuxInput = query.get("linuxInput");
   const linuxInputExpect = query.get("linuxInputExpect");
+  const haltOnLinuxInputExpect = query.get("haltOnLinuxInputExpect") === "1";
   let linuxInputSent = false;
   let ticksSinceSync = 0;
 
@@ -421,6 +422,9 @@ async function bootHost() {
           runtime.consoleText().includes(linuxInputExpect)
         ) {
           schedulerStats.linuxInputExpectedStep = runtime.totalSteps();
+          if (haltOnLinuxInputExpect && runtime.isRunning()) {
+            runtime.toggleRun();
+          }
           syncUi();
         }
       }
