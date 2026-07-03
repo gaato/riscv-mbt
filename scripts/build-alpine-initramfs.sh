@@ -9,6 +9,9 @@ base_url="${ALPINE_BASE_URL:-https://dl-cdn.alpinelinux.org/alpine/latest-stable
 rootfs_name="alpine-minirootfs-$version-$arch.tar.gz"
 rootfs_url="$base_url/$rootfs_name"
 sha_url="$rootfs_url.sha256"
+uboot_name="alpine-uboot-$version-$arch.tar.gz"
+uboot_url="$base_url/$uboot_name"
+uboot_sha_url="$uboot_url.sha256"
 initrd_addr="${ALPINE_INITRD_ADDR:-0x84000000}"
 initrd_name="alpine-initramfs-$arch.cpio.gz"
 
@@ -23,6 +26,19 @@ curl -L -o "$build_dir/$rootfs_name.sha256" "$sha_url"
   cd "$build_dir"
   sha256sum -c "$rootfs_name.sha256"
 )
+
+if [[ ! -f "$build_dir/$uboot_name" ]]; then
+  curl -L -o "$build_dir/$uboot_name" "$uboot_url"
+fi
+
+curl -L -o "$build_dir/$uboot_name.sha256" "$uboot_sha_url"
+(
+  cd "$build_dir"
+  sha256sum -c "$uboot_name.sha256"
+)
+
+tar -xOzf "$build_dir/$uboot_name" ./boot/vmlinuz-lts |
+  gzip -dc > "$repo_root/_build/linux-kernel-riscv64"
 
 root_dir="$(mktemp -d "$repo_root/_build/alpine-rootfs.XXXXXX")"
 trap 'rm -rf "$root_dir"' EXIT
@@ -54,6 +70,9 @@ python3 "$repo_root/tools/build_minimal_dtb.py" \
   > "$repo_root/_build/minimal-alpine.dtb"
 
 printf 'alpine rootfs: %s\n' "$build_dir/$rootfs_name"
+printf 'kernel image: %s (%s bytes)\n' \
+  "$repo_root/_build/linux-kernel-riscv64" \
+  "$(wc -c < "$repo_root/_build/linux-kernel-riscv64")"
 printf 'initrd: %s (%s bytes) @ 0x%x..0x%x\n' \
   "$repo_root/_build/$initrd_name" "$initrd_size" "$initrd_start" "$initrd_end"
 printf 'dtb: %s\n' "$repo_root/_build/minimal-alpine.dtb"

@@ -27,7 +27,7 @@ Alpine is the first target because the official `riscv64` minirootfs is small, c
 
 ## Acceptance Criteria
 
-- `_build/alpine-initramfs-riscv64.cpio.gz` and `_build/minimal-alpine.dtb` can be generated from official Alpine artifacts.
+- `_build/linux-kernel-riscv64`, `_build/alpine-initramfs-riscv64.cpio.gz`, and `_build/minimal-alpine.dtb` can be generated from official Alpine artifacts.
 - The browser demo can load OpenSBI, DTB, kernel, and initrd artifacts from the manifest.
 - Browser serial output reaches a clear Alpine initramfs marker.
 - The selected backend is justified by measured browser boot time, steps/sec, cache counters, artifact size, and instantiate/compile cost.
@@ -53,4 +53,8 @@ Alpine is the first target because the official `riscv64` minirootfs is small, c
 - Browser Chromium probe with 180s virtual time loaded OpenSBI, DTB, kernel, and initrd, reached Linux rootfs unpack (`Trying to unpack rootfs image as initramfs...`), but did not reach the injected `/init` marker yet.
 - A 600s virtual-time probe was still running after roughly ten minutes of wall time and was interrupted; this confirms the next slice needs backend comparison and boot-path performance work before claiming practical Alpine userspace boot.
 - `wasm-gc` built and ran the same Alpine probe successfully to the same initramfs-unpack point with a smaller artifact and substantially lower wall time than plain `wasm`; the browser demo now defaults to `wasm-gc` while keeping `BROWSER_TARGET=wasm` for comparison.
-- Alpine's official Generic U-Boot tarball includes `boot/vmlinuz-lts` and `boot/initramfs-lts`, but `vmlinuz-lts` did not progress past the OpenSBI handoff in the current direct `Image`-style boot path. Treat it as not directly usable until the loader/kernel format path is clarified.
+- Alpine's official Generic U-Boot tarball includes `boot/vmlinuz-lts`, which is a gzip-compressed RISC-V boot executable `Image`. Passing the compressed file directly does not progress past OpenSBI, but gzip-expanding it produces a valid direct-boot kernel image.
+- `scripts/build-alpine-initramfs.sh` now downloads and verifies Alpine's Generic U-Boot tarball and writes the expanded `boot/vmlinuz-lts` to `_build/linux-kernel-riscv64`.
+- Native Alpine probe with the expanded Alpine Image reaches Linux and initramfs unpacking. `medium` (100M steps) reaches kernel init around futex setup in about 8s wall time; `xlong` (1B steps) reaches `Unpacking initramfs...` and `workingset` after about 105s wall time, but does not reach the injected `/init` marker yet.
+- Browser `wasm-gc` probe with 180s Chromium virtual time and the expanded Alpine Image reaches `Unpacking initramfs...`, but does not reach the injected `/init` marker yet.
+- With `_build/linux-kernel-riscv64` generated from Alpine's expanded Image, the existing Task 0015 Linux boot regression reaches `Linux version` in about 7M steps instead of the prior Debian-kernel path's 19M-step observation.
