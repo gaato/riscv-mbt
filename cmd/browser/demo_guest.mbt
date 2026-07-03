@@ -1,3 +1,5 @@
+// Tiny built-in browser smoke guest. It exercises the shared CPU core before
+// Linux artifacts are loaded through the browser runtime.
 ///|
 fn encode_i(
   imm : Int,

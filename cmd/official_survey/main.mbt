@@ -1,3 +1,6 @@
+// Host-side official riscv-tests survey runner. This is intentionally separate
+// from always-green unit tests because the upstream binary set is larger and
+// more environment-dependent.
 ///|
 let default_official_riscv_tests_manifest_path = "tools/riscv-tests-manifest.tsv"
 

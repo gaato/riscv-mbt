@@ -1,3 +1,5 @@
+// Shared test-support regressions for helpers used by generated or imported
+// RISC-V tests. Keep helper behavior boring and explicit.
 ///|
 struct OfficialRiscvTestCase {
   suite : String

@@ -1,3 +1,6 @@
+// End-to-end execution regressions for scalar, privileged, floating-point,
+// vector, platform, and Linux/OpenSBI paths. Prefer small architectural
+// programs over snapshots so failures point to a specific contract.
 ///|
 fn test_sign_extend_word64(value : UInt) -> UInt64 {
   let shifted = value.to_uint64() << 32

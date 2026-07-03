@@ -1,3 +1,6 @@
+// Minimal ELF loader support for riscv-tests and Linux/OpenSBI artifacts.
+// Loading code should report structured LoadError values instead of trapping
+// through the emulated CPU.
 ///|
 fn bytes_load_u8(bytes : Bytes, offset : Int) -> UInt {
   bytes[offset].to_uint()

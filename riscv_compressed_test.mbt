@@ -1,3 +1,5 @@
+// Compressed-instruction regressions for decode and execution. Keep these
+// focused on C extension aliases and sign/zero extension corner cases.
 ///|
 fn encode_c_addi(rd : Int, imm : Int) -> Int {
   0x0001 | (((imm >> 5) & 0x1) << 12) | (rd << 7) | ((imm & 0x1f) << 2)

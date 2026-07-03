@@ -1,3 +1,6 @@
+// Physical platform devices for the virt-like machine: UART, CLINT, PLIC, and
+// the RAM/MMIO dispatch layer. Keep Linux-visible device behavior explicit and
+// conservative; shortcuts here affect every guest step.
 // ---------------------------------------------------------------------------
 // Physical address dispatch layer
 // Bus handles RAM; this layer adds MMIO devices (UART, CLINT).

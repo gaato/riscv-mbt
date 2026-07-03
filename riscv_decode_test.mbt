@@ -1,3 +1,5 @@
+// Decode-only regressions. These tests should prove bit encodings and extension
+// gating without depending on execution side effects.
 ///|
 test "decode addi fields" {
   match decode(encode_i(-4, 2, 0x0U, 1, 0x13U)) {

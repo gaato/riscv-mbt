@@ -1,3 +1,6 @@
+// Scalar instruction execution, trap routing, CSR side effects, fetch/decode
+// dispatch, and Sv39 translation entry points. Code here should preserve
+// architectural ordering: timer update, interrupt delivery, fetch, execute.
 ///|
 fn Runner::xlen_bits(self : Runner) -> Int {
   match self.config.xlen {

@@ -1,3 +1,6 @@
+// Core architectural state, public runner API, memory bus, ELF loading, and
+// machine presets. Keep hardware-facing constants here so execution, decode,
+// and platform code share one architectural vocabulary.
 ///|
 pub enum Xlen {
   Xlen32

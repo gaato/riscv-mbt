@@ -1,3 +1,6 @@
+// Scalar F/D execution helpers. The implementation follows the constrained
+// host-IEEE contract documented for this repo and keeps NaN-boxing behavior
+// visible in tests.
 ///|
 fn Runner::fp_has_d(self : Runner) -> Bool {
   (self.config.extensions & MISA_EXT_D) != 0U.to_uint64()

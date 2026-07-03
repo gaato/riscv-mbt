@@ -1,3 +1,5 @@
+// Host-side C sample runner for small compiled guest programs. Use this to
+// inspect ABI-level behavior outside the official riscv-tests corpus.
 ///|
 let default_sample_path = "_build/c-samples/rv32i-sum/rv32i-sum.elf"
 

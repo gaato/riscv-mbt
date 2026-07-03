@@ -1,3 +1,6 @@
+// Microbenchmarks for emulator hot-path shapes. These are not correctness
+// proofs; they provide direction before validating changes with Linux/browser
+// integration tests.
 ///|
 fn make_tight_add_loop_runner() -> Runner {
   let runner = make_runner(default_machine_config())

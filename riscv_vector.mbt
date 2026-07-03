@@ -1,3 +1,6 @@
+// RISC-V V extension support. This file intentionally grows in small slices:
+// vsetvl state, first arithmetic/memory operations, then register grouping and
+// broader addressing modes as the spec coverage expands.
 ///|
 fn Runner::read_vcsr(self : Runner) -> UInt64 {
   self.cpu.read_csr(CSR_VCSR) & VCSR_VISIBLE_MASK
@@ -13,6 +16,8 @@ fn Runner::write_vcsr(self : Runner, value : UInt64) -> Unit {
 
 ///|
 priv struct VectorVtypeConfig {
+  // `normalized_vtype` preserves the guest-visible vtype bits after rejecting
+  // unsupported or reserved encodings through vill.
   normalized_vtype : UInt64
   vsew_log2 : Int
   vlmul_log2 : Int
@@ -86,6 +91,8 @@ fn apply_vsetvl(
 
 ///|
 priv struct VectorExecConfig {
+  // Decoded execution view for the current vector shape. `lmul_log2` is integer
+  // LMUL in this implementation; fractional LMUL still goes through vill.
   vl : UInt64
   sew_bits : Int
   lmul_log2 : Int
@@ -170,6 +177,8 @@ fn vector_group_elem_vreg(
   elem_index : Int,
   sew_bits : Int,
 ) -> (Int, Int) {
+  // RVV packs a register group contiguously in element order. With VLEN=128,
+  // SEW=32, and LMUL=2, elements 0..3 live in vN and 4..7 live in vN+1.
   let elems_per_register = vector_elems_per_register(sew_bits)
   let register_offset = elem_index / elems_per_register
   let local_elem = elem_index % elems_per_register

@@ -1,3 +1,6 @@
+// Sv39 page-table walking and translation cache support. Fault priority and
+// permission checks should be kept aligned with the privileged architecture
+// rather than with Linux observations alone.
 ///|
 const PTE_V : UInt64 = 0x1
 

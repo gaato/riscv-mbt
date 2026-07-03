@@ -1,3 +1,6 @@
+// Instruction bitfield extraction, decode tables, compressed expansion, and
+// extension gating. Decode should classify bits only; architectural side
+// effects belong in the execute files.
 ///|
 fn rd(raw : UInt) -> Int {
   ((raw >> 7) & 0x1fU).reinterpret_as_int()
