@@ -216,19 +216,32 @@ fn Runner::plic_context_threshold(self : Runner, context : Int) -> UInt64 {
 }
 
 ///|
-fn Runner::plic_uart_claimable_for_context(self : Runner, context : Int) -> Bool {
-  if !self.uart_interrupt_pending() {
-    return false
-  }
-  let priority = self.plic_source_priority(plic_uart_source)
+fn Runner::plic_uart_claimable_with_priority(
+  self : Runner,
+  context : Int,
+  priority : UInt64,
+) -> Bool {
   priority > self.plic_context_threshold(context) &&
   self.plic_context_enabled(context, plic_uart_source)
 }
 
 ///|
+fn Runner::plic_uart_claimable_for_context(self : Runner, context : Int) -> Bool {
+  self.uart_interrupt_pending() &&
+  self.plic_uart_claimable_with_priority(
+    context,
+    self.plic_source_priority(plic_uart_source),
+  )
+}
+
+///|
 fn Runner::plic_any_uart_claimable(self : Runner) -> Bool {
-  self.plic_uart_claimable_for_context(0) ||
-  self.plic_uart_claimable_for_context(1)
+  if !self.uart_interrupt_pending() {
+    return false
+  }
+  let priority = self.plic_source_priority(plic_uart_source)
+  self.plic_uart_claimable_with_priority(0, priority) ||
+  self.plic_uart_claimable_with_priority(1, priority)
 }
 
 ///|
