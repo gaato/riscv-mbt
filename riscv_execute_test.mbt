@@ -14,6 +14,19 @@ fn test_join_u64(upper : UInt, lower : UInt) -> UInt64 {
 }
 
 ///|
+fn assert_vreg_e32x4(
+  runner : Runner,
+  vreg : Int,
+  e0 : UInt,
+  e1 : UInt,
+  e2 : UInt,
+  e3 : UInt,
+) -> Unit raise {
+  assert_eq(runner.read_vreg_u64(vreg, 0), test_join_u64(e1, e0))
+  assert_eq(runner.read_vreg_u64(vreg, 1), test_join_u64(e3, e2))
+}
+
+///|
 fn exec_test_sv39_satp(root_ppn : UInt64) -> UInt64 {
   (8U.to_uint64() << 60) | root_ppn
 }
@@ -1882,6 +1895,68 @@ test "rv64fdv vector logical slice supports lmul2 register groups" {
     runner.read_vreg_u64(21, 1),
     test_join_u64(0xfffffff5U, 0xfffffff5U),
   )
+}
+
+///|
+test "rv64fdv vector min max slice distinguishes signed and unsigned e32 lanes" {
+  let program = words_to_bytes([
+    encode_vsetivli(0, 8U, 0x11U),
+    encode_vminu_vv(6, 2, 4, true),
+    encode_vmin_vv(8, 2, 4, true),
+    encode_vmaxu_vv(10, 2, 4, true),
+    encode_vmax_vv(12, 2, 4, true),
+    encode_vminu_vx(14, 2, 10, true),
+    encode_vmin_vx(16, 2, 10, true),
+    encode_vmaxu_vx(18, 2, 10, true),
+    encode_vmax_vx(20, 2, 10, true),
+  ])
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.load_program(program, 0U)
+  runner.cpu.write_reg(10, 0xffffffffU.to_uint64())
+
+  // e32,m2 sources span v2-v3 and v4-v5. The values deliberately mix
+  // high-bit-set lanes so signed `vmin/vmax` differs from unsigned `vminu/vmaxu`.
+  runner.cpu.write_vreg(2, 0, test_join_u64(2U, 0xfffffffeU))
+  runner.cpu.write_vreg(2, 1, test_join_u64(9U, 0x80000000U))
+  runner.cpu.write_vreg(3, 0, test_join_u64(0xffffffffU, 5U))
+  runner.cpu.write_vreg(3, 1, test_join_u64(0x7fffffffU, 0U))
+  runner.cpu.write_vreg(4, 0, test_join_u64(3U, 1U))
+  runner.cpu.write_vreg(4, 1, test_join_u64(0xfffffffcU, 0x7fffffffU))
+  runner.cpu.write_vreg(5, 0, test_join_u64(0xfffffffeU, 6U))
+  runner.cpu.write_vreg(5, 1, test_join_u64(0x80000000U, 0xffffffffU))
+
+  match runner.run(9) {
+    Running => ()
+    _ => fail("expected vector min/max sequence to run")
+  }
+
+  assert_vreg_e32x4(runner, 6, 1U, 2U, 0x7fffffffU, 9U)
+  assert_vreg_e32x4(runner, 7, 5U, 0xfffffffeU, 0U, 0x7fffffffU)
+  assert_vreg_e32x4(runner, 8, 0xfffffffeU, 2U, 0x80000000U, 0xfffffffcU)
+  assert_vreg_e32x4(runner, 9, 5U, 0xfffffffeU, 0xffffffffU, 0x80000000U)
+  assert_vreg_e32x4(runner, 10, 0xfffffffeU, 3U, 0x80000000U, 0xfffffffcU)
+  assert_vreg_e32x4(runner, 11, 6U, 0xffffffffU, 0xffffffffU, 0x80000000U)
+  assert_vreg_e32x4(runner, 12, 1U, 3U, 0x7fffffffU, 9U)
+  assert_vreg_e32x4(runner, 13, 6U, 0xffffffffU, 0U, 0x7fffffffU)
+
+  // With x10 holding e32 -1, unsigned min/max treats it as the largest lane
+  // value while signed min/max treats it as -1.
+  assert_vreg_e32x4(runner, 14, 0xfffffffeU, 2U, 0x80000000U, 9U)
+  assert_vreg_e32x4(runner, 15, 5U, 0xffffffffU, 0U, 0x7fffffffU)
+  assert_vreg_e32x4(
+    runner, 16, 0xfffffffeU, 0xffffffffU, 0x80000000U, 0xffffffffU,
+  )
+  assert_vreg_e32x4(
+    runner, 17, 0xffffffffU, 0xffffffffU, 0xffffffffU, 0xffffffffU,
+  )
+  assert_vreg_e32x4(
+    runner, 18, 0xffffffffU, 0xffffffffU, 0xffffffffU, 0xffffffffU,
+  )
+  assert_vreg_e32x4(
+    runner, 19, 0xffffffffU, 0xffffffffU, 0xffffffffU, 0xffffffffU,
+  )
+  assert_vreg_e32x4(runner, 20, 0xffffffffU, 2U, 0xffffffffU, 9U)
+  assert_vreg_e32x4(runner, 21, 5U, 0xffffffffU, 0U, 0x7fffffffU)
 }
 
 ///|

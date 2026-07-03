@@ -979,6 +979,14 @@ fn instruction_supported_for_current_config(
     VaddVi(_, _, _) => has_v
     VsubVv(_, _, _) => has_v
     VsubVx(_, _, _) => has_v
+    VminuVv(_, _, _) => has_v
+    VminuVx(_, _, _) => has_v
+    VminVv(_, _, _) => has_v
+    VminVx(_, _, _) => has_v
+    VmaxuVv(_, _, _) => has_v
+    VmaxuVx(_, _, _) => has_v
+    VmaxVv(_, _, _) => has_v
+    VmaxVx(_, _, _) => has_v
     VandVv(_, _, _) => has_v
     VandVx(_, _, _) => has_v
     VandVi(_, _, _) => has_v
@@ -1175,6 +1183,10 @@ pub fn decode(raw : UInt) -> Instruction {
           match funct6(raw) {
             0x00U => VaddVv(rd(raw), rs2(raw), rs1(raw))
             0x02U => VsubVv(rd(raw), rs2(raw), rs1(raw))
+            0x04U => VminuVv(rd(raw), rs2(raw), rs1(raw))
+            0x05U => VminVv(rd(raw), rs2(raw), rs1(raw))
+            0x06U => VmaxuVv(rd(raw), rs2(raw), rs1(raw))
+            0x07U => VmaxVv(rd(raw), rs2(raw), rs1(raw))
             0x09U => VandVv(rd(raw), rs2(raw), rs1(raw))
             0x0aU => VorVv(rd(raw), rs2(raw), rs1(raw))
             0x0bU => VxorVv(rd(raw), rs2(raw), rs1(raw))
@@ -1202,6 +1214,10 @@ pub fn decode(raw : UInt) -> Instruction {
           match funct6(raw) {
             0x00U => VaddVx(rd(raw), rs2(raw), rs1(raw))
             0x02U => VsubVx(rd(raw), rs2(raw), rs1(raw))
+            0x04U => VminuVx(rd(raw), rs2(raw), rs1(raw))
+            0x05U => VminVx(rd(raw), rs2(raw), rs1(raw))
+            0x06U => VmaxuVx(rd(raw), rs2(raw), rs1(raw))
+            0x07U => VmaxVx(rd(raw), rs2(raw), rs1(raw))
             0x09U => VandVx(rd(raw), rs2(raw), rs1(raw))
             0x0aU => VorVx(rd(raw), rs2(raw), rs1(raw))
             0x0bU => VxorVx(rd(raw), rs2(raw), rs1(raw))

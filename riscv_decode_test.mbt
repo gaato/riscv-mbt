@@ -459,6 +459,70 @@ test "decode first vector arithmetic slice" {
     }
     _ => fail("expected vsub.vx")
   }
+  match decode(encode_vminu_vv(18, 19, 20, true)) {
+    VminuVv(vd, vs2, vs1) => {
+      assert_eq(vd, 18)
+      assert_eq(vs2, 19)
+      assert_eq(vs1, 20)
+    }
+    _ => fail("expected vminu.vv")
+  }
+  match decode(encode_vminu_vx(21, 22, 23, true)) {
+    VminuVx(vd, vs2, rs1) => {
+      assert_eq(vd, 21)
+      assert_eq(vs2, 22)
+      assert_eq(rs1, 23)
+    }
+    _ => fail("expected vminu.vx")
+  }
+  match decode(encode_vmin_vv(24, 25, 26, true)) {
+    VminVv(vd, vs2, vs1) => {
+      assert_eq(vd, 24)
+      assert_eq(vs2, 25)
+      assert_eq(vs1, 26)
+    }
+    _ => fail("expected vmin.vv")
+  }
+  match decode(encode_vmin_vx(27, 28, 29, true)) {
+    VminVx(vd, vs2, rs1) => {
+      assert_eq(vd, 27)
+      assert_eq(vs2, 28)
+      assert_eq(rs1, 29)
+    }
+    _ => fail("expected vmin.vx")
+  }
+  match decode(encode_vmaxu_vv(1, 2, 3, true)) {
+    VmaxuVv(vd, vs2, vs1) => {
+      assert_eq(vd, 1)
+      assert_eq(vs2, 2)
+      assert_eq(vs1, 3)
+    }
+    _ => fail("expected vmaxu.vv")
+  }
+  match decode(encode_vmaxu_vx(4, 5, 6, true)) {
+    VmaxuVx(vd, vs2, rs1) => {
+      assert_eq(vd, 4)
+      assert_eq(vs2, 5)
+      assert_eq(rs1, 6)
+    }
+    _ => fail("expected vmaxu.vx")
+  }
+  match decode(encode_vmax_vv(7, 8, 9, true)) {
+    VmaxVv(vd, vs2, vs1) => {
+      assert_eq(vd, 7)
+      assert_eq(vs2, 8)
+      assert_eq(vs1, 9)
+    }
+    _ => fail("expected vmax.vv")
+  }
+  match decode(encode_vmax_vx(10, 11, 12, true)) {
+    VmaxVx(vd, vs2, rs1) => {
+      assert_eq(vd, 10)
+      assert_eq(vs2, 11)
+      assert_eq(rs1, 12)
+    }
+    _ => fail("expected vmax.vx")
+  }
   match decode(encode_vand_vv(20, 21, 22, true)) {
     VandVv(vd, vs2, vs1) => {
       assert_eq(vd, 20)

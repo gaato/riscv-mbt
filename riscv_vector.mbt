@@ -253,9 +253,20 @@ fn Runner::raise_vector_group_misaligned(
 priv enum VectorBinaryOp {
   VectorBinAdd
   VectorBinSub
+  VectorBinMinu
+  VectorBinMin
+  VectorBinMaxu
+  VectorBinMax
   VectorBinAnd
   VectorBinOr
   VectorBinXor
+}
+
+///|
+fn vector_signed_lane(value : UInt64, sew_bits : Int) -> Int64 {
+  // Signed RVV integer comparisons interpret each lane at SEW width, not at
+  // host UInt64 width. Sign-extend before comparing so e32 0xffffffff is -1.
+  xlen_sign_extend(value, sew_bits, XLEN_64).reinterpret_as_int64()
 }
 
 ///|
@@ -263,10 +274,25 @@ fn vector_apply_binary(
   lhs : UInt64,
   rhs : UInt64,
   op : VectorBinaryOp,
+  sew_bits : Int,
 ) -> UInt64 {
   match op {
     VectorBinAdd => lhs + rhs
     VectorBinSub => lhs - rhs
+    VectorBinMinu => if lhs < rhs { lhs } else { rhs }
+    VectorBinMin =>
+      if vector_signed_lane(lhs, sew_bits) < vector_signed_lane(rhs, sew_bits) {
+        lhs
+      } else {
+        rhs
+      }
+    VectorBinMaxu => if lhs > rhs { lhs } else { rhs }
+    VectorBinMax =>
+      if vector_signed_lane(lhs, sew_bits) > vector_signed_lane(rhs, sew_bits) {
+        lhs
+      } else {
+        rhs
+      }
     VectorBinAnd => lhs & rhs
     VectorBinOr => lhs | rhs
     VectorBinXor => lhs ^ rhs
@@ -302,7 +328,7 @@ fn Runner::execute_vector_binary_vv(
         vd,
         elem,
         config.sew_bits,
-        vector_apply_binary(lhs, rhs, op) & sew_mask,
+        vector_apply_binary(lhs, rhs, op, config.sew_bits) & sew_mask,
       )
     }
   }
@@ -337,7 +363,7 @@ fn Runner::execute_vector_binary_scalar(
         vd,
         elem,
         config.sew_bits,
-        vector_apply_binary(lhs, scalar, op) & sew_mask,
+        vector_apply_binary(lhs, scalar, op, config.sew_bits) & sew_mask,
       )
     }
   }
@@ -965,6 +991,134 @@ fn Runner::execute_vector_first_slice(
         mask_bits,
         use_mask,
         VectorBinSub,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VminuVv(vd, vs2, vs1) =>
+      self.execute_vector_binary_vv(
+        vd,
+        vs2,
+        vs1,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinMinu,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    VminuVx(vd, vs2, rs1) => {
+      let scalar = self.cpu.read_reg(rs1) & sew_mask
+      self.execute_vector_binary_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinMinu,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VminVv(vd, vs2, vs1) =>
+      self.execute_vector_binary_vv(
+        vd,
+        vs2,
+        vs1,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinMin,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    VminVx(vd, vs2, rs1) => {
+      let scalar = self.cpu.read_reg(rs1) & sew_mask
+      self.execute_vector_binary_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinMin,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VmaxuVv(vd, vs2, vs1) =>
+      self.execute_vector_binary_vv(
+        vd,
+        vs2,
+        vs1,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinMaxu,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    VmaxuVx(vd, vs2, rs1) => {
+      let scalar = self.cpu.read_reg(rs1) & sew_mask
+      self.execute_vector_binary_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinMaxu,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VmaxVv(vd, vs2, vs1) =>
+      self.execute_vector_binary_vv(
+        vd,
+        vs2,
+        vs1,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinMax,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    VmaxVx(vd, vs2, rs1) => {
+      let scalar = self.cpu.read_reg(rs1) & sew_mask
+      self.execute_vector_binary_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinMax,
         current_pc,
         next_pc,
         raw,

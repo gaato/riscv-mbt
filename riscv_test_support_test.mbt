@@ -538,6 +538,46 @@ fn encode_vsub_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
 }
 
 ///|
+fn encode_vminu_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x04U, vm, vs2, vs1, 0x0U, vd)
+}
+
+///|
+fn encode_vminu_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x04U, vm, vs2, rs1, 0x4U, vd)
+}
+
+///|
+fn encode_vmin_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x05U, vm, vs2, vs1, 0x0U, vd)
+}
+
+///|
+fn encode_vmin_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x05U, vm, vs2, rs1, 0x4U, vd)
+}
+
+///|
+fn encode_vmaxu_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x06U, vm, vs2, vs1, 0x0U, vd)
+}
+
+///|
+fn encode_vmaxu_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x06U, vm, vs2, rs1, 0x4U, vd)
+}
+
+///|
+fn encode_vmax_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x07U, vm, vs2, vs1, 0x0U, vd)
+}
+
+///|
+fn encode_vmax_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x07U, vm, vs2, rs1, 0x4U, vd)
+}
+
+///|
 fn encode_vand_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
   encode_vop(0x09U, vm, vs2, vs1, 0x0U, vd)
 }
