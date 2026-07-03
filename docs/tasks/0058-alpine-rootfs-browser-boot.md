@@ -30,7 +30,7 @@ Alpine is the first target because the official `riscv64` minirootfs is small, c
 
 - `_build/linux-kernel-riscv64`, `_build/alpine-initramfs-riscv64.cpio`, `_build/alpine-initramfs-riscv64.cpio.gz`, and `_build/minimal-alpine.dtb` can be generated from official Alpine artifacts.
 - The browser demo can load OpenSBI, DTB, kernel, and initrd artifacts from the manifest.
-- Browser serial output reaches a clear Alpine initramfs marker. This is satisfied by the default static `/init` writing `riscv-mbt Alpine initramfs ready` through `/dev/kmsg`; the task remains open until the BusyBox shell prompt is visible and usable through the browser serial path.
+- Browser serial output reaches a clear Alpine initramfs marker. This is satisfied by the default static `/init` writing `riscv-mbt Alpine initramfs ready` through `/dev/kmsg`; browser Wasm also reaches a second `riscv-mbt Alpine shell alive` marker emitted by BusyBox shell itself. The task remains open until the BusyBox shell prompt is visible and usable through the browser serial path.
 - The selected backend is justified by measured browser boot time, steps/sec, cache counters, artifact size, and instantiate/compile cost.
 - `moon check`, `moon test`, and `./scripts/build-browser-demo.sh` pass.
 - Work is committed in meaningful increments; generated `outputs/` evidence remains ignored.
@@ -80,3 +80,5 @@ Alpine is the first target because the official `riscv64` minirootfs is small, c
 - The initial static `/init` handoff to `/bin/sh` failed with `EFAULT` because linker relaxation generated `gp`-relative data accesses for `argv`/`envp`, while the freestanding entry point had not initialized `gp`.
 - `tools/alpine-init.S` now initializes `gp` from `__global_pointer$` before accessing static data. QEMU reaches `riscv-mbt Alpine initramfs ready` and then `/bin/sh: can't access tty; job control turned off` followed by a BusyBox `/ #` prompt.
 - Browser `wasm-gc` with the same artifact still reaches the kmsg marker, but a 360s Chromium virtual-time probe for `/ #` did not observe the prompt. The next Task 0058 slice should focus on why BusyBox/TTY output is not visible through riscv-mbt/browser even though QEMU shows it.
+- Changed the static init handoff to run `/bin/sh -c 'echo riscv-mbt Alpine shell alive > /dev/kmsg; exec /bin/sh'`. QEMU shows both the shell-alive marker and the BusyBox `/ #` prompt.
+- Browser `wasm-gc` with 480s Chromium virtual time reaches `riscv-mbt Alpine shell alive` with the 1,443,328 byte uncompressed initramfs. This proves the Alpine BusyBox shell executes in browser Wasm; the remaining gap is interactive TTY output/input visibility rather than ELF/userland execution.

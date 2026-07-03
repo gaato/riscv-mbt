@@ -109,6 +109,10 @@ errno_unknown:
     .ascii "exec errno UNKNOWN\n"
 shell_path:
     .asciz "/bin/sh"
+shell_arg_c:
+    .asciz "-c"
+shell_command:
+    .asciz "echo riscv-mbt Alpine shell alive > /dev/kmsg; exec /bin/sh"
 kmsg_path:
     .asciz "/dev/kmsg"
 
@@ -116,6 +120,8 @@ kmsg_path:
     .balign 8
 argv:
     .dword shell_path
+    .dword shell_arg_c
+    .dword shell_command
     .dword 0
 envp:
     .dword 0
