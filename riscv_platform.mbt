@@ -702,7 +702,9 @@ fn Runner::update_timer(self : Runner) -> Unit {
   } else {
     new_mip2 & bit_not(mip_meip_bit | mip_seip_bit)
   }
-  self.cpu.write_csr(CSR_MIP, new_mip3)
+  if new_mip3 != mip {
+    self.cpu.write_csr(CSR_MIP, new_mip3)
+  }
 }
 
 ///|
