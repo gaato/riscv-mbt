@@ -147,6 +147,65 @@ fn Runner::write_vreg_elem(
 }
 
 ///|
+fn vector_lmul_registers(lmul_log2 : Int) -> Int {
+  1 << lmul_log2
+}
+
+///|
+fn vector_elems_per_register(sew_bits : Int) -> Int {
+  (VLEN_BYTES * 8) / sew_bits
+}
+
+///|
+fn vector_group_aligned(vreg : Int, lmul_log2 : Int) -> Bool {
+  let registers = vector_lmul_registers(lmul_log2)
+  vreg % registers == 0 && vreg + registers <= VREG_COUNT
+}
+
+///|
+fn vector_group_elem_vreg(
+  base_vreg : Int,
+  elem_index : Int,
+  sew_bits : Int,
+) -> (Int, Int) {
+  let elems_per_register = vector_elems_per_register(sew_bits)
+  let register_offset = elem_index / elems_per_register
+  let local_elem = elem_index % elems_per_register
+  (base_vreg + register_offset, local_elem)
+}
+
+///|
+fn Runner::read_vreg_group_elem(
+  self : Runner,
+  base_vreg : Int,
+  elem_index : Int,
+  sew_bits : Int,
+) -> UInt64 {
+  let (vreg, local_elem) = vector_group_elem_vreg(
+    base_vreg,
+    elem_index,
+    sew_bits,
+  )
+  self.read_vreg_elem(vreg, local_elem, sew_bits)
+}
+
+///|
+fn Runner::write_vreg_group_elem(
+  self : Runner,
+  base_vreg : Int,
+  elem_index : Int,
+  sew_bits : Int,
+  value : UInt64,
+) -> Unit {
+  let (vreg, local_elem) = vector_group_elem_vreg(
+    base_vreg,
+    elem_index,
+    sew_bits,
+  )
+  self.write_vreg_elem(vreg, local_elem, sew_bits, value)
+}
+
+///|
 fn Runner::read_vmask_bit(self : Runner, elem_index : Int) -> Bool {
   let word = elem_index / 64
   let bit = elem_index % 64
@@ -169,7 +228,16 @@ fn Runner::vector_exec_supported(self : Runner) -> VectorExecConfig? {
 
 ///|
 fn Runner::vector_memory_exec_config(self : Runner) -> VectorExecConfig? {
-  self.vector_exec_supported()
+  match self.current_vector_exec_config() {
+    Some(config) =>
+      if config.lmul_log2 <= 1 &&
+        self.cpu.read_csr(CSR_VSTART) == 0U.to_uint64() {
+        Some(config)
+      } else {
+        None
+      }
+    None => None
+  }
 }
 
 ///|
@@ -232,6 +300,9 @@ fn Runner::execute_vector_load_unit_stride(
   if config.sew_bits != sew_bits {
     return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
   }
+  if !vector_group_aligned(vd, config.lmul_log2) {
+    return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+  }
   let active_elems = config.vl.reinterpret_as_int64().to_int()
   let base = self.cpu.read_reg(rs1)
   let pas : Array[UInt64] = []
@@ -248,7 +319,7 @@ fn Runner::execute_vector_load_unit_stride(
     values.push(self.vector_load_elem_bits(pa, elem_bytes))
   }
   for commit_elem in 0..<active_elems {
-    self.write_vreg_elem(vd, commit_elem, sew_bits, values[commit_elem])
+    self.write_vreg_group_elem(vd, commit_elem, sew_bits, values[commit_elem])
   }
   self.cpu.pc = next_pc
   Running
@@ -272,6 +343,9 @@ fn Runner::execute_vector_store_unit_stride(
   if config.sew_bits != sew_bits {
     return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
   }
+  if !vector_group_aligned(vs3, config.lmul_log2) {
+    return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+  }
   let active_elems = config.vl.reinterpret_as_int64().to_int()
   let base = self.cpu.read_reg(rs1)
   let pas : Array[UInt64] = []
@@ -283,7 +357,7 @@ fn Runner::execute_vector_store_unit_stride(
       Some(result) => return result
       None => {
         pas.push(pa)
-        values.push(self.read_vreg_elem(vs3, elem, sew_bits))
+        values.push(self.read_vreg_group_elem(vs3, elem, sew_bits))
       }
     }
   }

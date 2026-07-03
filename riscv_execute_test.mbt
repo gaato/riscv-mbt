@@ -1921,6 +1921,53 @@ test "rv64fdv first vector memory slice supports unit-stride integer stores" {
 }
 
 ///|
+test "rv64fdv vector memory supports lmul2 register groups" {
+  let load32 = make_runner(rv64fdv_machine_config())
+  load32.load_program(words_to_bytes([
+    encode_vsetivli(0, 8U, 0x11U),
+    encode_vle32(2, 10, true),
+  ]), 0U)
+  load32.cpu.write_reg(10, 0x200U.to_uint64())
+  for elem in 0..<8 {
+    load32.bus.store_u32(
+      0x200U.to_uint64() + (elem * 4).reinterpret_as_uint().to_uint64(),
+      (0x10 + elem).reinterpret_as_uint().to_uint64(),
+    )
+  }
+  match load32.run(2) {
+    Running => ()
+    _ => fail("expected lmul2 vle32.v sequence to run")
+  }
+  assert_eq(load32.read_vreg_u64(2, 0), test_join_u64(0x11U, 0x10U))
+  assert_eq(load32.read_vreg_u64(2, 1), test_join_u64(0x13U, 0x12U))
+  assert_eq(load32.read_vreg_u64(3, 0), test_join_u64(0x15U, 0x14U))
+  assert_eq(load32.read_vreg_u64(3, 1), test_join_u64(0x17U, 0x16U))
+
+  let store32 = make_runner(rv64fdv_machine_config())
+  store32.load_program(words_to_bytes([
+    encode_vsetivli(0, 8U, 0x11U),
+    encode_vse32(2, 10, true),
+  ]), 0U)
+  store32.cpu.write_vreg(2, 0, test_join_u64(0x21U, 0x20U))
+  store32.cpu.write_vreg(2, 1, test_join_u64(0x23U, 0x22U))
+  store32.cpu.write_vreg(3, 0, test_join_u64(0x25U, 0x24U))
+  store32.cpu.write_vreg(3, 1, test_join_u64(0x27U, 0x26U))
+  store32.cpu.write_reg(10, 0x240U.to_uint64())
+  match store32.run(2) {
+    Running => ()
+    _ => fail("expected lmul2 vse32.v sequence to run")
+  }
+  for elem in 0..<8 {
+    assert_eq(
+      store32.bus.load_u32(
+        0x240U.to_uint64() + (elem * 4).reinterpret_as_uint().to_uint64(),
+      ),
+      (0x20 + elem).reinterpret_as_uint().to_uint64(),
+    )
+  }
+}
+
+///|
 test "rv64fdv vector memory rejects masked width-mismatch lmul2 vill and nonzero vstart" {
   let masked_raw = encode_vle32(1, 10, false)
   let masked = make_runner(rv64fdv_machine_config())
@@ -1961,7 +2008,7 @@ test "rv64fdv vector memory rejects masked width-mismatch lmul2 vill and nonzero
     encode_vsetivli(0, 2U, 0x11U),
     encode_vle32(1, 10, true),
   ]), 0U)
-  lmul2.cpu.write_reg(10, 0x220U.to_uint64())
+  lmul2.cpu.write_reg(10, 0x280U.to_uint64())
   match lmul2.step() {
     Running => ()
     _ => fail("expected lmul=2 vsetivli to run")
@@ -1973,7 +2020,7 @@ test "rv64fdv vector memory rejects masked width-mismatch lmul2 vill and nonzero
         _ => fail("expected illegal instruction cause")
       }
     }
-    _ => fail("expected lmul=2 vector memory op to trap")
+    _ => fail("expected misaligned lmul=2 vector memory op to trap")
   }
 
   let vill = make_runner(rv64fdv_machine_config())
