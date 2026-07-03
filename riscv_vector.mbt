@@ -224,7 +224,10 @@ fn Runner::read_vmask_bit(self : Runner, elem_index : Int) -> Bool {
 fn Runner::vector_exec_supported(self : Runner) -> VectorExecConfig? {
   match self.current_vector_exec_config() {
     Some(config) =>
-      if config.lmul_log2 == 0 &&
+      // This execute slice supports LMUL=1 and LMUL=2 register groups. It
+      // still rejects nonzero vstart because restart semantics need a separate
+      // fault/replay contract before Linux-facing vector state can rely on it.
+      if config.lmul_log2 <= 1 &&
         self.cpu.read_csr(CSR_VSTART) == 0U.to_uint64() {
         Some(config)
       } else {
@@ -232,6 +235,18 @@ fn Runner::vector_exec_supported(self : Runner) -> VectorExecConfig? {
       }
     None => None
   }
+}
+
+///|
+fn Runner::raise_vector_group_misaligned(
+  self : Runner,
+  current_pc : UInt64,
+  raw : UInt,
+) -> StepResult {
+  // RVV register groups must start at a register number aligned to the group
+  // size. For the first LMUL>1 slice that means m2 operations can use v2-v3
+  // but must reject a base such as v3.
+  self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
 }
 
 ///|
@@ -740,26 +755,35 @@ fn Runner::execute_vector_first_slice(
   }
   match instruction {
     VmvVI(vd, imm) => {
+      if !vector_group_aligned(vd, config.lmul_log2) {
+        return self.raise_vector_group_misaligned(current_pc, raw)
+      }
       let value = int_to_uint64_bits(imm) & sew_mask
       for elem in 0..<active_elems {
-        self.write_vreg_elem(vd, elem, config.sew_bits, value)
+        self.write_vreg_group_elem(vd, elem, config.sew_bits, value)
       }
       self.cpu.pc = next_pc
       Running
     }
     VmvVX(vd, rs1) => {
+      if !vector_group_aligned(vd, config.lmul_log2) {
+        return self.raise_vector_group_misaligned(current_pc, raw)
+      }
       let value = self.cpu.read_reg(rs1) & sew_mask
       for elem in 0..<active_elems {
-        self.write_vreg_elem(vd, elem, config.sew_bits, value)
+        self.write_vreg_group_elem(vd, elem, config.sew_bits, value)
       }
       self.cpu.pc = next_pc
       Running
     }
     VmvXS(rd, vs2) => {
+      if !vector_group_aligned(vs2, config.lmul_log2) {
+        return self.raise_vector_group_misaligned(current_pc, raw)
+      }
       self.write_xlen_reg(
         rd,
         xlen_sign_extend(
-          self.read_vreg_elem(vs2, 0, config.sew_bits),
+          self.read_vreg_group_elem(vs2, 0, config.sew_bits),
           config.sew_bits,
           self.xlen_bits(),
         ),
@@ -768,11 +792,16 @@ fn Runner::execute_vector_first_slice(
       Running
     }
     VaddVv(vd, vs2, vs1) => {
+      if !vector_group_aligned(vd, config.lmul_log2) ||
+        !vector_group_aligned(vs2, config.lmul_log2) ||
+        !vector_group_aligned(vs1, config.lmul_log2) {
+        return self.raise_vector_group_misaligned(current_pc, raw)
+      }
       for elem in 0..<active_elems {
         if !use_mask || mask_bits[elem] {
-          let lhs = self.read_vreg_elem(vs2, elem, config.sew_bits)
-          let rhs = self.read_vreg_elem(vs1, elem, config.sew_bits)
-          self.write_vreg_elem(
+          let lhs = self.read_vreg_group_elem(vs2, elem, config.sew_bits)
+          let rhs = self.read_vreg_group_elem(vs1, elem, config.sew_bits)
+          self.write_vreg_group_elem(
             vd,
             elem,
             config.sew_bits,
@@ -784,11 +813,15 @@ fn Runner::execute_vector_first_slice(
       Running
     }
     VaddVx(vd, vs2, rs1) => {
+      if !vector_group_aligned(vd, config.lmul_log2) ||
+        !vector_group_aligned(vs2, config.lmul_log2) {
+        return self.raise_vector_group_misaligned(current_pc, raw)
+      }
       let scalar = self.cpu.read_reg(rs1) & sew_mask
       for elem in 0..<active_elems {
         if !use_mask || mask_bits[elem] {
-          let lhs = self.read_vreg_elem(vs2, elem, config.sew_bits)
-          self.write_vreg_elem(
+          let lhs = self.read_vreg_group_elem(vs2, elem, config.sew_bits)
+          self.write_vreg_group_elem(
             vd,
             elem,
             config.sew_bits,
@@ -800,11 +833,15 @@ fn Runner::execute_vector_first_slice(
       Running
     }
     VaddVi(vd, vs2, imm) => {
+      if !vector_group_aligned(vd, config.lmul_log2) ||
+        !vector_group_aligned(vs2, config.lmul_log2) {
+        return self.raise_vector_group_misaligned(current_pc, raw)
+      }
       let scalar = int_to_uint64_bits(imm) & sew_mask
       for elem in 0..<active_elems {
         if !use_mask || mask_bits[elem] {
-          let lhs = self.read_vreg_elem(vs2, elem, config.sew_bits)
-          self.write_vreg_elem(
+          let lhs = self.read_vreg_group_elem(vs2, elem, config.sew_bits)
+          self.write_vreg_group_elem(
             vd,
             elem,
             config.sew_bits,

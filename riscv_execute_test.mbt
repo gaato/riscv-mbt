@@ -1690,7 +1690,7 @@ test "rv64fd without v rejects first vector arithmetic slice as illegal" {
 }
 
 ///|
-test "rv64fdv vector arithmetic rejects masked lmul2 vill and nonzero vstart" {
+test "rv64fdv vector arithmetic rejects masked vill and nonzero vstart" {
   let masked_raw = encode_vadd_vv(1, 2, 3, false)
   let masked = make_runner(rv64fdv_machine_config())
   masked.load_program(words_to_bytes([masked_raw]), 0U)
@@ -1703,24 +1703,6 @@ test "rv64fdv vector arithmetic rejects masked lmul2 vill and nonzero vstart" {
       assert_eq(info.trap_value, masked_raw.to_uint64())
     }
     _ => fail("expected masked vector arithmetic to trap")
-  }
-
-  let lmul2 = make_runner(rv64fdv_machine_config())
-  lmul2.load_program(
-    words_to_bytes([encode_vsetivli(1, 2U, 0x11U), encode_vmv_v_i(0, 1)]),
-    0U,
-  )
-  match lmul2.step() {
-    Running => ()
-    _ => fail("expected lmul=2 vsetivli to run")
-  }
-  match lmul2.step() {
-    Trap(info) =>
-      match info.cause {
-        IllegalInstruction => ()
-        _ => fail("expected illegal instruction cause")
-      }
-    _ => fail("expected lmul=2 vector arithmetic to trap")
   }
 
   let vill = make_runner(rv64fdv_machine_config())
@@ -1751,6 +1733,57 @@ test "rv64fdv vector arithmetic rejects masked lmul2 vill and nonzero vstart" {
         _ => fail("expected illegal instruction cause")
       }
     _ => fail("expected vstart!=0 vector arithmetic to trap")
+  }
+}
+
+///|
+test "rv64fdv vector arithmetic supports lmul2 register groups" {
+  // e32,m2 with VLEN=128 spans eight elements across each aligned register
+  // group, so these operations intentionally touch v2-v3, v4-v5, and so on.
+  let program = words_to_bytes([
+    encode_vsetivli(0, 8U, 0x11U),
+    encode_vmv_v_i(2, 1),
+    encode_vmv_v_i(4, 2),
+    encode_vadd_vv(6, 2, 4, true),
+    encode_vadd_vi(8, 6, -1, true),
+    encode_vadd_vx(10, 8, 10, true),
+  ])
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.load_program(program, 0U)
+  runner.cpu.write_reg(10, 5U.to_uint64())
+  match runner.run(6) {
+    Running => ()
+    _ => fail("expected lmul2 vector arithmetic sequence to run")
+  }
+  assert_eq(runner.read_vreg_u64(6, 0), test_join_u64(3U, 3U))
+  assert_eq(runner.read_vreg_u64(6, 1), test_join_u64(3U, 3U))
+  assert_eq(runner.read_vreg_u64(7, 0), test_join_u64(3U, 3U))
+  assert_eq(runner.read_vreg_u64(7, 1), test_join_u64(3U, 3U))
+  assert_eq(runner.read_vreg_u64(8, 0), test_join_u64(2U, 2U))
+  assert_eq(runner.read_vreg_u64(8, 1), test_join_u64(2U, 2U))
+  assert_eq(runner.read_vreg_u64(9, 0), test_join_u64(2U, 2U))
+  assert_eq(runner.read_vreg_u64(9, 1), test_join_u64(2U, 2U))
+  assert_eq(runner.read_vreg_u64(10, 0), test_join_u64(7U, 7U))
+  assert_eq(runner.read_vreg_u64(10, 1), test_join_u64(7U, 7U))
+  assert_eq(runner.read_vreg_u64(11, 0), test_join_u64(7U, 7U))
+  assert_eq(runner.read_vreg_u64(11, 1), test_join_u64(7U, 7U))
+
+  let misaligned = make_runner(rv64fdv_machine_config())
+  misaligned.load_program(
+    words_to_bytes([encode_vsetivli(0, 2U, 0x11U), encode_vmv_v_i(3, 1)]),
+    0U,
+  )
+  match misaligned.step() {
+    Running => ()
+    _ => fail("expected lmul2 vsetivli to run")
+  }
+  match misaligned.step() {
+    Trap(info) =>
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+    _ => fail("expected misaligned lmul2 vector arithmetic to trap")
   }
 }
 
