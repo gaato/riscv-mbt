@@ -17,7 +17,7 @@ const schedulerPolicy = {
   intervalMs: 16,
   smokeStepsPerTick: 4096,
   linuxStepsPerTick: 262144,
-  syncEveryTicks: 32,
+  syncEveryTicks: 16,
   hotPcSamples: 0,
 };
 
