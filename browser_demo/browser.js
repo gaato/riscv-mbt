@@ -30,6 +30,8 @@ const schedulerStats = {
   runTicks: 0,
   syncs: 0,
   markerSteps: new Map(),
+  linuxInputSentStep: null,
+  linuxInputExpectedStep: null,
 };
 
 const linuxBootMarkers = [
@@ -92,6 +94,8 @@ function resetSchedulerStats() {
   schedulerStats.runTicks = 0;
   schedulerStats.syncs = 0;
   schedulerStats.markerSteps.clear();
+  schedulerStats.linuxInputSentStep = null;
+  schedulerStats.linuxInputExpectedStep = null;
 }
 
 function formatGuestHex(value) {
@@ -168,6 +172,8 @@ function makeBrowserRuntime(wasm) {
       `scheduler ticks: ${schedulerStats.runTicks}`,
       `ui syncs: ${schedulerStats.syncs}`,
       `executed: ${totalSteps} steps`,
+      `linux input sent step: ${schedulerStats.linuxInputSentStep ?? "none"}`,
+      `linux input expected step: ${schedulerStats.linuxInputExpectedStep ?? "none"}`,
       `decode cache: ${wasm.browser_decode_cache_hits()} hits / ${wasm.browser_decode_cache_misses()} misses`,
       `translate cache: ${wasm.browser_translate_cache_hits()} hits / ${wasm.browser_translate_cache_misses()} misses`,
       ...hotPcText(),
@@ -339,6 +345,7 @@ async function bootHost() {
   runtime = makeBrowserRuntime(instance.exports);
   const linuxInputAfterMarker = query.get("linuxInputAfterMarker");
   const linuxInput = query.get("linuxInput");
+  const linuxInputExpect = query.get("linuxInputExpect");
   let linuxInputSent = false;
   let ticksSinceSync = 0;
 
@@ -404,7 +411,16 @@ async function bootHost() {
           runtime.consoleText().includes(linuxInputAfterMarker)
         ) {
           linuxInputSent = true;
+          schedulerStats.linuxInputSentStep = runtime.totalSteps();
           sendInputText(linuxInput);
+          syncUi();
+        }
+        if (
+          schedulerStats.linuxInputExpectedStep === null &&
+          linuxInputExpect &&
+          runtime.consoleText().includes(linuxInputExpect)
+        ) {
+          schedulerStats.linuxInputExpectedStep = runtime.totalSteps();
           syncUi();
         }
       }
