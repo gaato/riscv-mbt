@@ -26,6 +26,12 @@ const hotPcSampler = {
   samples: 0,
 };
 
+const schedulerStats = {
+  runTicks: 0,
+  syncs: 0,
+  markerSteps: new Map(),
+};
+
 const linuxBootMarkers = [
   ["OpenSBI", "OpenSBI v"],
   ["Linux version", "Linux version"],
@@ -82,6 +88,12 @@ function resetHotPcSamples() {
   hotPcSampler.samples = 0;
 }
 
+function resetSchedulerStats() {
+  schedulerStats.runTicks = 0;
+  schedulerStats.syncs = 0;
+  schedulerStats.markerSteps.clear();
+}
+
 function formatGuestHex(value) {
   if (typeof value === "bigint") {
     return `0x${BigInt.asUintN(64, value).toString(16)}`;
@@ -118,6 +130,7 @@ function hotPcText() {
 }
 
 function syncUi() {
+  schedulerStats.syncs += 1;
   const consoleText = runtime.consoleText();
   setText(consoleNode, consoleText);
   setText(statusNode, runtime.statusText());
@@ -143,14 +156,18 @@ function makeBrowserRuntime(wasm) {
 
   const statusText = () => {
     const mode = wasm.browser_is_running() ? "running" : "paused";
+    const totalSteps = wasm.browser_total_steps();
     return [
       `mode: ${mode}`,
       `pc: ${formatGuestHex(wasm.browser_pc())}`,
       `privilege: ${privilegeName(wasm.browser_privilege())}`,
-      `x1: 0x${wasm.browser_reg(1).toString(16)}`,
-      `x2: 0x${wasm.browser_reg(2).toString(16)}`,
-      `x3: 0x${wasm.browser_reg(3).toString(16)}`,
-      `x4: 0x${wasm.browser_reg(4).toString(16)}`,
+      `x1: ${formatGuestHex(wasm.browser_reg(1))}`,
+      `x2: ${formatGuestHex(wasm.browser_reg(2))}`,
+      `x3: ${formatGuestHex(wasm.browser_reg(3))}`,
+      `x4: ${formatGuestHex(wasm.browser_reg(4))}`,
+      `scheduler ticks: ${schedulerStats.runTicks}`,
+      `ui syncs: ${schedulerStats.syncs}`,
+      `executed: ${totalSteps} steps`,
       `decode cache: ${wasm.browser_decode_cache_hits()} hits / ${wasm.browser_decode_cache_misses()} misses`,
       `translate cache: ${wasm.browser_translate_cache_hits()} hits / ${wasm.browser_translate_cache_misses()} misses`,
       ...hotPcText(),
@@ -204,6 +221,20 @@ function linuxBootProgressText(consoleText) {
     "boot: waiting for firmware output";
 }
 
+function linuxBootMarkerStepText(wasm, consoleText) {
+  for (const [label, marker] of linuxBootMarkers) {
+    if (consoleText.includes(marker) && !schedulerStats.markerSteps.has(label)) {
+      schedulerStats.markerSteps.set(label, wasm.browser_total_steps());
+    }
+  }
+  if (schedulerStats.markerSteps.size === 0) {
+    return "marker steps: none";
+  }
+  const reached = Array.from(schedulerStats.markerSteps.entries())
+    .map(([label, steps]) => `${label}=${steps}`);
+  return `marker steps: ${reached.join(" / ")}`;
+}
+
 function artifactStatusText(wasm, consoleText) {
   const mask = wasm.browser_artifact_loaded_mask();
   const guestKind = wasm.browser_guest_kind();
@@ -219,6 +250,7 @@ function artifactStatusText(wasm, consoleText) {
     `artifacts: ${loaded}`,
     `scheduler: ${stepBudgetForGuest(guestKind)} steps every ${schedulerPolicy.intervalMs}ms`,
     linuxBootProgressText(consoleText),
+    linuxBootMarkerStepText(wasm, consoleText),
     `executed: ${wasm.browser_total_steps()} steps`,
   ].join("\n");
 }
@@ -268,6 +300,8 @@ function packWord(bytes, offset) {
 }
 
 async function loadLinuxArtifacts(manifestUrl = "linux-artifacts/manifest.json") {
+  resetHotPcSamples();
+  resetSchedulerStats();
   setText(artifactStatusNode, "loading linux artifact manifest...");
   const manifestResponse = await fetch(manifestUrl);
   if (!manifestResponse.ok) {
@@ -327,11 +361,13 @@ async function bootHost() {
   resetButton.addEventListener("click", () => {
     runtime.reset();
     resetHotPcSamples();
+    resetSchedulerStats();
     syncUi();
   });
   loadSmokeButton.addEventListener("click", () => {
     runtime.reset();
     resetHotPcSamples();
+    resetSchedulerStats();
     syncUi();
   });
   loadLinuxButton.addEventListener("click", () => {
@@ -354,6 +390,7 @@ async function bootHost() {
   setInterval(() => {
     if (runtime.isRunning()) {
       runtime.runTick();
+      schedulerStats.runTicks += 1;
       sampleHotPc(instance.exports);
       ticksSinceSync += 1;
       const shouldSync = ticksSinceSync >= schedulerPolicy.syncEveryTicks;

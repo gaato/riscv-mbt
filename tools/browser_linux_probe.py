@@ -102,11 +102,28 @@ def alpine_interactive_url(
 
 
 def hot_pc_status_lines(dom: str) -> list[str]:
-    status_match = re.search(r'<pre id="status">(.*?)</pre>', dom, flags=re.DOTALL)
-    if status_match is None:
+    status_text = pre_text(dom, "status")
+    if status_text is None:
         return []
-    status_text = html.unescape(status_match.group(1))
     return [line for line in status_text.splitlines() if line.startswith("hot pc ")]
+
+
+def pre_text(dom: str, element_id: str) -> str | None:
+    match = re.search(rf'<pre id="{re.escape(element_id)}">(.*?)</pre>', dom, flags=re.DOTALL)
+    if match is None:
+        return None
+    return html.unescape(match.group(1))
+
+
+def print_probe_summary(dom: str) -> None:
+    status_text = pre_text(dom, "status")
+    artifact_text = pre_text(dom, "artifact-status")
+    if artifact_text is not None:
+        print("artifact status:")
+        print(artifact_text)
+    if status_text is not None:
+        print("runtime status:")
+        print(status_text)
 
 
 def hot_pc_top_pcs(lines: list[str]) -> list[str]:
@@ -220,6 +237,7 @@ def main() -> int:
                 server.kill()
     sys.stdout.write(dom[-5000:])
     sys.stdout.write("\n")
+    print_probe_summary(dom)
     if args.hot_pc_samples is not None:
         print_hot_pc_summary(
             dom,
