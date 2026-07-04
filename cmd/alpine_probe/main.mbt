@@ -599,6 +599,38 @@ fn alpine_post_init_persistence_read_command() -> String {
 }
 
 ///|
+fn alpine_post_init_apk_persistence_write_commands() -> Array[String] {
+  // First half of the package persistence proof: install a dependency-bearing
+  // package set, sync it, and let the host write back the mutated disk image.
+  [
+    "test -x /sbin/apk.static && " +
+    "test -r /root/riscv-mbt-apks/APKINDEX.tar.gz && " +
+    "! /sbin/apk.static info -e iputils && " +
+    "! /sbin/apk.static info -e iputils-ping && " +
+    "printf '\\141\\160\\153\\055\\160\\145\\162\\163\\151\\163\\164\\145\\156\\143\\145\\055\\146\\151\\154\\145\\163\\055\\157\\153\\012'",
+    "/sbin/apk.static --no-network --allow-untrusted --repository /root/riscv-mbt-apks add iputils && " +
+    "sync && " +
+    "printf '\\141\\160\\153\\055\\160\\145\\162\\163\\151\\163\\164\\145\\156\\143\\145\\055\\167\\162\\151\\164\\145\\055\\157\\153\\012'",
+  ]
+}
+
+///|
+fn alpine_post_init_apk_persistence_write_markers() -> Array[String] {
+  ["apk-persistence-files-ok", "apk-persistence-write-ok"]
+}
+
+///|
+fn alpine_post_init_apk_persistence_read_command() -> String {
+  // Second half: boot from the host-saved image and prove the installed
+  // packages are still present without running `apk add` again.
+  "/sbin/apk.static info -e iputils && " +
+  "/sbin/apk.static info -e iputils-ping && " +
+  "/sbin/apk.static info -e libcap2 && " +
+  "/sbin/apk.static info -L iputils-ping | grep '^bin/ping$' && " +
+  "printf '\\141\\160\\153\\055\\160\\145\\162\\163\\151\\163\\164\\145\\156\\143\\145\\055\\162\\145\\141\\144\\055\\157\\153\\012'"
+}
+
+///|
 async fn main {
   let args = @env.args()
   let max_steps = parse_max_steps(args)
@@ -634,6 +666,12 @@ async fn main {
   let post_init_persistence_read_smoke = parse_flag(
     args, "--post-init-persistence-read-smoke",
   )
+  let post_init_apk_persistence_write_smoke = parse_flag(
+    args, "--post-init-apk-persistence-write-smoke",
+  )
+  let post_init_apk_persistence_read_smoke = parse_flag(
+    args, "--post-init-apk-persistence-read-smoke",
+  )
   let write_back_virtio_blk_disk = parse_flag(
     args, "--write-back-virtio-blk-disk",
   )
@@ -666,6 +704,8 @@ async fn main {
     post_init_storage_smoke ||
     post_init_persistence_write_smoke ||
     post_init_persistence_read_smoke ||
+    post_init_apk_persistence_write_smoke ||
+    post_init_apk_persistence_read_smoke ||
     has_post_init_custom_command
   let selected_dtb_path = match parse_arg_value(args, "--dtb") {
     Some(path) => path
@@ -704,6 +744,8 @@ async fn main {
     post_init_storage_smoke ||
     post_init_persistence_write_smoke ||
     post_init_persistence_read_smoke ||
+    post_init_apk_persistence_write_smoke ||
+    post_init_apk_persistence_read_smoke ||
     has_post_init_custom_command {
     // Post-init probes first run the standard root handoff command. The
     // per-proof commands are injected only after rootfs-side init emits
@@ -746,6 +788,10 @@ async fn main {
     Some("persistence-write-ok")
   } else if post_init_persistence_read_smoke {
     Some("persistence-read-ok")
+  } else if post_init_apk_persistence_write_smoke {
+    Some("apk-persistence-write-ok")
+  } else if post_init_apk_persistence_read_smoke {
+    Some("apk-persistence-read-ok")
   } else if post_init_custom_expect is Some(marker) {
     Some(marker)
   } else {
@@ -775,6 +821,10 @@ async fn main {
     [alpine_post_init_persistence_write_command()]
   } else if post_init_persistence_read_smoke {
     [alpine_post_init_persistence_read_command()]
+  } else if post_init_apk_persistence_write_smoke {
+    alpine_post_init_apk_persistence_write_commands()
+  } else if post_init_apk_persistence_read_smoke {
+    [alpine_post_init_apk_persistence_read_command()]
   } else if post_init_session_smoke {
     alpine_post_init_session_commands()
   } else if post_init_smoke {
@@ -806,6 +856,10 @@ async fn main {
     ["persistence-write-ok"]
   } else if post_init_persistence_read_smoke {
     ["persistence-read-ok"]
+  } else if post_init_apk_persistence_write_smoke {
+    alpine_post_init_apk_persistence_write_markers()
+  } else if post_init_apk_persistence_read_smoke {
+    ["apk-persistence-read-ok"]
   } else if post_init_session_smoke {
     alpine_post_init_session_markers()
   } else if post_init_smoke {
@@ -1023,6 +1077,14 @@ async fn main {
   println(
     "post_init_persistence_read_smoke=" +
     post_init_persistence_read_smoke.to_string(),
+  )
+  println(
+    "post_init_apk_persistence_write_smoke=" +
+    post_init_apk_persistence_write_smoke.to_string(),
+  )
+  println(
+    "post_init_apk_persistence_read_smoke=" +
+    post_init_apk_persistence_read_smoke.to_string(),
   )
   println(
     "write_back_virtio_blk_disk=" + write_back_virtio_blk_disk.to_string(),

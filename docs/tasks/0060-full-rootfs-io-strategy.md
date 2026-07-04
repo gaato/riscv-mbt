@@ -555,3 +555,35 @@ implemented.
   timed out before completion under a 220,000,000 post-command step budget.
   Keep that as a future storage/package stressor, not the routine
   package-manager gate.
+- Added a host-image package persistence proof pair. The write half,
+  `cmd/alpine_probe --post-init-apk-persistence-write-smoke`, installs
+  `iputils` from the local repository, runs `sync`, emits
+  `apk-persistence-write-ok`, and relies on `--write-back-virtio-blk-disk` to
+  persist the mutated virtio-blk backing image only after the guest-visible
+  marker succeeds. The read half,
+  `cmd/alpine_probe --post-init-apk-persistence-read-smoke`, boots the saved
+  image and checks `apk info -e iputils`, `apk info -e iputils-ping`,
+  `apk info -e libcap2`, and `apk info -L iputils-ping | grep '^bin/ping$'`
+  without running `apk add` again.
+- Current installed-package persistence proof:
+  after copying `_build/alpine-rootfs-riscv64.ext4` to
+  `_build/alpine-rootfs-riscv64-apk-persist-probe.ext4`,
+  `moon run --target native cmd/alpine_probe xlong --virtio-blk-disk _build/alpine-rootfs-riscv64-apk-persist-probe.ext4 --post-init-command-step-budget 180000000 --post-init-apk-persistence-write-smoke --write-back-virtio-blk-disk`
+  reaches `outcome=console-command`, `shell_expect_seen=true`,
+  `post_init_apk_persistence_write_smoke=true`, and
+  `apk-persistence-write-ok` at 753,000,000 guest steps. It reports
+  `virtio_blk=1513 read-req/6048768 read-bytes 123 write-req/361472 write-bytes`
+  and `post_init_command_virtio_delta=64 read-req/132096 read-bytes 122
+  write-req/360448 write-bytes`.
+- The second boot,
+  `moon run --target native cmd/alpine_probe xlong --virtio-blk-disk _build/alpine-rootfs-riscv64-apk-persist-probe.ext4 --post-init-command-step-budget 120000000 --post-init-apk-persistence-read-smoke`,
+  reaches `outcome=console-command`, `shell_expect_seen=true`,
+  `post_init_apk_persistence_read_smoke=true`, and `apk-persistence-read-ok` at
+  715,000,000 guest steps after ext4 journal recovery. The UART tail shows
+  `iputils`, `iputils-ping`, `libcap2`, `bin/ping`, and
+  `apk-persistence-read-ok`, proving the installed package database and file
+  listing survive through the host-saved virtio-blk image. A first read probe
+  also tried `/bin/ping -V`; it timed out after confirming the package DB and
+  `bin/ping`, so the persistence gate now intentionally focuses on installed
+  package state while the earlier same-run dependency proof remains the
+  executable `ping -V` evidence.
