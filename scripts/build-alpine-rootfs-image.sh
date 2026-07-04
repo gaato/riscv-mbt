@@ -11,7 +11,7 @@ apkindex_url="${ALPINE_APKINDEX_URL:-$apk_repo_base_url/APKINDEX.tar.gz}"
 apkindex_path="$build_dir/APKINDEX.tar.gz"
 local_apkindex_path="$build_dir/APKINDEX-local-$arch.tar.gz"
 include_apk_static="${ALPINE_INCLUDE_APK_STATIC:-1}"
-offline_apk_packages="${ALPINE_OFFLINE_APK_PACKAGES:-ddate}"
+offline_apk_packages="${ALPINE_OFFLINE_APK_PACKAGES:-ddate iputils}"
 rootfs_name="alpine-minirootfs-$version-$arch.tar.gz"
 rootfs_url="$base_url/$rootfs_name"
 sha_url="$rootfs_url.sha256"
@@ -21,6 +21,8 @@ image_size="${ALPINE_ROOTFS_IMAGE_SIZE:-64M}"
 mkdir -p "$build_dir" "$repo_root/_build"
 
 apkindex_content=""
+resolved_offline_apk_packages=()
+declare -A resolved_offline_apk_package_seen=()
 
 ensure_apkindex_content() {
   if [[ -z "$apkindex_content" ]]; then
@@ -35,6 +37,84 @@ apk_package_version() {
   local package_name="$1"
   ensure_apkindex_content
   awk -v package_name="$package_name" 'BEGIN{RS="\n\n"} $0 ~ "(^|\n)P:" package_name "(\n|$)" { for (i = 1; i <= NF; i++) if ($i ~ /^V:/) { sub(/^V:/, "", $i); print $i; exit } }' <<< "$apkindex_content"
+}
+
+apk_package_record() {
+  local package_name="$1"
+  ensure_apkindex_content
+  awk -v package_name="$package_name" 'BEGIN{RS="\n\n"} $0 ~ "(^|\n)P:" package_name "(\n|$)" { print; exit }' <<< "$apkindex_content"
+}
+
+apk_provider_package() {
+  local dependency_name="$1"
+  ensure_apkindex_content
+  awk -v dependency_name="$dependency_name" '
+    BEGIN { RS="\n\n" }
+    $0 ~ "(^|\n)p:([^ \n]* )*" dependency_name "=" {
+      for (i = 1; i <= NF; i++) {
+        if ($i ~ /^P:/) {
+          sub(/^P:/, "", $i)
+          print $i
+          exit
+        }
+      }
+    }
+  ' <<< "$apkindex_content"
+}
+
+apk_record_dependencies() {
+  local package_record="$1"
+  awk '
+    /^D:/ {
+      sub(/^D:/, "")
+      for (i = 1; i <= NF; i++) print $i
+    }
+  ' <<< "$package_record"
+}
+
+apk_dependency_base_name() {
+  local dependency_name="$1"
+  dependency_name="${dependency_name%%[<>=~]*}"
+  printf '%s\n' "$dependency_name"
+}
+
+resolve_offline_apk_package() {
+  local package_name="$1"
+  if [[ -n "${resolved_offline_apk_package_seen[$package_name]:-}" ]]; then
+    return
+  fi
+  local package_record
+  package_record="$(apk_package_record "$package_name")"
+  if [[ -z "$package_record" ]]; then
+    printf '%s not found in %s\n' "$package_name" "$apkindex_url" >&2
+    exit 1
+  fi
+  resolved_offline_apk_package_seen[$package_name]=1
+  resolved_offline_apk_packages+=("$package_name")
+  while IFS= read -r dependency_name; do
+    if [[ -z "$dependency_name" ]]; then
+      continue
+    fi
+    local dependency_base_name
+    dependency_base_name="$(apk_dependency_base_name "$dependency_name")"
+    if [[ -n "$(apk_package_record "$dependency_base_name")" ]]; then
+      resolve_offline_apk_package "$dependency_base_name"
+      continue
+    fi
+    local provider_package
+    provider_package="$(apk_provider_package "$dependency_base_name")"
+    if [[ -n "$provider_package" ]]; then
+      resolve_offline_apk_package "$provider_package"
+    fi
+  done < <(apk_record_dependencies "$package_record")
+}
+
+resolve_offline_apk_packages() {
+  resolved_offline_apk_packages=()
+  resolved_offline_apk_package_seen=()
+  for package_name in $offline_apk_packages; do
+    resolve_offline_apk_package "$package_name"
+  done
 }
 
 download_main_apk() {
@@ -58,11 +138,9 @@ write_local_apkindex() {
   mkdir -p "$index_dir"
   : > "$index_dir/APKINDEX"
   ensure_apkindex_content
-  for package_name in $offline_apk_packages; do
+  for package_name in "${resolved_offline_apk_packages[@]}"; do
     local package_record
-    package_record="$(
-      awk -v package_name="$package_name" 'BEGIN{RS="\n\n"} $0 ~ "(^|\n)P:" package_name "(\n|$)" { print; exit }' <<< "$apkindex_content"
-    )"
+    package_record="$(apk_package_record "$package_name")"
     if [[ -z "$package_record" ]]; then
       printf '%s not found in %s\n' "$package_name" "$apkindex_url" >&2
       exit 1
@@ -101,11 +179,12 @@ fi
 if [[ -n "$offline_apk_packages" ]]; then
   mkdir -p "$root_dir/root/riscv-mbt-apks"
   mkdir -p "$root_dir/root/riscv-mbt-apks/$arch"
+  resolve_offline_apk_packages
   local_index_dir="$build_dir/local-apkindex"
   write_local_apkindex "$local_index_dir"
   cp "$local_apkindex_path" "$root_dir/root/riscv-mbt-apks/APKINDEX.tar.gz"
   cp "$local_apkindex_path" "$root_dir/root/riscv-mbt-apks/$arch/APKINDEX.tar.gz"
-  for package_name in $offline_apk_packages; do
+  for package_name in "${resolved_offline_apk_packages[@]}"; do
     package_apk="$(download_main_apk "$package_name")"
     package_apk_name="$(basename "$package_apk")"
     cp "$package_apk" "$root_dir/root/riscv-mbt-apks/$package_name.apk"

@@ -494,11 +494,19 @@ implemented.
   budget while it was still parsing Alpine's full main APKINDEX.
 - The rootfs builder now generates a package-selected local `APKINDEX.tar.gz`
   for `ALPINE_OFFLINE_APK_PACKAGES` instead of copying Alpine's full main
-  `APKINDEX.tar.gz` into the guest repository. For the default `ddate` proof,
-  that shrinks the guest local index from the cached 522,190-byte upstream
-  index to a 454-byte local tarball containing only the `ddate` package record.
-  The builder also stores both file-path compatibility names such as
-  `ddate.apk` and repository names such as `ddate-0.2.2-r6.apk`.
+  `APKINDEX.tar.gz` into the guest repository. The earlier single-package
+  `ddate` proof shrank the guest local index from the cached 522,190-byte
+  upstream index to a 454-byte local tarball containing only the `ddate`
+  package record. The builder also stores both file-path compatibility names
+  such as `ddate.apk` and repository names such as `ddate-0.2.2-r6.apk`.
+- The local repository builder is now dependency-aware. It follows APKINDEX
+  package dependencies, strips simple version constraints such as
+  `iputils-ping=20250605-r2`, and resolves provided dependencies such as
+  `so:libcap.so.2` through `p:` provider records. The default offline package
+  set is now `ddate iputils`, which creates a 1,183-byte local APKINDEX and
+  includes `iputils`, `iputils-arping`, `iputils-clockdiff`, `iputils-ping`,
+  `iputils-tracepath`, `libcap2`, and the already-installed `musl` provider
+  package alongside `ddate`.
 - Added a 64 KiB virtio-blk read-ahead cache for request-level reads. The cache
   is invalidated when a new host disk image is loaded and whenever the guest
   writes to the backing image, so it does not intentionally change guest-visible
@@ -521,3 +529,29 @@ implemented.
   package-manager slice should avoid repeated long probes and either add
   shorter post-init telemetry or move deliberately toward networking/remote
   repository behavior.
+- Added `cmd/alpine_probe --post-init-apk-local-deps-smoke` as a stronger
+  dependency-resolution package-manager proof. It verifies the local repository
+  files for `iputils`, `iputils-ping`, and `libcap2`, confirms that `iputils`
+  and `iputils-ping` are not installed yet, runs
+  `apk.static --no-network --allow-untrusted --repository /root/riscv-mbt-apks add iputils`,
+  then checks `apk info -e iputils`, `apk info -e iputils-ping`,
+  `apk info -e libcap2`, the `bin/ping` file listing, and `/bin/ping -V`.
+- Current dependency-resolving local-repository proof:
+  `moon run --target native cmd/alpine_probe xlong --post-init-command-step-budget 160000000 --post-init-apk-local-deps-smoke`
+  reaches `outcome=console-command`, `shell_expect_seen=true`,
+  `post_init_apk_local_deps_smoke=true`, `post_init_command_index=3`, and
+  `post-init-apk-local-deps-ok` at 831,000,000 guest steps. The run reports
+  `virtio_blk=1522 read-req/6050816 read-bytes 17 write-req/185344 write-bytes`,
+  `virtio_blk_read_cache=1383 hits/139 misses`, and only
+  `post_init_command_virtio_delta=2 read-req/2048 read-bytes` during the final
+  verification command. The UART tail shows `apk-local-deps-files-ok`,
+  installation of `libcap2`, `iputils-arping`, `iputils-clockdiff`,
+  `iputils-ping`, `iputils-tracepath`, and `iputils`, then
+  `apk-local-deps-add-ok`, `iputils`, `iputils-ping`, `libcap2`, `bin/ping`,
+  `ping from iputils 20250605`, and `post-init-apk-local-deps-ok`.
+- A heavier dependency proof using `file` plus `libmagic` was tried before the
+  lighter `iputils` proof. It showed the local repository layout was correct
+  and reached `Installing libmagic (5.47-r2)` with progress through 58%, but it
+  timed out before completion under a 220,000,000 post-command step budget.
+  Keep that as a future storage/package stressor, not the routine
+  package-manager gate.
