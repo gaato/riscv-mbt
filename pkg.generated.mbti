@@ -408,6 +408,10 @@ pub struct Runner {
   plic_regs : Array[Byte]
   virtio_blk_state : Array[UInt64]
   mut virtio_blk_disk : Bytes
+  mut virtio_blk_read_requests : UInt64
+  mut virtio_blk_write_requests : UInt64
+  mut virtio_blk_read_bytes : UInt64
+  mut virtio_blk_write_bytes : UInt64
   decode_cache_tags : Array[UInt64]
   decode_cache_raws : Array[UInt]
   decode_cache_lengths : Array[Int]
@@ -468,6 +472,10 @@ pub fn Runner::uart_output_length(Self) -> Int
 pub fn Runner::uart_push_input(Self, String) -> Unit
 pub fn Runner::uart_push_input_byte(Self, Int) -> Unit
 pub fn Runner::virtio_blk_disk_bytes(Self) -> Bytes
+pub fn Runner::virtio_blk_read_byte_count(Self) -> UInt64
+pub fn Runner::virtio_blk_read_request_count(Self) -> UInt64
+pub fn Runner::virtio_blk_write_byte_count(Self) -> UInt64
+pub fn Runner::virtio_blk_write_request_count(Self) -> UInt64
 pub fn Runner::write_memory_bytes(Self, UInt64, Bytes) -> Unit
 
 pub enum StepResult {

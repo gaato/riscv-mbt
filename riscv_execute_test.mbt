@@ -5353,6 +5353,10 @@ test "virtio-blk read request copies disk bytes and raises plic interrupt" {
   assert_eq(runner.read_csr_u64(0x344) & 0xa00U.to_uint64(), 0xa00U.to_uint64())
   assert_eq(runner.read_reg_u64(6), 1U.to_uint64())
   assert_eq(runner.read_reg_u64(8), 1U.to_uint64())
+  assert_eq(runner.virtio_blk_read_request_count(), 1U.to_uint64())
+  assert_eq(runner.virtio_blk_read_byte_count(), 512U.to_uint64())
+  assert_eq(runner.virtio_blk_write_request_count(), 0U.to_uint64())
+  assert_eq(runner.virtio_blk_write_byte_count(), 0U.to_uint64())
 }
 
 ///|
@@ -5408,6 +5412,10 @@ test "virtio-blk write request copies guest bytes into disk backing" {
   assert_eq(runner.virtio_blk_disk[1].to_uint64(), 0xbbU.to_uint64())
   assert_eq(runner.virtio_blk_disk[2].to_uint64(), 0xccU.to_uint64())
   assert_eq(runner.virtio_blk_disk[3].to_uint64(), 0xddU.to_uint64())
+  assert_eq(runner.virtio_blk_read_request_count(), 0U.to_uint64())
+  assert_eq(runner.virtio_blk_read_byte_count(), 0U.to_uint64())
+  assert_eq(runner.virtio_blk_write_request_count(), 1U.to_uint64())
+  assert_eq(runner.virtio_blk_write_byte_count(), 4U.to_uint64())
 }
 
 ///|

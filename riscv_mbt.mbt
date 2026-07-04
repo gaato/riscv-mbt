@@ -434,6 +434,10 @@ pub struct Runner {
   plic_regs : Array[Byte] // flat PLIC register file (4 MB); shared across SMP harts
   virtio_blk_state : Array[UInt64]
   mut virtio_blk_disk : Bytes
+  mut virtio_blk_read_requests : UInt64
+  mut virtio_blk_write_requests : UInt64
+  mut virtio_blk_read_bytes : UInt64
+  mut virtio_blk_write_bytes : UInt64
   // Decode cache keys by physical fetch address plus raw bits. This avoids
   // mixing Sv39 virtual aliases and keeps cache invalidation tied to fence.i.
   decode_cache_tags : Array[UInt64]
@@ -1143,6 +1147,10 @@ pub fn make_runner(config : MachineConfig) -> Runner {
     },
     virtio_blk_state: Array::make(16, 0U.to_uint64()),
     virtio_blk_disk: Bytes::from_array([]),
+    virtio_blk_read_requests: 0U.to_uint64(),
+    virtio_blk_write_requests: 0U.to_uint64(),
+    virtio_blk_read_bytes: 0U.to_uint64(),
+    virtio_blk_write_bytes: 0U.to_uint64(),
     decode_cache_tags: Array::make(decode_cache_sets, decode_cache_invalid_tag),
     decode_cache_raws: Array::make(decode_cache_sets, 0U),
     decode_cache_lengths: Array::make(decode_cache_sets, 0),
@@ -1230,6 +1238,10 @@ pub fn make_smp_runners(
       plic_regs: shared_plic,
       virtio_blk_state: shared_virtio_blk_state,
       virtio_blk_disk: shared_virtio_blk_disk,
+      virtio_blk_read_requests: 0U.to_uint64(),
+      virtio_blk_write_requests: 0U.to_uint64(),
+      virtio_blk_read_bytes: 0U.to_uint64(),
+      virtio_blk_write_bytes: 0U.to_uint64(),
       decode_cache_tags: Array::make(
         decode_cache_sets, decode_cache_invalid_tag,
       ),
@@ -1414,6 +1426,26 @@ pub fn Runner::virtio_blk_disk_bytes(self : Runner) -> Bytes {
   // emulator still owns request processing; callers should treat this as a
   // snapshot taken after Linux has issued writes and syncs.
   self.virtio_blk_disk
+}
+
+///|
+pub fn Runner::virtio_blk_read_request_count(self : Runner) -> UInt64 {
+  self.virtio_blk_read_requests
+}
+
+///|
+pub fn Runner::virtio_blk_write_request_count(self : Runner) -> UInt64 {
+  self.virtio_blk_write_requests
+}
+
+///|
+pub fn Runner::virtio_blk_read_byte_count(self : Runner) -> UInt64 {
+  self.virtio_blk_read_bytes
+}
+
+///|
+pub fn Runner::virtio_blk_write_byte_count(self : Runner) -> UInt64 {
+  self.virtio_blk_write_bytes
 }
 
 ///|

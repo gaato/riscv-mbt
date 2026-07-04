@@ -383,3 +383,8 @@ implemented.
   treat this as a focused dynamic-loader/relocation progress gap for the `apk`
   dependency stack rather than accepting earlier literal-marker custom command
   results as proof.
+- Added virtio-blk read/write request and byte counters to `Runner` and
+  `cmd/alpine_probe` output. Future `apk` diagnostics should use these counters
+  before adding more long waits: rising read counters point at block/rootfs
+  throughput during library loading, while flat counters with advancing steps
+  point at CPU-side loader, relocation, syscall, or ISA behavior.

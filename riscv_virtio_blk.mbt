@@ -201,6 +201,25 @@ fn virtio_blk_desc_is_write(flags : UInt64) -> Bool {
 }
 
 ///|
+fn Runner::virtio_blk_record_completed_request(
+  self : Runner,
+  request_type : UInt64,
+  copied : Int,
+) -> Unit {
+  // These counters are diagnostic, not guest-visible device state. They let
+  // Linux probes distinguish block-I/O progress from CPU-side dynamic loader or
+  // relocation work without adding another long trace facility.
+  let byte_count = copied.reinterpret_as_uint().to_uint64()
+  if request_type == virtio_blk_t_in {
+    self.virtio_blk_read_requests += 1U.to_uint64()
+    self.virtio_blk_read_bytes += byte_count
+  } else if request_type == virtio_blk_t_out {
+    self.virtio_blk_write_requests += 1U.to_uint64()
+    self.virtio_blk_write_bytes += byte_count
+  }
+}
+
+///|
 fn Runner::virtio_blk_finish_used(
   self : Runner,
   used_base : UInt64,
@@ -289,6 +308,9 @@ fn Runner::virtio_blk_process_chain(
         virtio_blk_status_ok
       } else {
         virtio_blk_status_unsupp
+      }
+      if status == virtio_blk_status_ok {
+        self.virtio_blk_record_completed_request(request_type, copied)
       }
       self.virtio_blk_write_status(guest_addr, status)
       self.virtio_blk_finish_used(

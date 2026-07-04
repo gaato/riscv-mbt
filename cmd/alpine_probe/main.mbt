@@ -869,6 +869,10 @@ async fn main {
   println(
     "translate_cache=\{runner.translate_cache_hit_count()} hits/\{runner.translate_cache_miss_count()} misses",
   )
+  println(
+    "virtio_blk=\{runner.virtio_blk_read_request_count()} read-req/\{runner.virtio_blk_read_byte_count()} read-bytes " +
+    "\{runner.virtio_blk_write_request_count()} write-req/\{runner.virtio_blk_write_byte_count()} write-bytes",
+  )
   println("output_chars=" + output.length().to_string())
   println(
     "contains_linux_version=" + output.contains("Linux version").to_string(),
