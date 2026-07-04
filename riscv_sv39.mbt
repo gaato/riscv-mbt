@@ -229,6 +229,63 @@ fn translate_cache_index(vpage : UInt64) -> Int {
 }
 
 ///|
+fn known_page_table_index(ppn : UInt64) -> Int {
+  (ppn & (known_page_table_sets - 1).reinterpret_as_uint().to_uint64()).to_int()
+}
+
+///|
+fn Runner::remember_page_table_page(self : Runner, pte_addr : UInt64) -> Unit {
+  let ppn = pte_addr >> 12
+  self.known_page_table_ppns[known_page_table_index(ppn)] = ppn
+}
+
+///|
+fn Runner::record_page_table_walk(
+  self : Runner,
+  satp : UInt64,
+  vaddr : UInt64,
+) -> Unit {
+  let mut a = satp_ppn(satp) * SV39_PAGESIZE
+  let mut i = SV39_LEVELS - 1
+  while i >= 0 {
+    let pte_addr = a + sv39_vpn(vaddr, i) * SV39_PTESIZE
+    if !self.bus.contains_range(pte_addr, 8) {
+      return
+    }
+    self.remember_page_table_page(pte_addr)
+    let pte = self.bus.load_u64(pte_addr)
+    if (pte & PTE_V) == 0U.to_uint64() ||
+      ((pte & PTE_R) == 0U.to_uint64() && (pte & PTE_W) != 0U.to_uint64()) {
+      return
+    }
+    if (pte & PTE_R) != 0U.to_uint64() || (pte & PTE_X) != 0U.to_uint64() {
+      return
+    }
+    a = pte_ppn(pte) * SV39_PAGESIZE
+    i = i - 1
+  }
+}
+
+///|
+fn Runner::store_touches_known_page_table(
+  self : Runner,
+  pa : UInt64,
+  width : Int,
+) -> Bool {
+  let start_ppn = pa >> 12
+  let end_ppn = (pa + width.reinterpret_as_uint().to_uint64() - 1U.to_uint64()) >>
+    12
+  let mut ppn = start_ppn
+  while ppn <= end_ppn {
+    if self.known_page_table_ppns[known_page_table_index(ppn)] == ppn {
+      return true
+    }
+    ppn = ppn + 1U.to_uint64()
+  }
+  false
+}
+
+///|
 fn Runner::flush_translate_cache(self : Runner) -> Unit {
   for index in 0..<translate_cache_sets {
     self.translate_cache_vpages[index] = translate_cache_invalid_vpage
@@ -261,6 +318,7 @@ fn Runner::translate_cached(
     return TranslatedAddr(self.translate_cache_pa_pages[index] + page_offset)
   }
   self.translate_cache_misses = self.translate_cache_misses + 1U.to_uint64()
+  self.record_page_table_walk(satp, vaddr)
   match
     sv39_translate(self.bus, satp, vaddr, access_type, privilege, sum, mxr) {
     TranslatedAddr(pa) => {
@@ -295,17 +353,35 @@ fn Runner::effective_data_access_privilege(self : Runner) -> PrivilegeMode {
 fn Runner::fetch_instruction(
   self : Runner,
   addr : UInt64,
-) -> FetchedInstruction? {
-  if !self.bus.contains_range(addr, 2) {
-    return None
+) -> (FetchedInstruction?, StepResult?) {
+  let low_pa = match self.translate_address(addr, Fetch, self.cpu.privilege) {
+    TranslatedAddr(pa) => pa
+    TranslateFault(cause) =>
+      return (None, Some(self.raise_trap(cause, addr, addr)))
   }
-  let low16 = self.bus.fetch_u16(addr)
+  if !self.bus.contains_range(low_pa, 2) {
+    return (None, Some(self.raise_trap(InstructionAccessFault, addr, addr)))
+  }
+  let low16 = self.bus.fetch_u16(low_pa)
   let length = instruction_length_from_low16(low16)
-  if !self.bus.contains_range(addr, length) {
-    return None
+  if length == 2 {
+    return (Some({ fetch_pa: low_pa, raw: low16, length }), None)
   }
-  let raw = if length == 2 { low16 } else { self.bus.fetch_u32(addr) }
-  Some({ raw, length })
+  let high_addr = addr + 2U.to_uint64()
+  let high_pa = match
+    self.translate_address(high_addr, Fetch, self.cpu.privilege) {
+    TranslatedAddr(pa) => pa
+    TranslateFault(cause) =>
+      return (None, Some(self.raise_trap(cause, addr, high_addr)))
+  }
+  if !self.bus.contains_range(high_pa, 2) {
+    return (
+      None,
+      Some(self.raise_trap(InstructionAccessFault, addr, high_addr)),
+    )
+  }
+  let high16 = self.bus.fetch_u16(high_pa)
+  (Some({ fetch_pa: low_pa, raw: low16 | (high16 << 16), length }), None)
 }
 
 ///|

@@ -43,7 +43,7 @@ cat > "$root_dir/etc/inittab" <<'EOF'
 ::sysinit:/bin/mount -t devtmpfs devtmpfs /dev
 ::sysinit:/bin/mount -t tmpfs tmpfs /run
 ::sysinit:/bin/mount -t tmpfs tmpfs /tmp
-ttyS0::respawn:/sbin/getty -L 3686400 ttyS0 vt100
+ttyS0::respawn:/sbin/getty -L 115200 ttyS0 vt100
 ::shutdown:/bin/umount -a -r
 EOF
 

@@ -353,6 +353,7 @@ pub enum StepResult {
 
 ///|
 priv struct FetchedInstruction {
+  fetch_pa : UInt64
   raw : UInt
   length : Int
 }
@@ -368,6 +369,12 @@ let translate_cache_sets : Int = 4096
 
 ///|
 let translate_cache_invalid_vpage : UInt64 = bit_not(0U.to_uint64())
+
+///|
+let known_page_table_sets : Int = 256
+
+///|
+let known_page_table_invalid_ppn : UInt64 = bit_not(0U.to_uint64())
 
 ///|
 pub struct Runner {
@@ -400,6 +407,7 @@ pub struct Runner {
   translate_cache_sums : Array[Bool]
   translate_cache_mxrs : Array[Bool]
   translate_cache_pa_pages : Array[UInt64]
+  known_page_table_ppns : Array[UInt64]
   mut translate_cache_hits : UInt64
   mut translate_cache_misses : UInt64
   mut translate_cache_fills : UInt64
@@ -1054,11 +1062,6 @@ fn Bus::fetch_u16(self : Bus, addr : UInt64) -> UInt {
 }
 
 ///|
-fn Bus::fetch_u32(self : Bus, addr : UInt64) -> UInt {
-  self.load_raw_u32(addr)
-}
-
-///|
 
 ///|
 pub fn make_runner(config : MachineConfig) -> Runner {
@@ -1103,6 +1106,9 @@ pub fn make_runner(config : MachineConfig) -> Runner {
     translate_cache_sums: Array::make(translate_cache_sets, false),
     translate_cache_mxrs: Array::make(translate_cache_sets, false),
     translate_cache_pa_pages: Array::make(translate_cache_sets, 0U.to_uint64()),
+    known_page_table_ppns: Array::make(
+      known_page_table_sets, known_page_table_invalid_ppn,
+    ),
     translate_cache_hits: 0U.to_uint64(),
     translate_cache_misses: 0U.to_uint64(),
     translate_cache_fills: 0U.to_uint64(),
@@ -1191,6 +1197,9 @@ pub fn make_smp_runners(
       translate_cache_pa_pages: Array::make(
         translate_cache_sets,
         0U.to_uint64(),
+      ),
+      known_page_table_ppns: Array::make(
+        known_page_table_sets, known_page_table_invalid_ppn,
       ),
       translate_cache_hits: 0U.to_uint64(),
       translate_cache_misses: 0U.to_uint64(),

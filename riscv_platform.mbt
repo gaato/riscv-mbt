@@ -480,7 +480,12 @@ fn Runner::phy_store_u8(self : Runner, pa : UInt64, value : UInt64) -> Unit {
     PhyClint(off) => self.clint_store_byte(off, value)
     PhyPlic(off) => self.plic_write_u8(off, value)
     PhyVirtioBlk(_) => ()
-    _ => self.bus.store_u8(pa, value)
+    _ => {
+      self.bus.store_u8(pa, value)
+      if self.store_touches_known_page_table(pa, 1) {
+        self.flush_translate_cache()
+      }
+    }
   }
 }
 
@@ -494,7 +499,12 @@ fn Runner::phy_store_u16(self : Runner, pa : UInt64, value : UInt64) -> Unit {
       self.plic_write_u8(off + 1U.to_uint64(), value >> 8)
     }
     PhyVirtioBlk(_) => ()
-    _ => self.bus.store_u16(pa, value)
+    _ => {
+      self.bus.store_u16(pa, value)
+      if self.store_touches_known_page_table(pa, 2) {
+        self.flush_translate_cache()
+      }
+    }
   }
 }
 
@@ -505,7 +515,12 @@ fn Runner::phy_store_u32(self : Runner, pa : UInt64, value : UInt64) -> Unit {
     PhyClint(off) => self.clint_store_word(off, value)
     PhyPlic(off) => self.plic_write_u32(off, value)
     PhyVirtioBlk(off) => self.virtio_blk_write_u32(off, value)
-    _ => self.bus.store_u32(pa, value)
+    _ => {
+      self.bus.store_u32(pa, value)
+      if self.store_touches_known_page_table(pa, 4) {
+        self.flush_translate_cache()
+      }
+    }
   }
 }
 
@@ -522,7 +537,12 @@ fn Runner::phy_store_u64(self : Runner, pa : UInt64, value : UInt64) -> Unit {
       self.virtio_blk_write_u32(off, value)
       self.virtio_blk_write_u32(off + 4U.to_uint64(), value >> 32)
     }
-    _ => self.bus.store_u64(pa, value)
+    _ => {
+      self.bus.store_u64(pa, value)
+      if self.store_touches_known_page_table(pa, 8) {
+        self.flush_translate_cache()
+      }
+    }
   }
 }
 

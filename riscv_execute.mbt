@@ -1313,20 +1313,14 @@ pub fn Runner::step(self : Runner) -> StepResult {
     None => ()
   }
   let current_pc = self.cpu.pc
-  let fetch_pa = match
-    self.translate_address(current_pc, Fetch, self.cpu.privilege) {
-    TranslatedAddr(pa) => pa
-    TranslateFault(cause) =>
-      return self.raise_trap(cause, current_pc, current_pc)
-  }
-  let fetched = match self.fetch_instruction(fetch_pa) {
-    Some(instruction) => instruction
-    None =>
-      return self.raise_trap(InstructionAccessFault, current_pc, current_pc)
+  let fetched = match self.fetch_instruction(current_pc) {
+    (Some(instruction), None) => instruction
+    (None, Some(result)) => return result
+    _ => abort("unexpected fetch result")
   }
   let next_pc = current_pc + fetched.length.reinterpret_as_uint().to_uint64()
   let raw = fetched.raw
-  let instruction = self.decode_cached(fetch_pa, raw, fetched.length)
+  let instruction = self.decode_cached(fetched.fetch_pa, raw, fetched.length)
   if !instruction_supported_for_current_config(
       instruction,
       self.xlen_bits(),

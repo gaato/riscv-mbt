@@ -396,6 +396,7 @@ pub struct Runner {
   translate_cache_sums : Array[Bool]
   translate_cache_mxrs : Array[Bool]
   translate_cache_pa_pages : Array[UInt64]
+  known_page_table_ppns : Array[UInt64]
   mut translate_cache_hits : UInt64
   mut translate_cache_misses : UInt64
   mut translate_cache_fills : UInt64

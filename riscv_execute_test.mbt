@@ -855,7 +855,7 @@ test "rv64 mprv makes machine load and store follow Sv39 using mpp privilege" {
     encode_r(0x00U, 4, 3, 0x6U, 3, 0x33U),
     encode_csr(0x300, 3, 0x1U, 0),
     encode_i(42, 0, 0x0U, 12, 0x13U),
-    encode_i(0, 1, 0x2U, 10, 0x03U),
+    encode_i(0, 1, 0x6U, 10, 0x03U),
     encode_s(4, 12, 1, 0x2U, 0x23U),
   ])
   let runner = make_runner(rv64_machine_config())
@@ -883,8 +883,8 @@ test "sv39 translation cache records repeated data-page hits" {
     encode_i(11, 4, 0x1U, 4, 0x13U),
     encode_r(0x00U, 4, 3, 0x6U, 3, 0x33U),
     encode_csr(0x300, 3, 0x1U, 0),
-    encode_i(0, 1, 0x2U, 10, 0x03U),
-    encode_i(0, 1, 0x2U, 11, 0x03U),
+    encode_i(0, 1, 0x6U, 10, 0x03U),
+    encode_i(0, 1, 0x6U, 11, 0x03U),
   ])
   let runner = make_runner(rv64_machine_config())
   exec_test_setup_basic_sv39_map(runner)
@@ -926,6 +926,47 @@ test "sfence.vma flushes the translation cache" {
   }
   assert_eq(runner.translate_cache_fill_count(), 1U.to_uint64())
   assert_eq(runner.translate_cache_flush_count() >= 3U.to_uint64(), true)
+}
+
+///|
+test "store to observed page-table page flushes translation cache" {
+  let program = words_to_bytes([
+    encode_i(0x100, 0, 0x0U, 1, 0x13U),
+    encode_i(8, 0, 0x0U, 2, 0x13U),
+    encode_i(60, 2, 0x1U, 2, 0x13U),
+    encode_i(1, 2, 0x0U, 2, 0x13U),
+    encode_csr(0x180, 2, 0x1U, 0),
+    encode_i(1, 0, 0x0U, 3, 0x13U),
+    encode_i(17, 3, 0x1U, 3, 0x13U),
+    encode_i(1, 0, 0x0U, 4, 0x13U),
+    encode_i(11, 4, 0x1U, 4, 0x13U),
+    encode_r(0x00U, 4, 3, 0x6U, 3, 0x33U),
+    encode_csr(0x300, 3, 0x1U, 0),
+    encode_i(0, 1, 0x2U, 10, 0x03U),
+    encode_i(0, 0, 0x0U, 7, 0x13U),
+    encode_csr(0x300, 7, 0x1U, 0),
+    encode_i(3, 0, 0x0U, 5, 0x13U),
+    encode_i(12, 5, 0x1U, 5, 0x13U),
+    encode_u(0x1000U, 6, 0x37U),
+    encode_i(0x4c7, 6, 0x0U, 6, 0x13U),
+    encode_s(0, 6, 5, 0x3U, 0x23U),
+    encode_csr(0x300, 3, 0x1U, 0),
+    encode_i(0, 1, 0x6U, 11, 0x03U),
+  ])
+  let runner = make_runner(rv64_machine_config())
+  exec_test_setup_basic_sv39_map(runner)
+  runner.load_program_u64(words_to_bytes([0x11111111U]), 0x4100U.to_uint64())
+  runner.load_program_u64(words_to_bytes([0x22222222U]), 0x5100U.to_uint64())
+  runner.load_program(program, 0U)
+  match runner.run(21) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected PTE-store invalidation program to run, got \{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_reg_u64(10), 0x11111111U.to_uint64())
+  assert_eq(runner.read_reg_u64(11), 0x22222222U.to_uint64())
 }
 
 ///|

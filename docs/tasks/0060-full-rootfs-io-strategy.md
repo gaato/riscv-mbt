@@ -192,5 +192,22 @@ implemented.
   executes a stale fetched instruction word (`0x30233423`, decoded as an
   `sd` using `rs1=x6` and `imm=776`) while Linux's fault dump reads the current
   instruction bytes at that same userspace PC (`0xeed43423`, `sd a3,-280(s0)`).
-  The next slice should focus on user executable fetch coherence or translation
-  provenance, not on broad ISA coverage.
+  The root cause was an instruction fetch bug at a virtual page boundary:
+  a 32-bit instruction at page offset `0xffe` translated only the first halfword
+  and then read the second halfword from the next physical address instead of
+  translating `pc + 2`.
+- The fetch path now translates both halfwords of a 32-bit instruction
+  independently, and the regression suite covers the truncated high-half fault
+  value. The Sv39 path also tracks page-table pages seen during translation and
+  flushes the translation cache when the guest stores to one of those pages.
+- Current ordinary-init proof:
+  `moon run --target native cmd/alpine_probe xlong --init-smoke` mounts the
+  virtio-backed ext4 rootfs, runs `switch_root /mnt/root /sbin/init`, prints
+  `Welcome to Alpine Linux 3.24`, reports
+  `Kernel 6.18.37-0-lts on riscv64 (/dev/ttyS0)`, and reaches `(none) login:`
+  at 634,000,000 guest steps. The previous `ld-musl-riscv64.so.1` crash is no
+  longer present.
+- The next full-rootfs usability slice should prove commands after ordinary
+  init starts, either by logging in through the serial getty or by adding a
+  direct post-init command path that still runs under PID 1's initialized
+  userspace.
