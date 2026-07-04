@@ -1026,6 +1026,10 @@ fn instruction_supported_for_current_config(
     VrgatherVv(_, _, _) => has_v
     VrgatherVx(_, _, _) => has_v
     VrgatherVi(_, _, _) => has_v
+    VslideupVx(_, _, _) => has_v
+    VslideupVi(_, _, _) => has_v
+    VslidedownVx(_, _, _) => has_v
+    VslidedownVi(_, _, _) => has_v
     VsllVv(_, _, _) => has_v
     VsllVx(_, _, _) => has_v
     VsllVi(_, _, _) => has_v
@@ -1303,6 +1307,18 @@ pub fn decode(raw : UInt) -> Instruction {
                 rs2(raw),
                 ((raw >> 15) & 0x1fU).reinterpret_as_int(),
               )
+            0x0eU =>
+              VslideupVi(
+                rd(raw),
+                rs2(raw),
+                ((raw >> 15) & 0x1fU).reinterpret_as_int(),
+              )
+            0x0fU =>
+              VslidedownVi(
+                rd(raw),
+                rs2(raw),
+                ((raw >> 15) & 0x1fU).reinterpret_as_int(),
+              )
             0x18U =>
               VmseqVi(rd(raw), rs2(raw), sign_extend((raw >> 15) & 0x1fU, 5))
             0x19U =>
@@ -1353,6 +1369,8 @@ pub fn decode(raw : UInt) -> Instruction {
             0x0aU => VorVx(rd(raw), rs2(raw), rs1(raw))
             0x0bU => VxorVx(rd(raw), rs2(raw), rs1(raw))
             0x0cU => VrgatherVx(rd(raw), rs2(raw), rs1(raw))
+            0x0eU => VslideupVx(rd(raw), rs2(raw), rs1(raw))
+            0x0fU => VslidedownVx(rd(raw), rs2(raw), rs1(raw))
             0x18U => VmseqVx(rd(raw), rs2(raw), rs1(raw))
             0x19U => VmsneVx(rd(raw), rs2(raw), rs1(raw))
             0x1aU => VmsltuVx(rd(raw), rs2(raw), rs1(raw))

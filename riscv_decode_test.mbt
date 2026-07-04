@@ -862,6 +862,38 @@ test "decode first vector arithmetic slice" {
     }
     _ => fail("expected vrgather.vi")
   }
+  match decode(encode_vslideup_vx(3, 4, 5, false)) {
+    VslideupVx(vd, vs2, rs1) => {
+      assert_eq(vd, 3)
+      assert_eq(vs2, 4)
+      assert_eq(rs1, 5)
+    }
+    _ => fail("expected masked vslideup.vx")
+  }
+  match decode(encode_vslideup_vi(6, 7, 8, true)) {
+    VslideupVi(vd, vs2, imm) => {
+      assert_eq(vd, 6)
+      assert_eq(vs2, 7)
+      assert_eq(imm, 8)
+    }
+    _ => fail("expected vslideup.vi")
+  }
+  match decode(encode_vslidedown_vx(9, 10, 11, true)) {
+    VslidedownVx(vd, vs2, rs1) => {
+      assert_eq(vd, 9)
+      assert_eq(vs2, 10)
+      assert_eq(rs1, 11)
+    }
+    _ => fail("expected vslidedown.vx")
+  }
+  match decode(encode_vslidedown_vi(12, 13, 31, false)) {
+    VslidedownVi(vd, vs2, imm) => {
+      assert_eq(vd, 12)
+      assert_eq(vs2, 13)
+      assert_eq(imm, 31)
+    }
+    _ => fail("expected masked vslidedown.vi")
+  }
   match decode(encode_vsll_vv(13, 14, 15, true)) {
     VsllVv(vd, vs2, vs1) => {
       assert_eq(vd, 13)

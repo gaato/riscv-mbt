@@ -2582,6 +2582,81 @@ test "rv64fdv vector gather rejects overlapping source groups" {
 }
 
 ///|
+test "rv64fdv vector slideup and slidedown move elements within groups" {
+  let program = words_to_bytes([
+    encode_vsetivli(0, 8U, 0x11U),
+    encode_vslideup_vi(6, 2, 2, true),
+    encode_vslidedown_vi(8, 2, 3, true),
+    encode_vslidedown_vx(10, 2, 10, false),
+  ])
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.load_program(program, 0U)
+
+  // e32,m2 source elements are [10,11,12,13,14,15,16,17]. Slideup by two
+  // leaves destination elements 0..1 unchanged, while slidedown by three reads
+  // source elements 3..7 and returns zero once the source index reaches VLMAX.
+  runner.cpu.write_reg(10, 6U.to_uint64())
+  runner.cpu.write_vreg(0, 0, 0x4bU.to_uint64())
+  runner.cpu.write_vreg(2, 0, test_join_u64(11U, 10U))
+  runner.cpu.write_vreg(2, 1, test_join_u64(13U, 12U))
+  runner.cpu.write_vreg(3, 0, test_join_u64(15U, 14U))
+  runner.cpu.write_vreg(3, 1, test_join_u64(17U, 16U))
+  runner.cpu.write_vreg(6, 0, test_join_u64(0xaaaaaaaaU, 0xaaaaaaaaU))
+  runner.cpu.write_vreg(6, 1, test_join_u64(0xaaaaaaaaU, 0xaaaaaaaaU))
+  runner.cpu.write_vreg(7, 0, test_join_u64(0xbbbbbbbbU, 0xbbbbbbbbU))
+  runner.cpu.write_vreg(7, 1, test_join_u64(0xbbbbbbbbU, 0xbbbbbbbbU))
+  runner.cpu.write_vreg(10, 0, test_join_u64(0xccccccccU, 0xccccccccU))
+  runner.cpu.write_vreg(10, 1, test_join_u64(0xccccccccU, 0xccccccccU))
+  runner.cpu.write_vreg(11, 0, test_join_u64(0xddddddddU, 0xddddddddU))
+  runner.cpu.write_vreg(11, 1, test_join_u64(0xddddddddU, 0xddddddddU))
+
+  match runner.run(4) {
+    Running => ()
+    _ => fail("expected vector slide sequence to run")
+  }
+
+  assert_eq(runner.read_vreg_u64(6, 0), test_join_u64(0xaaaaaaaaU, 0xaaaaaaaaU))
+  assert_eq(runner.read_vreg_u64(6, 1), test_join_u64(11U, 10U))
+  assert_eq(runner.read_vreg_u64(7, 0), test_join_u64(13U, 12U))
+  assert_eq(runner.read_vreg_u64(7, 1), test_join_u64(15U, 14U))
+  assert_eq(runner.read_vreg_u64(8, 0), test_join_u64(14U, 13U))
+  assert_eq(runner.read_vreg_u64(8, 1), test_join_u64(16U, 15U))
+  assert_eq(runner.read_vreg_u64(9, 0), test_join_u64(0U, 17U))
+  assert_eq(runner.read_vreg_u64(9, 1), 0U.to_uint64())
+  assert_eq(runner.read_vreg_u64(10, 0), test_join_u64(17U, 16U))
+  assert_eq(runner.read_vreg_u64(10, 1), test_join_u64(0U, 0xccccccccU))
+  assert_eq(
+    runner.read_vreg_u64(11, 0),
+    test_join_u64(0xddddddddU, 0xddddddddU),
+  )
+  assert_eq(runner.read_vreg_u64(11, 1), test_join_u64(0xddddddddU, 0U))
+}
+
+///|
+test "rv64fdv vector slideup rejects overlapping source groups" {
+  let overlap = encode_vslideup_vi(2, 2, 1, true)
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.load_program(
+    words_to_bytes([encode_vsetivli(0, 8U, 0x11U), overlap]),
+    0U,
+  )
+  match runner.step() {
+    Running => ()
+    _ => fail("expected vsetivli to run")
+  }
+  match runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+      assert_eq(info.trap_value, overlap.to_uint64())
+    }
+    _ => fail("expected vslideup.vi source overlap to trap")
+  }
+}
+
+///|
 fn test_vector_vtypei_for_sew(sew_bits : Int) -> UInt {
   match sew_bits {
     8 => 0x00U
