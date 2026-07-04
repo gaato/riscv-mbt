@@ -448,3 +448,34 @@ implemented.
   not the primary package-manager usability gate. It still times out before
   `apk-loader-ok`, while the static smoke proves a real rootfs-side `apk`
   binary can read the installed DB and package file metadata.
+- Extended the rootfs builder with `ALPINE_OFFLINE_APK_PACKAGES`, defaulting to
+  `ddate`. It downloads the selected riscv64 main packages from APKINDEX and
+  places them under `/root/riscv-mbt-apks/*.apk` without preinstalling them.
+  This keeps the generated rootfs able to prove package installation from
+  inside Alpine userspace rather than only host-side image construction.
+- Tried a heavier offline install probe with `file` plus `libmagic`, but the
+  local package add was too slow for the current probe budget: `apk.static`
+  began installing `libmagic` and reached 19% before
+  `post-init-command-timeout`, with about 4.8 MiB of post-command virtio reads.
+  That is useful as a future storage/performance stressor, but it is too large
+  for the first install-completion gate.
+- Added `cmd/alpine_probe --post-init-apk-install-smoke` using the smaller
+  `ddate` package. It verifies that `/usr/bin/ddate` is absent, installs
+  `/root/riscv-mbt-apks/ddate.apk` with
+  `apk.static --no-network --allow-untrusted --force-non-repository add`, then
+  checks `apk info -e ddate`, executes `/usr/bin/ddate`, and emits an
+  echo-safe final marker.
+- Current offline package-install proof:
+  `moon run --target native cmd/alpine_probe xlong --post-init-command-step-budget 120000000 --post-init-apk-install-smoke`
+  reaches `outcome=console-command`, `shell_expect_seen=true`,
+  `post_init_apk_install_smoke=true`, `post_init_command_index=3`, and
+  `post-init-apk-install-ok` at 725,000,000 guest steps. The run reports
+  `virtio_blk=1485 read-req/5958656 read-bytes 7 write-req/21504 write-bytes`,
+  proving the local package add mutates the rootfs through virtio-blk writes.
+  The UART tail includes `Installing ddate (0.2.2-r6)`, `OK: 6959 KiB in 17
+  packages`, `ddate`, `Today is Sweetmorn, the 1st day of Chaos in the YOLD
+  3136`, and `post-init-apk-install-ok`.
+- This is still an offline package-file proof, not a full remote repository
+  proof. A normal `apk add <name>` from configured repositories needs either
+  virtio-net or a deliberate local repository/cache design, and the dynamic
+  `/sbin/apk` loader path remains a separate performance diagnostic.

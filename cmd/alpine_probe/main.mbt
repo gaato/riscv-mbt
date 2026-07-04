@@ -392,6 +392,32 @@ fn alpine_post_init_apk_static_markers() -> Array[String] {
 }
 
 ///|
+fn alpine_post_init_apk_install_commands() -> Array[String] {
+  // Offline package installation proof. The rootfs builder places `ddate.apk`
+  // under `/root/riscv-mbt-apks`; installing that local file avoids depending
+  // on virtio-net while still exercising apk's add path and rootfs mutation.
+  [
+    "test -x /sbin/apk.static && " +
+    "test -r /root/riscv-mbt-apks/ddate.apk && " +
+    "! test -x /usr/bin/ddate && " +
+    "printf '\\141\\160\\153\\055\\151\\156\\163\\164\\141\\154\\154\\055\\146\\151\\154\\145\\163\\055\\157\\153\\012'",
+    "/sbin/apk.static --no-network --allow-untrusted --force-non-repository add /root/riscv-mbt-apks/ddate.apk && " +
+    "printf '\\141\\160\\153\\055\\151\\156\\163\\164\\141\\154\\154\\055\\141\\144\\144\\055\\157\\153\\012'",
+    "/sbin/apk.static info -e ddate && " +
+    "test -x /usr/bin/ddate && " +
+    "ddate > /root/riscv-mbt-ddate && " +
+    "test -s /root/riscv-mbt-ddate && " +
+    "cat /root/riscv-mbt-ddate && " +
+    "printf '\\160\\157\\163\\164\\055\\151\\156\\151\\164\\055\\141\\160\\153\\055\\151\\156\\163\\164\\141\\154\\154\\055\\157\\153\\012'",
+  ]
+}
+
+///|
+fn alpine_post_init_apk_install_markers() -> Array[String] {
+  ["apk-install-files-ok", "apk-install-add-ok", "post-init-apk-install-ok"]
+}
+
+///|
 fn alpine_post_init_shell_commands() -> Array[String] {
   // This is intentionally about shell behavior rather than individual applets:
   // script execution from the rootfs, env/argv propagation, background jobs,
@@ -529,6 +555,9 @@ async fn main {
   let post_init_apk_static_smoke = parse_flag(
     args, "--post-init-apk-static-smoke",
   )
+  let post_init_apk_install_smoke = parse_flag(
+    args, "--post-init-apk-install-smoke",
+  )
   let post_init_shell_smoke = parse_flag(args, "--post-init-shell-smoke")
   let post_init_system_smoke = parse_flag(args, "--post-init-system-smoke")
   let post_init_storage_smoke = parse_flag(args, "--post-init-storage-smoke")
@@ -562,6 +591,7 @@ async fn main {
     post_init_busybox_smoke ||
     post_init_apk_smoke ||
     post_init_apk_static_smoke ||
+    post_init_apk_install_smoke ||
     post_init_shell_smoke ||
     post_init_system_smoke ||
     post_init_storage_smoke ||
@@ -597,6 +627,7 @@ async fn main {
     post_init_busybox_smoke ||
     post_init_apk_smoke ||
     post_init_apk_static_smoke ||
+    post_init_apk_install_smoke ||
     post_init_shell_smoke ||
     post_init_system_smoke ||
     post_init_storage_smoke ||
@@ -628,6 +659,8 @@ async fn main {
     Some("post-init-apk-ok")
   } else if post_init_apk_static_smoke {
     Some("post-init-apk-static-ok")
+  } else if post_init_apk_install_smoke {
+    Some("post-init-apk-install-ok")
   } else if post_init_shell_smoke {
     Some("post-init-shell-ok")
   } else if post_init_system_smoke {
@@ -651,6 +684,8 @@ async fn main {
     alpine_post_init_apk_commands()
   } else if post_init_apk_static_smoke {
     alpine_post_init_apk_static_commands()
+  } else if post_init_apk_install_smoke {
+    alpine_post_init_apk_install_commands()
   } else if post_init_shell_smoke {
     alpine_post_init_shell_commands()
   } else if post_init_system_smoke {
@@ -676,6 +711,8 @@ async fn main {
     alpine_post_init_apk_markers()
   } else if post_init_apk_static_smoke {
     alpine_post_init_apk_static_markers()
+  } else if post_init_apk_install_smoke {
+    alpine_post_init_apk_install_markers()
   } else if post_init_shell_smoke {
     alpine_post_init_shell_markers()
   } else if post_init_system_smoke {
@@ -881,6 +918,9 @@ async fn main {
   println("post_init_apk_smoke=" + post_init_apk_smoke.to_string())
   println(
     "post_init_apk_static_smoke=" + post_init_apk_static_smoke.to_string(),
+  )
+  println(
+    "post_init_apk_install_smoke=" + post_init_apk_install_smoke.to_string(),
   )
   println("post_init_shell_smoke=" + post_init_shell_smoke.to_string())
   println("post_init_system_smoke=" + post_init_system_smoke.to_string())
