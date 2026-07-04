@@ -365,6 +365,33 @@ fn alpine_post_init_apk_markers() -> Array[String] {
 }
 
 ///|
+fn alpine_post_init_apk_static_commands() -> Array[String] {
+  // Static apk is the practical package-database smoke. It avoids conflating
+  // ordinary package-manager usability with the much slower dynamic-loader
+  // dependency walk used by `/sbin/apk`.
+  [
+    "test -x /sbin/apk.static && " +
+    "test -r /lib/apk/db/installed && " +
+    "printf '\\141\\160\\153\\055\\163\\164\\141\\164\\151\\143\\055\\146\\151\\154\\145\\163\\055\\157\\153\\012'",
+    "/sbin/apk.static --version && " +
+    "printf '\\141\\160\\153\\055\\163\\164\\141\\164\\151\\143\\055\\166\\145\\162\\163\\151\\157\\156\\055\\157\\153\\012'",
+    "/sbin/apk.static info -e busybox && " +
+    "/sbin/apk.static info | head -n 5 && " +
+    "/sbin/apk.static info | grep '^busybox$' && " +
+    "printf '\\141\\160\\153\\055\\163\\164\\141\\164\\151\\143\\055\\144\\142\\055\\157\\153\\012'",
+    "/sbin/apk.static info -L busybox | grep '^bin/busybox$' && " +
+    "printf '\\160\\157\\163\\164\\055\\151\\156\\151\\164\\055\\141\\160\\153\\055\\163\\164\\141\\164\\151\\143\\055\\157\\153\\012'",
+  ]
+}
+
+///|
+fn alpine_post_init_apk_static_markers() -> Array[String] {
+  [
+    "apk-static-files-ok", "apk-static-version-ok", "apk-static-db-ok", "post-init-apk-static-ok",
+  ]
+}
+
+///|
 fn alpine_post_init_shell_commands() -> Array[String] {
   // This is intentionally about shell behavior rather than individual applets:
   // script execution from the rootfs, env/argv propagation, background jobs,
@@ -499,6 +526,9 @@ async fn main {
   let post_init_session_smoke = parse_flag(args, "--post-init-session-smoke")
   let post_init_busybox_smoke = parse_flag(args, "--post-init-busybox-smoke")
   let post_init_apk_smoke = parse_flag(args, "--post-init-apk-smoke")
+  let post_init_apk_static_smoke = parse_flag(
+    args, "--post-init-apk-static-smoke",
+  )
   let post_init_shell_smoke = parse_flag(args, "--post-init-shell-smoke")
   let post_init_system_smoke = parse_flag(args, "--post-init-system-smoke")
   let post_init_storage_smoke = parse_flag(args, "--post-init-storage-smoke")
@@ -531,6 +561,7 @@ async fn main {
     post_init_session_smoke ||
     post_init_busybox_smoke ||
     post_init_apk_smoke ||
+    post_init_apk_static_smoke ||
     post_init_shell_smoke ||
     post_init_system_smoke ||
     post_init_storage_smoke ||
@@ -565,6 +596,7 @@ async fn main {
     post_init_session_smoke ||
     post_init_busybox_smoke ||
     post_init_apk_smoke ||
+    post_init_apk_static_smoke ||
     post_init_shell_smoke ||
     post_init_system_smoke ||
     post_init_storage_smoke ||
@@ -594,6 +626,8 @@ async fn main {
     Some("post-init-busybox-ok")
   } else if post_init_apk_smoke {
     Some("post-init-apk-ok")
+  } else if post_init_apk_static_smoke {
+    Some("post-init-apk-static-ok")
   } else if post_init_shell_smoke {
     Some("post-init-shell-ok")
   } else if post_init_system_smoke {
@@ -615,6 +649,8 @@ async fn main {
     alpine_post_init_busybox_commands()
   } else if post_init_apk_smoke {
     alpine_post_init_apk_commands()
+  } else if post_init_apk_static_smoke {
+    alpine_post_init_apk_static_commands()
   } else if post_init_shell_smoke {
     alpine_post_init_shell_commands()
   } else if post_init_system_smoke {
@@ -638,6 +674,8 @@ async fn main {
     alpine_post_init_busybox_markers()
   } else if post_init_apk_smoke {
     alpine_post_init_apk_markers()
+  } else if post_init_apk_static_smoke {
+    alpine_post_init_apk_static_markers()
   } else if post_init_shell_smoke {
     alpine_post_init_shell_markers()
   } else if post_init_system_smoke {
@@ -841,6 +879,9 @@ async fn main {
   println("post_init_session_smoke=" + post_init_session_smoke.to_string())
   println("post_init_busybox_smoke=" + post_init_busybox_smoke.to_string())
   println("post_init_apk_smoke=" + post_init_apk_smoke.to_string())
+  println(
+    "post_init_apk_static_smoke=" + post_init_apk_static_smoke.to_string(),
+  )
   println("post_init_shell_smoke=" + post_init_shell_smoke.to_string())
   println("post_init_system_smoke=" + post_init_system_smoke.to_string())
   println("post_init_storage_smoke=" + post_init_storage_smoke.to_string())

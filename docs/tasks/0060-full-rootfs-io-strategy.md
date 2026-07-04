@@ -423,3 +423,28 @@ implemented.
   multi-megabyte, so a tiny sector cache is the wrong shape. Prefer readahead,
   larger chunking, request coalescing, or CPU-side dynamic-loader profiling as
   the next slice.
+- The Alpine rootfs builder now downloads `apk-tools-static` from the current
+  riscv64 main APKINDEX and installs `/sbin/apk.static` into the generated
+  ext4 image by default. This does not fix the dynamic `/sbin/apk` loader path,
+  but it gives the rootfs a practical package-database tool that avoids the
+  heavy `libapk`/OpenSSL dynamic dependency walk.
+- Added `cmd/alpine_probe --post-init-apk-static-smoke` as a separate
+  package-manager usability probe. It verifies `/sbin/apk.static`, runs
+  `apk.static --version`, queries the installed package DB for `busybox`, lists
+  installed package names, and checks the installed `bin/busybox` file entry.
+  The markers use octal `printf` sequences, so serial command echo cannot
+  satisfy the expected marker.
+- Current static package-manager proof:
+  `moon run --target native cmd/alpine_probe xlong --post-init-command-step-budget 80000000 --post-init-apk-static-smoke`
+  reaches `outcome=console-command`, `shell_expect_seen=true`,
+  `post_init_apk_static_smoke=true`, `post_init_command_index=4`, and
+  `post-init-apk-static-ok` at 741,000,000 guest steps. The run reports
+  `post_init_command_virtio_delta=0 read-req/0 read-bytes 0 write-req/0
+  write-bytes` for the final file-listing command because the relevant rootfs
+  blocks are already cached by Linux at that stage. The UART tail includes
+  `apk-tools 3.0.6-r0, compiled for riscv64.`, `busybox`,
+  `apk-static-db-ok`, `bin/busybox`, and `post-init-apk-static-ok`.
+- Keep the dynamic `--post-init-apk-smoke` as a loader/performance diagnostic,
+  not the primary package-manager usability gate. It still times out before
+  `apk-loader-ok`, while the static smoke proves a real rootfs-side `apk`
+  binary can read the installed DB and package file metadata.

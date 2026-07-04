@@ -6,6 +6,9 @@ build_dir="$repo_root/_build/alpine-rootfs"
 version="${ALPINE_VERSION:-3.24.1}"
 arch="${ALPINE_ARCH:-riscv64}"
 base_url="${ALPINE_BASE_URL:-https://dl-cdn.alpinelinux.org/alpine/latest-stable/releases/$arch}"
+apk_repo_base_url="${ALPINE_APK_REPO_BASE_URL:-https://dl-cdn.alpinelinux.org/alpine/latest-stable/main/$arch}"
+apkindex_url="${ALPINE_APKINDEX_URL:-$apk_repo_base_url/APKINDEX.tar.gz}"
+include_apk_static="${ALPINE_INCLUDE_APK_STATIC:-1}"
 rootfs_name="alpine-minirootfs-$version-$arch.tar.gz"
 rootfs_url="$base_url/$rootfs_name"
 sha_url="$rootfs_url.sha256"
@@ -28,6 +31,25 @@ root_dir="$(mktemp -d "$repo_root/_build/alpine-rootfs-image.XXXXXX")"
 trap 'rm -rf "$root_dir"' EXIT
 
 tar -xzf "$build_dir/$rootfs_name" -C "$root_dir"
+
+if [[ "$include_apk_static" == "1" ]]; then
+  curl -L -o "$build_dir/APKINDEX.tar.gz" "$apkindex_url"
+  apkindex_content="$(tar -xOzf "$build_dir/APKINDEX.tar.gz" APKINDEX)"
+  apk_tools_static_version="$(
+    awk 'BEGIN{RS="\n\n"} $0 ~ /(^|\n)P:apk-tools-static(\n|$)/ { for (i = 1; i <= NF; i++) if ($i ~ /^V:/) { sub(/^V:/, "", $i); print $i; exit } }' <<< "$apkindex_content"
+  )"
+  if [[ -z "$apk_tools_static_version" ]]; then
+    printf 'apk-tools-static not found in %s\n' "$apkindex_url" >&2
+    exit 1
+  fi
+  apk_tools_static_apk="$build_dir/apk-tools-static-$apk_tools_static_version.apk"
+  if [[ ! -f "$apk_tools_static_apk" ]]; then
+    curl -L -o "$apk_tools_static_apk" "$apk_repo_base_url/apk-tools-static-$apk_tools_static_version.apk"
+  fi
+  tar --warning=no-unknown-keyword -xzf "$apk_tools_static_apk" -C "$root_dir" sbin/apk.static
+  chmod +x "$root_dir/sbin/apk.static"
+fi
+
 mkdir -p "$root_dir"/proc "$root_dir"/sys "$root_dir"/dev "$root_dir"/tmp "$root_dir"/root
 mkdir -p "$root_dir"/run
 cat > "$root_dir/sbin/riscv-mbt-autoshell" <<'EOF'
