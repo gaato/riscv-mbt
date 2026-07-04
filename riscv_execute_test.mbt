@@ -3805,21 +3805,204 @@ test "rv64fdv vector memory supports indexed ordered e32 loads and stores" {
 }
 
 ///|
-test "rv64fdv vector memory rejects masked width-mismatch lmul2 vill and nonzero vstart" {
-  let masked_raw = encode_vle32(1, 10, false)
-  let masked = make_runner(rv64fdv_machine_config())
-  masked.load_program(words_to_bytes([masked_raw]), 0U)
-  match masked.step() {
-    Trap(info) => {
-      match info.cause {
-        IllegalInstruction => ()
-        _ => fail("expected illegal instruction cause")
-      }
-      assert_eq(info.trap_value, masked_raw.to_uint64())
-    }
-    _ => fail("expected masked vector memory op to trap")
+test "rv64fdv masked vector memory skips inactive elements" {
+  let load32 = make_runner(rv64fdv_machine_config())
+  load32.load_program(
+    words_to_bytes([
+      encode_vsetivli(0, 4U, test_vector_vtypei_for_sew(32)),
+      encode_vle32(9, 10, false),
+    ]),
+    0U,
+  )
+  let all_ones = (-1L).reinterpret_as_uint64()
+  let base = load32.config.ram_base +
+    load32.config.ram_size.reinterpret_as_uint().to_uint64() -
+    8U.to_uint64()
+  load32.cpu.write_reg(10, base)
+  load32.cpu.write_vreg(0, 0, 0x3U.to_uint64())
+  load32.cpu.write_vreg(9, 0, all_ones)
+  load32.cpu.write_vreg(9, 1, all_ones)
+  load32.bus.store_u32(base, 0x11223344U.to_uint64())
+  load32.bus.store_u32(base + 4U.to_uint64(), 0x55667788U.to_uint64())
+  match load32.run(2) {
+    Running => ()
+    _ => fail("expected masked vle32.v to skip invalid inactive elements")
   }
+  assert_eq(
+    load32.read_vreg_u64(9, 0),
+    (0x55667788U.to_uint64() << 32) | 0x11223344U.to_uint64(),
+  )
+  assert_eq(load32.read_vreg_u64(9, 1), all_ones)
 
+  let store32 = make_runner(rv64fdv_machine_config())
+  store32.load_program(
+    words_to_bytes([
+      encode_vsetivli(0, 4U, test_vector_vtypei_for_sew(32)),
+      encode_vse32(9, 10, false),
+    ]),
+    0U,
+  )
+  let store_base = store32.config.ram_base +
+    store32.config.ram_size.reinterpret_as_uint().to_uint64() -
+    8U.to_uint64()
+  store32.cpu.write_reg(10, store_base)
+  store32.cpu.write_vreg(0, 0, 0x3U.to_uint64())
+  store32.cpu.write_vreg(
+    9,
+    0,
+    (0x33445566U.to_uint64() << 32) | 0xaabbccddU.to_uint64(),
+  )
+  store32.cpu.write_vreg(
+    9,
+    1,
+    (0x778899aaU.to_uint64() << 32) | 0x10203040U.to_uint64(),
+  )
+  match store32.run(2) {
+    Running => ()
+    _ => fail("expected masked vse32.v to skip invalid inactive elements")
+  }
+  assert_eq(store32.bus.load_u32(store_base), 0xaabbccddU.to_uint64())
+  assert_eq(
+    store32.bus.load_u32(store_base + 4U.to_uint64()),
+    0x33445566U.to_uint64(),
+  )
+
+  let strided = make_runner(rv64fdv_machine_config())
+  strided.load_program(
+    words_to_bytes([
+      encode_vsetivli(0, 4U, test_vector_vtypei_for_sew(32)),
+      encode_vlse32(12, 10, 11, false),
+    ]),
+    0U,
+  )
+  let strided_base = strided.config.ram_base +
+    strided.config.ram_size.reinterpret_as_uint().to_uint64() -
+    8U.to_uint64()
+  strided.cpu.write_reg(10, strided_base)
+  strided.cpu.write_reg(11, 4U.to_uint64())
+  strided.cpu.write_vreg(0, 0, 0x3U.to_uint64())
+  strided.cpu.write_vreg(12, 0, all_ones)
+  strided.cpu.write_vreg(12, 1, all_ones)
+  strided.bus.store_u32(strided_base, 0x0a0b0c0dU.to_uint64())
+  strided.bus.store_u32(strided_base + 4U.to_uint64(), 0x0e0f1011U.to_uint64())
+  match strided.run(2) {
+    Running => ()
+    _ => fail("expected masked strided load to skip invalid inactive addresses")
+  }
+  assert_eq(
+    strided.read_vreg_u64(12, 0),
+    (0x0e0f1011U.to_uint64() << 32) | 0x0a0b0c0dU.to_uint64(),
+  )
+  assert_eq(strided.read_vreg_u64(12, 1), all_ones)
+
+  let strided_store = make_runner(rv64fdv_machine_config())
+  strided_store.load_program(
+    words_to_bytes([
+      encode_vsetivli(0, 4U, test_vector_vtypei_for_sew(32)),
+      encode_vsse32(12, 10, 11, false),
+    ]),
+    0U,
+  )
+  let strided_store_base = strided_store.config.ram_base +
+    strided_store.config.ram_size.reinterpret_as_uint().to_uint64() -
+    8U.to_uint64()
+  strided_store.cpu.write_reg(10, strided_store_base)
+  strided_store.cpu.write_reg(11, 4U.to_uint64())
+  strided_store.cpu.write_vreg(0, 0, 0x3U.to_uint64())
+  strided_store.cpu.write_vreg(
+    12,
+    0,
+    (0x1e1f2021U.to_uint64() << 32) | 0x1a1b1c1dU.to_uint64(),
+  )
+  strided_store.cpu.write_vreg(12, 1, all_ones)
+  match strided_store.run(2) {
+    Running => ()
+    _ =>
+      fail("expected masked strided store to skip invalid inactive addresses")
+  }
+  assert_eq(
+    strided_store.bus.load_u32(strided_store_base),
+    0x1a1b1c1dU.to_uint64(),
+  )
+  assert_eq(
+    strided_store.bus.load_u32(strided_store_base + 4U.to_uint64()),
+    0x1e1f2021U.to_uint64(),
+  )
+
+  let indexed = make_runner(rv64fdv_machine_config())
+  indexed.load_program(
+    words_to_bytes([
+      encode_vsetivli(0, 4U, test_vector_vtypei_for_sew(32)),
+      encode_vluxei32(11, 10, 5, false),
+    ]),
+    0U,
+  )
+  let indexed_base = 0x680U.to_uint64()
+  let invalid_offset = indexed.config.ram_size.reinterpret_as_uint().to_uint64()
+  indexed.cpu.write_reg(10, indexed_base)
+  indexed.cpu.write_vreg(0, 0, 0x3U.to_uint64())
+  indexed.cpu.write_vreg(5, 0, test_join_u64(4U, 0U))
+  indexed.cpu.write_vreg(
+    5,
+    1,
+    test_join_u64(invalid_offset.to_uint(), invalid_offset.to_uint()),
+  )
+  indexed.cpu.write_vreg(11, 0, all_ones)
+  indexed.cpu.write_vreg(11, 1, all_ones)
+  indexed.bus.store_u32(indexed_base, 0x01020304U.to_uint64())
+  indexed.bus.store_u32(indexed_base + 4U.to_uint64(), 0x05060708U.to_uint64())
+  assert_eq(indexed.read_vreg_u64(0, 0) & 0x7U.to_uint64(), 0x3U.to_uint64())
+  match indexed.step() {
+    Running => ()
+    _ => fail("expected indexed vsetivli to run")
+  }
+  assert_eq(indexed.read_csr(0xc20), 4U)
+  assert_eq(indexed.read_vreg_u64(0, 0) & 0x7U.to_uint64(), 0x3U.to_uint64())
+  match indexed.step() {
+    Running => ()
+    _ => fail("expected masked indexed memory to skip invalid inactive offsets")
+  }
+  assert_eq(
+    indexed.read_vreg_u64(11, 0),
+    (0x05060708U.to_uint64() << 32) | 0x01020304U.to_uint64(),
+  )
+  assert_eq(indexed.read_vreg_u64(11, 1), all_ones)
+
+  let indexed_store = make_runner(rv64fdv_machine_config())
+  indexed_store.load_program(
+    words_to_bytes([
+      encode_vsetivli(0, 4U, test_vector_vtypei_for_sew(32)),
+      encode_vsuxei32(11, 10, 5, false),
+    ]),
+    0U,
+  )
+  indexed_store.cpu.write_reg(10, indexed_base)
+  indexed_store.cpu.write_vreg(0, 0, 0x3U.to_uint64())
+  indexed_store.cpu.write_vreg(5, 0, test_join_u64(4U, 0U))
+  indexed_store.cpu.write_vreg(
+    5,
+    1,
+    test_join_u64(invalid_offset.to_uint(), invalid_offset.to_uint()),
+  )
+  indexed_store.cpu.write_vreg(
+    11,
+    0,
+    (0x05060708U.to_uint64() << 32) | 0x01020304U.to_uint64(),
+  )
+  indexed_store.cpu.write_vreg(11, 1, all_ones)
+  match indexed_store.run(2) {
+    Running => ()
+    _ => fail("expected masked indexed store to skip invalid inactive offsets")
+  }
+  assert_eq(indexed_store.bus.load_u32(indexed_base), 0x01020304U.to_uint64())
+  assert_eq(
+    indexed_store.bus.load_u32(indexed_base + 4U.to_uint64()),
+    0x05060708U.to_uint64(),
+  )
+}
+
+///|
+test "rv64fdv vector memory rejects width-mismatch lmul2 vill and nonzero vstart" {
   let mismatch = make_runner(rv64fdv_machine_config())
   mismatch.load_program(
     words_to_bytes([

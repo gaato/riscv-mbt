@@ -296,6 +296,13 @@ test "decode first vector memory slice" {
     }
     _ => fail("expected vle32.v")
   }
+  match decode(encode_vle32(5, 6, false)) {
+    Vle32V(vd, rs1) => {
+      assert_eq(vd, 5)
+      assert_eq(rs1, 6)
+    }
+    _ => fail("expected masked vle32.v")
+  }
   match decode(encode_vle64(7, 8, true)) {
     Vle64V(vd, rs1) => {
       assert_eq(vd, 7)
@@ -339,6 +346,14 @@ test "decode first vector memory slice" {
     }
     _ => fail("expected vluxei32.v")
   }
+  match decode(encode_vluxei32(23, 24, 25, false)) {
+    Vluxei32V(vd, rs1, vs2) => {
+      assert_eq(vd, 23)
+      assert_eq(rs1, 24)
+      assert_eq(vs2, 25)
+    }
+    _ => fail("expected masked vluxei32.v")
+  }
   match decode(encode_vloxei32(29, 30, 31, true)) {
     Vloxei32V(vd, rs1, vs2) => {
       assert_eq(vd, 29)
@@ -354,6 +369,14 @@ test "decode first vector memory slice" {
       assert_eq(rs2, 19)
     }
     _ => fail("expected vlse32.v")
+  }
+  match decode(encode_vlse32(17, 18, 19, false)) {
+    Vlse32V(vd, rs1, rs2) => {
+      assert_eq(vd, 17)
+      assert_eq(rs1, 18)
+      assert_eq(rs2, 19)
+    }
+    _ => fail("expected masked vlse32.v")
   }
   match decode(encode_vsm(4, 5)) {
     VsmV(vs3, rs1) => {
@@ -382,6 +405,13 @@ test "decode first vector memory slice" {
       assert_eq(rs1, 14)
     }
     _ => fail("expected vse32.v")
+  }
+  match decode(encode_vse32(13, 14, false)) {
+    Vse32V(vs3, rs1) => {
+      assert_eq(vs3, 13)
+      assert_eq(rs1, 14)
+    }
+    _ => fail("expected masked vse32.v")
   }
   match decode(encode_vse64(15, 16, true)) {
     Vse64V(vs3, rs1) => {
@@ -413,6 +443,14 @@ test "decode first vector memory slice" {
       assert_eq(rs2, 22)
     }
     _ => fail("expected vsse32.v")
+  }
+  match decode(encode_vsse32(20, 21, 22, false)) {
+    Vsse32V(vs3, rs1, rs2) => {
+      assert_eq(vs3, 20)
+      assert_eq(rs1, 21)
+      assert_eq(rs2, 22)
+    }
+    _ => fail("expected masked vsse32.v")
   }
 }
 

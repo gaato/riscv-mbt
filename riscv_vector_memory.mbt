@@ -97,6 +97,23 @@ fn vector_indexed_addr(base : UInt64, offset : UInt64) -> UInt64 {
 }
 
 ///|
+fn vector_memory_uses_mask(raw : UInt) -> Bool {
+  ((raw >> 25) & 0x1U) == 0U
+}
+
+///|
+// Masked vector memory instructions must not touch memory for inactive lanes.
+// This is checked before address translation so inactive invalid addresses do
+// not fault and masked loads preserve their old destination elements.
+fn Runner::vector_memory_elem_active(
+  self : Runner,
+  raw : UInt,
+  elem : Int,
+) -> Bool {
+  !vector_memory_uses_mask(raw) || self.read_vmask_bit(elem)
+}
+
+///|
 fn Runner::vector_load_elem_bits(
   self : Runner,
   pa : UInt64,
@@ -146,20 +163,31 @@ fn Runner::execute_vector_load_unit_stride(
   let active_elems = config.vl.reinterpret_as_int64().to_int()
   let base = self.cpu.read_reg(rs1)
   let pas : Array[UInt64] = []
+  let elems : Array[Int] = []
   let values : Array[UInt64] = []
   for elem in 0..<active_elems {
-    let addr = vector_unit_stride_addr(base, elem, elem_bytes)
-    let (pa, check) = self.load_check(addr, elem_bytes)
-    match check {
-      Some(result) => return result
-      None => pas.push(pa)
+    if self.vector_memory_elem_active(raw, elem) {
+      let addr = vector_unit_stride_addr(base, elem, elem_bytes)
+      let (pa, check) = self.load_check(addr, elem_bytes)
+      match check {
+        Some(result) => return result
+        None => {
+          elems.push(elem)
+          pas.push(pa)
+        }
+      }
     }
   }
   for pa in pas {
     values.push(self.vector_load_elem_bits(pa, elem_bytes))
   }
-  for commit_elem in 0..<active_elems {
-    self.write_vreg_group_elem(vd, commit_elem, sew_bits, values[commit_elem])
+  for commit_index in 0..<elems.length() {
+    self.write_vreg_group_elem(
+      vd,
+      elems[commit_index],
+      sew_bits,
+      values[commit_index],
+    )
   }
   self.cpu.pc = next_pc
   Running
@@ -184,25 +212,38 @@ fn Runner::execute_vector_load_fault_only_first(
   let original_vl = config.vl.reinterpret_as_int64().to_int()
   let base = self.cpu.read_reg(rs1)
   let values : Array[UInt64] = []
+  let elems : Array[Int] = []
   let mut committed_elems = original_vl
   // Fault-only-first loads trap only for element zero. Later synchronous faults
   // trim vl to the faulting element and commit the prefix already loaded.
   for elem in 0..<original_vl {
-    let addr = vector_unit_stride_addr(base, elem, elem_bytes)
-    let (pa, check) = self.load_check(addr, elem_bytes)
-    match check {
-      Some(result) =>
-        if elem == 0 {
-          return result
-        } else {
-          committed_elems = elem
-          break
+    if self.vector_memory_elem_active(raw, elem) {
+      let addr = vector_unit_stride_addr(base, elem, elem_bytes)
+      let (pa, check) = self.load_check(addr, elem_bytes)
+      match check {
+        Some(result) =>
+          if elem == 0 {
+            return result
+          } else {
+            committed_elems = elem
+            break
+          }
+        None => {
+          elems.push(elem)
+          values.push(self.vector_load_elem_bits(pa, elem_bytes))
         }
-      None => values.push(self.vector_load_elem_bits(pa, elem_bytes))
+      }
     }
   }
-  for commit_elem in 0..<committed_elems {
-    self.write_vreg_group_elem(vd, commit_elem, sew_bits, values[commit_elem])
+  for commit_index in 0..<elems.length() {
+    if elems[commit_index] < committed_elems {
+      self.write_vreg_group_elem(
+        vd,
+        elems[commit_index],
+        sew_bits,
+        values[commit_index],
+      )
+    }
   }
   if committed_elems < original_vl {
     self.cpu.write_csr(
@@ -235,20 +276,31 @@ fn Runner::execute_vector_load_strided(
   let base = self.cpu.read_reg(rs1)
   let stride = self.cpu.read_reg(rs2)
   let pas : Array[UInt64] = []
+  let elems : Array[Int] = []
   let values : Array[UInt64] = []
   for elem in 0..<active_elems {
-    let addr = vector_strided_addr(base, elem, stride)
-    let (pa, check) = self.load_check(addr, elem_bytes)
-    match check {
-      Some(result) => return result
-      None => pas.push(pa)
+    if self.vector_memory_elem_active(raw, elem) {
+      let addr = vector_strided_addr(base, elem, stride)
+      let (pa, check) = self.load_check(addr, elem_bytes)
+      match check {
+        Some(result) => return result
+        None => {
+          elems.push(elem)
+          pas.push(pa)
+        }
+      }
     }
   }
   for pa in pas {
     values.push(self.vector_load_elem_bits(pa, elem_bytes))
   }
-  for commit_elem in 0..<active_elems {
-    self.write_vreg_group_elem(vd, commit_elem, sew_bits, values[commit_elem])
+  for commit_index in 0..<elems.length() {
+    self.write_vreg_group_elem(
+      vd,
+      elems[commit_index],
+      sew_bits,
+      values[commit_index],
+    )
   }
   self.cpu.pc = next_pc
   Running
@@ -275,21 +327,32 @@ fn Runner::execute_vector_load_indexed_e32(
   let active_elems = config.vl.reinterpret_as_int64().to_int()
   let base = self.cpu.read_reg(rs1)
   let pas : Array[UInt64] = []
+  let elems : Array[Int] = []
   let values : Array[UInt64] = []
   for elem in 0..<active_elems {
-    let offset = self.read_vreg_group_elem(vs2, elem, index_bits)
-    let addr = vector_indexed_addr(base, offset)
-    let (pa, check) = self.load_check(addr, elem_bytes)
-    match check {
-      Some(result) => return result
-      None => pas.push(pa)
+    if self.vector_memory_elem_active(raw, elem) {
+      let offset = self.read_vreg_group_elem(vs2, elem, index_bits)
+      let addr = vector_indexed_addr(base, offset)
+      let (pa, check) = self.load_check(addr, elem_bytes)
+      match check {
+        Some(result) => return result
+        None => {
+          elems.push(elem)
+          pas.push(pa)
+        }
+      }
     }
   }
   for pa in pas {
     values.push(self.vector_load_elem_bits(pa, elem_bytes))
   }
-  for commit_elem in 0..<active_elems {
-    self.write_vreg_group_elem(vd, commit_elem, sew_bits, values[commit_elem])
+  for commit_index in 0..<elems.length() {
+    self.write_vreg_group_elem(
+      vd,
+      elems[commit_index],
+      sew_bits,
+      values[commit_index],
+    )
   }
   self.cpu.pc = next_pc
   Running
@@ -352,17 +415,19 @@ fn Runner::execute_vector_store_unit_stride(
   let pas : Array[UInt64] = []
   let values : Array[UInt64] = []
   for elem in 0..<active_elems {
-    let addr = vector_unit_stride_addr(base, elem, elem_bytes)
-    let (pa, check) = self.store_check(addr, elem_bytes)
-    match check {
-      Some(result) => return result
-      None => {
-        pas.push(pa)
-        values.push(self.read_vreg_group_elem(vs3, elem, sew_bits))
+    if self.vector_memory_elem_active(raw, elem) {
+      let addr = vector_unit_stride_addr(base, elem, elem_bytes)
+      let (pa, check) = self.store_check(addr, elem_bytes)
+      match check {
+        Some(result) => return result
+        None => {
+          pas.push(pa)
+          values.push(self.read_vreg_group_elem(vs3, elem, sew_bits))
+        }
       }
     }
   }
-  for commit_elem in 0..<active_elems {
+  for commit_elem in 0..<pas.length() {
     self.vector_store_elem_bits(
       pas[commit_elem],
       elem_bytes,
@@ -432,18 +497,20 @@ fn Runner::execute_vector_store_indexed_e32(
   let pas : Array[UInt64] = []
   let values : Array[UInt64] = []
   for elem in 0..<active_elems {
-    let offset = self.read_vreg_group_elem(vs2, elem, index_bits)
-    let addr = vector_indexed_addr(base, offset)
-    let (pa, check) = self.store_check(addr, elem_bytes)
-    match check {
-      Some(result) => return result
-      None => {
-        pas.push(pa)
-        values.push(self.read_vreg_group_elem(vs3, elem, sew_bits))
+    if self.vector_memory_elem_active(raw, elem) {
+      let offset = self.read_vreg_group_elem(vs2, elem, index_bits)
+      let addr = vector_indexed_addr(base, offset)
+      let (pa, check) = self.store_check(addr, elem_bytes)
+      match check {
+        Some(result) => return result
+        None => {
+          pas.push(pa)
+          values.push(self.read_vreg_group_elem(vs3, elem, sew_bits))
+        }
       }
     }
   }
-  for commit_elem in 0..<active_elems {
+  for commit_elem in 0..<pas.length() {
     self.vector_store_elem_bits(
       pas[commit_elem],
       elem_bytes,
@@ -477,17 +544,19 @@ fn Runner::execute_vector_store_strided(
   let pas : Array[UInt64] = []
   let values : Array[UInt64] = []
   for elem in 0..<active_elems {
-    let addr = vector_strided_addr(base, elem, stride)
-    let (pa, check) = self.store_check(addr, elem_bytes)
-    match check {
-      Some(result) => return result
-      None => {
-        pas.push(pa)
-        values.push(self.read_vreg_group_elem(vs3, elem, sew_bits))
+    if self.vector_memory_elem_active(raw, elem) {
+      let addr = vector_strided_addr(base, elem, stride)
+      let (pa, check) = self.store_check(addr, elem_bytes)
+      match check {
+        Some(result) => return result
+        None => {
+          pas.push(pa)
+          values.push(self.read_vreg_group_elem(vs3, elem, sew_bits))
+        }
       }
     }
   }
-  for commit_elem in 0..<active_elems {
+  for commit_elem in 0..<pas.length() {
     self.vector_store_elem_bits(
       pas[commit_elem],
       elem_bytes,

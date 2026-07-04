@@ -1201,12 +1201,11 @@ pub fn decode(raw : UInt) -> Instruction {
         _ => Unknown(raw)
       }
     0x07U =>
-      if ((raw >> 29) & 0x7U) == 0U &&
-        ((raw >> 28) & 0x1U) == 0U &&
-        ((raw >> 25) & 0x1U) == 1U {
+      if ((raw >> 29) & 0x7U) == 0U && ((raw >> 28) & 0x1U) == 0U {
         let mop = (raw >> 26) & 0x3U
         match (mop, funct3(raw)) {
-          (0x0U, 0x0U) if rs2(raw) == 0x0b => VlmV(rd(raw), rs1(raw))
+          (0x0U, 0x0U) if rs2(raw) == 0x0b && ((raw >> 25) & 0x1U) == 1U =>
+            VlmV(rd(raw), rs1(raw))
           (0x0U, 0x0U) if rs2(raw) == 0 => Vle8V(rd(raw), rs1(raw))
           (0x0U, 0x5U) if rs2(raw) == 0 => Vle16V(rd(raw), rs1(raw))
           (0x0U, 0x6U) if rs2(raw) == 0 => Vle32V(rd(raw), rs1(raw))
@@ -1238,12 +1237,11 @@ pub fn decode(raw : UInt) -> Instruction {
         _ => Unknown(raw)
       }
     0x27U =>
-      if ((raw >> 29) & 0x7U) == 0U &&
-        ((raw >> 28) & 0x1U) == 0U &&
-        ((raw >> 25) & 0x1U) == 1U {
+      if ((raw >> 29) & 0x7U) == 0U && ((raw >> 28) & 0x1U) == 0U {
         let mop = (raw >> 26) & 0x3U
         match (mop, funct3(raw)) {
-          (0x0U, 0x0U) if rs2(raw) == 0x0b => VsmV(rd(raw), rs1(raw))
+          (0x0U, 0x0U) if rs2(raw) == 0x0b && ((raw >> 25) & 0x1U) == 1U =>
+            VsmV(rd(raw), rs1(raw))
           (0x0U, 0x0U) if rs2(raw) == 0 => Vse8V(rd(raw), rs1(raw))
           (0x0U, 0x5U) if rs2(raw) == 0 => Vse16V(rd(raw), rs1(raw))
           (0x0U, 0x6U) if rs2(raw) == 0 => Vse32V(rd(raw), rs1(raw))
