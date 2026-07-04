@@ -17,7 +17,13 @@ let dtb_path = "_build/minimal-alpine.dtb"
 let virtio_dtb_path = "_build/minimal-alpine-virtio.dtb"
 
 ///|
+let auto_root_virtio_dtb_path = "_build/minimal-alpine-virtio-auto-root.dtb"
+
+///|
 let initrd_path = "_build/alpine-initramfs-riscv64.cpio"
+
+///|
+let auto_root_initrd_path = "_build/alpine-initramfs-riscv64-auto-root.cpio"
 
 ///|
 let rootfs_image_path = "_build/alpine-rootfs-riscv64.ext4"
@@ -190,6 +196,41 @@ fn parse_positive_int_arg(
 ///|
 fn parse_flag(args : Array[String], flag : String) -> Bool {
   args.any(fn(arg) { arg == flag })
+}
+
+///|
+fn select_dtb_path(
+  args : Array[String],
+  uses_auto_root_artifacts : Bool,
+  uses_virtio_rootfs : Bool,
+) -> String {
+  match parse_arg_value(args, "--dtb") {
+    Some(path) => path
+    None =>
+      if uses_auto_root_artifacts {
+        auto_root_virtio_dtb_path
+      } else if uses_virtio_rootfs {
+        virtio_dtb_path
+      } else {
+        dtb_path
+      }
+  }
+}
+
+///|
+fn select_initrd_path(
+  args : Array[String],
+  uses_auto_root_artifacts : Bool,
+) -> String {
+  match parse_arg_value(args, "--initrd") {
+    Some(path) => path
+    None =>
+      if uses_auto_root_artifacts {
+        auto_root_initrd_path
+      } else {
+        initrd_path
+      }
+  }
 }
 
 ///|
@@ -645,6 +686,7 @@ async fn main {
   let switch_root_smoke = parse_flag(args, "--switch-root-smoke")
   let init_smoke = parse_flag(args, "--init-smoke")
   let auto_root_smoke = parse_flag(args, "--auto-root-smoke")
+  let auto_root_handoff = parse_flag(args, "--auto-root-handoff")
   let auto_root_post_init_smoke = parse_flag(
     args, "--auto-root-post-init-smoke",
   )
@@ -692,15 +734,7 @@ async fn main {
     None => None
   }
   let has_post_init_custom_command = post_init_custom_command is Some(_)
-  // Any smoke beyond the tiny initramfs prompt needs the virtio DTB and rootfs
-  // disk image. Keep that routing centralized so adding a new post-init proof
-  // does not accidentally boot the no-block-device platform.
-  let uses_virtio_rootfs = rootfs_smoke ||
-    switch_root_smoke ||
-    init_smoke ||
-    auto_root_smoke ||
-    auto_root_post_init_smoke ||
-    post_init_smoke ||
+  let has_post_init_probe = post_init_smoke ||
     post_init_session_smoke ||
     post_init_busybox_smoke ||
     post_init_apk_smoke ||
@@ -716,14 +750,23 @@ async fn main {
     post_init_apk_persistence_write_smoke ||
     post_init_apk_persistence_read_smoke ||
     has_post_init_custom_command
-  let selected_dtb_path = match parse_arg_value(args, "--dtb") {
-    Some(path) => path
-    None => if uses_virtio_rootfs { virtio_dtb_path } else { dtb_path }
-  }
-  let selected_initrd_path = match parse_arg_value(args, "--initrd") {
-    Some(path) => path
-    None => initrd_path
-  }
+  let uses_auto_root_artifacts = auto_root_smoke ||
+    auto_root_handoff ||
+    auto_root_post_init_smoke
+  // Any smoke beyond the tiny initramfs prompt needs the virtio DTB and rootfs
+  // disk image. Keep that routing centralized so adding a new post-init proof
+  // does not accidentally boot the no-block-device platform.
+  let uses_virtio_rootfs = rootfs_smoke ||
+    switch_root_smoke ||
+    init_smoke ||
+    auto_root_smoke ||
+    auto_root_handoff ||
+    auto_root_post_init_smoke ||
+    has_post_init_probe
+  let selected_dtb_path = select_dtb_path(
+    args, uses_auto_root_artifacts, uses_virtio_rootfs,
+  )
+  let selected_initrd_path = select_initrd_path(args, uses_auto_root_artifacts)
   let virtio_blk_disk_path = match parse_arg_value(args, "--virtio-blk-disk") {
     Some(path) => Some(path)
     None => if uses_virtio_rootfs { Some(rootfs_image_path) } else { None }
@@ -742,24 +785,11 @@ async fn main {
     Some(alpine_init_smoke_command())
   } else if auto_root_smoke {
     None
+  } else if auto_root_handoff {
+    None
   } else if auto_root_post_init_smoke {
     None
-  } else if post_init_smoke ||
-    post_init_session_smoke ||
-    post_init_busybox_smoke ||
-    post_init_apk_smoke ||
-    post_init_apk_static_smoke ||
-    post_init_apk_install_smoke ||
-    post_init_apk_local_repo_smoke ||
-    post_init_apk_local_deps_smoke ||
-    post_init_shell_smoke ||
-    post_init_system_smoke ||
-    post_init_storage_smoke ||
-    post_init_persistence_write_smoke ||
-    post_init_persistence_read_smoke ||
-    post_init_apk_persistence_write_smoke ||
-    post_init_apk_persistence_read_smoke ||
-    has_post_init_custom_command {
+  } else if has_post_init_probe {
     // Post-init probes first run the standard root handoff command. The
     // per-proof commands are injected only after rootfs-side init emits
     // `post-init-ready`.
@@ -776,6 +806,8 @@ async fn main {
   } else if init_smoke {
     Some(alpine_post_init_marker)
   } else if auto_root_smoke {
+    Some(alpine_post_init_marker)
+  } else if auto_root_handoff && !has_post_init_probe {
     Some(alpine_post_init_marker)
   } else if auto_root_post_init_smoke {
     Some("post-init-functional-ok")
@@ -976,7 +1008,11 @@ async fn main {
               break
             }
             if post_init_commands.length() > 0 &&
-              (shell_command_sent || auto_root_post_init_smoke) &&
+              (
+                shell_command_sent ||
+                auto_root_handoff ||
+                auto_root_post_init_smoke
+              ) &&
               post_init_command_index == 0 &&
               output.contains(alpine_post_init_marker) {
               // Rootfs-side autoshell is alive. Start the first post-init
@@ -1058,6 +1094,10 @@ async fn main {
         shell_expect_seen = true
         outcome = "console-command"
       }
+      if auto_root_handoff && !has_post_init_probe && output.contains(marker) {
+        shell_expect_seen = true
+        outcome = "console-command"
+      }
     }
     None => ()
   }
@@ -1081,6 +1121,7 @@ async fn main {
   println("switch_root_smoke=" + switch_root_smoke.to_string())
   println("init_smoke=" + init_smoke.to_string())
   println("auto_root_smoke=" + auto_root_smoke.to_string())
+  println("auto_root_handoff=" + auto_root_handoff.to_string())
   println("auto_root_post_init_smoke=" + auto_root_post_init_smoke.to_string())
   println("post_init_smoke=" + post_init_smoke.to_string())
   println("post_init_session_smoke=" + post_init_session_smoke.to_string())

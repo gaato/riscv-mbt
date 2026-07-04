@@ -628,6 +628,23 @@ implemented.
   `post-init-functional-ok`. This proves auto-root is not merely reaching init:
   the resulting rootfs-side shell remains usable for the existing functional
   command gate.
+- Added `cmd/alpine_probe --auto-root-handoff` as a modifier for the existing
+  post-init probes. It selects `_build/alpine-initramfs-riscv64-auto-root.cpio`
+  and `_build/minimal-alpine-virtio-auto-root.dtb` by default, sends no initial
+  UART root-handoff command, waits for rootfs-side `post-init-ready`, and then
+  injects the selected post-init command sequence. White-box tests cover the
+  default artifact selection and explicit `--dtb`/`--initrd` override behavior.
+  Validation:
+  `moon run --target native cmd/alpine_probe xlong --auto-root-handoff --post-init-system-smoke --post-init-command-step-budget 120000000`
+  reaches `outcome=console-command`, `shell_expect_seen=true`,
+  `auto_root_handoff=true`, `shell_command_sent=false`,
+  `post_init_command_sent=true`, `post_init_command_index=3`, and
+  `post-init-system-ok` at 642,000,000 guest steps. It reports
+  `virtio_blk=551 read-req/1641472 read-bytes 64 write-req/65536 write-bytes`
+  and final-command delta `0 read-req/0 read-bytes 63 write-req/64512
+  write-bytes`. This proves the system-level post-init gate no longer depends
+  on serial-injected `switch_root` for `/proc`, PID 1, identity, rootfs file
+  management, permission, cleanup, and sync behavior.
 - Reworked the virtio-blk write hot path so the backing disk is held internally
   as an `Array[Byte]` and mutated in place. Host persistence still receives a
   `Bytes` snapshot through `Runner::virtio_blk_disk_bytes`, but normal write
