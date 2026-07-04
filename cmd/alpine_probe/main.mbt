@@ -645,6 +645,9 @@ async fn main {
   let switch_root_smoke = parse_flag(args, "--switch-root-smoke")
   let init_smoke = parse_flag(args, "--init-smoke")
   let auto_root_smoke = parse_flag(args, "--auto-root-smoke")
+  let auto_root_post_init_smoke = parse_flag(
+    args, "--auto-root-post-init-smoke",
+  )
   let post_init_smoke = parse_flag(args, "--post-init-smoke")
   let post_init_session_smoke = parse_flag(args, "--post-init-session-smoke")
   let post_init_busybox_smoke = parse_flag(args, "--post-init-busybox-smoke")
@@ -696,6 +699,7 @@ async fn main {
     switch_root_smoke ||
     init_smoke ||
     auto_root_smoke ||
+    auto_root_post_init_smoke ||
     post_init_smoke ||
     post_init_session_smoke ||
     post_init_busybox_smoke ||
@@ -738,6 +742,8 @@ async fn main {
     Some(alpine_init_smoke_command())
   } else if auto_root_smoke {
     None
+  } else if auto_root_post_init_smoke {
+    None
   } else if post_init_smoke ||
     post_init_session_smoke ||
     post_init_busybox_smoke ||
@@ -771,6 +777,8 @@ async fn main {
     Some(alpine_post_init_marker)
   } else if auto_root_smoke {
     Some(alpine_post_init_marker)
+  } else if auto_root_post_init_smoke {
+    Some("post-init-functional-ok")
   } else if post_init_smoke {
     Some("post-init-functional-ok")
   } else if post_init_session_smoke {
@@ -834,6 +842,8 @@ async fn main {
     alpine_post_init_apk_persistence_write_commands()
   } else if post_init_apk_persistence_read_smoke {
     [alpine_post_init_apk_persistence_read_command()]
+  } else if auto_root_post_init_smoke {
+    [alpine_post_init_smoke_command()]
   } else if post_init_session_smoke {
     alpine_post_init_session_commands()
   } else if post_init_smoke {
@@ -869,6 +879,8 @@ async fn main {
     alpine_post_init_apk_persistence_write_markers()
   } else if post_init_apk_persistence_read_smoke {
     ["apk-persistence-read-ok"]
+  } else if auto_root_post_init_smoke {
+    ["post-init-functional-ok"]
   } else if post_init_session_smoke {
     alpine_post_init_session_markers()
   } else if post_init_smoke {
@@ -964,7 +976,7 @@ async fn main {
               break
             }
             if post_init_commands.length() > 0 &&
-              shell_command_sent &&
+              (shell_command_sent || auto_root_post_init_smoke) &&
               post_init_command_index == 0 &&
               output.contains(alpine_post_init_marker) {
               // Rootfs-side autoshell is alive. Start the first post-init
@@ -1069,6 +1081,7 @@ async fn main {
   println("switch_root_smoke=" + switch_root_smoke.to_string())
   println("init_smoke=" + init_smoke.to_string())
   println("auto_root_smoke=" + auto_root_smoke.to_string())
+  println("auto_root_post_init_smoke=" + auto_root_post_init_smoke.to_string())
   println("post_init_smoke=" + post_init_smoke.to_string())
   println("post_init_session_smoke=" + post_init_session_smoke.to_string())
   println("post_init_busybox_smoke=" + post_init_busybox_smoke.to_string())

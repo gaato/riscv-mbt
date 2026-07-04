@@ -614,3 +614,17 @@ implemented.
   `EXT4-fs (vda): mounted filesystem ... r/w`, `riscv-mbt Alpine auto-root
   ready`, and rootfs-side `post-init-ready`. This promotes rootfs handoff from
   a serial-command-driven probe to an initramfs-driven boot path.
+- Added `cmd/alpine_probe --auto-root-post-init-smoke`, which uses the same
+  auto-root initrd path but injects the existing post-init functional command
+  only after the rootfs-side `post-init-ready` marker appears. Validation:
+  `moon run --target native cmd/alpine_probe xlong --initrd _build/alpine-initramfs-riscv64-auto-root.cpio --dtb _build/minimal-alpine-virtio-auto-root.dtb --auto-root-post-init-smoke --post-init-command-step-budget 120000000`
+  reaches `outcome=console-command`, `shell_expect_seen=true`,
+  `auto_root_post_init_smoke=true`, `shell_command_sent=false`,
+  `post_init_command_sent=true`, `post_init_command_index=1`, and
+  `post-init-functional-ok` at 610,000,000 guest steps. It reports
+  `post_init_command_virtio_delta=2 read-req/2048 read-bytes 39
+  write-req/39936 write-bytes`. The UART tail shows the auto-root handoff,
+  then rootfs-side `/tmp` and `/root` file writes, `sync`, `riscv64`, and
+  `post-init-functional-ok`. This proves auto-root is not merely reaching init:
+  the resulting rootfs-side shell remains usable for the existing functional
+  command gate.
