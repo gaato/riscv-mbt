@@ -4964,10 +4964,13 @@ test "virtio-blk mmio skeleton exposes identity capacity and queue registers" {
     encode_i(1, 0, 0x0U, 8, 0x13U),
     encode_s(0x44, 8, 1, 0x2U, 0x23U),
     encode_i(0x44, 1, 0x2U, 9, 0x03U),
+    encode_i(1, 0, 0x0U, 10, 0x13U),
+    encode_s(0x14, 10, 1, 0x2U, 0x23U),
+    encode_i(0x10, 1, 0x2U, 10, 0x03U),
   ])
   let runner = make_runner(virtio_blk_machine_config())
   runner.load_program_u64(program, 0x80000000U.to_uint64())
-  match runner.run(11) {
+  match runner.run(14) {
     Running => ()
     _ => fail("expected running after virtio-blk mmio sequence")
   }
@@ -4977,6 +4980,7 @@ test "virtio-blk mmio skeleton exposes identity capacity and queue registers" {
   assert_eq(runner.read_reg_u64(5), 2048U.to_uint64())
   assert_eq(runner.read_reg_u64(7), 8U.to_uint64())
   assert_eq(runner.read_reg_u64(9), 1U.to_uint64())
+  assert_eq(runner.read_reg_u64(10), 1U.to_uint64())
 }
 
 ///|

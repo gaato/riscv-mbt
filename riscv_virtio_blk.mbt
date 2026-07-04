@@ -17,6 +17,12 @@ let virtio_blk_queue_max : UInt64 = 8U.to_uint64()
 let virtio_blk_capacity_sectors : UInt64 = 2048U.to_uint64()
 
 ///|
+let virtio_feature_version_1_page : UInt64 = 1U.to_uint64()
+
+///|
+let virtio_feature_version_1_mask : UInt64 = 1U.to_uint64()
+
+///|
 let virtio_blk_idx_device_features_sel : Int = 0
 
 ///|
@@ -83,6 +89,16 @@ fn Runner::virtio_blk_queue_addr(
   hi_index : Int,
 ) -> UInt64 {
   self.virtio_blk_state[lo_index] | (self.virtio_blk_state[hi_index] << 32)
+}
+
+///|
+fn Runner::virtio_blk_capacity(self : Runner) -> UInt64 {
+  let disk_sectors = self.virtio_blk_disk.length() / 512
+  if disk_sectors > 0 {
+    disk_sectors.reinterpret_as_uint().to_uint64()
+  } else {
+    virtio_blk_capacity_sectors
+  }
 }
 
 ///|
@@ -291,7 +307,13 @@ fn Runner::virtio_blk_read_u32(self : Runner, off : UInt64) -> UInt64 {
     0x004 => virtio_mmio_version
     0x008 => virtio_blk_device_id
     0x00c => virtio_vendor_riscv_mbt
-    0x010 => 0U.to_uint64()
+    0x010 =>
+      if self.virtio_blk_state[virtio_blk_idx_device_features_sel] ==
+        virtio_feature_version_1_page {
+        virtio_feature_version_1_mask
+      } else {
+        0U.to_uint64()
+      }
     0x014 => self.virtio_blk_state[virtio_blk_idx_device_features_sel]
     0x020 => self.virtio_blk_state[virtio_blk_idx_driver_features]
     0x024 => self.virtio_blk_state[virtio_blk_idx_driver_features_sel]
@@ -313,8 +335,8 @@ fn Runner::virtio_blk_read_u32(self : Runner, off : UInt64) -> UInt64 {
     0x0a0 => self.virtio_blk_state[virtio_blk_idx_queue_device_lo]
     0x0a4 => self.virtio_blk_state[virtio_blk_idx_queue_device_hi]
     0x0fc => 0U.to_uint64()
-    0x100 => virtio_blk_capacity_sectors & 0xffffffffU.to_uint64()
-    0x104 => virtio_blk_capacity_sectors >> 32
+    0x100 => self.virtio_blk_capacity() & 0xffffffffU.to_uint64()
+    0x104 => self.virtio_blk_capacity() >> 32
     _ => 0U.to_uint64()
   }
 }

@@ -150,6 +150,19 @@ fn alpine_functional_smoke_command() -> String {
 async fn main {
   let args = @env.args()
   let max_steps = parse_max_steps(args)
+  let selected_dtb_path = match parse_arg_value(args, "--dtb") {
+    Some(path) => path
+    None => dtb_path
+  }
+  let selected_initrd_path = match parse_arg_value(args, "--initrd") {
+    Some(path) => path
+    None => initrd_path
+  }
+  let virtio_blk_disk_path = parse_arg_value(args, "--virtio-blk-disk")
+  let selected_virtio_blk_disk_path = match virtio_blk_disk_path {
+    Some(path) => path
+    None => ""
+  }
   let functional_smoke = parse_flag(args, "--functional-smoke")
   let command = if functional_smoke {
     Some(alpine_functional_smoke_command())
@@ -163,14 +176,28 @@ async fn main {
   }
   let fw_bytes = read_binary(opensbi_path)
   let kernel_bytes = read_binary(kernel_path)
-  let dtb_bytes = read_binary(dtb_path)
-  let initrd_bytes = read_binary(initrd_path)
+  let dtb_bytes = read_binary(selected_dtb_path)
+  let initrd_bytes = read_binary(selected_initrd_path)
+  let virtio_blk_disk_bytes = match virtio_blk_disk_path {
+    Some(path) => Some(read_binary(path))
+    None => None
+  }
 
-  let runner = @riscv.make_runner(@riscv.virt_machine_config())
+  let runner = @riscv.make_runner(
+    if virtio_blk_disk_bytes is Some(_) {
+      @riscv.virtio_blk_machine_config()
+    } else {
+      @riscv.virt_machine_config()
+    },
+  )
   runner.load_program_u64(fw_bytes, 0x80000000U.to_uint64())
   runner.write_memory_bytes(kernel_entry_addr, kernel_bytes)
   runner.load_dtb(dtb_bytes)
   runner.write_memory_bytes(initrd_addr, initrd_bytes)
+  match virtio_blk_disk_bytes {
+    Some(bytes) => runner.load_virtio_blk_disk(bytes)
+    None => ()
+  }
   runner.setup_fw_dynamic_handoff(
     fw_dynamic_info_addr,
     kernel_entry_addr,
@@ -263,6 +290,9 @@ async fn main {
   println("shell_command_sent=" + shell_command_sent.to_string())
   println("shell_expect_seen=" + shell_expect_seen.to_string())
   println("functional_smoke=" + functional_smoke.to_string())
+  println("dtb_path=" + selected_dtb_path)
+  println("initrd_path=" + selected_initrd_path)
+  println("virtio_blk_disk=" + selected_virtio_blk_disk_path)
   println("final_pc=" + hex(runner.pc_u64()))
   println("final_privilege=" + privilege_name(runner.privilege_mode()))
   println("csr_sstatus=" + hex(runner.read_csr_u64(csr_sstatus)))
@@ -295,6 +325,8 @@ async fn main {
   )
   println("contains_run_init=" + output.contains(run_init_marker).to_string())
   println("contains_rootfs=" + output.contains(rootfs_marker).to_string())
+  println("contains_virtio_blk=" + output.contains("virtio_blk").to_string())
+  println("contains_vda=" + output.contains("vda").to_string())
   println(
     "contains_alpine_marker=" + output.contains(alpine_marker).to_string(),
   )

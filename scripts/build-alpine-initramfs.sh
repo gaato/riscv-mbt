@@ -9,15 +9,17 @@ base_url="${ALPINE_BASE_URL:-https://dl-cdn.alpinelinux.org/alpine/latest-stable
 rootfs_name="alpine-minirootfs-$version-$arch.tar.gz"
 rootfs_url="$base_url/$rootfs_name"
 sha_url="$rootfs_url.sha256"
-uboot_name="alpine-uboot-$version-$arch.tar.gz"
-uboot_url="$base_url/$uboot_name"
-uboot_sha_url="$uboot_url.sha256"
+apkindex_url="${ALPINE_APKINDEX_URL:-https://dl-cdn.alpinelinux.org/alpine/latest-stable/main/$arch/APKINDEX.tar.gz}"
+linux_lts_apk="${ALPINE_LINUX_LTS_APK:-}"
 initrd_addr="${ALPINE_INITRD_ADDR:-0x84000000}"
 initrd_format="${ALPINE_INITRD_FORMAT:-cpio}"
 initrd_profile="${ALPINE_INITRD_PROFILE:-tiny}"
 init_style="${ALPINE_INIT_STYLE:-static}"
 timebase_frequency="${ALPINE_TIMEBASE_FREQUENCY:-100000000}"
 bootargs="${ALPINE_BOOTARGS:-earlycon=sbi earlycon console=ttyS0,3686400 root=/dev/ram0 rdinit=/init}"
+root_dir=""
+linux_pkg_dir=""
+trap 'rm -rf "$root_dir" "$linux_pkg_dir"' EXIT
 case "$initrd_format" in
   cpio|gzip) ;;
   *)
@@ -59,33 +61,50 @@ curl -L -o "$build_dir/$rootfs_name.sha256" "$sha_url"
   sha256sum -c "$rootfs_name.sha256"
 )
 
-if [[ ! -f "$build_dir/$uboot_name" ]]; then
-  curl -L -o "$build_dir/$uboot_name" "$uboot_url"
+if [[ -z "$linux_lts_apk" ]]; then
+  curl -L -o "$build_dir/APKINDEX.tar.gz" "$apkindex_url"
+  apkindex_content="$(tar -xOzf "$build_dir/APKINDEX.tar.gz" APKINDEX)"
+  linux_lts_version="$(
+    awk 'BEGIN{RS="\n\n"} $0 ~ /(^|\n)P:linux-lts(\n|$)/ { for (i = 1; i <= NF; i++) if ($i ~ /^V:/) { sub(/^V:/, "", $i); print $i; exit } }' <<< "$apkindex_content"
+  )"
+  linux_lts_apk="$build_dir/linux-lts-$linux_lts_version.apk"
+  if [[ ! -f "$linux_lts_apk" ]]; then
+    curl -L -o "$linux_lts_apk" "https://dl-cdn.alpinelinux.org/alpine/latest-stable/main/$arch/linux-lts-$linux_lts_version.apk"
+  fi
 fi
 
-curl -L -o "$build_dir/$uboot_name.sha256" "$uboot_sha_url"
-(
-  cd "$build_dir"
-  sha256sum -c "$uboot_name.sha256"
-)
-
-tar -xOzf "$build_dir/$uboot_name" ./boot/vmlinuz-lts |
-  gzip -dc > "$repo_root/_build/linux-kernel-riscv64"
+linux_pkg_dir="$(mktemp -d "$repo_root/_build/alpine-linux-lts.XXXXXX")"
+tar --warning=no-unknown-keyword -xzf "$linux_lts_apk" -C "$linux_pkg_dir"
+gzip -dc "$linux_pkg_dir/boot/vmlinuz-lts" > "$repo_root/_build/linux-kernel-riscv64"
+linux_modules_dir="$(find "$linux_pkg_dir/lib/modules" -mindepth 1 -maxdepth 1 -type d -print -quit)"
 
 root_dir="$(mktemp -d "$repo_root/_build/alpine-rootfs.XXXXXX")"
-trap 'rm -rf "$root_dir"' EXIT
 
 if [[ "$initrd_profile" == "tiny" ]]; then
-  mkdir -p "$root_dir"/bin "$root_dir"/lib
+  mkdir -p "$root_dir"/bin "$root_dir"/sbin "$root_dir"/lib
   tar -xzf "$build_dir/$rootfs_name" -C "$root_dir" \
     ./bin/busybox \
     ./bin/sh \
     ./lib/ld-musl-riscv64.so.1 \
     ./lib/libc.musl-riscv64.so.1
+  for applet in mount cat ls dmesg grep printf; do
+    ln -sf /bin/busybox "$root_dir/bin/$applet"
+  done
+  ln -sf /bin/busybox "$root_dir/sbin/modprobe"
 else
   tar -xzf "$build_dir/$rootfs_name" -C "$root_dir"
 fi
 mkdir -p "$root_dir"/proc "$root_dir"/sys "$root_dir"/dev "$root_dir"/tmp
+if [[ -n "$linux_modules_dir" ]]; then
+  module_version="$(basename "$linux_modules_dir")"
+  target_modules="$root_dir/lib/modules/$module_version"
+  mkdir -p "$target_modules/kernel/drivers/virtio" "$target_modules/kernel/drivers/block"
+  cp "$linux_modules_dir"/modules.{alias,dep,builtin} "$target_modules"/
+  cp "$linux_modules_dir"/kernel/drivers/virtio/virtio.ko.* "$target_modules/kernel/drivers/virtio"/
+  cp "$linux_modules_dir"/kernel/drivers/virtio/virtio_ring.ko.* "$target_modules/kernel/drivers/virtio"/
+  cp "$linux_modules_dir"/kernel/drivers/virtio/virtio_mmio.ko.* "$target_modules/kernel/drivers/virtio"/
+  cp "$linux_modules_dir"/kernel/drivers/block/virtio_blk.ko.* "$target_modules/kernel/drivers/block"/
+fi
 if [[ "$init_style" == "static" ]]; then
   riscv64-elf-as -march=rv64imac -mabi=lp64 \
     -o "$repo_root/_build/alpine-init.o" \
@@ -136,6 +155,15 @@ python3 "$repo_root/tools/build_minimal_dtb.py" \
   --initrd-end "$(printf '0x%x' "$initrd_end")" \
   > "$repo_root/_build/minimal-alpine.dtb"
 
+python3 "$repo_root/tools/build_minimal_dtb.py" \
+  --bootargs "$bootargs" \
+  --timebase-frequency "$timebase_frequency" \
+  --initrd-start "$(printf '0x%x' "$initrd_start")" \
+  --initrd-end "$(printf '0x%x' "$initrd_end")" \
+  --virtio-blk-base 0x10001000 \
+  --virtio-blk-irq 1 \
+  > "$repo_root/_build/minimal-alpine-virtio.dtb"
+
 printf 'alpine rootfs: %s\n' "$build_dir/$rootfs_name"
 printf 'kernel image: %s (%s bytes)\n' \
   "$repo_root/_build/linux-kernel-riscv64" \
@@ -147,5 +175,6 @@ printf 'initrd gzip: %s (%s bytes)\n' \
   "$repo_root/_build/$initrd_gzip_name" \
   "$(wc -c < "$repo_root/_build/$initrd_gzip_name")"
 printf 'dtb: %s\n' "$repo_root/_build/minimal-alpine.dtb"
+printf 'virtio dtb: %s\n' "$repo_root/_build/minimal-alpine-virtio.dtb"
 printf 'timebase-frequency: %s\n' "$timebase_frequency"
 printf 'bootargs: %s\n' "$bootargs"

@@ -106,3 +106,24 @@ implemented.
   a writable data descriptor, writes the status byte, advances the used ring,
   and raises PLIC source 1. This is still a contract slice, not yet a full-rootfs
   Linux proof: disk image loading and a real Alpine rootfs boot are next.
+- Added `scripts/build-alpine-rootfs-image.sh` to create a raw ext4 Alpine
+  minirootfs image under `_build/alpine-rootfs-riscv64.ext4`.
+- Extended the Alpine initramfs builder so it derives the boot kernel and
+  virtio modules from Alpine `linux-lts`, keeps the tiny initrd usable for
+  console probing, and emits `_build/minimal-alpine-virtio.dtb` with a
+  `virtio,mmio` block node.
+- Added `cmd/alpine_probe` options for `--dtb`, `--initrd`, and
+  `--virtio-blk-disk`, so the console/native probe can exercise the raw rootfs
+  backing without changing the default tiny-initrd path.
+- Added the `VIRTIO_F_VERSION_1` feature bit and dynamic capacity reporting
+  from the loaded disk image. Without that feature Linux rejected the version 2
+  MMIO device with `New virtio-mmio devices (version 2) must provide
+  VIRTIO_F_VERSION_1 feature!`.
+- Current Linux proof: with `_build/minimal-alpine-virtio.dtb` and
+  `_build/alpine-rootfs-riscv64.ext4`, the Alpine console/native probe reaches
+  kernel block-device enumeration:
+  `virtio_blk virtio0: [vda] 131072 512-byte logical blocks (67.1 MB/64.0 MiB)`.
+  The proof is not yet a mounted-rootfs proof. A userspace command marker did
+  not complete by 600,000,000 guest steps, so the next work should focus on
+  post-enumeration block request progress and interrupt behavior before claiming
+  ordinary full-rootfs use.
