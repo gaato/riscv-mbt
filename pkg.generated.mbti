@@ -238,6 +238,8 @@ pub enum Instruction {
   VmsbfM(Int, Int)
   VmsofM(Int, Int)
   VmsifM(Int, Int)
+  ViotaM(Int, Int)
+  VidV(Int)
   VsllVv(Int, Int, Int)
   VsllVx(Int, Int, Int)
   VsllVi(Int, Int, Int)

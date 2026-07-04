@@ -800,6 +800,32 @@ test "decode first vector arithmetic slice" {
     }
     _ => fail("expected vmsif.m")
   }
+  match decode(encode_viota_m(18, 19, true)) {
+    ViotaM(vd, vs2) => {
+      assert_eq(vd, 18)
+      assert_eq(vs2, 19)
+    }
+    _ => fail("expected viota.m")
+  }
+  match decode(encode_viota_m(20, 21, false)) {
+    ViotaM(vd, vs2) => {
+      assert_eq(vd, 20)
+      assert_eq(vs2, 21)
+    }
+    _ => fail("expected masked viota.m")
+  }
+  match decode(encode_vid_v(22, true)) {
+    VidV(vd) => assert_eq(vd, 22)
+    _ => fail("expected vid.v")
+  }
+  match decode(encode_vid_v(23, false)) {
+    VidV(vd) => assert_eq(vd, 23)
+    _ => fail("expected masked vid.v")
+  }
+  match decode(encode_vop(0x14U, true, 1, 0x11, 0x2U, 24)) {
+    Unknown(_) => ()
+    _ => fail("expected vid.v with nonzero vs2 field to remain reserved")
+  }
   match decode(encode_vsll_vv(13, 14, 15, true)) {
     VsllVv(vd, vs2, vs1) => {
       assert_eq(vd, 13)

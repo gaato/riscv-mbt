@@ -173,6 +173,16 @@ fn vector_group_aligned(vreg : Int, lmul_log2 : Int) -> Bool {
 }
 
 ///|
+fn vector_group_contains_vreg(
+  base_vreg : Int,
+  lmul_log2 : Int,
+  vreg : Int,
+) -> Bool {
+  let registers = vector_lmul_registers(lmul_log2)
+  base_vreg <= vreg && vreg < base_vreg + registers
+}
+
+///|
 fn vector_group_elem_vreg(
   base_vreg : Int,
   elem_index : Int,
@@ -472,6 +482,68 @@ fn Runner::execute_vector_mask_prefix(
     self.write_vmask_bit(vd, elem, value)
     if source_set {
       found = true
+    }
+  }
+  self.cpu.pc = next_pc
+  Running
+}
+
+///|
+fn Runner::execute_vector_iota(
+  self : Runner,
+  vd : Int,
+  vs2 : Int,
+  config : VectorExecConfig,
+  active_elems : Int,
+  mask_bits : Array[Bool],
+  use_mask : Bool,
+  current_pc : UInt64,
+  next_pc : UInt64,
+  raw : UInt,
+) -> StepResult {
+  if !vector_group_aligned(vd, config.lmul_log2) {
+    return self.raise_vector_group_misaligned(current_pc, raw)
+  }
+  if vector_group_contains_vreg(vd, config.lmul_log2, vs2) ||
+    (use_mask && vector_group_contains_vreg(vd, config.lmul_log2, 0)) {
+    return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+  }
+  let mut count = 0U.to_uint64()
+  for elem in 0..<active_elems {
+    if !use_mask || mask_bits[elem] {
+      self.write_vreg_group_elem(vd, elem, config.sew_bits, count)
+      if self.read_vmask_bit_from(vs2, elem) {
+        count += 1U.to_uint64()
+      }
+    }
+  }
+  self.cpu.pc = next_pc
+  Running
+}
+
+///|
+fn Runner::execute_vector_index(
+  self : Runner,
+  vd : Int,
+  config : VectorExecConfig,
+  active_elems : Int,
+  mask_bits : Array[Bool],
+  use_mask : Bool,
+  current_pc : UInt64,
+  next_pc : UInt64,
+  raw : UInt,
+) -> StepResult {
+  if !vector_group_aligned(vd, config.lmul_log2) {
+    return self.raise_vector_group_misaligned(current_pc, raw)
+  }
+  for elem in 0..<active_elems {
+    if !use_mask || mask_bits[elem] {
+      self.write_vreg_group_elem(
+        vd,
+        elem,
+        config.sew_bits,
+        elem.reinterpret_as_uint().to_uint64(),
+      )
     }
   }
   self.cpu.pc = next_pc
@@ -1407,6 +1479,15 @@ fn Runner::execute_vector_first_slice(
         current_pc,
         next_pc,
         raw,
+      )
+    ViotaM(vd, vs2) =>
+      self.execute_vector_iota(
+        vd, vs2, config, active_elems, mask_bits, use_mask, current_pc, next_pc,
+        raw,
+      )
+    VidV(vd) =>
+      self.execute_vector_index(
+        vd, config, active_elems, mask_bits, use_mask, current_pc, next_pc, raw,
       )
     VsllVv(vd, vs2, vs1) =>
       self.execute_vector_binary_vv(

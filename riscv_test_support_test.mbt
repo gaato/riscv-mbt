@@ -743,6 +743,16 @@ fn encode_vmsif_m(vd : Int, vs2 : Int, vm : Bool) -> UInt {
 }
 
 ///|
+fn encode_viota_m(vd : Int, vs2 : Int, vm : Bool) -> UInt {
+  encode_vop(0x14U, vm, vs2, 0x10, 0x2U, vd)
+}
+
+///|
+fn encode_vid_v(vd : Int, vm : Bool) -> UInt {
+  encode_vop(0x14U, vm, 0, 0x11, 0x2U, vd)
+}
+
+///|
 fn encode_vsll_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
   encode_vop(0x26U, vm, vs2, vs1, 0x0U, vd)
 }
