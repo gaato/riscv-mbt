@@ -48,6 +48,10 @@ if [[ "$initrd_format" == "gzip" ]]; then
 else
   initrd_name="$initrd_cpio_name"
 fi
+style_initrd_cpio_name="alpine-initramfs-$arch-$init_style.cpio"
+style_initrd_gzip_name="alpine-initramfs-$arch-$init_style.cpio.gz"
+style_dtb_name="minimal-alpine-$init_style.dtb"
+style_virtio_dtb_name="minimal-alpine-virtio-$init_style.dtb"
 
 mkdir -p "$build_dir" "$repo_root/_build"
 
@@ -209,6 +213,13 @@ python3 "$repo_root/tools/build_minimal_dtb.py" \
   --virtio-blk-irq 1 \
   > "$repo_root/_build/minimal-alpine-virtio.dtb"
 
+if [[ "$init_style" != "static" ]]; then
+  cp "$repo_root/_build/$initrd_cpio_name" "$repo_root/_build/$style_initrd_cpio_name"
+  cp "$repo_root/_build/$initrd_gzip_name" "$repo_root/_build/$style_initrd_gzip_name"
+  cp "$repo_root/_build/minimal-alpine.dtb" "$repo_root/_build/$style_dtb_name"
+  cp "$repo_root/_build/minimal-alpine-virtio.dtb" "$repo_root/_build/$style_virtio_dtb_name"
+fi
+
 printf 'alpine rootfs: %s\n' "$build_dir/$rootfs_name"
 printf 'kernel image: %s (%s bytes)\n' \
   "$repo_root/_build/linux-kernel-riscv64" \
@@ -221,5 +232,15 @@ printf 'initrd gzip: %s (%s bytes)\n' \
   "$(wc -c < "$repo_root/_build/$initrd_gzip_name")"
 printf 'dtb: %s\n' "$repo_root/_build/minimal-alpine.dtb"
 printf 'virtio dtb: %s\n' "$repo_root/_build/minimal-alpine-virtio.dtb"
+if [[ "$init_style" != "static" ]]; then
+  printf 'style initrd: %s (%s bytes)\n' \
+    "$repo_root/_build/$style_initrd_cpio_name" \
+    "$(wc -c < "$repo_root/_build/$style_initrd_cpio_name")"
+  printf 'style initrd gzip: %s (%s bytes)\n' \
+    "$repo_root/_build/$style_initrd_gzip_name" \
+    "$(wc -c < "$repo_root/_build/$style_initrd_gzip_name")"
+  printf 'style dtb: %s\n' "$repo_root/_build/$style_dtb_name"
+  printf 'style virtio dtb: %s\n' "$repo_root/_build/$style_virtio_dtb_name"
+fi
 printf 'timebase-frequency: %s\n' "$timebase_frequency"
 printf 'bootargs: %s\n' "$bootargs"

@@ -596,15 +596,25 @@ implemented.
   `switch_root`s to `/sbin/init`. The default init style remains `static`, so
   routine probes still use the historical explicit shell handoff unless an
   auto-root artifact is requested.
+- `scripts/build-alpine-initramfs.sh` now preserves non-static init styles under
+  style-qualified artifact names. Running
+  `ALPINE_INIT_STYLE=auto-root ./scripts/build-alpine-initramfs.sh` writes the
+  normal `_build/alpine-initramfs-riscv64.cpio` and
+  `_build/minimal-alpine-virtio.dtb`, and also saves
+  `_build/alpine-initramfs-riscv64-auto-root.cpio`,
+  `_build/alpine-initramfs-riscv64-auto-root.cpio.gz`,
+  `_build/minimal-alpine-auto-root.dtb`, and
+  `_build/minimal-alpine-virtio-auto-root.dtb`. Validation ran
+  `bash -n scripts/build-alpine-initramfs.sh`,
+  `ALPINE_INIT_STYLE=auto-root ./scripts/build-alpine-initramfs.sh`, and then
+  `./scripts/build-alpine-initramfs.sh` to restore the default static artifacts.
+  The auto-root cpio contains `riscv-mbt Alpine auto-root ready`, while the
+  restored default cpio does not.
 - Added `cmd/alpine_probe --auto-root-smoke`, which selects the virtio rootfs
   path but does not inject a UART command. It succeeds only if the booted
   initramfs/rootfs path emits the rootfs-side `post-init-ready` marker on its
   own. Validation command:
-  `ALPINE_INIT_STYLE=auto-root ./scripts/build-alpine-initramfs.sh`, then copy
-  `_build/alpine-initramfs-riscv64.cpio` to
-  `_build/alpine-initramfs-riscv64-auto-root.cpio` and
-  `_build/minimal-alpine-virtio.dtb` to
-  `_build/minimal-alpine-virtio-auto-root.dtb`, then run
+  `ALPINE_INIT_STYLE=auto-root ./scripts/build-alpine-initramfs.sh`, then
   `moon run --target native cmd/alpine_probe xlong --initrd _build/alpine-initramfs-riscv64-auto-root.cpio --dtb _build/minimal-alpine-virtio-auto-root.dtb --auto-root-smoke`.
   The proof reaches `outcome=console-command`, `shell_expect_seen=true`,
   `auto_root_smoke=true`, `shell_command_sent=false`,
