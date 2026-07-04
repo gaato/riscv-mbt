@@ -321,6 +321,50 @@ fn alpine_post_init_shell_markers() -> Array[String] {
 }
 
 ///|
+fn alpine_post_init_system_commands() -> Array[String] {
+  // This smoke exercises ordinary process and filesystem administration
+  // surfaces that are broader than shell syntax but narrower than package
+  // management: /proc visibility, PID 1, identity, working directories,
+  // permissions, and create/move/remove behavior on the rootfs.
+  [
+    // PID 1 and identity: prove the switched root has a procfs view and that
+    // we are still driving the root-owned validation shell.
+    "test -d /proc/1 && " +
+    "readlink /proc/1/exe | grep busybox && " +
+    "ps | grep '[i]nit' && " +
+    "id && " +
+    "id -u | grep '^0$' && " +
+    "printf '\\163\\171\\163\\164\\145\\155\\055\\160\\162\\157\\143\\055\\157\\153\\012'",
+    // Rootfs file management: create nested directories, move a file, and read
+    // the moved content back before cleanup.
+    "pwd && " +
+    "cd /root && " +
+    "mkdir -p riscv-mbt-system/a && " +
+    "printf 'system-file\\n' > riscv-mbt-system/a/source && " +
+    "mv riscv-mbt-system/a/source riscv-mbt-system/a/moved && " +
+    "test -f riscv-mbt-system/a/moved && " +
+    "grep system-file riscv-mbt-system/a/moved && " +
+    "printf '\\163\\171\\163\\164\\145\\155\\055\\146\\163\\055\\157\\153\\012'",
+    // Permission and cleanup: umask should affect rootfs file mode, and rm/rmdir
+    // should leave no validation directory behind.
+    "umask 077 && " +
+    "printf 'secret\\n' > /root/riscv-mbt-system/secret && " +
+    "ls -l /root/riscv-mbt-system/secret | grep '^-rw-------' && " +
+    "rm /root/riscv-mbt-system/secret && " +
+    "rm /root/riscv-mbt-system/a/moved && " +
+    "rmdir /root/riscv-mbt-system/a && " +
+    "rmdir /root/riscv-mbt-system && " +
+    "sync && " +
+    "printf '\\160\\157\\163\\164\\055\\151\\156\\151\\164\\055\\163\\171\\163\\164\\145\\155\\055\\157\\153\\012'",
+  ]
+}
+
+///|
+fn alpine_post_init_system_markers() -> Array[String] {
+  ["system-proc-ok", "system-fs-ok", "post-init-system-ok"]
+}
+
+///|
 fn alpine_post_init_storage_commands() -> Array[String] {
   // This smoke is about the block-backed rootfs path, not applet breadth:
   // write a file, force writeback, then read and compare it through a second
@@ -376,6 +420,7 @@ async fn main {
   let post_init_session_smoke = parse_flag(args, "--post-init-session-smoke")
   let post_init_busybox_smoke = parse_flag(args, "--post-init-busybox-smoke")
   let post_init_shell_smoke = parse_flag(args, "--post-init-shell-smoke")
+  let post_init_system_smoke = parse_flag(args, "--post-init-system-smoke")
   let post_init_storage_smoke = parse_flag(args, "--post-init-storage-smoke")
   let post_init_persistence_write_smoke = parse_flag(
     args, "--post-init-persistence-write-smoke",
@@ -406,6 +451,7 @@ async fn main {
     post_init_session_smoke ||
     post_init_busybox_smoke ||
     post_init_shell_smoke ||
+    post_init_system_smoke ||
     post_init_storage_smoke ||
     post_init_persistence_write_smoke ||
     post_init_persistence_read_smoke ||
@@ -438,6 +484,7 @@ async fn main {
     post_init_session_smoke ||
     post_init_busybox_smoke ||
     post_init_shell_smoke ||
+    post_init_system_smoke ||
     post_init_storage_smoke ||
     post_init_persistence_write_smoke ||
     post_init_persistence_read_smoke ||
@@ -465,6 +512,8 @@ async fn main {
     Some("post-init-busybox-ok")
   } else if post_init_shell_smoke {
     Some("post-init-shell-ok")
+  } else if post_init_system_smoke {
+    Some("post-init-system-ok")
   } else if post_init_storage_smoke {
     Some("post-init-storage-ok")
   } else if post_init_persistence_write_smoke {
@@ -482,6 +531,8 @@ async fn main {
     alpine_post_init_busybox_commands()
   } else if post_init_shell_smoke {
     alpine_post_init_shell_commands()
+  } else if post_init_system_smoke {
+    alpine_post_init_system_commands()
   } else if post_init_storage_smoke {
     alpine_post_init_storage_commands()
   } else if post_init_persistence_write_smoke {
@@ -501,6 +552,8 @@ async fn main {
     alpine_post_init_busybox_markers()
   } else if post_init_shell_smoke {
     alpine_post_init_shell_markers()
+  } else if post_init_system_smoke {
+    alpine_post_init_system_markers()
   } else if post_init_storage_smoke {
     alpine_post_init_storage_markers()
   } else if post_init_persistence_write_smoke {
@@ -673,6 +726,7 @@ async fn main {
   println("post_init_session_smoke=" + post_init_session_smoke.to_string())
   println("post_init_busybox_smoke=" + post_init_busybox_smoke.to_string())
   println("post_init_shell_smoke=" + post_init_shell_smoke.to_string())
+  println("post_init_system_smoke=" + post_init_system_smoke.to_string())
   println("post_init_storage_smoke=" + post_init_storage_smoke.to_string())
   println(
     "post_init_persistence_write_smoke=" +

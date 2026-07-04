@@ -331,3 +331,15 @@ implemented.
   background job output (`background-ok`), exit-status branch
   (`exit-status-ok`), and redirection/subshell output
   (`subshell-ok`, `append-ok`).
+- Added `cmd/alpine_probe --post-init-system-smoke` as a rootfs-side system
+  administration probe. It checks `/proc/1`, PID 1's BusyBox executable, `ps`,
+  root identity via `id`, working-directory changes, directory creation, file
+  move/readback, `umask`-controlled permissions, cleanup with `rm`/`rmdir`, and
+  `sync` before emitting `post-init-system-ok`.
+- Current system administration proof:
+  `moon run --target native cmd/alpine_probe xlong --post-init-system-smoke`
+  reaches `outcome=console-command`, `post_init_command_index=3`,
+  `shell_expect_seen=true`, `post_init_system_smoke=true`, and
+  `post-init-system-ok` at 676,000,000 guest steps. The UART tail shows
+  `/proc/1` resolving to `/bin/busybox`, `/sbin/init` in `ps`, root identity via
+  `id`, moved-file readback, `-rw-------` from `umask 077`, cleanup, and `sync`.
