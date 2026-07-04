@@ -257,6 +257,9 @@ priv enum VectorBinaryOp {
   VectorBinMin
   VectorBinMaxu
   VectorBinMax
+  VectorBinSll
+  VectorBinSrl
+  VectorBinSra
   VectorBinAnd
   VectorBinOr
   VectorBinXor
@@ -267,6 +270,13 @@ fn vector_signed_lane(value : UInt64, sew_bits : Int) -> Int64 {
   // Signed RVV integer comparisons interpret each lane at SEW width, not at
   // host UInt64 width. Sign-extend before comparing so e32 0xffffffff is -1.
   xlen_sign_extend(value, sew_bits, XLEN_64).reinterpret_as_int64()
+}
+
+///|
+fn vector_shift_amount(value : UInt64, sew_bits : Int) -> Int {
+  // RVV single-width shifts use only the low lg2(SEW) bits. Because all
+  // currently supported SEW values are powers of two, `SEW - 1` is that mask.
+  (value & (sew_bits - 1).reinterpret_as_uint().to_uint64()).to_int()
 }
 
 ///|
@@ -293,6 +303,13 @@ fn vector_apply_binary(
       } else {
         rhs
       }
+    VectorBinSll => lhs << vector_shift_amount(rhs, sew_bits)
+    VectorBinSrl => lhs >> vector_shift_amount(rhs, sew_bits)
+    VectorBinSra => {
+      let shifted = vector_signed_lane(lhs, sew_bits) >>
+        vector_shift_amount(rhs, sew_bits)
+      shifted.reinterpret_as_uint64()
+    }
     VectorBinAnd => lhs & rhs
     VectorBinOr => lhs | rhs
     VectorBinXor => lhs ^ rhs
@@ -1119,6 +1136,153 @@ fn Runner::execute_vector_first_slice(
         mask_bits,
         use_mask,
         VectorBinMax,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VsllVv(vd, vs2, vs1) =>
+      self.execute_vector_binary_vv(
+        vd,
+        vs2,
+        vs1,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinSll,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    VsllVx(vd, vs2, rs1) => {
+      let scalar = self.cpu.read_reg(rs1)
+      self.execute_vector_binary_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinSll,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VsllVi(vd, vs2, imm) => {
+      let scalar = imm.reinterpret_as_uint().to_uint64()
+      self.execute_vector_binary_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinSll,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VsrlVv(vd, vs2, vs1) =>
+      self.execute_vector_binary_vv(
+        vd,
+        vs2,
+        vs1,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinSrl,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    VsrlVx(vd, vs2, rs1) => {
+      let scalar = self.cpu.read_reg(rs1)
+      self.execute_vector_binary_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinSrl,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VsrlVi(vd, vs2, imm) => {
+      let scalar = imm.reinterpret_as_uint().to_uint64()
+      self.execute_vector_binary_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinSrl,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VsraVv(vd, vs2, vs1) =>
+      self.execute_vector_binary_vv(
+        vd,
+        vs2,
+        vs1,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinSra,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    VsraVx(vd, vs2, rs1) => {
+      let scalar = self.cpu.read_reg(rs1)
+      self.execute_vector_binary_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinSra,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VsraVi(vd, vs2, imm) => {
+      let scalar = imm.reinterpret_as_uint().to_uint64()
+      self.execute_vector_binary_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinSra,
         current_pc,
         next_pc,
         raw,

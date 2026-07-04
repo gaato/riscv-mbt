@@ -987,6 +987,15 @@ fn instruction_supported_for_current_config(
     VmaxuVx(_, _, _) => has_v
     VmaxVv(_, _, _) => has_v
     VmaxVx(_, _, _) => has_v
+    VsllVv(_, _, _) => has_v
+    VsllVx(_, _, _) => has_v
+    VsllVi(_, _, _) => has_v
+    VsrlVv(_, _, _) => has_v
+    VsrlVx(_, _, _) => has_v
+    VsrlVi(_, _, _) => has_v
+    VsraVv(_, _, _) => has_v
+    VsraVx(_, _, _) => has_v
+    VsraVi(_, _, _) => has_v
     VandVv(_, _, _) => has_v
     VandVx(_, _, _) => has_v
     VandVi(_, _, _) => has_v
@@ -1190,6 +1199,9 @@ pub fn decode(raw : UInt) -> Instruction {
             0x09U => VandVv(rd(raw), rs2(raw), rs1(raw))
             0x0aU => VorVv(rd(raw), rs2(raw), rs1(raw))
             0x0bU => VxorVv(rd(raw), rs2(raw), rs1(raw))
+            0x26U => VsllVv(rd(raw), rs2(raw), rs1(raw))
+            0x28U => VsrlVv(rd(raw), rs2(raw), rs1(raw))
+            0x29U => VsraVv(rd(raw), rs2(raw), rs1(raw))
             _ => Unknown(raw)
           }
         0x3U =>
@@ -1202,6 +1214,24 @@ pub fn decode(raw : UInt) -> Instruction {
               VorVi(rd(raw), rs2(raw), sign_extend((raw >> 15) & 0x1fU, 5))
             0x0bU =>
               VxorVi(rd(raw), rs2(raw), sign_extend((raw >> 15) & 0x1fU, 5))
+            0x26U =>
+              VsllVi(
+                rd(raw),
+                rs2(raw),
+                ((raw >> 15) & 0x1fU).reinterpret_as_int(),
+              )
+            0x28U =>
+              VsrlVi(
+                rd(raw),
+                rs2(raw),
+                ((raw >> 15) & 0x1fU).reinterpret_as_int(),
+              )
+            0x29U =>
+              VsraVi(
+                rd(raw),
+                rs2(raw),
+                ((raw >> 15) & 0x1fU).reinterpret_as_int(),
+              )
             0x17U =>
               if ((raw >> 25) & 0x1U) == 1U && rs2(raw) == 0 {
                 VmvVI(rd(raw), sign_extend((raw >> 15) & 0x1fU, 5))
@@ -1221,6 +1251,9 @@ pub fn decode(raw : UInt) -> Instruction {
             0x09U => VandVx(rd(raw), rs2(raw), rs1(raw))
             0x0aU => VorVx(rd(raw), rs2(raw), rs1(raw))
             0x0bU => VxorVx(rd(raw), rs2(raw), rs1(raw))
+            0x26U => VsllVx(rd(raw), rs2(raw), rs1(raw))
+            0x28U => VsrlVx(rd(raw), rs2(raw), rs1(raw))
+            0x29U => VsraVx(rd(raw), rs2(raw), rs1(raw))
             0x17U =>
               if ((raw >> 25) & 0x1U) == 1U && rs2(raw) == 0 {
                 VmvVX(rd(raw), rs1(raw))

@@ -1497,6 +1497,24 @@ pub fn Runner::step(self : Runner) -> StepResult {
       self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
     VmaxVx(_, _, _) =>
       self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VsllVv(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VsllVx(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VsllVi(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VsrlVv(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VsrlVx(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VsrlVi(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VsraVv(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VsraVx(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VsraVi(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
     VandVv(_, _, _) =>
       self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
     VandVx(_, _, _) =>

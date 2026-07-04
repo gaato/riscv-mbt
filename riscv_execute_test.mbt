@@ -1960,6 +1960,61 @@ test "rv64fdv vector min max slice distinguishes signed and unsigned e32 lanes" 
 }
 
 ///|
+test "rv64fdv vector shift slice masks shift amounts by sew" {
+  let program = words_to_bytes([
+    encode_vsetivli(0, 8U, 0x11U),
+    encode_vsll_vv(6, 2, 4, true),
+    encode_vsrl_vv(8, 2, 4, true),
+    encode_vsra_vv(10, 2, 4, true),
+    encode_vsll_vx(12, 2, 10, true),
+    encode_vsrl_vx(14, 2, 10, true),
+    encode_vsra_vx(16, 2, 10, true),
+    encode_vsll_vi(18, 2, 31, true),
+    encode_vsrl_vi(20, 2, 31, true),
+    encode_vsra_vi(22, 2, 31, true),
+  ])
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.load_program(program, 0U)
+  runner.cpu.write_reg(10, 33U.to_uint64())
+
+  runner.cpu.write_vreg(2, 0, test_join_u64(0x80000000U, 1U))
+  runner.cpu.write_vreg(2, 1, test_join_u64(0x7fffffffU, 0xfffffffeU))
+  runner.cpu.write_vreg(3, 0, test_join_u64(0xffffffffU, 0x10U))
+  runner.cpu.write_vreg(3, 1, test_join_u64(3U, 0x40000000U))
+
+  // The shift counts deliberately exceed the e32 shift width in some lanes.
+  // RVV uses only the low lg2(SEW) bits, so 33 behaves as 1 and 32 as 0.
+  runner.cpu.write_vreg(4, 0, test_join_u64(33U, 1U))
+  runner.cpu.write_vreg(4, 1, test_join_u64(31U, 4U))
+  runner.cpu.write_vreg(5, 0, test_join_u64(2U, 0U))
+  runner.cpu.write_vreg(5, 1, test_join_u64(32U, 30U))
+
+  match runner.run(10) {
+    Running => ()
+    _ => fail("expected vector shift sequence to run")
+  }
+
+  assert_vreg_e32x4(runner, 6, 2U, 0U, 0xffffffe0U, 0x80000000U)
+  assert_vreg_e32x4(runner, 7, 0x10U, 0xfffffffcU, 0U, 3U)
+  assert_vreg_e32x4(runner, 8, 0U, 0x40000000U, 0x0fffffffU, 0U)
+  assert_vreg_e32x4(runner, 9, 0x10U, 0x3fffffffU, 1U, 3U)
+  assert_vreg_e32x4(runner, 10, 0U, 0xc0000000U, 0xffffffffU, 0U)
+  assert_vreg_e32x4(runner, 11, 0x10U, 0xffffffffU, 1U, 3U)
+  assert_vreg_e32x4(runner, 12, 2U, 0U, 0xfffffffcU, 0xfffffffeU)
+  assert_vreg_e32x4(runner, 13, 0x20U, 0xfffffffeU, 0x80000000U, 6U)
+  assert_vreg_e32x4(runner, 14, 0U, 0x40000000U, 0x7fffffffU, 0x3fffffffU)
+  assert_vreg_e32x4(runner, 15, 8U, 0x7fffffffU, 0x20000000U, 1U)
+  assert_vreg_e32x4(runner, 16, 0U, 0xc0000000U, 0xffffffffU, 0x3fffffffU)
+  assert_vreg_e32x4(runner, 17, 8U, 0xffffffffU, 0x20000000U, 1U)
+  assert_vreg_e32x4(runner, 18, 0x80000000U, 0U, 0U, 0x80000000U)
+  assert_vreg_e32x4(runner, 19, 0U, 0x80000000U, 0U, 0x80000000U)
+  assert_vreg_e32x4(runner, 20, 0U, 1U, 1U, 0U)
+  assert_vreg_e32x4(runner, 21, 0U, 1U, 0U, 0U)
+  assert_vreg_e32x4(runner, 22, 0U, 0xffffffffU, 0xffffffffU, 0U)
+  assert_vreg_e32x4(runner, 23, 0U, 0xffffffffU, 0U, 0U)
+}
+
+///|
 fn test_vector_vtypei_for_sew(sew_bits : Int) -> UInt {
   match sew_bits {
     8 => 0x00U

@@ -523,6 +523,78 @@ test "decode first vector arithmetic slice" {
     }
     _ => fail("expected vmax.vx")
   }
+  match decode(encode_vsll_vv(13, 14, 15, true)) {
+    VsllVv(vd, vs2, vs1) => {
+      assert_eq(vd, 13)
+      assert_eq(vs2, 14)
+      assert_eq(vs1, 15)
+    }
+    _ => fail("expected vsll.vv")
+  }
+  match decode(encode_vsll_vx(16, 17, 18, true)) {
+    VsllVx(vd, vs2, rs1) => {
+      assert_eq(vd, 16)
+      assert_eq(vs2, 17)
+      assert_eq(rs1, 18)
+    }
+    _ => fail("expected vsll.vx")
+  }
+  match decode(encode_vsll_vi(19, 20, 31, true)) {
+    VsllVi(vd, vs2, imm) => {
+      assert_eq(vd, 19)
+      assert_eq(vs2, 20)
+      assert_eq(imm, 31)
+    }
+    _ => fail("expected vsll.vi")
+  }
+  match decode(encode_vsrl_vv(21, 22, 23, true)) {
+    VsrlVv(vd, vs2, vs1) => {
+      assert_eq(vd, 21)
+      assert_eq(vs2, 22)
+      assert_eq(vs1, 23)
+    }
+    _ => fail("expected vsrl.vv")
+  }
+  match decode(encode_vsrl_vx(24, 25, 26, true)) {
+    VsrlVx(vd, vs2, rs1) => {
+      assert_eq(vd, 24)
+      assert_eq(vs2, 25)
+      assert_eq(rs1, 26)
+    }
+    _ => fail("expected vsrl.vx")
+  }
+  match decode(encode_vsrl_vi(27, 28, 31, true)) {
+    VsrlVi(vd, vs2, imm) => {
+      assert_eq(vd, 27)
+      assert_eq(vs2, 28)
+      assert_eq(imm, 31)
+    }
+    _ => fail("expected vsrl.vi")
+  }
+  match decode(encode_vsra_vv(1, 2, 3, true)) {
+    VsraVv(vd, vs2, vs1) => {
+      assert_eq(vd, 1)
+      assert_eq(vs2, 2)
+      assert_eq(vs1, 3)
+    }
+    _ => fail("expected vsra.vv")
+  }
+  match decode(encode_vsra_vx(4, 5, 6, true)) {
+    VsraVx(vd, vs2, rs1) => {
+      assert_eq(vd, 4)
+      assert_eq(vs2, 5)
+      assert_eq(rs1, 6)
+    }
+    _ => fail("expected vsra.vx")
+  }
+  match decode(encode_vsra_vi(7, 8, 31, true)) {
+    VsraVi(vd, vs2, imm) => {
+      assert_eq(vd, 7)
+      assert_eq(vs2, 8)
+      assert_eq(imm, 31)
+    }
+    _ => fail("expected vsra.vi")
+  }
   match decode(encode_vand_vv(20, 21, 22, true)) {
     VandVv(vd, vs2, vs1) => {
       assert_eq(vd, 20)
