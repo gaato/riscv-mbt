@@ -448,3 +448,68 @@ fn Runner::execute_vector_store_strided(
   self.cpu.pc = next_pc
   Running
 }
+
+///|
+fn Runner::execute_vector_memory_first_slice(
+  self : Runner,
+  instruction : Instruction,
+  current_pc : UInt64,
+  next_pc : UInt64,
+  raw : UInt,
+) -> StepResult {
+  match instruction {
+    VlmV(vd, rs1) =>
+      self.execute_vector_mask_load(vd, rs1, current_pc, next_pc, raw)
+    Vle8V(vd, rs1) =>
+      self.execute_vector_load_unit_stride(vd, rs1, 1, current_pc, next_pc, raw)
+    Vle16V(vd, rs1) =>
+      self.execute_vector_load_unit_stride(vd, rs1, 2, current_pc, next_pc, raw)
+    Vle32V(vd, rs1) =>
+      self.execute_vector_load_unit_stride(vd, rs1, 4, current_pc, next_pc, raw)
+    Vle64V(vd, rs1) =>
+      self.execute_vector_load_unit_stride(vd, rs1, 8, current_pc, next_pc, raw)
+    Vluxei32V(vd, rs1, vs2) =>
+      self.execute_vector_load_indexed_e32(
+        vd, rs1, vs2, current_pc, next_pc, raw,
+      )
+    Vloxei32V(vd, rs1, vs2) =>
+      self.execute_vector_load_indexed_e32(
+        vd, rs1, vs2, current_pc, next_pc, raw,
+      )
+    Vlse32V(vd, rs1, rs2) =>
+      self.execute_vector_load_strided(
+        vd, rs1, rs2, 4, current_pc, next_pc, raw,
+      )
+    VsmV(vs3, rs1) =>
+      self.execute_vector_mask_store(vs3, rs1, current_pc, next_pc, raw)
+    Vse8V(vs3, rs1) =>
+      self.execute_vector_store_unit_stride(
+        vs3, rs1, 1, current_pc, next_pc, raw,
+      )
+    Vse16V(vs3, rs1) =>
+      self.execute_vector_store_unit_stride(
+        vs3, rs1, 2, current_pc, next_pc, raw,
+      )
+    Vse32V(vs3, rs1) =>
+      self.execute_vector_store_unit_stride(
+        vs3, rs1, 4, current_pc, next_pc, raw,
+      )
+    Vse64V(vs3, rs1) =>
+      self.execute_vector_store_unit_stride(
+        vs3, rs1, 8, current_pc, next_pc, raw,
+      )
+    Vsuxei32V(vs3, rs1, vs2) =>
+      self.execute_vector_store_indexed_e32(
+        vs3, rs1, vs2, current_pc, next_pc, raw,
+      )
+    Vsoxei32V(vs3, rs1, vs2) =>
+      self.execute_vector_store_indexed_e32(
+        vs3, rs1, vs2, current_pc, next_pc, raw,
+      )
+    Vsse32V(vs3, rs1, rs2) =>
+      self.execute_vector_store_strided(
+        vs3, rs1, rs2, 4, current_pc, next_pc, raw,
+      )
+    _ => abort("unexpected vector memory first-slice dispatch")
+  }
+}
