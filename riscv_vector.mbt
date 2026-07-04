@@ -1017,6 +1017,18 @@ fn Runner::execute_vector_first_slice(
         instruction, config, active_elems, sew_mask, mask_bits, use_mask, current_pc,
         next_pc, raw,
       )
+    VdivuVv(_, _, _)
+    | VdivuVx(_, _, _)
+    | VdivVv(_, _, _)
+    | VdivVx(_, _, _)
+    | VremuVv(_, _, _)
+    | VremuVx(_, _, _)
+    | VremVv(_, _, _)
+    | VremVx(_, _, _) =>
+      self.execute_vector_divide_instruction(
+        instruction, config, active_elems, sew_mask, mask_bits, use_mask, current_pc,
+        next_pc, raw,
+      )
     VminuVv(vd, vs2, vs1) =>
       self.execute_vector_binary_vv(
         vd,

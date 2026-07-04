@@ -993,6 +993,14 @@ fn instruction_supported_for_current_config(
     VmulhVx(_, _, _) => has_v
     VmulhsuVv(_, _, _) => has_v
     VmulhsuVx(_, _, _) => has_v
+    VdivuVv(_, _, _) => has_v
+    VdivuVx(_, _, _) => has_v
+    VdivVv(_, _, _) => has_v
+    VdivVx(_, _, _) => has_v
+    VremuVv(_, _, _) => has_v
+    VremuVx(_, _, _) => has_v
+    VremVv(_, _, _) => has_v
+    VremVx(_, _, _) => has_v
     VminuVv(_, _, _) => has_v
     VminuVx(_, _, _) => has_v
     VminVv(_, _, _) => has_v
@@ -1288,6 +1296,14 @@ pub fn decode(raw : UInt) -> Instruction {
               0x11 => VfirstM(rd(raw), rs2(raw))
               _ => Unknown(raw)
             }
+          } else if funct6(raw) == 0x20U {
+            VdivuVv(rd(raw), rs2(raw), rs1(raw))
+          } else if funct6(raw) == 0x21U {
+            VdivVv(rd(raw), rs2(raw), rs1(raw))
+          } else if funct6(raw) == 0x22U {
+            VremuVv(rd(raw), rs2(raw), rs1(raw))
+          } else if funct6(raw) == 0x23U {
+            VremVv(rd(raw), rs2(raw), rs1(raw))
           } else if funct6(raw) == 0x24U {
             VmulhuVv(rd(raw), rs2(raw), rs1(raw))
           } else if funct6(raw) == 0x25U {
@@ -1458,6 +1474,10 @@ pub fn decode(raw : UInt) -> Instruction {
               } else {
                 Unknown(raw)
               }
+            0x20U => VdivuVx(rd(raw), rs2(raw), rs1(raw))
+            0x21U => VdivVx(rd(raw), rs2(raw), rs1(raw))
+            0x22U => VremuVx(rd(raw), rs2(raw), rs1(raw))
+            0x23U => VremVx(rd(raw), rs2(raw), rs1(raw))
             0x24U => VmulhuVx(rd(raw), rs2(raw), rs1(raw))
             0x25U => VmulVx(rd(raw), rs2(raw), rs1(raw))
             0x26U => VmulhsuVx(rd(raw), rs2(raw), rs1(raw))

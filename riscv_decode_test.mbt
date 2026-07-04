@@ -574,6 +574,70 @@ test "decode first vector arithmetic slice" {
     }
     _ => fail("expected vmulh.vx")
   }
+  match decode(encode_vdivu_vv(23, 24, 25, true)) {
+    VdivuVv(vd, vs2, vs1) => {
+      assert_eq(vd, 23)
+      assert_eq(vs2, 24)
+      assert_eq(vs1, 25)
+    }
+    _ => fail("expected vdivu.vv")
+  }
+  match decode(encode_vdivu_vx(26, 27, 28, false)) {
+    VdivuVx(vd, vs2, rs1) => {
+      assert_eq(vd, 26)
+      assert_eq(vs2, 27)
+      assert_eq(rs1, 28)
+    }
+    _ => fail("expected masked vdivu.vx")
+  }
+  match decode(encode_vdiv_vv(29, 30, 31, true)) {
+    VdivVv(vd, vs2, vs1) => {
+      assert_eq(vd, 29)
+      assert_eq(vs2, 30)
+      assert_eq(vs1, 31)
+    }
+    _ => fail("expected vdiv.vv")
+  }
+  match decode(encode_vdiv_vx(1, 2, 3, true)) {
+    VdivVx(vd, vs2, rs1) => {
+      assert_eq(vd, 1)
+      assert_eq(vs2, 2)
+      assert_eq(rs1, 3)
+    }
+    _ => fail("expected vdiv.vx")
+  }
+  match decode(encode_vremu_vv(4, 5, 6, true)) {
+    VremuVv(vd, vs2, vs1) => {
+      assert_eq(vd, 4)
+      assert_eq(vs2, 5)
+      assert_eq(vs1, 6)
+    }
+    _ => fail("expected vremu.vv")
+  }
+  match decode(encode_vremu_vx(7, 8, 9, false)) {
+    VremuVx(vd, vs2, rs1) => {
+      assert_eq(vd, 7)
+      assert_eq(vs2, 8)
+      assert_eq(rs1, 9)
+    }
+    _ => fail("expected masked vremu.vx")
+  }
+  match decode(encode_vrem_vv(10, 11, 12, true)) {
+    VremVv(vd, vs2, vs1) => {
+      assert_eq(vd, 10)
+      assert_eq(vs2, 11)
+      assert_eq(vs1, 12)
+    }
+    _ => fail("expected vrem.vv")
+  }
+  match decode(encode_vrem_vx(13, 14, 15, true)) {
+    VremVx(vd, vs2, rs1) => {
+      assert_eq(vd, 13)
+      assert_eq(vs2, 14)
+      assert_eq(rs1, 15)
+    }
+    _ => fail("expected vrem.vx")
+  }
   match decode(encode_vminu_vv(18, 19, 20, true)) {
     VminuVv(vd, vs2, vs1) => {
       assert_eq(vd, 18)

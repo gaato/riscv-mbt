@@ -2116,6 +2116,100 @@ test "rv64fdv vector multiply high handles e64 signedness and masks" {
 }
 
 ///|
+test "rv64fdv vector divide slice supports lmul2 register groups" {
+  let packed_20 = test_join_u64(20U, 20U)
+  let packed_6 = test_join_u64(6U, 6U)
+  let packed_neg_7 = test_join_u64(0xfffffff9U, 0xfffffff9U)
+  let program = words_to_bytes([
+    encode_vsetivli(0, 8U, 0x11U),
+    encode_vdivu_vv(6, 2, 4, true),
+    encode_vremu_vv(8, 2, 4, true),
+    encode_vdiv_vv(10, 12, 4, true),
+    encode_vrem_vv(14, 12, 4, true),
+    encode_vdivu_vx(16, 2, 10, true),
+    encode_vremu_vx(18, 2, 10, true),
+    encode_vdiv_vx(20, 12, 10, true),
+    encode_vrem_vx(22, 12, 10, true),
+  ])
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.cpu.write_reg(10, 6U.to_uint64())
+  for reg in [2, 3] {
+    runner.cpu.write_vreg(reg, 0, packed_20)
+    runner.cpu.write_vreg(reg, 1, packed_20)
+  }
+  for reg in [4, 5] {
+    runner.cpu.write_vreg(reg, 0, packed_6)
+    runner.cpu.write_vreg(reg, 1, packed_6)
+  }
+  for reg in [12, 13] {
+    runner.cpu.write_vreg(reg, 0, packed_neg_7)
+    runner.cpu.write_vreg(reg, 1, packed_neg_7)
+  }
+  runner.load_program(program, 0U)
+  match runner.run(9) {
+    Running => ()
+    _ => fail("expected lmul2 vector divide sequence to run")
+  }
+  for reg in [6, 7, 16, 17] {
+    assert_eq(runner.read_vreg_u64(reg, 0), test_join_u64(3U, 3U))
+    assert_eq(runner.read_vreg_u64(reg, 1), test_join_u64(3U, 3U))
+  }
+  for reg in [8, 9, 18, 19] {
+    assert_eq(runner.read_vreg_u64(reg, 0), test_join_u64(2U, 2U))
+    assert_eq(runner.read_vreg_u64(reg, 1), test_join_u64(2U, 2U))
+  }
+  for reg in [10, 11, 14, 15, 20, 21, 22, 23] {
+    assert_eq(
+      runner.read_vreg_u64(reg, 0),
+      test_join_u64(0xffffffffU, 0xffffffffU),
+    )
+    assert_eq(
+      runner.read_vreg_u64(reg, 1),
+      test_join_u64(0xffffffffU, 0xffffffffU),
+    )
+  }
+}
+
+///|
+test "rv64fdv vector divide handles e64 zero overflow and masks" {
+  let all_ones = 0U.to_uint64() - 1U.to_uint64()
+  let sign_bit = 1U.to_uint64() << 63
+  let program = words_to_bytes([
+    encode_vsetivli(0, 2U, 0x18U),
+    encode_vdiv_vv(6, 2, 4, true),
+    encode_vrem_vv(8, 2, 4, true),
+    encode_vdiv_vx(10, 2, 10, false),
+    encode_vrem_vx(12, 2, 10, false),
+  ])
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.cpu.write_vreg(0, 0, 0x01U.to_uint64())
+  runner.cpu.write_vreg(2, 0, sign_bit)
+  runner.cpu.write_vreg(2, 1, 9U.to_uint64())
+  runner.cpu.write_vreg(4, 0, all_ones)
+  runner.cpu.write_vreg(4, 1, 0U.to_uint64())
+  runner.cpu.write_vreg(10, 0, 77U.to_uint64())
+  runner.cpu.write_vreg(10, 1, 78U.to_uint64())
+  runner.cpu.write_vreg(12, 0, 88U.to_uint64())
+  runner.cpu.write_vreg(12, 1, 89U.to_uint64())
+  runner.cpu.write_reg(10, 0U.to_uint64())
+  runner.load_program(program, 0U)
+  match runner.run(5) {
+    Running => ()
+    _ => fail("expected e64 vector divide edge sequence to run")
+  }
+  // INT_MIN / -1 overflows to the dividend; division by zero returns -1.
+  assert_eq(runner.read_vreg_u64(6, 0), sign_bit)
+  assert_eq(runner.read_vreg_u64(6, 1), all_ones)
+  // Overflow remainder is zero; division-by-zero remainder keeps the dividend.
+  assert_eq(runner.read_vreg_u64(8, 0), 0U.to_uint64())
+  assert_eq(runner.read_vreg_u64(8, 1), 9U.to_uint64())
+  assert_eq(runner.read_vreg_u64(10, 0), all_ones)
+  assert_eq(runner.read_vreg_u64(10, 1), 78U.to_uint64())
+  assert_eq(runner.read_vreg_u64(12, 0), sign_bit)
+  assert_eq(runner.read_vreg_u64(12, 1), 89U.to_uint64())
+}
+
+///|
 test "rv64fdv vector logical slice supports lmul2 register groups" {
   let program = words_to_bytes([
     encode_vsetivli(0, 8U, 0x11U),
