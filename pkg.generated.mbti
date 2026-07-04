@@ -416,6 +416,14 @@ pub struct Runner {
   mut virtio_blk_write_requests : UInt64
   mut virtio_blk_read_bytes : UInt64
   mut virtio_blk_write_bytes : UInt64
+  mut virtio_blk_read_first_offset : UInt64
+  mut virtio_blk_read_min_offset : UInt64
+  mut virtio_blk_read_max_end : UInt64
+  mut virtio_blk_read_last_offset : UInt64
+  mut virtio_blk_read_last_end : UInt64
+  mut virtio_blk_read_sequential_requests : UInt64
+  mut virtio_blk_read_forward_gap_requests : UInt64
+  mut virtio_blk_read_backward_requests : UInt64
   decode_cache_tags : Array[UInt64]
   decode_cache_raws : Array[UInt]
   decode_cache_lengths : Array[Int]
@@ -476,10 +484,18 @@ pub fn Runner::uart_output_length(Self) -> Int
 pub fn Runner::uart_push_input(Self, String) -> Unit
 pub fn Runner::uart_push_input_byte(Self, Int) -> Unit
 pub fn Runner::virtio_blk_disk_bytes(Self) -> Bytes
+pub fn Runner::virtio_blk_read_backward_request_count(Self) -> UInt64
 pub fn Runner::virtio_blk_read_byte_count(Self) -> UInt64
 pub fn Runner::virtio_blk_read_cache_hit_count(Self) -> UInt64
 pub fn Runner::virtio_blk_read_cache_miss_count(Self) -> UInt64
+pub fn Runner::virtio_blk_read_first_offset(Self) -> UInt64
+pub fn Runner::virtio_blk_read_forward_gap_request_count(Self) -> UInt64
+pub fn Runner::virtio_blk_read_last_end(Self) -> UInt64
+pub fn Runner::virtio_blk_read_last_offset(Self) -> UInt64
+pub fn Runner::virtio_blk_read_max_end(Self) -> UInt64
+pub fn Runner::virtio_blk_read_min_offset(Self) -> UInt64
 pub fn Runner::virtio_blk_read_request_count(Self) -> UInt64
+pub fn Runner::virtio_blk_read_sequential_request_count(Self) -> UInt64
 pub fn Runner::virtio_blk_write_byte_count(Self) -> UInt64
 pub fn Runner::virtio_blk_write_request_count(Self) -> UInt64
 pub fn Runner::write_memory_bytes(Self, UInt64, Bytes) -> Unit

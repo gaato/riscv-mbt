@@ -963,6 +963,9 @@ async fn main {
   let mut post_init_command_start_read_bytes = 0U.to_uint64()
   let mut post_init_command_start_write_requests = 0U.to_uint64()
   let mut post_init_command_start_write_bytes = 0U.to_uint64()
+  let mut post_init_command_start_sequential_reads = 0U.to_uint64()
+  let mut post_init_command_start_forward_gap_reads = 0U.to_uint64()
+  let mut post_init_command_start_backward_reads = 0U.to_uint64()
   let mut shell_expect_seen = false
   while steps < max_steps {
     match runner.step() {
@@ -1026,6 +1029,9 @@ async fn main {
               post_init_command_start_read_bytes = runner.virtio_blk_read_byte_count()
               post_init_command_start_write_requests = runner.virtio_blk_write_request_count()
               post_init_command_start_write_bytes = runner.virtio_blk_write_byte_count()
+              post_init_command_start_sequential_reads = runner.virtio_blk_read_sequential_request_count()
+              post_init_command_start_forward_gap_reads = runner.virtio_blk_read_forward_gap_request_count()
+              post_init_command_start_backward_reads = runner.virtio_blk_read_backward_request_count()
             } else if post_init_command_index > 0 &&
               post_init_command_index < post_init_commands.length() &&
               output.contains(post_init_markers[post_init_command_index - 1]) {
@@ -1040,6 +1046,9 @@ async fn main {
               post_init_command_start_read_bytes = runner.virtio_blk_read_byte_count()
               post_init_command_start_write_requests = runner.virtio_blk_write_request_count()
               post_init_command_start_write_bytes = runner.virtio_blk_write_byte_count()
+              post_init_command_start_sequential_reads = runner.virtio_blk_read_sequential_request_count()
+              post_init_command_start_forward_gap_reads = runner.virtio_blk_read_forward_gap_request_count()
+              post_init_command_start_backward_reads = runner.virtio_blk_read_backward_request_count()
             }
           }
           if post_init_command_sent &&
@@ -1197,10 +1206,23 @@ async fn main {
     "virtio_blk_read_cache=\{runner.virtio_blk_read_cache_hit_count()} hits/\{runner.virtio_blk_read_cache_miss_count()} misses",
   )
   println(
+    "virtio_blk_read_window=first=\{hex(runner.virtio_blk_read_first_offset())} min=\{hex(runner.virtio_blk_read_min_offset())} max_end=\{hex(runner.virtio_blk_read_max_end())} last=\{hex(runner.virtio_blk_read_last_offset())} last_end=\{hex(runner.virtio_blk_read_last_end())}",
+  )
+  println(
+    "virtio_blk_read_pattern=\{runner.virtio_blk_read_sequential_request_count()} sequential " +
+    "\{runner.virtio_blk_read_forward_gap_request_count()} forward-gap " +
+    "\{runner.virtio_blk_read_backward_request_count()} backward",
+  )
+  println(
     "post_init_command_virtio_delta=\{runner.virtio_blk_read_request_count() - post_init_command_start_read_requests} read-req/" +
     "\{runner.virtio_blk_read_byte_count() - post_init_command_start_read_bytes} read-bytes " +
     "\{runner.virtio_blk_write_request_count() - post_init_command_start_write_requests} write-req/" +
     "\{runner.virtio_blk_write_byte_count() - post_init_command_start_write_bytes} write-bytes",
+  )
+  println(
+    "post_init_command_read_pattern_delta=\{runner.virtio_blk_read_sequential_request_count() - post_init_command_start_sequential_reads} sequential " +
+    "\{runner.virtio_blk_read_forward_gap_request_count() - post_init_command_start_forward_gap_reads} forward-gap " +
+    "\{runner.virtio_blk_read_backward_request_count() - post_init_command_start_backward_reads} backward",
   )
   println("output_chars=" + output.length().to_string())
   println(

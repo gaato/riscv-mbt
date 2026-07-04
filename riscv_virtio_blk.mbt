@@ -135,6 +135,18 @@ fn Runner::virtio_blk_invalidate_read_cache(self : Runner) -> Unit {
 }
 
 ///|
+fn Runner::virtio_blk_reset_read_pattern_counters(self : Runner) -> Unit {
+  self.virtio_blk_read_first_offset = 0U.to_uint64()
+  self.virtio_blk_read_min_offset = 0U.to_uint64()
+  self.virtio_blk_read_max_end = 0U.to_uint64()
+  self.virtio_blk_read_last_offset = 0U.to_uint64()
+  self.virtio_blk_read_last_end = 0U.to_uint64()
+  self.virtio_blk_read_sequential_requests = 0U.to_uint64()
+  self.virtio_blk_read_forward_gap_requests = 0U.to_uint64()
+  self.virtio_blk_read_backward_requests = 0U.to_uint64()
+}
+
+///|
 fn Runner::virtio_blk_fill_read_cache(
   self : Runner,
   disk_byte_offset : UInt64,
@@ -254,6 +266,7 @@ fn virtio_blk_desc_is_write(flags : UInt64) -> Bool {
 fn Runner::virtio_blk_record_completed_request(
   self : Runner,
   request_type : UInt64,
+  disk_byte_offset : UInt64,
   copied : Int,
 ) -> Unit {
   // These counters are diagnostic, not guest-visible device state. They let
@@ -261,6 +274,28 @@ fn Runner::virtio_blk_record_completed_request(
   // relocation work without adding another long trace facility.
   let byte_count = copied.reinterpret_as_uint().to_uint64()
   if request_type == virtio_blk_t_in {
+    let disk_byte_end = disk_byte_offset + byte_count
+    if self.virtio_blk_read_requests == 0U.to_uint64() {
+      self.virtio_blk_read_first_offset = disk_byte_offset
+      self.virtio_blk_read_min_offset = disk_byte_offset
+      self.virtio_blk_read_max_end = disk_byte_end
+    } else {
+      if disk_byte_offset == self.virtio_blk_read_last_end {
+        self.virtio_blk_read_sequential_requests += 1U.to_uint64()
+      } else if disk_byte_offset > self.virtio_blk_read_last_end {
+        self.virtio_blk_read_forward_gap_requests += 1U.to_uint64()
+      } else {
+        self.virtio_blk_read_backward_requests += 1U.to_uint64()
+      }
+      if disk_byte_offset < self.virtio_blk_read_min_offset {
+        self.virtio_blk_read_min_offset = disk_byte_offset
+      }
+      if disk_byte_end > self.virtio_blk_read_max_end {
+        self.virtio_blk_read_max_end = disk_byte_end
+      }
+    }
+    self.virtio_blk_read_last_offset = disk_byte_offset
+    self.virtio_blk_read_last_end = disk_byte_end
     self.virtio_blk_read_requests += 1U.to_uint64()
     self.virtio_blk_read_bytes += byte_count
   } else if request_type == virtio_blk_t_out {
@@ -360,7 +395,11 @@ fn Runner::virtio_blk_process_chain(
         virtio_blk_status_unsupp
       }
       if status == virtio_blk_status_ok {
-        self.virtio_blk_record_completed_request(request_type, copied)
+        self.virtio_blk_record_completed_request(
+          request_type,
+          sector * 512U.to_uint64(),
+          copied,
+        )
       }
       self.virtio_blk_write_status(guest_addr, status)
       self.virtio_blk_finish_used(

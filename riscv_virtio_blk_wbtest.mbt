@@ -39,3 +39,40 @@ test "virtio-blk write helper updates disk in place and invalidates read cache" 
   assert_eq(runner.bus.load_u8(read_addr), 0x44U.to_uint64())
   assert_eq(runner.bus.load_u8(read_addr + 3U.to_uint64()), 0x77U.to_uint64())
 }
+
+///|
+test "virtio-blk read pattern counters classify request locality" {
+  let runner = make_runner(virtio_blk_machine_config())
+  runner.virtio_blk_record_completed_request(
+    virtio_blk_t_in,
+    0x1000U.to_uint64(),
+    512,
+  )
+  runner.virtio_blk_record_completed_request(
+    virtio_blk_t_in,
+    0x1200U.to_uint64(),
+    512,
+  )
+  runner.virtio_blk_record_completed_request(
+    virtio_blk_t_in,
+    0x1800U.to_uint64(),
+    512,
+  )
+  runner.virtio_blk_record_completed_request(
+    virtio_blk_t_in,
+    0x0800U.to_uint64(),
+    512,
+  )
+  assert_eq(runner.virtio_blk_read_request_count(), 4U.to_uint64())
+  assert_eq(runner.virtio_blk_read_first_offset(), 0x1000U.to_uint64())
+  assert_eq(runner.virtio_blk_read_min_offset(), 0x0800U.to_uint64())
+  assert_eq(runner.virtio_blk_read_max_end(), 0x1a00U.to_uint64())
+  assert_eq(runner.virtio_blk_read_last_offset(), 0x0800U.to_uint64())
+  assert_eq(runner.virtio_blk_read_last_end(), 0x0a00U.to_uint64())
+  assert_eq(runner.virtio_blk_read_sequential_request_count(), 1U.to_uint64())
+  assert_eq(runner.virtio_blk_read_forward_gap_request_count(), 1U.to_uint64())
+  assert_eq(runner.virtio_blk_read_backward_request_count(), 1U.to_uint64())
+  runner.load_virtio_blk_disk(Bytes::make(1024, 0U.to_byte()))
+  assert_eq(runner.virtio_blk_read_first_offset(), 0U.to_uint64())
+  assert_eq(runner.virtio_blk_read_sequential_request_count(), 0U.to_uint64())
+}

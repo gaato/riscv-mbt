@@ -442,6 +442,14 @@ pub struct Runner {
   mut virtio_blk_write_requests : UInt64
   mut virtio_blk_read_bytes : UInt64
   mut virtio_blk_write_bytes : UInt64
+  mut virtio_blk_read_first_offset : UInt64
+  mut virtio_blk_read_min_offset : UInt64
+  mut virtio_blk_read_max_end : UInt64
+  mut virtio_blk_read_last_offset : UInt64
+  mut virtio_blk_read_last_end : UInt64
+  mut virtio_blk_read_sequential_requests : UInt64
+  mut virtio_blk_read_forward_gap_requests : UInt64
+  mut virtio_blk_read_backward_requests : UInt64
   // Decode cache keys by physical fetch address plus raw bits. This avoids
   // mixing Sv39 virtual aliases and keeps cache invalidation tied to fence.i.
   decode_cache_tags : Array[UInt64]
@@ -1226,6 +1234,14 @@ pub fn make_runner(config : MachineConfig) -> Runner {
     virtio_blk_write_requests: 0U.to_uint64(),
     virtio_blk_read_bytes: 0U.to_uint64(),
     virtio_blk_write_bytes: 0U.to_uint64(),
+    virtio_blk_read_first_offset: 0U.to_uint64(),
+    virtio_blk_read_min_offset: 0U.to_uint64(),
+    virtio_blk_read_max_end: 0U.to_uint64(),
+    virtio_blk_read_last_offset: 0U.to_uint64(),
+    virtio_blk_read_last_end: 0U.to_uint64(),
+    virtio_blk_read_sequential_requests: 0U.to_uint64(),
+    virtio_blk_read_forward_gap_requests: 0U.to_uint64(),
+    virtio_blk_read_backward_requests: 0U.to_uint64(),
     decode_cache_tags: Array::make(decode_cache_sets, decode_cache_invalid_tag),
     decode_cache_raws: Array::make(decode_cache_sets, 0U),
     decode_cache_lengths: Array::make(decode_cache_sets, 0),
@@ -1321,6 +1337,14 @@ pub fn make_smp_runners(
       virtio_blk_write_requests: 0U.to_uint64(),
       virtio_blk_read_bytes: 0U.to_uint64(),
       virtio_blk_write_bytes: 0U.to_uint64(),
+      virtio_blk_read_first_offset: 0U.to_uint64(),
+      virtio_blk_read_min_offset: 0U.to_uint64(),
+      virtio_blk_read_max_end: 0U.to_uint64(),
+      virtio_blk_read_last_offset: 0U.to_uint64(),
+      virtio_blk_read_last_end: 0U.to_uint64(),
+      virtio_blk_read_sequential_requests: 0U.to_uint64(),
+      virtio_blk_read_forward_gap_requests: 0U.to_uint64(),
+      virtio_blk_read_backward_requests: 0U.to_uint64(),
       decode_cache_tags: Array::make(
         decode_cache_sets, decode_cache_invalid_tag,
       ),
@@ -1501,6 +1525,7 @@ pub fn Runner::load_virtio_blk_disk(self : Runner, disk : Bytes) -> Unit {
     self.virtio_blk_disk.push(byte)
   }
   self.virtio_blk_invalidate_read_cache()
+  self.virtio_blk_reset_read_pattern_counters()
 }
 
 ///|
@@ -1539,6 +1564,50 @@ pub fn Runner::virtio_blk_read_cache_hit_count(self : Runner) -> UInt64 {
 ///|
 pub fn Runner::virtio_blk_read_cache_miss_count(self : Runner) -> UInt64 {
   self.virtio_blk_read_cache_misses
+}
+
+///|
+pub fn Runner::virtio_blk_read_first_offset(self : Runner) -> UInt64 {
+  self.virtio_blk_read_first_offset
+}
+
+///|
+pub fn Runner::virtio_blk_read_min_offset(self : Runner) -> UInt64 {
+  self.virtio_blk_read_min_offset
+}
+
+///|
+pub fn Runner::virtio_blk_read_max_end(self : Runner) -> UInt64 {
+  self.virtio_blk_read_max_end
+}
+
+///|
+pub fn Runner::virtio_blk_read_last_offset(self : Runner) -> UInt64 {
+  self.virtio_blk_read_last_offset
+}
+
+///|
+pub fn Runner::virtio_blk_read_last_end(self : Runner) -> UInt64 {
+  self.virtio_blk_read_last_end
+}
+
+///|
+pub fn Runner::virtio_blk_read_sequential_request_count(
+  self : Runner,
+) -> UInt64 {
+  self.virtio_blk_read_sequential_requests
+}
+
+///|
+pub fn Runner::virtio_blk_read_forward_gap_request_count(
+  self : Runner,
+) -> UInt64 {
+  self.virtio_blk_read_forward_gap_requests
+}
+
+///|
+pub fn Runner::virtio_blk_read_backward_request_count(self : Runner) -> UInt64 {
+  self.virtio_blk_read_backward_requests
 }
 
 ///|

@@ -688,3 +688,12 @@ implemented.
   path still works and still performs real ext4 writes; guest step count is
   effectively unchanged, so the value of this slice is removing host-side full
   image copies and keeping the write-heavy Linux path maintainable.
+- Added virtio-blk read-locality diagnostics so package-manager and dynamic
+  loader probes do not have to rely on wait time alone. The runner now records
+  the first, minimum, maximum-end, last, and last-end disk read offsets, plus
+  sequential, forward-gap, and backward read counts. `cmd/alpine_probe` prints
+  both cumulative values and per-post-init-command pattern deltas next to the
+  existing read/write byte deltas. This does not change guest-visible block
+  behavior; it gives the next short staged `apk` diagnostic enough information
+  to choose between storage/read-ahead work, cache-shape work, or CPU-side
+  loader/ISA investigation before starting another long Alpine run.
