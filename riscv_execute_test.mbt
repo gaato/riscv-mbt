@@ -1834,11 +1834,13 @@ test "rv64fdv vector arithmetic supports lmul2 register groups" {
     encode_vsub_vv(12, 10, 4, true),
     encode_vsub_vx(14, 12, 10, true),
     encode_vsub_vv(16, 4, 10, true),
+    encode_vrsub_vx(18, 4, 10, true),
+    encode_vrsub_vi(20, 10, -1, true),
   ])
   let runner = make_runner(rv64fdv_machine_config())
   runner.load_program(program, 0U)
   runner.cpu.write_reg(10, 5U.to_uint64())
-  match runner.run(9) {
+  match runner.run(11) {
     Running => ()
     _ => fail("expected lmul2 vector arithmetic sequence to run")
   }
@@ -1879,6 +1881,26 @@ test "rv64fdv vector arithmetic supports lmul2 register groups" {
     runner.read_vreg_u64(17, 1),
     test_join_u64(0xfffffffbU, 0xfffffffbU),
   )
+  assert_eq(runner.read_vreg_u64(18, 0), test_join_u64(3U, 3U))
+  assert_eq(runner.read_vreg_u64(18, 1), test_join_u64(3U, 3U))
+  assert_eq(runner.read_vreg_u64(19, 0), test_join_u64(3U, 3U))
+  assert_eq(runner.read_vreg_u64(19, 1), test_join_u64(3U, 3U))
+  assert_eq(
+    runner.read_vreg_u64(20, 0),
+    test_join_u64(0xfffffff8U, 0xfffffff8U),
+  )
+  assert_eq(
+    runner.read_vreg_u64(20, 1),
+    test_join_u64(0xfffffff8U, 0xfffffff8U),
+  )
+  assert_eq(
+    runner.read_vreg_u64(21, 0),
+    test_join_u64(0xfffffff8U, 0xfffffff8U),
+  )
+  assert_eq(
+    runner.read_vreg_u64(21, 1),
+    test_join_u64(0xfffffff8U, 0xfffffff8U),
+  )
 
   let misaligned = make_runner(rv64fdv_machine_config())
   misaligned.load_program(
@@ -1897,6 +1919,28 @@ test "rv64fdv vector arithmetic supports lmul2 register groups" {
       }
     _ => fail("expected misaligned lmul2 vector arithmetic to trap")
   }
+}
+
+///|
+test "rv64fdv vrsub honors mask and reverse operand order" {
+  let program = words_to_bytes([
+    encode_vsetivli(0, 4U, 0x10U),
+    encode_vmv_v_i(2, 3),
+    encode_vmv_v_i(4, -1),
+    encode_vrsub_vx(4, 2, 10, false),
+  ])
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.cpu.write_reg(10, 10U.to_uint64())
+  // Mask bits 1 and 3 are active. Normal masked arithmetic leaves masked-off
+  // destination elements undisturbed, unlike vmerge/vadc-style body operations.
+  runner.cpu.write_vreg(0, 0, 0x0aU.to_uint64())
+  runner.load_program(program, 0U)
+  match runner.run(4) {
+    Running => ()
+    _ => fail("expected masked vrsub sequence to run")
+  }
+  assert_eq(runner.read_vreg_u64(4, 0), test_join_u64(7U, 0xffffffffU))
+  assert_eq(runner.read_vreg_u64(4, 1), test_join_u64(7U, 0xffffffffU))
 }
 
 ///|

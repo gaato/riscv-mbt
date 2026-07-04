@@ -306,6 +306,7 @@ fn Runner::raise_vector_group_misaligned(
 priv enum VectorBinaryOp {
   VectorBinAdd
   VectorBinSub
+  VectorBinRsub
   VectorBinMinu
   VectorBinMin
   VectorBinMaxu
@@ -373,6 +374,9 @@ fn vector_apply_binary(
   match op {
     VectorBinAdd => lhs + rhs
     VectorBinSub => lhs - rhs
+    // Reverse subtract is only encoded for vector-scalar/immediate forms; keep
+    // it as a named operation so `scalar - vs2[i]` is visible at the call site.
+    VectorBinRsub => rhs - lhs
     VectorBinMinu => if lhs < rhs { lhs } else { rhs }
     VectorBinMin =>
       if vector_signed_lane(lhs, sew_bits) < vector_signed_lane(rhs, sew_bits) {
@@ -957,6 +961,40 @@ fn Runner::execute_vector_first_slice(
         mask_bits,
         use_mask,
         VectorBinSub,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VrsubVx(vd, vs2, rs1) => {
+      let scalar = self.cpu.read_reg(rs1) & sew_mask
+      self.execute_vector_binary_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinRsub,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VrsubVi(vd, vs2, imm) => {
+      let scalar = int_to_uint64_bits(imm) & sew_mask
+      self.execute_vector_binary_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinRsub,
         current_pc,
         next_pc,
         raw,

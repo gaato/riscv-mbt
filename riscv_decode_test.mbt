@@ -494,6 +494,22 @@ test "decode first vector arithmetic slice" {
     }
     _ => fail("expected vsub.vx")
   }
+  match decode(encode_vrsub_vx(20, 21, 22, true)) {
+    VrsubVx(vd, vs2, rs1) => {
+      assert_eq(vd, 20)
+      assert_eq(vs2, 21)
+      assert_eq(rs1, 22)
+    }
+    _ => fail("expected vrsub.vx")
+  }
+  match decode(encode_vrsub_vi(23, 24, -2, false)) {
+    VrsubVi(vd, vs2, imm) => {
+      assert_eq(vd, 23)
+      assert_eq(vs2, 24)
+      assert_eq(imm, -2)
+    }
+    _ => fail("expected masked vrsub.vi")
+  }
   match decode(encode_vminu_vv(18, 19, 20, true)) {
     VminuVv(vd, vs2, vs1) => {
       assert_eq(vd, 18)

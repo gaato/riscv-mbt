@@ -983,6 +983,8 @@ fn instruction_supported_for_current_config(
     VaddVi(_, _, _) => has_v
     VsubVv(_, _, _) => has_v
     VsubVx(_, _, _) => has_v
+    VrsubVx(_, _, _) => has_v
+    VrsubVi(_, _, _) => has_v
     VminuVv(_, _, _) => has_v
     VminuVx(_, _, _) => has_v
     VminVv(_, _, _) => has_v
@@ -1312,6 +1314,8 @@ pub fn decode(raw : UInt) -> Instruction {
           match funct6(raw) {
             0x00U =>
               VaddVi(rd(raw), rs2(raw), sign_extend((raw >> 15) & 0x1fU, 5))
+            0x03U =>
+              VrsubVi(rd(raw), rs2(raw), sign_extend((raw >> 15) & 0x1fU, 5))
             0x09U =>
               VandVi(rd(raw), rs2(raw), sign_extend((raw >> 15) & 0x1fU, 5))
             0x0aU =>
@@ -1396,6 +1400,7 @@ pub fn decode(raw : UInt) -> Instruction {
           match funct6(raw) {
             0x00U => VaddVx(rd(raw), rs2(raw), rs1(raw))
             0x02U => VsubVx(rd(raw), rs2(raw), rs1(raw))
+            0x03U => VrsubVx(rd(raw), rs2(raw), rs1(raw))
             0x04U => VminuVx(rd(raw), rs2(raw), rs1(raw))
             0x05U => VminVx(rd(raw), rs2(raw), rs1(raw))
             0x06U => VmaxuVx(rd(raw), rs2(raw), rs1(raw))

@@ -201,6 +201,8 @@ pub enum Instruction {
   VaddVi(Int, Int, Int)
   VsubVv(Int, Int, Int)
   VsubVx(Int, Int, Int)
+  VrsubVx(Int, Int, Int)
+  VrsubVi(Int, Int, Int)
   VminuVv(Int, Int, Int)
   VminuVx(Int, Int, Int)
   VminVv(Int, Int, Int)
