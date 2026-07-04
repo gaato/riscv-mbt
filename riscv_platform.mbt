@@ -13,6 +13,7 @@ priv enum PhyTarget {
   PhyUart(UInt64) // offset within UART register bank
   PhyClint(UInt64) // offset within CLINT region
   PhyPlic(UInt64) // offset within PLIC region
+  PhyVirtioBlk(UInt64) // offset within virtio-mmio block transport
   PhyNone // unmapped
 }
 
@@ -42,6 +43,13 @@ fn Runner::phy_dispatch(self : Runner, pa : UInt64, width : Int) -> PhyTarget {
     let end = base + 0x400000U.to_uint64()
     if pa >= base && pa + w <= end {
       return PhyPlic(pa - base)
+    }
+  }
+  if self.config.virtio_blk_base != zero {
+    let base = self.config.virtio_blk_base
+    let end = base + 0x1000U.to_uint64()
+    if pa >= base && pa + w <= end {
+      return PhyVirtioBlk(pa - base)
     }
   }
   PhyNone
@@ -376,6 +384,12 @@ fn Runner::phy_load_u8(self : Runner, pa : UInt64) -> UInt64 {
     PhyUart(off) => self.uart_read(off)
     PhyClint(off) => self.clint_reg_byte(off)
     PhyPlic(off) => self.plic_read_u8(off)
+    PhyVirtioBlk(off) =>
+      (
+        self.virtio_blk_read_u32(off & bit_not(3U.to_uint64())) >>
+        ((off & 3U.to_uint64()).to_int() * 8)
+      ) &
+      0xffU.to_uint64()
     _ => self.bus.load_u8(pa)
   }
 }
@@ -387,6 +401,11 @@ fn Runner::phy_load_u16(self : Runner, pa : UInt64) -> UInt64 {
     PhyClint(off) => self.clint_reg_halfword(off)
     PhyPlic(off) =>
       self.plic_read_u8(off) | (self.plic_read_u8(off + 1U.to_uint64()) << 8)
+    PhyVirtioBlk(off) => {
+      let aligned = off & bit_not(3U.to_uint64())
+      let shift = (off & 2U.to_uint64()).to_int() * 8
+      (self.virtio_blk_read_u32(aligned) >> shift) & 0xffffU.to_uint64()
+    }
     _ => self.bus.load_u16(pa)
   }
 }
@@ -397,6 +416,7 @@ fn Runner::phy_load_u32(self : Runner, pa : UInt64) -> UInt64 {
     PhyUart(_) => 0U.to_uint64()
     PhyClint(off) => self.clint_reg_word(off)
     PhyPlic(off) => self.plic_read_u32(off)
+    PhyVirtioBlk(off) => self.virtio_blk_read_u32(off)
     _ => self.bus.load_u32(pa)
   }
 }
@@ -408,6 +428,9 @@ fn Runner::phy_load_u64(self : Runner, pa : UInt64) -> UInt64 {
     PhyClint(off) => self.clint_reg_dword(off)
     PhyPlic(off) =>
       self.plic_read_u32(off) | (self.plic_read_u32(off + 4U.to_uint64()) << 32)
+    PhyVirtioBlk(off) =>
+      self.virtio_blk_read_u32(off) |
+      (self.virtio_blk_read_u32(off + 4U.to_uint64()) << 32)
     _ => self.bus.load_u64(pa)
   }
 }
@@ -422,6 +445,7 @@ fn Runner::phy_store_u8(self : Runner, pa : UInt64, value : UInt64) -> Unit {
     PhyUart(off) => self.uart_write(off, value)
     PhyClint(off) => self.clint_store_byte(off, value)
     PhyPlic(off) => self.plic_write_u8(off, value)
+    PhyVirtioBlk(_) => ()
     _ => self.bus.store_u8(pa, value)
   }
 }
@@ -435,6 +459,7 @@ fn Runner::phy_store_u16(self : Runner, pa : UInt64, value : UInt64) -> Unit {
       self.plic_write_u8(off, value)
       self.plic_write_u8(off + 1U.to_uint64(), value >> 8)
     }
+    PhyVirtioBlk(_) => ()
     _ => self.bus.store_u16(pa, value)
   }
 }
@@ -445,6 +470,7 @@ fn Runner::phy_store_u32(self : Runner, pa : UInt64, value : UInt64) -> Unit {
     PhyUart(_) => ()
     PhyClint(off) => self.clint_store_word(off, value)
     PhyPlic(off) => self.plic_write_u32(off, value)
+    PhyVirtioBlk(off) => self.virtio_blk_write_u32(off, value)
     _ => self.bus.store_u32(pa, value)
   }
 }
@@ -457,6 +483,10 @@ fn Runner::phy_store_u64(self : Runner, pa : UInt64, value : UInt64) -> Unit {
     PhyPlic(off) => {
       self.plic_write_u32(off, value)
       self.plic_write_u32(off + 4U.to_uint64(), value >> 32)
+    }
+    PhyVirtioBlk(off) => {
+      self.virtio_blk_write_u32(off, value)
+      self.virtio_blk_write_u32(off + 4U.to_uint64(), value >> 32)
     }
     _ => self.bus.store_u64(pa, value)
   }

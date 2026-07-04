@@ -29,6 +29,7 @@ pub struct MachineConfig {
   uart0_base : UInt64
   clint_base : UInt64
   plic_base : UInt64
+  virtio_blk_base : UInt64
   dtb_addr : UInt64
 }
 
@@ -381,6 +382,7 @@ pub struct Runner {
   clint_msip : Array[Bool] // [hart_id] = MSIP bit; shared across SMP harts
   all_mtimecmp : Array[UInt64] // [hart_id] = mtimecmp; shared across SMP harts
   plic_regs : Array[Byte] // flat PLIC register file (4 MB); shared across SMP harts
+  virtio_blk_state : Array[UInt64]
   decode_cache_tags : Array[UInt64]
   decode_cache_raws : Array[UInt]
   decode_cache_lengths : Array[Int]
@@ -415,6 +417,7 @@ pub fn default_machine_config() -> MachineConfig {
     uart0_base: 0U.to_uint64(),
     clint_base: 0U.to_uint64(),
     plic_base: 0U.to_uint64(),
+    virtio_blk_base: 0U.to_uint64(),
     dtb_addr: 0U.to_uint64(),
   }
 }
@@ -433,6 +436,7 @@ pub fn official_riscv_tests_machine_config_for_xlen(
     uart0_base: 0U.to_uint64(),
     clint_base: 0U.to_uint64(),
     plic_base: 0U.to_uint64(),
+    virtio_blk_base: 0U.to_uint64(),
     dtb_addr: 0U.to_uint64(),
   }
 }
@@ -454,6 +458,7 @@ pub fn rv64_machine_config() -> MachineConfig {
     uart0_base: 0U.to_uint64(),
     clint_base: 0U.to_uint64(),
     plic_base: 0U.to_uint64(),
+    virtio_blk_base: 0U.to_uint64(),
     dtb_addr: 0U.to_uint64(),
   }
 }
@@ -472,6 +477,7 @@ pub fn rv64f_machine_config() -> MachineConfig {
     uart0_base: 0U.to_uint64(),
     clint_base: 0U.to_uint64(),
     plic_base: 0U.to_uint64(),
+    virtio_blk_base: 0U.to_uint64(),
     dtb_addr: 0U.to_uint64(),
   }
 }
@@ -488,6 +494,7 @@ pub fn rv64fd_machine_config() -> MachineConfig {
     uart0_base: 0U.to_uint64(),
     clint_base: 0U.to_uint64(),
     plic_base: 0U.to_uint64(),
+    virtio_blk_base: 0U.to_uint64(),
     dtb_addr: 0U.to_uint64(),
   }
 }
@@ -504,6 +511,7 @@ pub fn rv64fdv_machine_config() -> MachineConfig {
     uart0_base: 0U.to_uint64(),
     clint_base: 0U.to_uint64(),
     plic_base: 0U.to_uint64(),
+    virtio_blk_base: 0U.to_uint64(),
     dtb_addr: 0U.to_uint64(),
   }
 }
@@ -520,7 +528,26 @@ pub fn virt_machine_config() -> MachineConfig {
     uart0_base: 0x10000000U.to_uint64(),
     clint_base: 0x02000000U.to_uint64(),
     plic_base: 0x0C000000U.to_uint64(),
+    virtio_blk_base: 0U.to_uint64(),
     dtb_addr: 0x87E00000U.to_uint64(),
+  }
+}
+
+///|
+pub fn virtio_blk_machine_config() -> MachineConfig {
+  let config = virt_machine_config()
+  {
+    xlen: config.xlen,
+    extensions: config.extensions,
+    ram_base: config.ram_base,
+    ram_size: config.ram_size,
+    entry_point: config.entry_point,
+    hart_id: config.hart_id,
+    uart0_base: config.uart0_base,
+    clint_base: config.clint_base,
+    plic_base: config.plic_base,
+    virtio_blk_base: 0x10001000U.to_uint64(),
+    dtb_addr: config.dtb_addr,
   }
 }
 
@@ -1055,6 +1082,7 @@ pub fn make_runner(config : MachineConfig) -> Runner {
     } else {
       []
     },
+    virtio_blk_state: Array::make(16, 0U.to_uint64()),
     decode_cache_tags: Array::make(decode_cache_sets, decode_cache_invalid_tag),
     decode_cache_raws: Array::make(decode_cache_sets, 0U),
     decode_cache_lengths: Array::make(decode_cache_sets, 0),
@@ -1103,6 +1131,7 @@ pub fn make_smp_runners(
     num_harts,
     bit_not(0U.to_uint64()),
   )
+  let shared_virtio_blk_state : Array[UInt64] = Array::make(16, 0U.to_uint64())
   let harts : Array[Runner] = []
   for i in 0..<num_harts {
     let hart_config : MachineConfig = {
@@ -1115,6 +1144,7 @@ pub fn make_smp_runners(
       uart0_base: config.uart0_base,
       clint_base: config.clint_base,
       plic_base: config.plic_base,
+      virtio_blk_base: config.virtio_blk_base,
       dtb_addr: config.dtb_addr,
     }
     harts.push({
@@ -1134,6 +1164,7 @@ pub fn make_smp_runners(
       clint_msip: shared_msip,
       all_mtimecmp: shared_mtimecmp,
       plic_regs: shared_plic,
+      virtio_blk_state: shared_virtio_blk_state,
       decode_cache_tags: Array::make(
         decode_cache_sets, decode_cache_invalid_tag,
       ),

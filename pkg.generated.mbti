@@ -34,6 +34,8 @@ pub fn sv39_translate(Bus, UInt64, UInt64, AccessType, PrivilegeMode, Bool, Bool
 
 pub fn virt_machine_config() -> MachineConfig
 
+pub fn virtio_blk_machine_config() -> MachineConfig
+
 pub fn words_to_bytes(Array[UInt]) -> Bytes
 
 pub fn xlen32() -> Xlen
@@ -354,6 +356,7 @@ pub struct MachineConfig {
   uart0_base : UInt64
   clint_base : UInt64
   plic_base : UInt64
+  virtio_blk_base : UInt64
   dtb_addr : UInt64
 }
 
@@ -375,6 +378,7 @@ pub struct Runner {
   clint_msip : Array[Bool]
   all_mtimecmp : Array[UInt64]
   plic_regs : Array[Byte]
+  virtio_blk_state : Array[UInt64]
   decode_cache_tags : Array[UInt64]
   decode_cache_raws : Array[UInt]
   decode_cache_lengths : Array[Int]

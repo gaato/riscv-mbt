@@ -1449,6 +1449,7 @@ test "rv64 machine config resets widened state and misa" {
   assert_eq(config.uart0_base, 0U.to_uint64())
   assert_eq(config.clint_base, 0U.to_uint64())
   assert_eq(config.plic_base, 0U.to_uint64())
+  assert_eq(config.virtio_blk_base, 0U.to_uint64())
   assert_eq(config.dtb_addr, 0U.to_uint64())
 }
 
@@ -4592,8 +4593,17 @@ test "virt machine config exposes virt-like platform addresses" {
   assert_eq(config.uart0_base, 0x10000000U.to_uint64())
   assert_eq(config.clint_base, 0x02000000U.to_uint64())
   assert_eq(config.plic_base, 0x0C000000U.to_uint64())
+  assert_eq(config.virtio_blk_base, 0U.to_uint64())
   assert_eq(config.dtb_addr, 0x87E00000U.to_uint64())
   assert_eq(runner.read_csr_u64(0x301) & 0x28U.to_uint64(), 0x28U.to_uint64())
+}
+
+///|
+test "virtio-blk machine config exposes optional mmio transport base" {
+  let config = virtio_blk_machine_config()
+  assert_eq(config.virtio_blk_base, 0x10001000U.to_uint64())
+  assert_eq(config.uart0_base, 0x10000000U.to_uint64())
+  assert_eq(config.plic_base, 0x0C000000U.to_uint64())
 }
 
 ///|
@@ -4938,6 +4948,35 @@ test "uart receive interrupt is claimable through plic and has iir priority" {
   }
   assert_eq(runner.read_reg_u64(7), 0x04U.to_uint64())
   assert_eq(runner.read_reg_u64(9), 10U.to_uint64())
+}
+
+///|
+test "virtio-blk mmio skeleton exposes identity capacity and queue registers" {
+  let program = words_to_bytes([
+    encode_u(0x10001000U, 1, 0x37U),
+    encode_i(0, 1, 0x2U, 2, 0x03U),
+    encode_i(4, 1, 0x2U, 3, 0x03U),
+    encode_i(8, 1, 0x2U, 4, 0x03U),
+    encode_i(0x100, 1, 0x2U, 5, 0x03U),
+    encode_i(8, 0, 0x0U, 6, 0x13U),
+    encode_s(0x38, 6, 1, 0x2U, 0x23U),
+    encode_i(0x38, 1, 0x2U, 7, 0x03U),
+    encode_i(1, 0, 0x0U, 8, 0x13U),
+    encode_s(0x44, 8, 1, 0x2U, 0x23U),
+    encode_i(0x44, 1, 0x2U, 9, 0x03U),
+  ])
+  let runner = make_runner(virtio_blk_machine_config())
+  runner.load_program_u64(program, 0x80000000U.to_uint64())
+  match runner.run(11) {
+    Running => ()
+    _ => fail("expected running after virtio-blk mmio sequence")
+  }
+  assert_eq(runner.read_reg_u64(2), 0x74726976U.to_uint64())
+  assert_eq(runner.read_reg_u64(3), 2U.to_uint64())
+  assert_eq(runner.read_reg_u64(4), 2U.to_uint64())
+  assert_eq(runner.read_reg_u64(5), 2048U.to_uint64())
+  assert_eq(runner.read_reg_u64(7), 8U.to_uint64())
+  assert_eq(runner.read_reg_u64(9), 1U.to_uint64())
 }
 
 ///|

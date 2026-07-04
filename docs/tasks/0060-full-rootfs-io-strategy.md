@@ -26,7 +26,7 @@ Use two layers:
 - Short term: keep the tiny/full initrd path as the fast functional gate.
   Expand console/native command proofs here because the current emulator
   already supports RAM, DTB initrd handoff, UART, CLINT, and PLIC well enough.
-- Medium term: implement a minimal `virtio,mmio` `virtio-blk` device for the
+- Medium term: implement a contract-shaped `virtio,mmio` `virtio-blk` device for the
   real full-rootfs path. A normal Alpine root filesystem should eventually be
   mounted as a block device instead of being packed entirely into initramfs.
 
@@ -55,7 +55,7 @@ implemented.
   to the browser Alpine functional smoke.
 - Keep `scripts/build-alpine-initramfs.sh` as the short-term initrd artifact
   generator and allow `ALPINE_INITRD_PROFILE=full` experiments.
-- Design the smallest `virtio,mmio` block surface:
+- Design the Linux-visible `virtio,mmio` block surface:
   - one MMIO transport window
   - one request virtqueue
   - read-only disk image first
@@ -97,3 +97,7 @@ implemented.
   Linux proof. Validation reached `outcome=console-command`, `steps=362000000`,
   `functional_smoke=true`, `shell_expect_seen=true`, and
   `linux-functional-ok` through the expected marker path.
+- Added the first `virtio,mmio` `virtio-blk` contract slice: an optional
+  machine config, MMIO identity/status/queue register surface, shared device
+  state across SMP harts, and an optional DTB `virtio,mmio` node. Request queue
+  processing and disk-image backing remain the next implementation work.

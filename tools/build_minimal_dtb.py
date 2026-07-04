@@ -8,6 +8,7 @@ Describes only the devices the emulator actually implements:
   - UART (ns16550a) @ 0x10000000
   - CLINT @ 0x02000000
   - PLIC @ 0x0c000000
+  - optional virtio-mmio block transport @ 0x10001000
 
 Usage:
   python3 tools/build_minimal_dtb.py > _build/minimal.dtb
@@ -105,6 +106,8 @@ def build_minimal_dtb(
     uart_base: int  = 0x10000000,
     clint_base: int = 0x02000000,
     plic_base: int  = 0x0c000000,
+    virtio_blk_base: int | None = None,
+    virtio_blk_irq: int = 1,
     bootargs: str   = "",
     initrd_start: int | None = None,
     initrd_end: int | None = None,
@@ -204,6 +207,14 @@ def build_minimal_dtb(
     b.prop_u32("#interrupt-cells", 1)
     b.end_node()
 
+    if virtio_blk_base is not None:
+        b.begin_node(f"virtio_mmio@{virtio_blk_base:x}")
+        b.prop_reg2("reg", (0, virtio_blk_base, 0, 0x1000))
+        b.prop_u32("interrupt-parent", 3)
+        b.prop_u32("interrupts", virtio_blk_irq)
+        b.prop_str("compatible", "virtio,mmio")
+        b.end_node()
+
     b.end_node()  # soc
     b.end_node()  # root
 
@@ -227,6 +238,8 @@ if __name__ == '__main__':
     parser.add_argument("--timebase-frequency", type=lambda value: int(value, 0), default=0x989680)
     parser.add_argument("--initrd-start", type=lambda value: int(value, 0))
     parser.add_argument("--initrd-end", type=lambda value: int(value, 0))
+    parser.add_argument("--virtio-blk-base", type=lambda value: int(value, 0))
+    parser.add_argument("--virtio-blk-irq", type=lambda value: int(value, 0), default=1)
     args = parser.parse_args()
 
     dtb = build_minimal_dtb(
@@ -234,6 +247,8 @@ if __name__ == '__main__':
         bootargs=args.bootargs,
         initrd_start=args.initrd_start,
         initrd_end=args.initrd_end,
+        virtio_blk_base=args.virtio_blk_base,
+        virtio_blk_irq=args.virtio_blk_irq,
     )
     if args.moonbit:
         print(to_moonbit_bytes(dtb))
