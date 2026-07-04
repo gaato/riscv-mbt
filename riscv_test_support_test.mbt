@@ -568,6 +568,16 @@ fn encode_vrsub_vi(vd : Int, vs2 : Int, imm : Int, vm : Bool) -> UInt {
 }
 
 ///|
+fn encode_vmul_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x25U, vm, vs2, vs1, 0x2U, vd)
+}
+
+///|
+fn encode_vmul_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x25U, vm, vs2, rs1, 0x6U, vd)
+}
+
+///|
 fn encode_vminu_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
   encode_vop(0x04U, vm, vs2, vs1, 0x0U, vd)
 }

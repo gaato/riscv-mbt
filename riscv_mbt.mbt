@@ -180,6 +180,8 @@ pub enum Instruction {
   VsubVx(Int, Int, Int)
   VrsubVx(Int, Int, Int)
   VrsubVi(Int, Int, Int)
+  VmulVv(Int, Int, Int)
+  VmulVx(Int, Int, Int)
   VminuVv(Int, Int, Int)
   VminuVx(Int, Int, Int)
   VminVv(Int, Int, Int)

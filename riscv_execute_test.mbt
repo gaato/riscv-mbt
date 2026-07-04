@@ -1836,11 +1836,14 @@ test "rv64fdv vector arithmetic supports lmul2 register groups" {
     encode_vsub_vv(16, 4, 10, true),
     encode_vrsub_vx(18, 4, 10, true),
     encode_vrsub_vi(20, 10, -1, true),
+    encode_vmul_vv(22, 10, 4, true),
+    encode_vmul_vx(24, 10, 10, true),
+    encode_vmul_vv(26, 16, 4, true),
   ])
   let runner = make_runner(rv64fdv_machine_config())
   runner.load_program(program, 0U)
   runner.cpu.write_reg(10, 5U.to_uint64())
-  match runner.run(11) {
+  match runner.run(14) {
     Running => ()
     _ => fail("expected lmul2 vector arithmetic sequence to run")
   }
@@ -1901,6 +1904,32 @@ test "rv64fdv vector arithmetic supports lmul2 register groups" {
     runner.read_vreg_u64(21, 1),
     test_join_u64(0xfffffff8U, 0xfffffff8U),
   )
+  assert_eq(runner.read_vreg_u64(22, 0), test_join_u64(14U, 14U))
+  assert_eq(runner.read_vreg_u64(22, 1), test_join_u64(14U, 14U))
+  assert_eq(runner.read_vreg_u64(23, 0), test_join_u64(14U, 14U))
+  assert_eq(runner.read_vreg_u64(23, 1), test_join_u64(14U, 14U))
+  assert_eq(runner.read_vreg_u64(24, 0), test_join_u64(35U, 35U))
+  assert_eq(runner.read_vreg_u64(24, 1), test_join_u64(35U, 35U))
+  assert_eq(runner.read_vreg_u64(25, 0), test_join_u64(35U, 35U))
+  assert_eq(runner.read_vreg_u64(25, 1), test_join_u64(35U, 35U))
+  // `vmul` keeps the low half of the product. For e32 lanes,
+  // 0xfffffffb * 2 wraps to 0xfffffff6 in each lane.
+  assert_eq(
+    runner.read_vreg_u64(26, 0),
+    test_join_u64(0xfffffff6U, 0xfffffff6U),
+  )
+  assert_eq(
+    runner.read_vreg_u64(26, 1),
+    test_join_u64(0xfffffff6U, 0xfffffff6U),
+  )
+  assert_eq(
+    runner.read_vreg_u64(27, 0),
+    test_join_u64(0xfffffff6U, 0xfffffff6U),
+  )
+  assert_eq(
+    runner.read_vreg_u64(27, 1),
+    test_join_u64(0xfffffff6U, 0xfffffff6U),
+  )
 
   let misaligned = make_runner(rv64fdv_machine_config())
   misaligned.load_program(
@@ -1941,6 +1970,28 @@ test "rv64fdv vrsub honors mask and reverse operand order" {
   }
   assert_eq(runner.read_vreg_u64(4, 0), test_join_u64(7U, 0xffffffffU))
   assert_eq(runner.read_vreg_u64(4, 1), test_join_u64(7U, 0xffffffffU))
+}
+
+///|
+test "rv64fdv vmul honors mask and low-half product" {
+  let program = words_to_bytes([
+    encode_vsetivli(0, 4U, 0x10U),
+    encode_vmv_v_i(2, 3),
+    encode_vmv_v_i(4, -1),
+    encode_vmul_vx(4, 2, 10, false),
+  ])
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.cpu.write_reg(10, 4U.to_uint64())
+  // Mask bits 1 and 3 are active. Inactive lanes must keep the old all-ones
+  // value while active e32 lanes receive the low half of 3 * 4.
+  runner.cpu.write_vreg(0, 0, 0x0aU.to_uint64())
+  runner.load_program(program, 0U)
+  match runner.run(4) {
+    Running => ()
+    _ => fail("expected masked vmul sequence to run")
+  }
+  assert_eq(runner.read_vreg_u64(4, 0), test_join_u64(12U, 0xffffffffU))
+  assert_eq(runner.read_vreg_u64(4, 1), test_join_u64(12U, 0xffffffffU))
 }
 
 ///|

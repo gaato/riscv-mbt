@@ -307,6 +307,7 @@ priv enum VectorBinaryOp {
   VectorBinAdd
   VectorBinSub
   VectorBinRsub
+  VectorBinMul
   VectorBinMinu
   VectorBinMin
   VectorBinMaxu
@@ -377,6 +378,10 @@ fn vector_apply_binary(
     // Reverse subtract is only encoded for vector-scalar/immediate forms; keep
     // it as a named operation so `scalar - vs2[i]` is visible at the call site.
     VectorBinRsub => rhs - lhs
+    // `vmul` returns the low SEW bits of the full product. The shared binary
+    // executor applies `sew_mask` after this helper, which keeps each lane's
+    // low half and discards any upper product bits.
+    VectorBinMul => lhs * rhs
     VectorBinMinu => if lhs < rhs { lhs } else { rhs }
     VectorBinMin =>
       if vector_signed_lane(lhs, sew_bits) < vector_signed_lane(rhs, sew_bits) {
@@ -995,6 +1000,38 @@ fn Runner::execute_vector_first_slice(
         mask_bits,
         use_mask,
         VectorBinRsub,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VmulVv(vd, vs2, vs1) =>
+      self.execute_vector_binary_vv(
+        vd,
+        vs2,
+        vs1,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinMul,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    VmulVx(vd, vs2, rs1) => {
+      let scalar = self.cpu.read_reg(rs1) & sew_mask
+      self.execute_vector_binary_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        VectorBinMul,
         current_pc,
         next_pc,
         raw,

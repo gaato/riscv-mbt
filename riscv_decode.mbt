@@ -985,6 +985,8 @@ fn instruction_supported_for_current_config(
     VsubVx(_, _, _) => has_v
     VrsubVx(_, _, _) => has_v
     VrsubVi(_, _, _) => has_v
+    VmulVv(_, _, _) => has_v
+    VmulVx(_, _, _) => has_v
     VminuVv(_, _, _) => has_v
     VminuVx(_, _, _) => has_v
     VminVv(_, _, _) => has_v
@@ -1280,6 +1282,8 @@ pub fn decode(raw : UInt) -> Instruction {
               0x11 => VfirstM(rd(raw), rs2(raw))
               _ => Unknown(raw)
             }
+          } else if funct6(raw) == 0x25U {
+            VmulVv(rd(raw), rs2(raw), rs1(raw))
           } else if funct6(raw) == 0x14U {
             match rs1(raw) {
               0x01 => VmsbfM(rd(raw), rs2(raw))
@@ -1442,6 +1446,7 @@ pub fn decode(raw : UInt) -> Instruction {
               } else {
                 Unknown(raw)
               }
+            0x25U => VmulVx(rd(raw), rs2(raw), rs1(raw))
             _ => Unknown(raw)
           }
         0x7U =>
