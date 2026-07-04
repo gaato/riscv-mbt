@@ -1078,6 +1078,10 @@ fn instruction_supported_for_current_config(
     Vle16V(_, _) => has_v
     Vle32V(_, _) => has_v
     Vle64V(_, _) => has_v
+    Vle8ffV(_, _) => has_v
+    Vle16ffV(_, _) => has_v
+    Vle32ffV(_, _) => has_v
+    Vle64ffV(_, _) => has_v
     Vluxei32V(_, _, _) => has_v
     Vloxei32V(_, _, _) => has_v
     Vlse32V(_, _, _) => has_v
@@ -1207,6 +1211,10 @@ pub fn decode(raw : UInt) -> Instruction {
           (0x0U, 0x5U) if rs2(raw) == 0 => Vle16V(rd(raw), rs1(raw))
           (0x0U, 0x6U) if rs2(raw) == 0 => Vle32V(rd(raw), rs1(raw))
           (0x0U, 0x7U) if rs2(raw) == 0 => Vle64V(rd(raw), rs1(raw))
+          (0x0U, 0x0U) if rs2(raw) == 0x10 => Vle8ffV(rd(raw), rs1(raw))
+          (0x0U, 0x5U) if rs2(raw) == 0x10 => Vle16ffV(rd(raw), rs1(raw))
+          (0x0U, 0x6U) if rs2(raw) == 0x10 => Vle32ffV(rd(raw), rs1(raw))
+          (0x0U, 0x7U) if rs2(raw) == 0x10 => Vle64ffV(rd(raw), rs1(raw))
           (0x1U, 0x6U) => Vluxei32V(rd(raw), rs1(raw), rs2(raw))
           (0x2U, 0x6U) => Vlse32V(rd(raw), rs1(raw), rs2(raw))
           (0x3U, 0x6U) => Vloxei32V(rd(raw), rs1(raw), rs2(raw))

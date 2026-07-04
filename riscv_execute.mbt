@@ -1689,6 +1689,22 @@ pub fn Runner::step(self : Runner) -> StepResult {
       self.execute_vector_memory_first_slice(
         instruction, current_pc, next_pc, raw,
       )
+    Vle8ffV(_, _) =>
+      self.execute_vector_memory_first_slice(
+        instruction, current_pc, next_pc, raw,
+      )
+    Vle16ffV(_, _) =>
+      self.execute_vector_memory_first_slice(
+        instruction, current_pc, next_pc, raw,
+      )
+    Vle32ffV(_, _) =>
+      self.execute_vector_memory_first_slice(
+        instruction, current_pc, next_pc, raw,
+      )
+    Vle64ffV(_, _) =>
+      self.execute_vector_memory_first_slice(
+        instruction, current_pc, next_pc, raw,
+      )
     Vluxei32V(_, _, _) =>
       self.execute_vector_memory_first_slice(
         instruction, current_pc, next_pc, raw,

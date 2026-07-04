@@ -3977,6 +3977,72 @@ test "rv64fdv vector memory faults without partial commit" {
 }
 
 ///|
+test "rv64fdv vector fault-only-first loads trim vl after first element" {
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.load_program(
+    words_to_bytes([
+      encode_vsetivli(0, 4U, test_vector_vtypei_for_sew(32)),
+      encode_vle32ff(9, 10, true),
+    ]),
+    0U,
+  )
+  let all_ones = (-1L).reinterpret_as_uint64()
+  let base = runner.config.ram_base +
+    runner.config.ram_size.reinterpret_as_uint().to_uint64() -
+    4U.to_uint64()
+  runner.cpu.write_vreg(9, 0, all_ones)
+  runner.cpu.write_vreg(9, 1, all_ones)
+  runner.cpu.write_reg(10, base)
+  runner.bus.store_u32(base, 0x88776655U.to_uint64())
+
+  match runner.step() {
+    Running => ()
+    _ => fail("expected setup vsetivli to run")
+  }
+  match runner.step() {
+    Running => ()
+    _ =>
+      fail("expected vle32ff.v to trim vl instead of trapping after element 0")
+  }
+
+  assert_eq(runner.read_csr(0xc20), 1U)
+  assert_eq(
+    runner.read_vreg_u64(9, 0),
+    (all_ones & 0xffffffff00000000UL) | 0x88776655U.to_uint64(),
+  )
+  assert_eq(runner.read_vreg_u64(9, 1), all_ones)
+}
+
+///|
+test "rv64fdv vector fault-only-first loads trap on element zero" {
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.load_program(
+    words_to_bytes([
+      encode_vsetivli(0, 4U, test_vector_vtypei_for_sew(32)),
+      encode_vle32ff(9, 10, true),
+    ]),
+    0U,
+  )
+  let base = runner.config.ram_base +
+    runner.config.ram_size.reinterpret_as_uint().to_uint64()
+  runner.cpu.write_reg(10, base)
+
+  match runner.step() {
+    Running => ()
+    _ => fail("expected setup vsetivli to run")
+  }
+  match runner.step() {
+    Trap(info) =>
+      match info.cause {
+        LoadAccessFault => ()
+        _ => fail("expected load access fault")
+      }
+    _ => fail("expected element-zero vle32ff.v fault to trap")
+  }
+  assert_eq(runner.read_csr(0xc20), 4U)
+}
+
+///|
 test "rv64fdv masked vector arithmetic updates only lanes enabled by v0" {
   let program = words_to_bytes([
     encode_vsetivli(0, 4U, test_vector_vtypei_for_sew(32)),

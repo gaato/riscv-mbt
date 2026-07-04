@@ -166,6 +166,55 @@ fn Runner::execute_vector_load_unit_stride(
 }
 
 ///|
+fn Runner::execute_vector_load_fault_only_first(
+  self : Runner,
+  vd : Int,
+  rs1 : Int,
+  elem_bytes : Int,
+  current_pc : UInt64,
+  next_pc : UInt64,
+  raw : UInt,
+) -> StepResult {
+  let config = match self.vector_memory_group_config(vd, elem_bytes) {
+    Some(config) => config
+    None =>
+      return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+  }
+  let sew_bits = elem_bytes * 8
+  let original_vl = config.vl.reinterpret_as_int64().to_int()
+  let base = self.cpu.read_reg(rs1)
+  let values : Array[UInt64] = []
+  let mut committed_elems = original_vl
+  // Fault-only-first loads trap only for element zero. Later synchronous faults
+  // trim vl to the faulting element and commit the prefix already loaded.
+  for elem in 0..<original_vl {
+    let addr = vector_unit_stride_addr(base, elem, elem_bytes)
+    let (pa, check) = self.load_check(addr, elem_bytes)
+    match check {
+      Some(result) =>
+        if elem == 0 {
+          return result
+        } else {
+          committed_elems = elem
+          break
+        }
+      None => values.push(self.vector_load_elem_bits(pa, elem_bytes))
+    }
+  }
+  for commit_elem in 0..<committed_elems {
+    self.write_vreg_group_elem(vd, commit_elem, sew_bits, values[commit_elem])
+  }
+  if committed_elems < original_vl {
+    self.cpu.write_csr(
+      CSR_VL,
+      committed_elems.reinterpret_as_uint().to_uint64(),
+    )
+  }
+  self.cpu.pc = next_pc
+  Running
+}
+
+///|
 fn Runner::execute_vector_load_strided(
   self : Runner,
   vd : Int,
@@ -468,6 +517,22 @@ fn Runner::execute_vector_memory_first_slice(
       self.execute_vector_load_unit_stride(vd, rs1, 4, current_pc, next_pc, raw)
     Vle64V(vd, rs1) =>
       self.execute_vector_load_unit_stride(vd, rs1, 8, current_pc, next_pc, raw)
+    Vle8ffV(vd, rs1) =>
+      self.execute_vector_load_fault_only_first(
+        vd, rs1, 1, current_pc, next_pc, raw,
+      )
+    Vle16ffV(vd, rs1) =>
+      self.execute_vector_load_fault_only_first(
+        vd, rs1, 2, current_pc, next_pc, raw,
+      )
+    Vle32ffV(vd, rs1) =>
+      self.execute_vector_load_fault_only_first(
+        vd, rs1, 4, current_pc, next_pc, raw,
+      )
+    Vle64ffV(vd, rs1) =>
+      self.execute_vector_load_fault_only_first(
+        vd, rs1, 8, current_pc, next_pc, raw,
+      )
     Vluxei32V(vd, rs1, vs2) =>
       self.execute_vector_load_indexed_e32(
         vd, rs1, vs2, current_pc, next_pc, raw,

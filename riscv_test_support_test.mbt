@@ -276,7 +276,19 @@ fn encode_vload_unit_stride(
   elem_bits : Int,
   vm : Bool,
 ) -> UInt {
+  encode_vload_unit_stride_lumop(vd, rs1, elem_bits, vm, 0U)
+}
+
+///|
+fn encode_vload_unit_stride_lumop(
+  vd : Int,
+  rs1 : Int,
+  elem_bits : Int,
+  vm : Bool,
+  lumop : UInt,
+) -> UInt {
   (((if vm { 1U } else { 0U }) & 0x1U) << 25) |
+  ((lumop & 0x1fU) << 20) |
   (rs1.reinterpret_as_uint() << 15) |
   (encode_vmem_width(elem_bits) << 12) |
   (vd.reinterpret_as_uint() << 7) |
@@ -435,6 +447,26 @@ fn encode_vle32(vd : Int, rs1 : Int, vm : Bool) -> UInt {
 ///|
 fn encode_vle64(vd : Int, rs1 : Int, vm : Bool) -> UInt {
   encode_vload_unit_stride(vd, rs1, 64, vm)
+}
+
+///|
+fn encode_vle8ff(vd : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vload_unit_stride_lumop(vd, rs1, 8, vm, 0x10U)
+}
+
+///|
+fn encode_vle16ff(vd : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vload_unit_stride_lumop(vd, rs1, 16, vm, 0x10U)
+}
+
+///|
+fn encode_vle32ff(vd : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vload_unit_stride_lumop(vd, rs1, 32, vm, 0x10U)
+}
+
+///|
+fn encode_vle64ff(vd : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vload_unit_stride_lumop(vd, rs1, 64, vm, 0x10U)
 }
 
 ///|
