@@ -1588,17 +1588,37 @@ test "rv64fdv vsetvl uses register avl and vtype" {
 }
 
 ///|
-test "rv64fdv unsupported fractional lmul sets vill and zero vl" {
+test "rv64fdv vsetivli supports fractional lmul and rejects reserved shapes" {
   let program = words_to_bytes([encode_vsetivli(1, 7U, 0x17U)])
   let runner = make_runner(rv64fdv_machine_config())
   runner.load_program(program, 0U)
   match runner.step() {
     Running => ()
-    _ => fail("expected unsupported vsetivli request to complete without trap")
+    _ => fail("expected fractional vsetivli request to complete without trap")
   }
-  assert_eq(runner.read_reg_u64(1), 0U.to_uint64())
-  assert_eq(runner.read_csr_u64(0xC20), 0U.to_uint64())
-  assert_eq(runner.read_csr_u64(0xC21), 1U.to_uint64() << 63)
+  assert_eq(runner.read_reg_u64(1), 2U.to_uint64())
+  assert_eq(runner.read_csr_u64(0xC20), 2U.to_uint64())
+  assert_eq(runner.read_csr_u64(0xC21), 0x17U.to_uint64())
+
+  let reserved = make_runner(rv64fdv_machine_config())
+  reserved.load_program(words_to_bytes([encode_vsetivli(1, 7U, 0x04U)]), 0U)
+  match reserved.step() {
+    Running => ()
+    _ => fail("expected reserved vsetivli request to complete without trap")
+  }
+  assert_eq(reserved.read_reg_u64(1), 0U.to_uint64())
+  assert_eq(reserved.read_csr_u64(0xC20), 0U.to_uint64())
+  assert_eq(reserved.read_csr_u64(0xC21), 1U.to_uint64() << 63)
+
+  let too_wide = make_runner(rv64fdv_machine_config())
+  too_wide.load_program(words_to_bytes([encode_vsetivli(1, 7U, 0x1fU)]), 0U)
+  match too_wide.step() {
+    Running => ()
+    _ => fail("expected too-wide fractional vsetivli request to complete")
+  }
+  assert_eq(too_wide.read_reg_u64(1), 0U.to_uint64())
+  assert_eq(too_wide.read_csr_u64(0xC20), 0U.to_uint64())
+  assert_eq(too_wide.read_csr_u64(0xC21), 1U.to_uint64() << 63)
 }
 
 ///|
@@ -1791,7 +1811,7 @@ test "rv64fdv vector arithmetic rejects masked vill and nonzero vstart" {
 
   let vill = make_runner(rv64fdv_machine_config())
   vill.load_program(
-    words_to_bytes([encode_vsetivli(1, 2U, 0x17U), encode_vmv_v_i(0, 1)]),
+    words_to_bytes([encode_vsetivli(1, 2U, 0x04U), encode_vmv_v_i(0, 1)]),
     0U,
   )
   match vill.step() {
@@ -2073,6 +2093,30 @@ test "rv64fdv vmul honors mask and low-half product" {
   }
   assert_eq(runner.read_vreg_u64(4, 0), test_join_u64(12U, 0xffffffffU))
   assert_eq(runner.read_vreg_u64(4, 1), test_join_u64(12U, 0xffffffffU))
+}
+
+///|
+test "rv64fdv vector arithmetic supports fractional lmul register fractions" {
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.load_program(
+    words_to_bytes([
+      encode_vsetivli(0, 4U, 0x17U),
+      encode_vadd_vv(6, 2, 4, true),
+    ]),
+    0U,
+  )
+  runner.cpu.write_vreg(2, 0, test_join_u64(0xaaaaaaaaU, 2U))
+  runner.cpu.write_vreg(4, 0, test_join_u64(0xbbbbbbbbU, 3U))
+  runner.cpu.write_vreg(6, 0, test_join_u64(0xddddddddU, 0xccccccccU))
+  runner.cpu.write_vreg(6, 1, test_join_u64(0xffffffffU, 0xeeeeeeeeU))
+  match runner.run(2) {
+    Running => ()
+    _ => fail("expected mf2 vector arithmetic sequence to run")
+  }
+  assert_eq(runner.read_csr_u64(0xC20), 2U.to_uint64())
+  assert_eq(runner.read_csr_u64(0xC21), 0x17U.to_uint64())
+  assert_eq(runner.read_vreg_u64(6, 0), test_join_u64(0x66666665U, 5U))
+  assert_eq(runner.read_vreg_u64(6, 1), test_join_u64(0xffffffffU, 0xeeeeeeeeU))
 }
 
 ///|
@@ -3621,6 +3665,45 @@ test "rv64fdv vector memory supports lmul8 register groups" {
 }
 
 ///|
+test "rv64fdv vector memory supports fractional lmul register fractions" {
+  let load32 = make_runner(rv64fdv_machine_config())
+  load32.load_program(
+    words_to_bytes([encode_vsetivli(0, 4U, 0x17U), encode_vle32(8, 10, true)]),
+    0U,
+  )
+  load32.cpu.write_reg(10, 0x700U.to_uint64())
+  load32.cpu.write_vreg(8, 0, test_join_u64(0xddddddddU, 0xccccccccU))
+  load32.cpu.write_vreg(8, 1, test_join_u64(0xffffffffU, 0xeeeeeeeeU))
+  load32.bus.store_u32(0x700U.to_uint64(), 0x10111213U.to_uint64())
+  load32.bus.store_u32(0x704U.to_uint64(), 0x20212223U.to_uint64())
+  load32.bus.store_u32(0x708U.to_uint64(), 0x30313233U.to_uint64())
+  match load32.run(2) {
+    Running => ()
+    _ => fail("expected mf2 vector load sequence to run")
+  }
+  assert_eq(load32.read_csr_u64(0xC20), 2U.to_uint64())
+  assert_eq(load32.read_vreg_u64(8, 0), test_join_u64(0x20212223U, 0x10111213U))
+  assert_eq(load32.read_vreg_u64(8, 1), test_join_u64(0xffffffffU, 0xeeeeeeeeU))
+
+  let store32 = make_runner(rv64fdv_machine_config())
+  store32.load_program(
+    words_to_bytes([encode_vsetivli(0, 4U, 0x17U), encode_vse32(8, 10, true)]),
+    0U,
+  )
+  store32.cpu.write_reg(10, 0x740U.to_uint64())
+  store32.cpu.write_vreg(8, 0, test_join_u64(0x44444444U, 0x33333333U))
+  store32.bus.store_u32(0x748U.to_uint64(), 0x55555555U.to_uint64())
+  match store32.run(2) {
+    Running => ()
+    _ => fail("expected mf2 vector store sequence to run")
+  }
+  assert_eq(store32.read_csr_u64(0xC20), 2U.to_uint64())
+  assert_eq(store32.bus.load_u32(0x740U.to_uint64()), 0x33333333U.to_uint64())
+  assert_eq(store32.bus.load_u32(0x744U.to_uint64()), 0x44444444U.to_uint64())
+  assert_eq(store32.bus.load_u32(0x748U.to_uint64()), 0x55555555U.to_uint64())
+}
+
+///|
 test "rv64fdv vector memory supports mask loads and stores" {
   let load_mask = make_runner(rv64fdv_machine_config())
   load_mask.load_program(
@@ -4046,7 +4129,7 @@ test "rv64fdv vector memory rejects width-mismatch lmul2 vill and nonzero vstart
 
   let vill = make_runner(rv64fdv_machine_config())
   vill.load_program(
-    words_to_bytes([encode_vsetivli(0, 2U, 0x17U), encode_vle32(1, 10, true)]),
+    words_to_bytes([encode_vsetivli(0, 2U, 0x04U), encode_vle32(1, 10, true)]),
     0U,
   )
   vill.cpu.write_reg(10, 0x240U.to_uint64())

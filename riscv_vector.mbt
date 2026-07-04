@@ -34,6 +34,28 @@ fn vector_vill_value(xlen : Int) -> UInt64 {
 }
 
 ///|
+fn decode_vlmul(raw_vlmul : Int) -> Int? {
+  if raw_vlmul <= 3 {
+    Some(raw_vlmul)
+  } else if raw_vlmul == 4 {
+    None
+  } else {
+    Some(raw_vlmul - 8)
+  }
+}
+
+///|
+fn vector_fractional_lmul_supports_sew(
+  vlmul_log2 : Int,
+  sew_bits : Int,
+) -> Bool {
+  // This implementation exposes ELEN=64. The V spec requires fractional LMUL
+  // values down to 1/8 for ELEN=64, but a fractional setting is only usable for
+  // SEW values that fit in LMUL*ELEN.
+  vlmul_log2 >= 0 || sew_bits <= 64 >> -vlmul_log2
+}
+
+///|
 fn decode_vtype(requested_vtype : UInt64, xlen : Int) -> VectorVtypeConfig? {
   let vill = vector_vill_value(xlen)
   if (requested_vtype & vill) != 0U.to_uint64() {
@@ -46,8 +68,13 @@ fn decode_vtype(requested_vtype : UInt64, xlen : Int) -> VectorVtypeConfig? {
   if vsew_log2 > 3 {
     return None
   }
-  let vlmul_log2 = (requested_vtype & 0x7U.to_uint64()).to_int()
-  if vlmul_log2 > 3 {
+  let raw_vlmul = (requested_vtype & 0x7U.to_uint64()).to_int()
+  let vlmul_log2 = match decode_vlmul(raw_vlmul) {
+    Some(value) => value
+    None => return None
+  }
+  let sew_bits = 8 << vsew_log2
+  if !vector_fractional_lmul_supports_sew(vlmul_log2, sew_bits) {
     return None
   }
   Some({
@@ -65,8 +92,12 @@ fn encode_vtype(config : VectorVtypeConfig, _xlen : Int) -> UInt64 {
 ///|
 fn compute_vl(avl : UInt64, vsew_log2 : Int, vlmul_log2 : Int) -> UInt64 {
   let sew = 8U.to_uint64() << vsew_log2
-  let lmul = 1U.to_uint64() << vlmul_log2
-  let vlmax = VLEN_BYTES.to_uint64() * 8U.to_uint64() / sew * lmul
+  let elems_per_register = VLEN_BYTES.to_uint64() * 8U.to_uint64() / sew
+  let vlmax = if vlmul_log2 >= 0 {
+    elems_per_register * (1U.to_uint64() << vlmul_log2)
+  } else {
+    elems_per_register / (1U.to_uint64() << -vlmul_log2)
+  }
   if avl < vlmax {
     avl
   } else {
@@ -92,8 +123,8 @@ fn apply_vsetvl(
 
 ///|
 priv struct VectorExecConfig {
-  // Decoded execution view for the current vector shape. `lmul_log2` is integer
-  // LMUL in this implementation; fractional LMUL still goes through vill.
+  // Decoded execution view for the current vector shape. `lmul_log2` is the
+  // signed log2(LMUL), so mf2/mf4/mf8 are represented as -1/-2/-3.
   vl : UInt64
   sew_bits : Int
   lmul_log2 : Int
@@ -158,7 +189,11 @@ fn Runner::write_vreg_elem(
 
 ///|
 fn vector_lmul_registers(lmul_log2 : Int) -> Int {
-  1 << lmul_log2
+  if lmul_log2 <= 0 {
+    1
+  } else {
+    1 << lmul_log2
+  }
 }
 
 ///|
@@ -190,6 +225,8 @@ fn vector_group_elem_vreg(
 ) -> (Int, Int) {
   // RVV packs a register group contiguously in element order. With VLEN=128,
   // SEW=32, and LMUL=2, elements 0..3 live in vN and 4..7 live in vN+1.
+  // Fractional LMUL values still use a single architectural vector register;
+  // vsetvl clamps vl so only the low fraction of that register is active.
   let elems_per_register = vector_elems_per_register(sew_bits)
   let register_offset = elem_index / elems_per_register
   let local_elem = elem_index % elems_per_register
@@ -262,8 +299,8 @@ fn Runner::write_vmask_bit(
 fn Runner::vector_exec_supported(self : Runner) -> VectorExecConfig? {
   match self.current_vector_exec_config() {
     Some(config) =>
-      // This execute slice supports required integer LMUL=1, 2, 4, and 8
-      // register groups.
+      // This execute slice supports the required LMUL range mf8..m8. Fractional
+      // LMULs use one register while vsetvl limits VLMAX to the active fraction.
       // It still rejects nonzero vstart because restart semantics need a
       // separate fault/replay contract before Linux-facing vector state can
       // rely on it.
