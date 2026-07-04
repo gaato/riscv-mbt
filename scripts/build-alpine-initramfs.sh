@@ -35,7 +35,7 @@ case "$initrd_profile" in
     ;;
 esac
 case "$init_style" in
-  shell|static) ;;
+  shell|static|auto-root) ;;
   *)
     echo "unsupported ALPINE_INIT_STYLE: $init_style" >&2
     exit 1
@@ -135,6 +135,28 @@ if [[ "$init_style" == "static" ]]; then
   riscv64-elf-ld -nostdlib -static \
     -o "$root_dir/init" \
     "$repo_root/_build/alpine-init.o"
+elif [[ "$init_style" == "auto-root" ]]; then
+  cat > "$root_dir/init" <<'EOF'
+#!/bin/sh
+mount -t proc proc /proc 2>/dev/null || true
+mount -t sysfs sysfs /sys 2>/dev/null || true
+mount -t devtmpfs devtmpfs /dev 2>/dev/null || true
+echo "riscv-mbt Alpine initramfs ready" > /dev/kmsg
+modprobe virtio_mmio
+modprobe virtio_blk
+modprobe ext4
+mkdir -p /mnt/root
+mount -t ext4 /dev/vda /mnt/root
+mount -t proc proc /mnt/root/proc 2>/dev/null || true
+mount -t sysfs sysfs /mnt/root/sys 2>/dev/null || true
+mount -t devtmpfs devtmpfs /mnt/root/dev 2>/dev/null || true
+mount -t tmpfs tmpfs /mnt/root/run 2>/dev/null || true
+mount -t tmpfs tmpfs /mnt/root/tmp 2>/dev/null || true
+echo "riscv-mbt Alpine auto-root ready" > /dev/kmsg
+exec switch_root /mnt/root /sbin/init
+echo "riscv-mbt Alpine auto-root failed" > /dev/kmsg
+exec /bin/sh
+EOF
 else
   cat > "$root_dir/init" <<'EOF'
 #!/bin/sh

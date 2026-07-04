@@ -587,3 +587,30 @@ implemented.
   `bin/ping`, so the persistence gate now intentionally focuses on installed
   package state while the earlier same-run dependency proof remains the
   executable `ping -V` evidence.
+- Added `ALPINE_INIT_STYLE=auto-root` to `scripts/build-alpine-initramfs.sh`.
+  This init style keeps the tiny initramfs profile, but replaces the static
+  shell bootstrap with a shell `/init` that mounts `/proc`, `/sys`, and
+  `/dev`, loads `virtio_mmio`, `virtio_blk`, and `ext4`, mounts `/dev/vda` as
+  the new root, mounts the target `/proc`, `/sys`, `/dev`, `/run`, and `/tmp`,
+  emits `riscv-mbt Alpine auto-root ready` through `/dev/kmsg`, and then
+  `switch_root`s to `/sbin/init`. The default init style remains `static`, so
+  routine probes still use the historical explicit shell handoff unless an
+  auto-root artifact is requested.
+- Added `cmd/alpine_probe --auto-root-smoke`, which selects the virtio rootfs
+  path but does not inject a UART command. It succeeds only if the booted
+  initramfs/rootfs path emits the rootfs-side `post-init-ready` marker on its
+  own. Validation command:
+  `ALPINE_INIT_STYLE=auto-root ./scripts/build-alpine-initramfs.sh`, then copy
+  `_build/alpine-initramfs-riscv64.cpio` to
+  `_build/alpine-initramfs-riscv64-auto-root.cpio` and
+  `_build/minimal-alpine-virtio.dtb` to
+  `_build/minimal-alpine-virtio-auto-root.dtb`, then run
+  `moon run --target native cmd/alpine_probe xlong --initrd _build/alpine-initramfs-riscv64-auto-root.cpio --dtb _build/minimal-alpine-virtio-auto-root.dtb --auto-root-smoke`.
+  The proof reaches `outcome=console-command`, `shell_expect_seen=true`,
+  `auto_root_smoke=true`, `shell_command_sent=false`,
+  `post_init_command_sent=false`, `contains_auto_root_marker=true`, and
+  `contains_post_init_marker=true` at 591,000,000 guest steps. The UART tail
+  shows `riscv-mbt Alpine initramfs ready`, virtio-blk enumeration,
+  `EXT4-fs (vda): mounted filesystem ... r/w`, `riscv-mbt Alpine auto-root
+  ready`, and rootfs-side `post-init-ready`. This promotes rootfs handoff from
+  a serial-command-driven probe to an initramfs-driven boot path.
