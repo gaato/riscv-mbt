@@ -76,9 +76,14 @@ fi
 
 if [[ -n "$offline_apk_packages" ]]; then
   mkdir -p "$root_dir/root/riscv-mbt-apks"
+  mkdir -p "$root_dir/root/riscv-mbt-apks/$arch"
+  ensure_apkindex_content
+  cp "$apkindex_path" "$root_dir/root/riscv-mbt-apks/APKINDEX.tar.gz"
+  cp "$apkindex_path" "$root_dir/root/riscv-mbt-apks/$arch/APKINDEX.tar.gz"
   for package_name in $offline_apk_packages; do
     package_apk="$(download_main_apk "$package_name")"
     cp "$package_apk" "$root_dir/root/riscv-mbt-apks/$package_name.apk"
+    cp "$package_apk" "$root_dir/root/riscv-mbt-apks/$arch/$package_name.apk"
   done
 fi
 

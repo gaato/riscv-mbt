@@ -479,3 +479,25 @@ implemented.
   proof. A normal `apk add <name>` from configured repositories needs either
   virtio-net or a deliberate local repository/cache design, and the dynamic
   `/sbin/apk` loader path remains a separate performance diagnostic.
+- Added the first local-repository layout experiment: the rootfs builder now
+  copies `APKINDEX.tar.gz` and the offline package files both directly under
+  `/root/riscv-mbt-apks` and under `/root/riscv-mbt-apks/riscv64`. The arch
+  subdirectory matters because `apk.static --repository /root/riscv-mbt-apks`
+  looks for `/root/riscv-mbt-apks/riscv64/APKINDEX.tar.gz`.
+- Added `cmd/alpine_probe --post-init-apk-local-repo-smoke` to test the
+  repository-shaped path with
+  `apk.static --no-network --allow-untrusted --repository /root/riscv-mbt-apks add ddate`.
+  The first run before the arch subdirectory reported missing
+  `riscv64/APKINDEX.tar.gz`. After adding that layout, the probe reaches
+  `apk-local-repo-files-ok` and starts the name-based `apk add ddate`, but does
+  not reach `apk-local-repo-add-ok` within the 120,000,000 post-command step
+  budget. It reports `outcome=post-init-command-timeout`,
+  `post_init_apk_local_repo_smoke=true`, `post_init_command_index=2`,
+  `virtio_blk=1482 read-req/6469632 read-bytes 1 write-req/1024 write-bytes`,
+  and `post_init_command_virtio_delta=979 read-req/4866048 read-bytes 0
+  write-req/0 write-bytes`.
+- Treat the local-repository smoke as a diagnostic for now, not the usability
+  gate. The completed package-manager gate remains the file-path offline add
+  (`--post-init-apk-install-smoke`), while the repository-style `apk add
+  ddate` path needs profiling or storage/read-ahead work before it can replace
+  it.
