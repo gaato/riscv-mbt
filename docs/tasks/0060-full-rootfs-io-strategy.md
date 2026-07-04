@@ -655,6 +655,18 @@ implemented.
   write-bytes`. This proves the system-level post-init gate no longer depends
   on serial-injected `switch_root` for `/proc`, PID 1, identity, rootfs file
   management, permission, cleanup, and sync behavior.
+- Auto-root handoff now also carries the broader BusyBox applet proof.
+  `moon run --target native cmd/alpine_probe xlong --auto-root-handoff --post-init-busybox-smoke --post-init-command-step-budget 160000000`
+  reaches `outcome=console-command`, `shell_expect_seen=true`,
+  `auto_root_handoff=true`, `shell_command_sent=false`,
+  `post_init_command_sent=true`, `post_init_command_index=4`, and
+  `post-init-busybox-ok` at 681,000,000 guest steps. It reports
+  `virtio_blk=552 read-req/1642496 read-bytes 90 write-req/94208 write-bytes`
+  and final-command delta `1 read-req/1024 read-bytes 89 write-req/93184
+  write-bytes`. The UART tail shows `awk`, text pipeline, file/link/search,
+  `dd`, `head`, `tail`, `xargs`, `env`, `ps`, `date`, `sleep`, and `sync`
+  behavior after initramfs-driven root handoff, so the broad BusyBox gate no
+  longer relies on a serial-injected `switch_root`.
 - Reworked the virtio-blk write hot path so the backing disk is held internally
   as an `Array[Byte]` and mutated in place. Host persistence still receives a
   `Bytes` snapshot through `Runner::virtio_blk_disk_bytes`, but normal write
