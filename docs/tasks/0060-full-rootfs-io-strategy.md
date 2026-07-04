@@ -638,3 +638,14 @@ implemented.
   `moon test --target native --filter 'virtio-blk*'` passes 7 tests. This is a
   storage-path cleanup for ext4/package-install workloads; the next long Alpine
   run should be a purposeful package/storage probe, not a wait-only check.
+- Purposeful integration rerun after the in-place write change:
+  `moon run --target native cmd/alpine_probe xlong --post-init-command-step-budget 160000000 --post-init-apk-local-deps-smoke`
+  reaches `outcome=console-command`, `post_init_apk_local_deps_smoke=true`,
+  `post_init_command_index=3`, and `post-init-apk-local-deps-ok` at
+  832,000,000 guest steps. It reports `virtio_blk=1518 read-req/6050816
+  read-bytes 17 write-req/185344 write-bytes`,
+  `virtio_blk_read_cache=1379 hits/139 misses`, and final-command delta
+  `2 read-req/2048 read-bytes 0 write-req/0 write-bytes`. The package-install
+  path still works and still performs real ext4 writes; guest step count is
+  effectively unchanged, so the value of this slice is removing host-side full
+  image copies and keeping the write-heavy Linux path maintainable.
