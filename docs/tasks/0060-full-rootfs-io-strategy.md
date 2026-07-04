@@ -357,19 +357,29 @@ implemented.
   userspace tools classify as command-timeout quickly after they actually
   start running; turn that timeout into a focused CPU/userspace investigation.
 - Host-side inspection of `_build/alpine-rootfs-riscv64.ext4` confirms that the
-  generated Alpine rootfs contains `/sbin/apk` and `/lib/apk/db/installed`.
-  Earlier guest-side `apk` attempts were interrupted because the previous probe
-  shape encouraged long uninformative waits.
-- Added `cmd/alpine_probe --post-init-apk-smoke` as an echo-safe package-manager
-  diagnostic. Unlike the earlier custom `apk` commands, this smoke emits all
-  markers through octal `printf` sequences so command echo cannot satisfy the
-  expected marker before `apk` has actually run.
+  generated Alpine rootfs contains `/sbin/apk`, `/lib/ld-musl-riscv64.so.1`,
+  `/usr/lib/libapk.so.3.0.0`, `/usr/lib/libz.so.1`, and
+  `/lib/apk/db/installed`. ELF inspection shows `/sbin/apk` is a dynamic PIE
+  using the musl loader, `libapk.so.3.0.0`, `libz.so.1`, and libc. `libapk`
+  then pulls in `libssl.so.3`, `libcrypto.so.3`, `libz.so.1`, and libc, with
+  immediate binding. That makes `apk --version` a loader/relocation-heavy path,
+  not a simple one-binary smoke.
+- Added `cmd/alpine_probe --post-init-apk-smoke` as a staged echo-safe
+  package-manager diagnostic. Unlike the earlier custom `apk` commands, this
+  smoke emits all markers through octal `printf` sequences so command echo
+  cannot satisfy the expected marker before the checked step has actually run.
+  The stages are: rootfs file presence, dynamic-loader library listing,
+  `apk --version`, package DB query, and package file listing.
 - Current echo-safe package-manager status:
   `moon run --target native cmd/alpine_probe xlong --post-init-command-step-budget 20000000 --post-init-apk-smoke`
-  reaches `outcome=post-init-command-timeout`, `post_init_apk_smoke=true`,
-  `post_init_command_index=1`, `post_init_command_steps=624000000`, and
-  `post_init_command_step_budget=20000000` at 644,000,000 guest steps. The first
-  command is `test -x /sbin/apk && /sbin/apk --version && ...`, so package
-  manager usability is not yet echo-safely proven. The next implementation work
-  should treat this as a focused `/sbin/apk` userspace execution gap rather
-  than accepting earlier literal-marker custom command results as proof.
+  reaches `apk-files-ok`, starts
+  `/lib/ld-musl-riscv64.so.1 --list /sbin/apk`, prints loader mappings through
+  `libssl.so.3`, then reaches `outcome=post-init-command-timeout`,
+  `post_init_apk_smoke=true`, `post_init_command_index=2`,
+  `post_init_command_steps=629000000`, and
+  `post_init_command_step_budget=20000000` at 649,000,000 guest steps before
+  `apk-loader-ok`. Package manager usability is not yet echo-safely proven, but
+  the missing-file theory is now weaker. The next implementation work should
+  treat this as a focused dynamic-loader/relocation progress gap for the `apk`
+  dependency stack rather than accepting earlier literal-marker custom command
+  results as proof.

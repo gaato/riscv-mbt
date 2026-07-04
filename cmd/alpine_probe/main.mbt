@@ -332,8 +332,19 @@ fn alpine_post_init_busybox_markers() -> Array[String] {
 fn alpine_post_init_apk_commands() -> Array[String] {
   // Package-manager smoke stays offline: it proves the rootfs-side `apk`
   // binary and installed database, without depending on network or repository
-  // updates. Repository fetch/install is a separate future networking proof.
+  // updates. Keep the early commands diagnostic: they separate rootfs presence,
+  // dynamic-loader setup, and actual apk execution so a timeout points at a
+  // narrower Linux userspace gap. Repository fetch/install is a separate future
+  // networking proof.
   [
+    "test -x /sbin/apk && " +
+    "test -x /lib/ld-musl-riscv64.so.1 && " +
+    "test -x /usr/lib/libapk.so.3.0.0 && " +
+    "test -e /usr/lib/libz.so.1 && " +
+    "test -r /lib/apk/db/installed && " +
+    "printf '\\141\\160\\153\\055\\146\\151\\154\\145\\163\\055\\157\\153\\012'",
+    "/lib/ld-musl-riscv64.so.1 --list /sbin/apk && " +
+    "printf '\\141\\160\\153\\055\\154\\157\\141\\144\\145\\162\\055\\157\\153\\012'",
     "test -x /sbin/apk && " +
     "/sbin/apk --version && " +
     "printf '\\141\\160\\153\\055\\166\\145\\162\\163\\151\\157\\156\\055\\157\\153\\012'",
@@ -348,7 +359,9 @@ fn alpine_post_init_apk_commands() -> Array[String] {
 
 ///|
 fn alpine_post_init_apk_markers() -> Array[String] {
-  ["apk-version-ok", "apk-db-ok", "post-init-apk-ok"]
+  [
+    "apk-files-ok", "apk-loader-ok", "apk-version-ok", "apk-db-ok", "post-init-apk-ok",
+  ]
 }
 
 ///|
