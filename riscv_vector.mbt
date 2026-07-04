@@ -1005,38 +1005,18 @@ fn Runner::execute_vector_first_slice(
         raw,
       )
     }
-    VmulVv(vd, vs2, vs1) =>
-      self.execute_vector_binary_vv(
-        vd,
-        vs2,
-        vs1,
-        config,
-        active_elems,
-        sew_mask,
-        mask_bits,
-        use_mask,
-        VectorBinMul,
-        current_pc,
-        next_pc,
-        raw,
+    VmulVv(_, _, _)
+    | VmulVx(_, _, _)
+    | VmulhuVv(_, _, _)
+    | VmulhuVx(_, _, _)
+    | VmulhVv(_, _, _)
+    | VmulhVx(_, _, _)
+    | VmulhsuVv(_, _, _)
+    | VmulhsuVx(_, _, _) =>
+      self.execute_vector_multiply_instruction(
+        instruction, config, active_elems, sew_mask, mask_bits, use_mask, current_pc,
+        next_pc, raw,
       )
-    VmulVx(vd, vs2, rs1) => {
-      let scalar = self.cpu.read_reg(rs1) & sew_mask
-      self.execute_vector_binary_scalar(
-        vd,
-        vs2,
-        scalar,
-        config,
-        active_elems,
-        sew_mask,
-        mask_bits,
-        use_mask,
-        VectorBinMul,
-        current_pc,
-        next_pc,
-        raw,
-      )
-    }
     VminuVv(vd, vs2, vs1) =>
       self.execute_vector_binary_vv(
         vd,

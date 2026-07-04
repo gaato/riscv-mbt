@@ -578,6 +578,36 @@ fn encode_vmul_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
 }
 
 ///|
+fn encode_vmulhu_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x24U, vm, vs2, vs1, 0x2U, vd)
+}
+
+///|
+fn encode_vmulhu_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x24U, vm, vs2, rs1, 0x6U, vd)
+}
+
+///|
+fn encode_vmulh_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x27U, vm, vs2, vs1, 0x2U, vd)
+}
+
+///|
+fn encode_vmulh_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x27U, vm, vs2, rs1, 0x6U, vd)
+}
+
+///|
+fn encode_vmulhsu_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x26U, vm, vs2, vs1, 0x2U, vd)
+}
+
+///|
+fn encode_vmulhsu_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x26U, vm, vs2, rs1, 0x6U, vd)
+}
+
+///|
 fn encode_vminu_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
   encode_vop(0x04U, vm, vs2, vs1, 0x0U, vd)
 }

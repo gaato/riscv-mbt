@@ -1497,6 +1497,18 @@ pub fn Runner::step(self : Runner) -> StepResult {
       self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
     VmulVx(_, _, _) =>
       self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VmulhuVv(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VmulhuVx(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VmulhVv(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VmulhVx(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VmulhsuVv(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VmulhsuVx(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
     VminuVv(_, _, _) =>
       self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
     VminuVx(_, _, _) =>

@@ -1995,6 +1995,127 @@ test "rv64fdv vmul honors mask and low-half product" {
 }
 
 ///|
+test "rv64fdv vector multiply high slice supports lmul2 register groups" {
+  let program = words_to_bytes([
+    encode_vsetivli(0, 8U, 0x11U),
+    encode_vmv_v_i(2, -2),
+    encode_vmv_v_i(4, 3),
+    encode_vmulhu_vv(6, 2, 4, true),
+    encode_vmulh_vv(8, 2, 4, true),
+    encode_vmulhsu_vv(10, 2, 4, true),
+    encode_vmulhu_vx(12, 2, 10, true),
+    encode_vmulh_vx(14, 2, 10, true),
+    encode_vmulhsu_vx(16, 2, 10, true),
+  ])
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.cpu.write_reg(10, 3U.to_uint64())
+  runner.load_program(program, 0U)
+  match runner.run(9) {
+    Running => ()
+    _ => fail("expected lmul2 vector multiply-high sequence to run")
+  }
+  // e32 unsigned: 0xfffffffe * 3 has high word 2.
+  assert_eq(runner.read_vreg_u64(6, 0), test_join_u64(2U, 2U))
+  assert_eq(runner.read_vreg_u64(6, 1), test_join_u64(2U, 2U))
+  assert_eq(runner.read_vreg_u64(7, 0), test_join_u64(2U, 2U))
+  assert_eq(runner.read_vreg_u64(7, 1), test_join_u64(2U, 2U))
+  // e32 signed and signed-unsigned: -2 * 3 has high word -1.
+  assert_eq(runner.read_vreg_u64(8, 0), test_join_u64(0xffffffffU, 0xffffffffU))
+  assert_eq(runner.read_vreg_u64(8, 1), test_join_u64(0xffffffffU, 0xffffffffU))
+  assert_eq(runner.read_vreg_u64(9, 0), test_join_u64(0xffffffffU, 0xffffffffU))
+  assert_eq(runner.read_vreg_u64(9, 1), test_join_u64(0xffffffffU, 0xffffffffU))
+  assert_eq(
+    runner.read_vreg_u64(10, 0),
+    test_join_u64(0xffffffffU, 0xffffffffU),
+  )
+  assert_eq(
+    runner.read_vreg_u64(10, 1),
+    test_join_u64(0xffffffffU, 0xffffffffU),
+  )
+  assert_eq(
+    runner.read_vreg_u64(11, 0),
+    test_join_u64(0xffffffffU, 0xffffffffU),
+  )
+  assert_eq(
+    runner.read_vreg_u64(11, 1),
+    test_join_u64(0xffffffffU, 0xffffffffU),
+  )
+  assert_eq(runner.read_vreg_u64(12, 0), test_join_u64(2U, 2U))
+  assert_eq(runner.read_vreg_u64(12, 1), test_join_u64(2U, 2U))
+  assert_eq(runner.read_vreg_u64(13, 0), test_join_u64(2U, 2U))
+  assert_eq(runner.read_vreg_u64(13, 1), test_join_u64(2U, 2U))
+  assert_eq(
+    runner.read_vreg_u64(14, 0),
+    test_join_u64(0xffffffffU, 0xffffffffU),
+  )
+  assert_eq(
+    runner.read_vreg_u64(14, 1),
+    test_join_u64(0xffffffffU, 0xffffffffU),
+  )
+  assert_eq(
+    runner.read_vreg_u64(15, 0),
+    test_join_u64(0xffffffffU, 0xffffffffU),
+  )
+  assert_eq(
+    runner.read_vreg_u64(15, 1),
+    test_join_u64(0xffffffffU, 0xffffffffU),
+  )
+  assert_eq(
+    runner.read_vreg_u64(16, 0),
+    test_join_u64(0xffffffffU, 0xffffffffU),
+  )
+  assert_eq(
+    runner.read_vreg_u64(16, 1),
+    test_join_u64(0xffffffffU, 0xffffffffU),
+  )
+  assert_eq(
+    runner.read_vreg_u64(17, 0),
+    test_join_u64(0xffffffffU, 0xffffffffU),
+  )
+  assert_eq(
+    runner.read_vreg_u64(17, 1),
+    test_join_u64(0xffffffffU, 0xffffffffU),
+  )
+}
+
+///|
+test "rv64fdv vector multiply high handles e64 signedness and masks" {
+  let all_ones = 0U.to_uint64() - 1U.to_uint64()
+  let sign_bit = 1U.to_uint64() << 63
+  let program = words_to_bytes([
+    encode_vsetivli(0, 2U, 0x18U),
+    encode_vmulhu_vv(6, 2, 4, true),
+    encode_vmulh_vv(8, 2, 4, true),
+    encode_vmulhsu_vv(10, 2, 4, true),
+    encode_vmulh_vx(12, 2, 10, false),
+  ])
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.cpu.write_vreg(0, 0, 0x01U.to_uint64())
+  runner.cpu.write_vreg(2, 0, all_ones)
+  runner.cpu.write_vreg(2, 1, sign_bit)
+  runner.cpu.write_vreg(4, 0, 2U.to_uint64())
+  runner.cpu.write_vreg(4, 1, 2U.to_uint64())
+  runner.cpu.write_vreg(12, 0, 99U.to_uint64())
+  runner.cpu.write_vreg(12, 1, 100U.to_uint64())
+  runner.cpu.write_reg(10, 2U.to_uint64())
+  runner.load_program(program, 0U)
+  match runner.run(5) {
+    Running => ()
+    _ => fail("expected e64 vector multiply-high sequence to run")
+  }
+  // Unsigned high half sees both lanes as large positive values.
+  assert_eq(runner.read_vreg_u64(6, 0), 1U.to_uint64())
+  assert_eq(runner.read_vreg_u64(6, 1), 1U.to_uint64())
+  // Signed and signed-unsigned high halves sign-correct the vs2 operand.
+  assert_eq(runner.read_vreg_u64(8, 0), all_ones)
+  assert_eq(runner.read_vreg_u64(8, 1), all_ones)
+  assert_eq(runner.read_vreg_u64(10, 0), all_ones)
+  assert_eq(runner.read_vreg_u64(10, 1), all_ones)
+  assert_eq(runner.read_vreg_u64(12, 0), all_ones)
+  assert_eq(runner.read_vreg_u64(12, 1), 100U.to_uint64())
+}
+
+///|
 test "rv64fdv vector logical slice supports lmul2 register groups" {
   let program = words_to_bytes([
     encode_vsetivli(0, 8U, 0x11U),

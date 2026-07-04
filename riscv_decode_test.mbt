@@ -526,6 +526,54 @@ test "decode first vector arithmetic slice" {
     }
     _ => fail("expected masked vmul.vx")
   }
+  match decode(encode_vmulhu_vv(5, 6, 7, true)) {
+    VmulhuVv(vd, vs2, vs1) => {
+      assert_eq(vd, 5)
+      assert_eq(vs2, 6)
+      assert_eq(vs1, 7)
+    }
+    _ => fail("expected vmulhu.vv")
+  }
+  match decode(encode_vmulhu_vx(8, 9, 10, true)) {
+    VmulhuVx(vd, vs2, rs1) => {
+      assert_eq(vd, 8)
+      assert_eq(vs2, 9)
+      assert_eq(rs1, 10)
+    }
+    _ => fail("expected vmulhu.vx")
+  }
+  match decode(encode_vmulhsu_vv(11, 12, 13, false)) {
+    VmulhsuVv(vd, vs2, vs1) => {
+      assert_eq(vd, 11)
+      assert_eq(vs2, 12)
+      assert_eq(vs1, 13)
+    }
+    _ => fail("expected masked vmulhsu.vv")
+  }
+  match decode(encode_vmulhsu_vx(14, 15, 16, false)) {
+    VmulhsuVx(vd, vs2, rs1) => {
+      assert_eq(vd, 14)
+      assert_eq(vs2, 15)
+      assert_eq(rs1, 16)
+    }
+    _ => fail("expected masked vmulhsu.vx")
+  }
+  match decode(encode_vmulh_vv(17, 18, 19, true)) {
+    VmulhVv(vd, vs2, vs1) => {
+      assert_eq(vd, 17)
+      assert_eq(vs2, 18)
+      assert_eq(vs1, 19)
+    }
+    _ => fail("expected vmulh.vv")
+  }
+  match decode(encode_vmulh_vx(20, 21, 22, true)) {
+    VmulhVx(vd, vs2, rs1) => {
+      assert_eq(vd, 20)
+      assert_eq(vs2, 21)
+      assert_eq(rs1, 22)
+    }
+    _ => fail("expected vmulh.vx")
+  }
   match decode(encode_vminu_vv(18, 19, 20, true)) {
     VminuVv(vd, vs2, vs1) => {
       assert_eq(vd, 18)
