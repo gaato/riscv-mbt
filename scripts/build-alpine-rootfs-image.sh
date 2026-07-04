@@ -37,7 +37,15 @@ devtmpfs /dev devtmpfs defaults 0 0
 tmpfs /run tmpfs defaults 0 0
 tmpfs /tmp tmpfs defaults 0 0
 EOF
-sed -i 's|^#ttyS0::respawn:/sbin/getty.*|ttyS0::respawn:/sbin/getty -L 3686400 ttyS0 vt100|' "$root_dir/etc/inittab"
+cat > "$root_dir/etc/inittab" <<'EOF'
+::sysinit:/bin/mount -t proc proc /proc
+::sysinit:/bin/mount -t sysfs sysfs /sys
+::sysinit:/bin/mount -t devtmpfs devtmpfs /dev
+::sysinit:/bin/mount -t tmpfs tmpfs /run
+::sysinit:/bin/mount -t tmpfs tmpfs /tmp
+ttyS0::respawn:/sbin/getty -L 3686400 ttyS0 vt100
+::shutdown:/bin/umount -a -r
+EOF
 
 rm -f "$image_path"
 truncate -s "$image_size" "$image_path"

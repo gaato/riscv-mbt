@@ -211,6 +211,32 @@ test "byte and halfword loads and stores honor sign and zero extension" {
 }
 
 ///|
+test "rv64 store effective address keeps high bits with negative immediate" {
+  let runner = make_runner(rv64_machine_config())
+  runner.cpu.write_reg(8, 0x3fd100a420UL)
+  runner.cpu.write_reg(13, 0x1234UL)
+  runner.load_program(words_to_bytes([0xeed43423U]), 0U)
+  match runner.step() {
+    Trap(info) => {
+      match info.cause {
+        StoreAccessFault => ()
+        _ => fail("expected store access fault")
+      }
+      assert_eq(info.trap_value, 0x3fd100a308UL)
+    }
+    Running => fail("expected high-address store to fault outside RAM")
+  }
+  match decode(0xeed43423U) {
+    Sd(rs1, rs2, imm) => {
+      assert_eq(rs1, 8)
+      assert_eq(rs2, 13)
+      assert_eq(imm, -280)
+    }
+    _ => fail("expected Linux musl store to decode as sd a3,-280(s0)")
+  }
+}
+
+///|
 test "bootstrap subset runs a small program" {
   let program = words_to_bytes([
     encode_u(0x12345000U, 6, 0x37U),

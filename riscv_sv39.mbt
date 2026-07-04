@@ -81,6 +81,7 @@ pub fn sv39_translate(
   let mut i = SV39_LEVELS - 1
   // Page table walk loop
   let mut pte = 0U.to_uint64()
+  let mut leaf_pte_addr = 0U.to_uint64()
   while i >= 0 {
     let pte_addr = a + sv39_vpn(vaddr, i) * SV39_PTESIZE
     if !bus.contains_range(pte_addr, 8) {
@@ -94,6 +95,7 @@ pub fn sv39_translate(
     }
     // Leaf PTE: R=1 or X=1
     if (pte & PTE_R) != 0U.to_uint64() || (pte & PTE_X) != 0U.to_uint64() {
+      leaf_pte_addr = pte_addr
       break
     }
     // Non-leaf: descend
@@ -134,13 +136,23 @@ pub fn sv39_translate(
       }
     }
   }
-  // A/D bit checks
-  if (pte & PTE_A) == 0U.to_uint64() {
-    return TranslateFault(fault)
+  // This emulator exposes the common hardware-managed A/D-bit behavior rather
+  // than Svade-style A/D page faults. Linux userspace relies on this path being
+  // precise for stack writes and copy-on-write bookkeeping.
+  let mut updated_pte = pte
+  if (updated_pte & PTE_A) == 0U.to_uint64() {
+    updated_pte = updated_pte | PTE_A
   }
   match access_type {
-    Store => if (pte & PTE_D) == 0U.to_uint64() { return TranslateFault(fault) }
+    Store =>
+      if (updated_pte & PTE_D) == 0U.to_uint64() {
+        updated_pte = updated_pte | PTE_D
+      }
     _ => ()
+  }
+  if updated_pte != pte {
+    bus.store_u64(leaf_pte_addr, updated_pte)
+    pte = updated_pte
   }
   // Compute physical address
   let page_offset = vaddr & (SV39_PAGESIZE - 1U.to_uint64())

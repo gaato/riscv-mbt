@@ -176,3 +176,21 @@ implemented.
   implementation slice should isolate why ordinary dynamically linked Alpine
   userspace or BusyBox init faults after `switch_root`, preferably with a
   smaller command/rootfs reproducer before adding broad ISA or RVV coverage.
+- The generated rootfs now replaces Alpine minirootfs' default `openrc`
+  inittab with a BusyBox-init inittab that mounts `/proc`, `/sys`, `/dev`,
+  `/run`, and `/tmp`, then starts a serial getty on `ttyS0`. The minirootfs
+  does not include `/sbin/openrc`, so keeping the default inittab was not a
+  straightforward rootfs contract even though it was not the immediate crash
+  cause.
+- `busybox init` as a child process from the initramfs shell reaches
+  `init: must be run as PID 1` and returns to the shell. That narrows the crash
+  away from generic BusyBox/musl execution and toward the PID 1 handoff path.
+- Sv39 translation now uses hardware-managed A/D-bit behavior instead of
+  faulting when a leaf PTE has `A=0` or, for stores, `D=0`. This is a Linux-path
+  correctness improvement, but it does not fix the Alpine init crash.
+- Temporary fault diagnostics showed that the kernel panic's faulting PC
+  executes a stale fetched instruction word (`0x30233423`, decoded as an
+  `sd` using `rs1=x6` and `imm=776`) while Linux's fault dump reads the current
+  instruction bytes at that same userspace PC (`0xeed43423`, `sd a3,-280(s0)`).
+  The next slice should focus on user executable fetch coherence or translation
+  provenance, not on broad ISA coverage.

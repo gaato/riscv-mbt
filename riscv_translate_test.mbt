@@ -259,7 +259,7 @@ test "sv39 translate faults when S-page accessed from U-mode" {
 }
 
 ///|
-test "sv39 translate faults when A bit is clear" {
+test "sv39 translate sets A bit when it is clear" {
   let bus = Bus::new(0U.to_uint64(), 0x10000)
   // No test_pte_a
   let satp = test_setup_identity_map(
@@ -268,17 +268,14 @@ test "sv39 translate faults when A bit is clear" {
   )
   match
     sv39_translate(bus, satp, 0U.to_uint64(), Load, Supervisor, false, false) {
-    TranslateFault(cause) =>
-      match cause {
-        LoadPageFault => ()
-        _ => fail("expected LoadPageFault for A=0")
-      }
-    TranslatedAddr(_) => fail("expected page fault when A bit is clear")
+    TranslatedAddr(_) => ()
+    TranslateFault(_) => fail("expected translation to update A bit")
   }
+  assert_eq(bus.load_u64(0x3000U.to_uint64()) & test_pte_a, test_pte_a)
 }
 
 ///|
-test "sv39 translate faults on store when D bit is clear" {
+test "sv39 translate sets D bit on store when it is clear" {
   let bus = Bus::new(0U.to_uint64(), 0x10000)
   // Has A but not D
   let satp = test_setup_identity_map(
@@ -287,13 +284,10 @@ test "sv39 translate faults on store when D bit is clear" {
   )
   match
     sv39_translate(bus, satp, 0U.to_uint64(), Store, Supervisor, false, false) {
-    TranslateFault(cause) =>
-      match cause {
-        StorePageFault => ()
-        _ => fail("expected StorePageFault for D=0")
-      }
-    TranslatedAddr(_) => fail("expected page fault for store with D=0")
+    TranslatedAddr(_) => ()
+    TranslateFault(_) => fail("expected store translation to update D bit")
   }
+  assert_eq(bus.load_u64(0x3000U.to_uint64()) & test_pte_d, test_pte_d)
 }
 
 ///|
