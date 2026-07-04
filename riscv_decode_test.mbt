@@ -751,6 +751,34 @@ test "decode first vector arithmetic slice" {
     Unknown(_) => ()
     _ => fail("expected masked vmand.mm encoding to remain reserved")
   }
+  match decode(encode_vcpop_m(4, 5, true)) {
+    VcpopM(rd, vs2) => {
+      assert_eq(rd, 4)
+      assert_eq(vs2, 5)
+    }
+    _ => fail("expected vcpop.m")
+  }
+  match decode(encode_vcpop_m(6, 7, false)) {
+    VcpopM(rd, vs2) => {
+      assert_eq(rd, 6)
+      assert_eq(vs2, 7)
+    }
+    _ => fail("expected masked vcpop.m")
+  }
+  match decode(encode_vfirst_m(8, 9, true)) {
+    VfirstM(rd, vs2) => {
+      assert_eq(rd, 8)
+      assert_eq(vs2, 9)
+    }
+    _ => fail("expected vfirst.m")
+  }
+  match decode(encode_vfirst_m(10, 11, false)) {
+    VfirstM(rd, vs2) => {
+      assert_eq(rd, 10)
+      assert_eq(vs2, 11)
+    }
+    _ => fail("expected masked vfirst.m")
+  }
   match decode(encode_vsll_vv(13, 14, 15, true)) {
     VsllVv(vd, vs2, vs1) => {
       assert_eq(vd, 13)

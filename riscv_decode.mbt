@@ -1015,6 +1015,8 @@ fn instruction_supported_for_current_config(
     VmnorMm(_, _, _) => has_v
     VmornMm(_, _, _) => has_v
     VmxnorMm(_, _, _) => has_v
+    VcpopM(_, _) => has_v
+    VfirstM(_, _) => has_v
     VsllVv(_, _, _) => has_v
     VsllVx(_, _, _) => has_v
     VsllVi(_, _, _) => has_v
@@ -1239,7 +1241,13 @@ pub fn decode(raw : UInt) -> Instruction {
             _ => Unknown(raw)
           }
         0x2U =>
-          if ((raw >> 25) & 0x1U) == 1U {
+          if funct6(raw) == 0x10U {
+            match rs1(raw) {
+              0x10 => VcpopM(rd(raw), rs2(raw))
+              0x11 => VfirstM(rd(raw), rs2(raw))
+              _ => Unknown(raw)
+            }
+          } else if ((raw >> 25) & 0x1U) == 1U {
             match funct6(raw) {
               0x18U => VmandMm(rd(raw), rs2(raw), rs1(raw))
               0x19U => VmnandMm(rd(raw), rs2(raw), rs1(raw))

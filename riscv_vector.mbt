@@ -434,6 +434,53 @@ fn Runner::execute_vector_mask_logical(
 }
 
 ///|
+fn Runner::execute_vector_mask_count(
+  self : Runner,
+  rd : Int,
+  vs2 : Int,
+  active_elems : Int,
+  mask_bits : Array[Bool],
+  use_mask : Bool,
+  next_pc : UInt64,
+) -> StepResult {
+  let mut count = 0U.to_uint64()
+  for elem in 0..<active_elems {
+    if (!use_mask || mask_bits[elem]) && self.read_vmask_bit_from(vs2, elem) {
+      count += 1U.to_uint64()
+    }
+  }
+  self.write_xlen_reg(rd, count)
+  self.cpu.pc = next_pc
+  Running
+}
+
+///|
+fn Runner::execute_vector_mask_first(
+  self : Runner,
+  rd : Int,
+  vs2 : Int,
+  active_elems : Int,
+  mask_bits : Array[Bool],
+  use_mask : Bool,
+  next_pc : UInt64,
+) -> StepResult {
+  let not_found = bit_not(0U.to_uint64())
+  let found = for elem in 0..<active_elems; current = not_found {
+    if current == not_found &&
+      (!use_mask || mask_bits[elem]) &&
+      self.read_vmask_bit_from(vs2, elem) {
+      continue elem.reinterpret_as_uint().to_uint64()
+    }
+    continue current
+  } nobreak {
+    current
+  }
+  self.write_xlen_reg(rd, found)
+  self.cpu.pc = next_pc
+  Running
+}
+
+///|
 fn Runner::execute_vector_compare_vv(
   self : Runner,
   vd : Int,
@@ -1271,6 +1318,14 @@ fn Runner::execute_vector_first_slice(
         current_pc,
         next_pc,
         raw,
+      )
+    VcpopM(rd, vs2) =>
+      self.execute_vector_mask_count(
+        rd, vs2, active_elems, mask_bits, use_mask, next_pc,
+      )
+    VfirstM(rd, vs2) =>
+      self.execute_vector_mask_first(
+        rd, vs2, active_elems, mask_bits, use_mask, next_pc,
       )
     VsllVv(vd, vs2, vs1) =>
       self.execute_vector_binary_vv(

@@ -1553,6 +1553,10 @@ pub fn Runner::step(self : Runner) -> StepResult {
       self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
     VmxnorMm(_, _, _) =>
       self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VcpopM(_, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VfirstM(_, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
     VsllVv(_, _, _) =>
       self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
     VsllVx(_, _, _) =>

@@ -718,6 +718,16 @@ fn encode_vmxnor_mm(vd : Int, vs2 : Int, vs1 : Int) -> UInt {
 }
 
 ///|
+fn encode_vcpop_m(rd : Int, vs2 : Int, vm : Bool) -> UInt {
+  encode_vop(0x10U, vm, vs2, 0x10, 0x2U, rd)
+}
+
+///|
+fn encode_vfirst_m(rd : Int, vs2 : Int, vm : Bool) -> UInt {
+  encode_vop(0x10U, vm, vs2, 0x11, 0x2U, rd)
+}
+
+///|
 fn encode_vsll_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
   encode_vop(0x26U, vm, vs2, vs1, 0x0U, vd)
 }

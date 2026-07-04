@@ -233,6 +233,8 @@ pub enum Instruction {
   VmnorMm(Int, Int, Int)
   VmornMm(Int, Int, Int)
   VmxnorMm(Int, Int, Int)
+  VcpopM(Int, Int)
+  VfirstM(Int, Int)
   VsllVv(Int, Int, Int)
   VsllVx(Int, Int, Int)
   VsllVi(Int, Int, Int)

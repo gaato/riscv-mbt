@@ -2118,6 +2118,68 @@ test "rv64fdv vector mask logical slice ignores lmul grouping" {
 }
 
 ///|
+test "rv64fdv vector mask population and first set respect masks" {
+  let program = words_to_bytes([
+    encode_vsetivli(0, 8U, 0x11U),
+    encode_vcpop_m(6, 2, true),
+    encode_vfirst_m(7, 2, true),
+    encode_vcpop_m(8, 2, false),
+    encode_vfirst_m(9, 2, false),
+    encode_vcpop_m(10, 3, true),
+    encode_vfirst_m(11, 3, true),
+    encode_vsetivli(0, 0U, 0x11U),
+    encode_vcpop_m(12, 2, true),
+    encode_vfirst_m(13, 2, true),
+  ])
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.load_program(program, 0U)
+
+  // Mask registers pack one predicate bit per element. v2 has bits 2,4,5,7
+  // set; v0 narrows masked forms to bit 4 only.
+  runner.cpu.write_vreg(2, 0, 0xb4U.to_uint64())
+  runner.cpu.write_vreg(0, 0, 0x50U.to_uint64())
+  runner.cpu.write_vreg(3, 0, 0U.to_uint64())
+
+  match runner.run(10) {
+    Running => ()
+    _ => fail("expected vector mask scan sequence to run")
+  }
+
+  assert_eq(runner.read_reg_u64(6), 4U.to_uint64())
+  assert_eq(runner.read_reg_u64(7), 2U.to_uint64())
+  assert_eq(runner.read_reg_u64(8), 1U.to_uint64())
+  assert_eq(runner.read_reg_u64(9), 4U.to_uint64())
+  assert_eq(runner.read_reg_u64(10), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(11), (-1L).reinterpret_as_uint64())
+  assert_eq(runner.read_reg_u64(12), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(13), (-1L).reinterpret_as_uint64())
+}
+
+///|
+test "rv64fdv vector mask population rejects nonzero vstart" {
+  let raw = encode_vcpop_m(1, 2, true)
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.load_program(words_to_bytes([encode_vsetivli(0, 8U, 0x11U), raw]), 0U)
+
+  match runner.step() {
+    Running => ()
+    _ => fail("expected vsetivli to run")
+  }
+  runner.cpu.write_csr(0x008, 1U.to_uint64())
+
+  match runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+      assert_eq(info.trap_value, raw.to_uint64())
+    }
+    _ => fail("expected vcpop.m with nonzero vstart to trap")
+  }
+}
+
+///|
 fn test_vector_vtypei_for_sew(sew_bits : Int) -> UInt {
   match sew_bits {
     8 => 0x00U
