@@ -330,3 +330,39 @@ fn Runner::execute_vector_slide1down(
   self.cpu.pc = next_pc
   Running
 }
+
+///|
+fn vector_whole_group_aligned(vreg : Int, nreg : Int) -> Bool {
+  vreg % nreg == 0 && vreg + nreg <= VREG_COUNT
+}
+
+///|
+fn Runner::execute_vector_whole_register_move(
+  self : Runner,
+  vd : Int,
+  vs2 : Int,
+  nreg : Int,
+  current_pc : UInt64,
+  next_pc : UInt64,
+  raw : UInt,
+) -> StepResult {
+  match self.vector_whole_register_move_supported() {
+    Some(_) => ()
+    None =>
+      return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+  }
+  if !vector_whole_group_aligned(vd, nreg) ||
+    !vector_whole_group_aligned(vs2, nreg) {
+    return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+  }
+  // Whole-register moves are byte-for-byte vector register copies. They are
+  // intentionally independent of the current `vl`, and the encoded NREG
+  // controls the group size instead of the current LMUL.
+  for reg in 0..<nreg {
+    for word in 0..<VREG_WORDS_PER_REG {
+      self.cpu.write_vreg(vd + reg, word, self.cpu.read_vreg(vs2 + reg, word))
+    }
+  }
+  self.cpu.pc = next_pc
+  Running
+}

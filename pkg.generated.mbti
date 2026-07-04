@@ -250,6 +250,7 @@ pub enum Instruction {
   VslidedownVi(Int, Int, Int)
   Vslide1upVx(Int, Int, Int)
   Vslide1downVx(Int, Int, Int)
+  VmvNrR(Int, Int, Int)
   VsllVv(Int, Int, Int)
   VsllVx(Int, Int, Int)
   VsllVi(Int, Int, Int)

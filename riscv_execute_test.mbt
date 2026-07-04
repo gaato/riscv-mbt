@@ -2728,6 +2728,82 @@ test "rv64fdv vector slide1up rejects overlapping source groups" {
 }
 
 ///|
+test "rv64fdv vector whole-register moves copy encoded register groups" {
+  let program = words_to_bytes([
+    encode_vsetivli(0, 1U, 0x11U),
+    encode_vmv_nr_r(8, 16, 4, true),
+    encode_vmv_nr_r(24, 8, 8, true),
+  ])
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.load_program(program, 0U)
+
+  // `vmv<nr>r.v` ignores the current `vl`: even with vl=1 it copies every bit
+  // of NREG whole vector registers.
+  for reg in 16..<20 {
+    runner.cpu.write_vreg(reg, 0, reg.reinterpret_as_uint().to_uint64())
+    runner.cpu.write_vreg(reg, 1, (reg + 100).reinterpret_as_uint().to_uint64())
+  }
+  for reg in 12..<16 {
+    runner.cpu.write_vreg(reg, 0, 0xeeeeeeeeU.to_uint64())
+    runner.cpu.write_vreg(reg, 1, 0xffffffffU.to_uint64())
+  }
+
+  match runner.run(3) {
+    Running => ()
+    _ => fail("expected whole-register move sequence to run")
+  }
+
+  for offset in 0..<4 {
+    assert_eq(
+      runner.read_vreg_u64(8 + offset, 0),
+      (16 + offset).reinterpret_as_uint().to_uint64(),
+    )
+    assert_eq(
+      runner.read_vreg_u64(8 + offset, 1),
+      (116 + offset).reinterpret_as_uint().to_uint64(),
+    )
+  }
+  for offset in 0..<4 {
+    assert_eq(
+      runner.read_vreg_u64(24 + offset, 0),
+      (16 + offset).reinterpret_as_uint().to_uint64(),
+    )
+    assert_eq(
+      runner.read_vreg_u64(24 + offset, 1),
+      (116 + offset).reinterpret_as_uint().to_uint64(),
+    )
+  }
+  for offset in 4..<8 {
+    assert_eq(runner.read_vreg_u64(24 + offset, 0), 0xeeeeeeeeU.to_uint64())
+    assert_eq(runner.read_vreg_u64(24 + offset, 1), 0xffffffffU.to_uint64())
+  }
+}
+
+///|
+test "rv64fdv vector whole-register moves reject misaligned groups" {
+  let misaligned = encode_vmv_nr_r(10, 16, 4, true)
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.load_program(
+    words_to_bytes([encode_vsetivli(0, 1U, 0x11U), misaligned]),
+    0U,
+  )
+  match runner.step() {
+    Running => ()
+    _ => fail("expected vsetivli to run")
+  }
+  match runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+      assert_eq(info.trap_value, misaligned.to_uint64())
+    }
+    _ => fail("expected misaligned vmv4r.v to trap")
+  }
+}
+
+///|
 fn test_vector_vtypei_for_sew(sew_bits : Int) -> UInt {
   match sew_bits {
     8 => 0x00U

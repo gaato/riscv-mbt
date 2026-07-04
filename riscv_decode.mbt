@@ -1032,6 +1032,7 @@ fn instruction_supported_for_current_config(
     VslidedownVi(_, _, _) => has_v
     Vslide1upVx(_, _, _) => has_v
     Vslide1downVx(_, _, _) => has_v
+    VmvNrR(_, _, _) => has_v
     VsllVv(_, _, _) => has_v
     VsllVx(_, _, _) => has_v
     VsllVi(_, _, _) => has_v
@@ -1351,6 +1352,18 @@ pub fn decode(raw : UInt) -> Instruction {
                 rs2(raw),
                 ((raw >> 15) & 0x1fU).reinterpret_as_int(),
               )
+            0x27U =>
+              if ((raw >> 25) & 0x1U) == 1U {
+                match ((raw >> 15) & 0x1fU).reinterpret_as_int() {
+                  0 => VmvNrR(rd(raw), rs2(raw), 1)
+                  1 => VmvNrR(rd(raw), rs2(raw), 2)
+                  3 => VmvNrR(rd(raw), rs2(raw), 4)
+                  7 => VmvNrR(rd(raw), rs2(raw), 8)
+                  _ => Unknown(raw)
+                }
+              } else {
+                Unknown(raw)
+              }
             0x17U =>
               if ((raw >> 25) & 0x1U) == 1U && rs2(raw) == 0 {
                 VmvVI(rd(raw), sign_extend((raw >> 15) & 0x1fU, 5))

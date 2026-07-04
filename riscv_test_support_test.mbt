@@ -803,6 +803,18 @@ fn encode_vslide1down_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
 }
 
 ///|
+fn encode_vmv_nr_r(vd : Int, vs2 : Int, nreg : Int, vm : Bool) -> UInt {
+  let simm = match nreg {
+    1 => 0
+    2 => 1
+    4 => 3
+    8 => 7
+    _ => nreg - 1
+  }
+  encode_vop(0x27U, vm, vs2, simm, 0x3U, vd)
+}
+
+///|
 fn encode_vsll_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
   encode_vop(0x26U, vm, vs2, vs1, 0x0U, vd)
 }

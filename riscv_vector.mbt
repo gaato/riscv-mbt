@@ -276,6 +276,21 @@ fn Runner::vector_exec_supported(self : Runner) -> VectorExecConfig? {
 }
 
 ///|
+fn Runner::vector_whole_register_move_supported(
+  self : Runner,
+) -> VectorExecConfig? {
+  match self.current_vector_exec_config() {
+    Some(config) =>
+      if self.cpu.read_csr(CSR_VSTART) == 0U.to_uint64() {
+        Some(config)
+      } else {
+        None
+      }
+    None => None
+  }
+}
+
+///|
 fn Runner::raise_vector_group_misaligned(
   self : Runner,
   current_pc : UInt64,
@@ -777,6 +792,13 @@ fn Runner::execute_vector_first_slice(
   next_pc : UInt64,
   raw : UInt,
 ) -> StepResult {
+  match instruction {
+    VmvNrR(vd, vs2, nreg) =>
+      return self.execute_vector_whole_register_move(
+        vd, vs2, nreg, current_pc, next_pc, raw,
+      )
+    _ => ()
+  }
   let config = match self.vector_exec_supported() {
     Some(config) => config
     None =>
@@ -1608,6 +1630,8 @@ fn Runner::execute_vector_first_slice(
         next_pc,
         raw,
       )
+    VmvNrR(_, _, _) =>
+      abort("whole-register move handled before element config")
     VsllVv(vd, vs2, vs1) =>
       self.execute_vector_binary_vv(
         vd,

@@ -910,6 +910,22 @@ test "decode first vector arithmetic slice" {
     }
     _ => fail("expected vslide1down.vx")
   }
+  match decode(encode_vmv_nr_r(8, 16, 4, true)) {
+    VmvNrR(vd, vs2, nreg) => {
+      assert_eq(vd, 8)
+      assert_eq(vs2, 16)
+      assert_eq(nreg, 4)
+    }
+    _ => fail("expected vmv4r.v")
+  }
+  match decode(encode_vmv_nr_r(8, 16, 4, false)) {
+    Unknown(_) => ()
+    _ => fail("expected masked vmv4r.v encoding to remain reserved")
+  }
+  match decode(encode_vmv_nr_r(8, 16, 3, true)) {
+    Unknown(_) => ()
+    _ => fail("expected reserved whole-register move NREG to remain reserved")
+  }
   match decode(encode_vsll_vv(13, 14, 15, true)) {
     VsllVv(vd, vs2, vs1) => {
       assert_eq(vd, 13)
