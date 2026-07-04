@@ -42,6 +42,8 @@ async fn read_official_test_elf(path : String) -> Bytes {
 
 ///|
 async fn load_official_riscv_test_cases() -> Array[OfficialRiscvTestCase] {
+  // The manifest is the allowlist for always-run official tests. Keep expansion
+  // explicit so adding a broad upstream suite is a conscious verification step.
   let manifest = read_manifest_text(official_riscv_tests_manifest_path)
   let cases : Array[OfficialRiscvTestCase] = []
   for raw_line in manifest.split("\n") {

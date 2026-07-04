@@ -904,6 +904,9 @@ fn Runner::enter_machine_trap(
   trap_value : UInt64,
   prior_privilege : PrivilegeMode,
 ) -> Unit {
+  // Trap entry mutates only architectural trap state. Selecting the target PC
+  // happens separately so delegation and vector/direct tvec behavior remain
+  // independently testable.
   let mstatus = self.cpu.read_csr(CSR_MSTATUS)
   let next_mstatus = set_mstatus_mie(
     set_mstatus_mpie(
@@ -927,6 +930,8 @@ fn Runner::enter_supervisor_trap(
   trap_value : UInt64,
   prior_privilege : PrivilegeMode,
 ) -> Unit {
+  // Supervisor trap entry aliases the modeled sstatus fields through mstatus,
+  // matching the rest of the CSR surface used by Linux.
   let mstatus = self.cpu.read_csr(CSR_MSTATUS)
   let next_mstatus = set_mstatus_sie(
     set_mstatus_spie(

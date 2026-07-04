@@ -20,6 +20,9 @@ pub fn xlen64() -> Xlen {
 
 ///|
 pub struct MachineConfig {
+  // The emulator has one config object rather than scattered global board
+  // constants so tests can swap between bare RV32, RV64, virt, and virtio-blk
+  // shapes without changing core execution code.
   xlen : Xlen
   extensions : UInt64
   ram_base : UInt64
@@ -78,6 +81,9 @@ pub enum LoadElfResult {
 
 ///|
 pub enum Instruction {
+  // This enum is the decoded internal ISA surface. Keep constructors explicit
+  // even when several encodings share execution helpers; tests assert decode
+  // shape separately from behavior so Linux failures can be traced precisely.
   Fence
   FenceI
   Lui(Int, UInt)
@@ -347,6 +353,9 @@ pub enum Instruction {
 
 ///|
 pub enum TrapCause {
+  // TrapCause is the architectural cause before it is encoded into mcause or
+  // scause. Keep it cause-centric, not handler-centric: delegation decides
+  // which privilege mode receives the same underlying event.
   InstructionAccessFault
   IllegalInstruction
   LoadAccessFault
@@ -368,6 +377,9 @@ pub enum TrapCause {
 
 ///|
 pub struct TrapInfo {
+  // StepResult returns traps explicitly so tests and probes can inspect the
+  // architectural event without having to parse CSR side effects. Real Linux
+  // traps are still entered by raise_trap/enter_*_trap before this is observed.
   cause : TrapCause
   faulting_pc : UInt64
   trap_value : UInt64
@@ -406,6 +418,9 @@ let known_page_table_invalid_ppn : UInt64 = bit_not(0U.to_uint64())
 
 ///|
 pub struct Runner {
+  // Runner owns all mutable machine state for one hart plus the currently
+  // modeled platform devices. Shared-device arrays are intentionally stored
+  // here until SMP exists; single-hart Linux is the baseline contract.
   cpu : CpuState
   bus : Bus
   config : MachineConfig
@@ -419,6 +434,8 @@ pub struct Runner {
   plic_regs : Array[Byte] // flat PLIC register file (4 MB); shared across SMP harts
   virtio_blk_state : Array[UInt64]
   mut virtio_blk_disk : Bytes
+  // Decode cache keys by physical fetch address plus raw bits. This avoids
+  // mixing Sv39 virtual aliases and keeps cache invalidation tied to fence.i.
   decode_cache_tags : Array[UInt64]
   decode_cache_raws : Array[UInt]
   decode_cache_lengths : Array[Int]
@@ -428,6 +445,9 @@ pub struct Runner {
   mut decode_cache_misses : UInt64
   mut decode_cache_fills : UInt64
   mut decode_cache_flushes : UInt64
+  // Translation cache records the privilege and mstatus bits that affect
+  // access checks. Page table writes are not tracked precisely; Linux paths
+  // rely on sfence.vma to flush this cache at architectural boundaries.
   translate_cache_vpages : Array[UInt64]
   translate_cache_satps : Array[UInt64]
   translate_cache_accesses : Array[Int]
@@ -831,6 +851,10 @@ const VLEN_BYTES : Int = 16
 
 ///|
 fn current_base_extensions() -> UInt64 {
+  // Base configs advertise the RV64 Linux baseline we actively execute:
+  // integer, multiply/divide, atomics, compressed, supervisor, and user.
+  // Floating point and vector support are added explicitly by the configs
+  // whose tests or Linux probes need them.
   MISA_EXT_A | MISA_EXT_C | MISA_EXT_I | MISA_EXT_M | MISA_EXT_S | MISA_EXT_U
 }
 
@@ -866,6 +890,9 @@ pub fn CpuState::new(
   xlen : Xlen,
   extensions : UInt64,
 ) -> CpuState {
+  // Reset state follows the emulator contract rather than a full hardware
+  // reset model: start in M-mode at the supplied firmware entry and expose the
+  // requested ISA bits through misa so OpenSBI/Linux can self-configure.
   let csrs = CsrFile::new()
   csrs.write(CSR_MISA, misa_value(xlen, extensions))
   csrs.write(CSR_MHARTID, hart_id)

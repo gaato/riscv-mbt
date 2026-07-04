@@ -1,3 +1,8 @@
+// Minimal virtio-mmio block device model for the Alpine full-rootfs path.
+// Keep this file focused on the transport/register contract and split
+// virtqueue request handling; platform interrupt wiring lives in
+// `riscv_platform.mbt`, and Linux-facing validation lives in `cmd/alpine_probe`.
+
 ///|
 let virtio_mmio_magic : UInt64 = 0x74726976U.to_uint64()
 
@@ -122,6 +127,8 @@ fn Runner::virtio_blk_copy_sector_to_guest(
   guest_addr : UInt64,
   len : Int,
 ) -> Int {
+  // Reads past the end of the backing image are zero-filled. That keeps the
+  // device behavior deterministic while the rootfs fixture size changes.
   let disk_offset = disk_byte_offset.reinterpret_as_int64().to_int()
   let mut copied = 0
   for offset in 0..<len {
@@ -153,6 +160,8 @@ fn Runner::virtio_blk_copy_guest_to_sector(
   disk_byte_offset : UInt64,
   len : Int,
 ) -> Int {
+  // Writes are bounded by both guest RAM validity and the loaded disk image.
+  // A short copy is reported through the request status instead of panicking.
   let disk_offset = disk_byte_offset.reinterpret_as_int64().to_int()
   let disk = self.virtio_blk_disk.to_array()
   let mut copied = 0
@@ -225,6 +234,10 @@ fn Runner::virtio_blk_process_chain(
   queue_num : Int,
   head : Int,
 ) -> Unit {
+  // Supported chain shape:
+  //   request header -> one or more data descriptors -> writable status byte
+  // This is enough for Linux virtio-blk on the Alpine rootfs path without
+  // implementing unrelated device features.
   let head_addr = virtio_blk_desc_addr(desc_base, head)
   if !self.bus.contains_range(head_addr, 16) {
     return
@@ -258,6 +271,8 @@ fn Runner::virtio_blk_process_chain(
     let has_next = virtio_blk_desc_has_next(flags)
     let is_write = virtio_blk_desc_is_write(flags)
     if !has_next {
+      // The final descriptor is the status byte. Linux treats the request as
+      // complete only after this byte and the used ring are updated.
       if !is_write {
         return
       }
@@ -302,6 +317,8 @@ fn Runner::virtio_blk_process_chain(
 
 ///|
 fn Runner::virtio_blk_process_available(self : Runner) -> Unit {
+  // Consume every new descriptor head the driver published since last notify.
+  // `last_avail` is device-private state, mirroring a small virtqueue device.
   let queue_num = self.virtio_blk_state[virtio_blk_idx_queue_num].to_int()
   if queue_num <= 0 ||
     queue_num > virtio_blk_queue_max.to_int() ||
@@ -409,6 +426,8 @@ fn Runner::virtio_blk_write_u32(
         1U.to_uint64()
     0x050 =>
       if (value32 & 0xffffU.to_uint64()) == 0U.to_uint64() {
+        // QueueNotify for queue 0 is where the device consumes split virtqueue
+        // descriptors and raises its PLIC interrupt via the platform layer.
         self.virtio_blk_process_available()
       }
     0x060 => ()

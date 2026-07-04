@@ -73,6 +73,9 @@ pub fn sv39_translate(
   sum : Bool,
   mxr : Bool,
 ) -> TranslateResult {
+  // This public pure-ish walker is used by tests and by Runner cache misses.
+  // Keep side effects out of it; hardware-managed A/D updates are handled by
+  // the Runner path that knows how to write guest memory and flush caches.
   let fault = access_type_fault(access_type)
   if !sv39_va_canonical(vaddr) {
     return TranslateFault(fault)

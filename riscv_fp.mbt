@@ -13,6 +13,8 @@ fn Runner::write_freg_single_bits(
   rd : Int,
   value : UInt,
 ) -> Unit {
+  // When D is present, single-precision values must be NaN-boxed in the 64-bit
+  // FP register file. Transfer instructions still use the raw low 32 bits.
   let stored = if self.fp_has_d() {
     (0xffffffffU.to_uint64() << 32) | value.to_uint64()
   } else {
@@ -28,6 +30,8 @@ fn Runner::read_freg_single_transfer_bits(self : Runner, rs : Int) -> UInt {
 
 ///|
 fn Runner::read_freg_single_value_bits(self : Runner, rs : Int) -> UInt {
+  // Arithmetic reads validate NaN boxing. A malformed boxed value becomes the
+  // canonical NaN, which is the Linux-practical behavior pinned by tests.
   let slot = self.cpu.read_freg(rs)
   if self.fp_has_d() && slot >> 32 != 0xffffffffU.to_uint64() {
     f32_canonical_nan_bits()
@@ -226,6 +230,9 @@ fn Runner::read_frm(self : Runner) -> UInt {
 
 ///|
 fn Runner::fp_rounding_mode_supported(self : Runner, rm : UInt) -> Bool {
+  // Current practical FP scope: arithmetic and int-to-float conversions support
+  // RNE only. Other modes trap instead of silently producing host-default
+  // results that look architectural but are not.
   if rm == 0U {
     true
   } else if rm == 7U {
@@ -237,6 +244,8 @@ fn Runner::fp_rounding_mode_supported(self : Runner, rm : UInt) -> Bool {
 
 ///|
 fn Runner::fp_rounding_mode_is_rtz(self : Runner, rm : UInt) -> Bool {
+  // Float-to-integer Linux paths have so far required RTZ. Full rounding-mode
+  // and fflags support belongs in a later spec-compliance slice.
   rm == 1U || (rm == 7U && self.read_frm() == 1U)
 }
 

@@ -6,6 +6,8 @@ let browser_runtime : Ref[BrowserRuntime] = { val: BrowserRuntime::new_smoke() }
 
 ///|
 pub fn browser_init() -> Unit {
+  // Reset to the tiny smoke guest. Linux artifacts are loaded explicitly so the
+  // browser can recover from a bad artifact set without reconstructing JS state.
   browser_runtime.val = BrowserRuntime::new_smoke()
 }
 

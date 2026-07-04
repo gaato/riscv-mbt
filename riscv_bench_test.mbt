@@ -4,6 +4,7 @@
 
 ///|
 fn make_tight_add_loop_runner() -> Runner {
+  // A decode/dispatch baseline with almost no memory traffic.
   let runner = make_runner(default_machine_config())
   let program = words_to_bytes([
     encode_i(1, 1, 0x0U, 1, 0x13U),
@@ -15,6 +16,7 @@ fn make_tight_add_loop_runner() -> Runner {
 
 ///|
 fn make_word_copy_loop_runner() -> Runner {
+  // A scalar load/store baseline for memory and translation-cache changes.
   let runner = make_runner(virt_machine_config())
   let pc = 0x80000000U.to_uint64()
   let src = 0x80100000U.to_uint64()

@@ -136,6 +136,8 @@ fn trap_cause_name(cause : @riscv.TrapCause) -> String {
 async fn run_official_riscv_test_case(
   test_case : OfficialRiscvTestCase,
 ) -> SurveyOutcome {
+  // The survey reports what happened instead of asserting. That keeps broad
+  // upstream coverage useful while the always-green subset remains deliberate.
   let runner = @riscv.make_runner(
     @riscv.official_riscv_tests_machine_config_for_xlen(
       official_riscv_tests_xlen_for_arch(test_case.arch),

@@ -31,6 +31,8 @@ async fn main {
   let args = @env.args()
   let sample_path = parse_sample_path(args)
   let elf = load_sample_bytes(sample_path)
+  // Use the same machine profile as official tests so C samples exercise the
+  // loader/ABI path without pulling in the Linux platform.
   let runner = @riscv.make_runner(@riscv.official_riscv_tests_machine_config())
 
   match runner.load_elf(elf) {

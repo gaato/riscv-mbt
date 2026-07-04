@@ -922,6 +922,8 @@ fn instruction_supported_for_current_config(
   extensions : UInt64,
   length : Int,
 ) -> Bool {
+  // Keep decode permissive and put profile legality here. This lets tests see
+  // the exact decoded shape even when the current machine config must reject it.
   let has_f = (extensions & MISA_EXT_F) != 0U.to_uint64()
   let has_d = (extensions & MISA_EXT_D) != 0U.to_uint64()
   let has_v = (extensions & MISA_EXT_V) != 0U.to_uint64()
@@ -1278,6 +1280,9 @@ pub fn decode(raw : UInt) -> Instruction {
       }
     0x27U =>
       if ((raw >> 28) & 0x1U) == 0U {
+        // Vector stores share the floating-point store major opcode. Decode the
+        // currently implemented vector memory forms before falling back to
+        // scalar F/D stores.
         let nf = (raw >> 29) & 0x7U
         let mop = (raw >> 26) & 0x3U
         match (nf, mop, funct3(raw)) {
@@ -1304,6 +1309,8 @@ pub fn decode(raw : UInt) -> Instruction {
       }
     0x57U =>
       match funct3(raw) {
+        // OP-V is intentionally decoded one slice at a time. Unknown/reserved
+        // forms should stay explicit so later RVV work has a visible boundary.
         0x0U =>
           match funct6(raw) {
             0x00U => VaddVv(rd(raw), rs2(raw), rs1(raw))

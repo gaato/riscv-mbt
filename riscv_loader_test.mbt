@@ -26,6 +26,9 @@ test "load_elf places PT_LOAD segments at linked addresses" {
 
 ///|
 test "load_elf exposes tohost and signature symbols" {
+  // Official riscv-tests communicate pass/fail through `tohost`, and some
+  // suites expose signature ranges. Loader regressions keep that host contract
+  // separate from instruction execution.
   let load_addr = 0x80000000U
   let elf = build_test_elf(load_addr, load_addr, [
     encode_i(1, 0, 0x0U, 1, 0x13U),

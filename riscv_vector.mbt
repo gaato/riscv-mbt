@@ -57,6 +57,9 @@ fn vector_fractional_lmul_supports_sew(
 
 ///|
 fn decode_vtype(requested_vtype : UInt64, xlen : Int) -> VectorVtypeConfig? {
+  // Unsupported shapes return None so callers can write vill and set vl=0.
+  // That keeps the visible CSR behavior separate from individual instruction
+  // dispatch decisions.
   let vill = vector_vill_value(xlen)
   if (requested_vtype & vill) != 0U.to_uint64() {
     return None
@@ -297,6 +300,9 @@ fn Runner::write_vmask_bit(
 
 ///|
 fn Runner::vector_exec_supported(self : Runner) -> VectorExecConfig? {
+  // The current RVV executor supports a practical subset with vstart=0. Keeping
+  // the guard centralized makes every slice fail the same way for unsupported
+  // restart semantics.
   match self.current_vector_exec_config() {
     Some(config) =>
       // This execute slice supports the required LMUL range mf8..m8. Fractional

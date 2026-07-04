@@ -2,6 +2,8 @@
 
 ///|
 fn main {
+  // This is intentionally tiny; real validation lives in tests and the Alpine
+  // probe, while this command gives a quick manual "does the package run" check.
   let runner = @riscv.make_runner(@riscv.default_machine_config())
   runner.load_program(@riscv.words_to_bytes(@riscv.demo_program_words()), 0U)
   ignore(runner.run(5))

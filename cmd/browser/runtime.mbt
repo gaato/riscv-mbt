@@ -27,6 +27,8 @@ let browser_guest_linux : Int = 1
 
 ///|
 priv struct BrowserRuntime {
+  // Browser state is deliberately byte-oriented. JS can stream artifact bytes
+  // and UART bytes without understanding MoonBit object layouts or emulator RAM.
   mut runner : @riscv.Runner
   console_codes : Array[Int]
   mut running : Bool
@@ -117,6 +119,8 @@ fn BrowserRuntime::run_tick(self : BrowserRuntime) -> Unit {
 ///|
 fn BrowserRuntime::run_for(self : BrowserRuntime, step_budget : Int) -> Unit {
   if self.running {
+    // The browser host controls wall-clock pacing; the core only receives a
+    // bounded guest-step budget so long Linux runs can yield to the UI.
     self.handle_result(self.runner.run(step_budget))
     self.total_steps = self.total_steps +
       step_budget.reinterpret_as_uint().to_uint64()

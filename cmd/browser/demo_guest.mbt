@@ -70,6 +70,9 @@ fn encode_j(imm : Int, rd : Int, opcode : UInt) -> UInt {
 
 ///|
 fn browser_demo_program_words() -> Array[UInt] {
+  // This guest is intentionally tiny and self-contained: write a prompt to the
+  // UART, then echo input bytes. It proves the browser bridge before any Linux
+  // artifact loading is involved.
   let words = [encode_u(0x10000000U, 1, 0x37U)]
   for ch in "echo ready\r\n> " {
     words.push(encode_i(ch.to_int(), 0, 0x0U, 2, 0x13U))

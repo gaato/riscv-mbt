@@ -1,3 +1,7 @@
+// RVV multiply and multiply-high helpers. The normal low-half multiply path is
+// straightforward; the high-half variants need explicit 64-bit limb arithmetic
+// because MoonBit does not expose a 128-bit product type.
+
 ///|
 priv enum VectorMultiplyHighOp {
   VectorMulHighUnsigned

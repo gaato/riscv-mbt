@@ -287,3 +287,10 @@ implemented.
   BusyBox smoke is too slow for every edit loop. Prefer shorter
   standard-command diagnostics while keeping this broader proof as the stronger
   integration gate.
+- Added `cmd/alpine_probe --post-init-storage-smoke` as a storage-oriented
+  post-init gate. It creates a larger file on the mounted Alpine rootfs, appends
+  a marker, runs `sync`, then copies the file back through `dd`, compares the
+  original and copy, checks the tail marker, and emits `post-init-storage-ok`.
+  This is still one emulator run rather than host-persistent disk mutation, but
+  it exercises the Linux ext4 and virtio-blk read/write paths more directly
+  than the applet-oriented BusyBox smoke.

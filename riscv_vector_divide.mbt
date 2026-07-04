@@ -1,3 +1,7 @@
+// RVV integer divide and remainder helpers. These are separated from the main
+// vector file because divide has RISC-V-specific zero/overflow corner cases
+// that are easy to accidentally "simplify" into host-language behavior.
+
 ///|
 priv enum VectorDivideOp {
   VectorDivUnsigned

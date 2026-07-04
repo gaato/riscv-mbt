@@ -814,6 +814,9 @@ fn Runner::execute_amo(
   next_pc : UInt64,
   raw : UInt,
 ) -> StepResult {
+  // This is a practical single-hart AMO model. LR/SC reservation tracking is
+  // not modeled yet because current Linux bring-up uses one hart; SC succeeds
+  // after the same address checks that an ordinary store would perform.
   match instruction {
     AmoW(funct5_val, rd, rs1, rs2) => {
       let addr = self.cpu.read_reg(rs1)
@@ -926,6 +929,9 @@ fn Runner::execute_jump(
 
 ///|
 fn Runner::read_csr_visible(self : Runner, csr : Int) -> UInt64 {
+  // Some architectural CSRs are aliases or filtered views of a backing CSR.
+  // Keep that visibility rule centralized so instruction handlers and probe
+  // reporting observe the same value Linux would read.
   match csr {
     CSR_FFLAGS => self.read_fcsr() & FCSR_FFLAGS_MASK
     CSR_FRM => (self.read_fcsr() & FCSR_FRM_MASK) >> FCSR_FRM_SHIFT
@@ -944,6 +950,9 @@ fn Runner::read_csr_visible(self : Runner, csr : Int) -> UInt64 {
 
 ///|
 fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
+  // Writes mirror read_csr_visible: aliases update their backing CSR and WARL
+  // fields normalize at the write boundary. Avoid duplicating these rules in
+  // individual CSR instruction cases.
   match csr {
     CSR_FFLAGS => {
       let fcsr = self.read_fcsr()
@@ -1051,6 +1060,9 @@ fn Runner::execute_system(
   next_pc : UInt64,
   raw : UInt,
 ) -> StepResult {
+  // SYSTEM groups CSR ops, privilege returns, fences, waits, and unknown
+  // encodings. Decode keeps them together so privilege/CSR checks stay in one
+  // execution path instead of leaking into unrelated instruction handlers.
   match instruction {
     Csrrw(rd, csr, rs1) =>
       self.execute_csr_read_write_checked(
@@ -1221,6 +1233,10 @@ fn highest_interrupt_cause(pending : UInt64) -> TrapCause? {
 // Check for pending interrupts and deliver to the appropriate privilege mode.
 // Returns Running if an interrupt was taken, None if no interrupt pending.
 fn Runner::take_pending_interrupt(self : Runner) -> StepResult? {
+  // Interrupt delivery is checked once per step after timer/device state is
+  // updated. Delegation chooses the target privilege; priority selection is
+  // intentionally small and explicit because Linux boot is sensitive to timer
+  // and external interrupt ordering.
   let mip = self.cpu.read_csr(CSR_MIP)
   let mie = self.cpu.read_csr(CSR_MIE)
   let pending = mip & mie
@@ -1305,9 +1321,10 @@ fn Runner::decode_cached(
 
 ///|
 pub fn Runner::step(self : Runner) -> StepResult {
-  // Advance CLINT mtime and update MIP.MTIP
+  // Advance CLINT mtime and update MIP.MTIP.
   self.update_timer()
-  // Deliver pending interrupts before executing next instruction
+  // Deliver pending interrupts before executing the next instruction. This
+  // keeps timer/external interrupts observable during long Linux loops.
   match self.take_pending_interrupt() {
     Some(result) => return result
     None => ()
@@ -1321,6 +1338,8 @@ pub fn Runner::step(self : Runner) -> StepResult {
   let next_pc = current_pc + fetched.length.reinterpret_as_uint().to_uint64()
   let raw = fetched.raw
   let instruction = self.decode_cached(fetched.fetch_pa, raw, fetched.length)
+  // Extension and XLEN legality is checked after decode so trap values can
+  // still report the original raw instruction word.
   if !instruction_supported_for_current_config(
       instruction,
       self.xlen_bits(),
@@ -1330,6 +1349,8 @@ pub fn Runner::step(self : Runner) -> StepResult {
     return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
   }
   match instruction {
+    // The central dispatcher should stay boring: group by architectural family
+    // and delegate complicated behavior to focused helpers.
     Fence => {
       self.cpu.pc = next_pc
       Running

@@ -280,6 +280,32 @@ fn alpine_post_init_busybox_markers() -> Array[String] {
 }
 
 ///|
+fn alpine_post_init_storage_commands() -> Array[String] {
+  // This smoke is about the block-backed rootfs path, not applet breadth:
+  // write a file, force writeback, then read and compare it through a second
+  // file so virtio-blk read/write paths both stay in the Linux proof loop.
+  [
+    "mkdir -p /root/riscv-mbt-storage && " +
+    "dd if=/dev/zero of=/root/riscv-mbt-storage/blob bs=1024 count=16 && " +
+    "printf 'storage-tail\\n' >> /root/riscv-mbt-storage/blob && " +
+    "sync && " +
+    "wc -c /root/riscv-mbt-storage/blob && " +
+    "printf '\\163\\164\\157\\162\\141\\147\\145\\055\\167\\162\\151\\164\\145\\055\\157\\153\\012'",
+    "(echo 3 > /proc/sys/vm/drop_caches 2>/dev/null || true) && " +
+    "dd if=/root/riscv-mbt-storage/blob of=/root/riscv-mbt-storage/copy bs=4096 && " +
+    "cmp /root/riscv-mbt-storage/blob /root/riscv-mbt-storage/copy && " +
+    "tail -n 1 /root/riscv-mbt-storage/copy | grep storage-tail && " +
+    "sync && " +
+    "printf '\\160\\157\\163\\164\\055\\151\\156\\151\\164\\055\\163\\164\\157\\162\\141\\147\\145\\055\\157\\153\\012'",
+  ]
+}
+
+///|
+fn alpine_post_init_storage_markers() -> Array[String] {
+  ["storage-write-ok", "post-init-storage-ok"]
+}
+
+///|
 async fn main {
   let args = @env.args()
   let max_steps = parse_max_steps(args)
@@ -290,6 +316,7 @@ async fn main {
   let post_init_smoke = parse_flag(args, "--post-init-smoke")
   let post_init_session_smoke = parse_flag(args, "--post-init-session-smoke")
   let post_init_busybox_smoke = parse_flag(args, "--post-init-busybox-smoke")
+  let post_init_storage_smoke = parse_flag(args, "--post-init-storage-smoke")
   let post_init_custom_command = parse_arg_value(args, "--post-init-command")
   let post_init_custom_expect = match post_init_custom_command {
     Some(_) =>
@@ -306,6 +333,7 @@ async fn main {
     post_init_smoke ||
     post_init_session_smoke ||
     post_init_busybox_smoke ||
+    post_init_storage_smoke ||
     has_post_init_custom_command
   let selected_dtb_path = match parse_arg_value(args, "--dtb") {
     Some(path) => path
@@ -334,6 +362,7 @@ async fn main {
   } else if post_init_smoke ||
     post_init_session_smoke ||
     post_init_busybox_smoke ||
+    post_init_storage_smoke ||
     has_post_init_custom_command {
     Some(alpine_init_smoke_command())
   } else {
@@ -353,6 +382,8 @@ async fn main {
     Some("post-init-session-ok")
   } else if post_init_busybox_smoke {
     Some("post-init-busybox-ok")
+  } else if post_init_storage_smoke {
+    Some("post-init-storage-ok")
   } else if post_init_custom_expect is Some(marker) {
     Some(marker)
   } else {
@@ -362,6 +393,8 @@ async fn main {
     [text]
   } else if post_init_busybox_smoke {
     alpine_post_init_busybox_commands()
+  } else if post_init_storage_smoke {
+    alpine_post_init_storage_commands()
   } else if post_init_session_smoke {
     alpine_post_init_session_commands()
   } else if post_init_smoke {
@@ -373,6 +406,8 @@ async fn main {
     [marker]
   } else if post_init_busybox_smoke {
     alpine_post_init_busybox_markers()
+  } else if post_init_storage_smoke {
+    alpine_post_init_storage_markers()
   } else if post_init_session_smoke {
     alpine_post_init_session_markers()
   } else if post_init_smoke {
@@ -522,6 +557,7 @@ async fn main {
   println("post_init_smoke=" + post_init_smoke.to_string())
   println("post_init_session_smoke=" + post_init_session_smoke.to_string())
   println("post_init_busybox_smoke=" + post_init_busybox_smoke.to_string())
+  println("post_init_storage_smoke=" + post_init_storage_smoke.to_string())
   println(
     "post_init_custom_command=" + has_post_init_custom_command.to_string(),
   )

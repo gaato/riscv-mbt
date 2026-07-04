@@ -34,6 +34,8 @@ test "unsupported compressed-looking instruction traps as illegal instruction" {
 
 ///|
 test "32-bit-looking truncated fetch traps as instruction access fault" {
+  // A low halfword that advertises a 32-bit instruction must translate/read the
+  // high halfword too. This guards the Linux page-boundary fetch bug.
   let runner = make_runner(default_machine_config())
   let last_two_bytes = (runner.config().ram_size - 2).reinterpret_as_uint()
   runner.load_program(

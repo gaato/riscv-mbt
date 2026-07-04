@@ -42,6 +42,8 @@ fn encode_c_addi4spn(rd : Int, imm : Int) -> Int {
 
 ///|
 fn encode_c_j_like(funct3 : Int, offset : Int) -> Int {
+  // Keep the compressed encoders local to tests. They document bit placement
+  // without widening the public helper surface.
   let encoded = offset & 0xfff
   ((funct3 & 0x7) << 13) |
   (((encoded >> 11) & 0x1) << 12) |

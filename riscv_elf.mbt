@@ -82,6 +82,9 @@ fn find_elf_symbol_addr(
   value_offset : Int,
   value_is_u64 : Bool,
 ) -> UInt64? {
+  // riscv-tests use a few conventional symbols (`tohost`, signature ranges).
+  // Resolve only those names; this is not intended to become a general symbol
+  // table API.
   let mut index = 0
   while index + entry_size <= symtab_size {
     let entry_offset = symtab_offset + index

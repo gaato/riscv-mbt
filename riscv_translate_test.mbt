@@ -42,6 +42,8 @@ fn test_make_pte(ppn : UInt64, flags : UInt64) -> UInt64 {
 /// - Level-1 entry points to level-0 table at page 3 (0x3000)
 /// - Level-0 entry is a leaf mapping VA page 0 → PA page 4 (0x4000)
 fn test_setup_identity_map(bus : Bus, leaf_flags : UInt64) -> UInt64 {
+  // Tests use a tiny three-level tree so each fault case can mutate one table
+  // entry and still share the same address layout.
   let root_ppn = 1U.to_uint64()
   let l1_ppn = 2U.to_uint64()
   let l0_ppn = 3U.to_uint64()
