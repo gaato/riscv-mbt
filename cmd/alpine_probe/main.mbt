@@ -5,6 +5,9 @@
 let opensbi_path = "_build/opensbi-riscv64-fw_dynamic.bin"
 
 ///|
+// Kernel, DTB, and initrd paths intentionally point at generated `_build`
+// artifacts. The probe is an integration harness; artifact freshness is a
+// caller/build-script responsibility, not something hidden inside this binary.
 let kernel_path = "_build/linux-kernel-riscv64"
 
 ///|
@@ -20,12 +23,18 @@ let initrd_path = "_build/alpine-initramfs-riscv64.cpio"
 let rootfs_image_path = "_build/alpine-rootfs-riscv64.ext4"
 
 ///|
+// The initrd address must stay in sync with scripts/build-alpine-initramfs.sh
+// so the DTB's linux,initrd-start/end values describe the bytes loaded below.
 let initrd_addr : UInt64 = 0x84000000U.to_uint64()
 
 ///|
+// OpenSBI fw_dynamic reads its next-stage handoff structure from this address;
+// the runner helper writes the structure after firmware/kernel loading.
 let fw_dynamic_info_addr : UInt64 = 0x80100000U.to_uint64()
 
 ///|
+// Alpine's riscv64 Linux Image is loaded at the standard 2 MiB-aligned virt
+// kernel address expected by the RISC-V Linux boot ABI.
 let kernel_entry_addr : UInt64 = 0x80200000U.to_uint64()
 
 ///|
@@ -62,7 +71,15 @@ let rootfs_marker = "rootfs"
 let default_max_steps = 300000000
 
 ///|
+// UART polling is deliberately coarse because full-rootfs boot dominates probe
+// time. Every marker is also checked against the final full buffer before exit.
 let drain_interval = 1000000
+
+///|
+// Once a rootfs-side command has been injected, a missing marker is usually a
+// command/runtime problem rather than more boot progress. Break earlier so
+// exploratory diagnostics do not burn the full `xlong` budget.
+let post_init_command_step_budget = 150000000
 
 ///|
 let csr_sstatus = 0x100
@@ -117,6 +134,8 @@ async fn write_binary(path : String, bytes : Bytes) -> Unit {
 
 ///|
 fn parse_max_steps(args : Array[String]) -> Int {
+  // Keep named budgets stable so task docs can cite runs reproducibly. `xlong`
+  // is the current full-rootfs budget; `xxlong` is retained for older docs.
   if args.length() >= 2 {
     match args[1] {
       "short" => 19000000
@@ -605,6 +624,7 @@ async fn main {
   let mut shell_command_sent = false
   let mut post_init_command_sent = false
   let mut post_init_command_index = 0
+  let mut post_init_command_steps = -1
   let mut shell_expect_seen = false
   while steps < max_steps {
     match runner.step() {
@@ -654,6 +674,7 @@ async fn main {
               runner.uart_push_input(post_init_commands[0] + "\r\n")
               post_init_command_sent = true
               post_init_command_index = 1
+              post_init_command_steps = steps
             } else if post_init_command_index > 0 &&
               post_init_command_index < post_init_commands.length() &&
               output.contains(post_init_markers[post_init_command_index - 1]) {
@@ -663,7 +684,15 @@ async fn main {
                 post_init_commands[post_init_command_index] + "\r\n",
               )
               post_init_command_index += 1
+              post_init_command_steps = steps
             }
+          }
+          if post_init_command_sent &&
+            !shell_expect_seen &&
+            post_init_command_steps >= 0 &&
+            steps - post_init_command_steps >= post_init_command_step_budget {
+            outcome = "post-init-command-timeout"
+            break
           }
         }
       }
@@ -743,6 +772,10 @@ async fn main {
     "post_init_custom_command=" + has_post_init_custom_command.to_string(),
   )
   println("post_init_command_index=" + post_init_command_index.to_string())
+  println("post_init_command_steps=" + post_init_command_steps.to_string())
+  println(
+    "post_init_command_step_budget=" + post_init_command_step_budget.to_string(),
+  )
   println("dtb_path=" + selected_dtb_path)
   println("initrd_path=" + selected_initrd_path)
   println("virtio_blk_disk=" + selected_virtio_blk_disk_path)

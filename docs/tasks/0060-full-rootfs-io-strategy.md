@@ -343,3 +343,14 @@ implemented.
   `post-init-system-ok` at 676,000,000 guest steps. The UART tail shows
   `/proc/1` resolving to `/bin/busybox`, `/sbin/init` in `ps`, root identity via
   `id`, moved-file readback, `-rw-------` from `umask 077`, cleanup, and `sync`.
+- Added a post-init command step budget to `cmd/alpine_probe`. After a
+  rootfs-side post-init command is injected, the probe now reports
+  `post-init-command-timeout` instead of waiting for the full `xlong` budget
+  when no expected marker appears. This is meant for exploratory diagnostics
+  such as package-manager entry checks, where a silent hang should quickly
+  become a CPU/userspace investigation target rather than a long wait.
+- Host-side inspection of `_build/alpine-rootfs-riscv64.ext4` confirms that the
+  generated Alpine rootfs contains `/sbin/apk` and `/lib/apk/db/installed`.
+  Guest-side `apk` execution is not yet a proven usability gate; early attempts
+  at `apk info` and `apk --version` were interrupted because the previous probe
+  shape encouraged long uninformative waits.
