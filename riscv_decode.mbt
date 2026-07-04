@@ -1022,6 +1022,7 @@ fn instruction_supported_for_current_config(
     VmsifM(_, _) => has_v
     ViotaM(_, _) => has_v
     VidV(_) => has_v
+    VcompressVm(_, _, _) => has_v
     VsllVv(_, _, _) => has_v
     VsllVx(_, _, _) => has_v
     VsllVi(_, _, _) => has_v
@@ -1260,6 +1261,12 @@ pub fn decode(raw : UInt) -> Instruction {
               0x10 => ViotaM(rd(raw), rs2(raw))
               0x11 => if rs2(raw) == 0 { VidV(rd(raw)) } else { Unknown(raw) }
               _ => Unknown(raw)
+            }
+          } else if funct6(raw) == 0x17U {
+            if ((raw >> 25) & 0x1U) == 1U {
+              VcompressVm(rd(raw), rs2(raw), rs1(raw))
+            } else {
+              Unknown(raw)
             }
           } else if ((raw >> 25) & 0x1U) == 1U {
             match funct6(raw) {

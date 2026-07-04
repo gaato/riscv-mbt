@@ -240,6 +240,7 @@ pub enum Instruction {
   VmsifM(Int, Int)
   ViotaM(Int, Int)
   VidV(Int)
+  VcompressVm(Int, Int, Int)
   VsllVv(Int, Int, Int)
   VsllVx(Int, Int, Int)
   VsllVi(Int, Int, Int)

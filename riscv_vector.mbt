@@ -551,6 +551,46 @@ fn Runner::execute_vector_index(
 }
 
 ///|
+fn Runner::execute_vector_compress(
+  self : Runner,
+  vd : Int,
+  vs2 : Int,
+  vs1 : Int,
+  config : VectorExecConfig,
+  active_elems : Int,
+  current_pc : UInt64,
+  next_pc : UInt64,
+  raw : UInt,
+) -> StepResult {
+  if !vector_group_aligned(vd, config.lmul_log2) ||
+    !vector_group_aligned(vs2, config.lmul_log2) {
+    return self.raise_vector_group_misaligned(current_pc, raw)
+  }
+  // `vcompress.vm` packs selected source elements into the front of the
+  // destination group. Reject architecturally reserved overlaps so the source
+  // vector and source mask are stable for the whole scan.
+  if vector_group_contains_vreg(vd, config.lmul_log2, vs1) {
+    return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+  }
+  let lmul_regs = vector_lmul_registers(config.lmul_log2)
+  for reg in 0..<lmul_regs {
+    if vector_group_contains_vreg(vd, config.lmul_log2, vs2 + reg) {
+      return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+    }
+  }
+  let mut dest_elem = 0
+  for elem in 0..<active_elems {
+    if self.read_vmask_bit_from(vs1, elem) {
+      let value = self.read_vreg_group_elem(vs2, elem, config.sew_bits)
+      self.write_vreg_group_elem(vd, dest_elem, config.sew_bits, value)
+      dest_elem += 1
+    }
+  }
+  self.cpu.pc = next_pc
+  Running
+}
+
+///|
 fn Runner::execute_vector_mask_count(
   self : Runner,
   rd : Int,
@@ -1488,6 +1528,10 @@ fn Runner::execute_vector_first_slice(
     VidV(vd) =>
       self.execute_vector_index(
         vd, config, active_elems, mask_bits, use_mask, current_pc, next_pc, raw,
+      )
+    VcompressVm(vd, vs2, vs1) =>
+      self.execute_vector_compress(
+        vd, vs2, vs1, config, active_elems, current_pc, next_pc, raw,
       )
     VsllVv(vd, vs2, vs1) =>
       self.execute_vector_binary_vv(

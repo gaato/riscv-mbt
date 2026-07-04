@@ -753,6 +753,11 @@ fn encode_vid_v(vd : Int, vm : Bool) -> UInt {
 }
 
 ///|
+fn encode_vcompress_vm(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x17U, vm, vs2, vs1, 0x2U, vd)
+}
+
+///|
 fn encode_vsll_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
   encode_vop(0x26U, vm, vs2, vs1, 0x0U, vd)
 }

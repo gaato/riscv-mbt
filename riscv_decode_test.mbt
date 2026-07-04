@@ -826,6 +826,18 @@ test "decode first vector arithmetic slice" {
     Unknown(_) => ()
     _ => fail("expected vid.v with nonzero vs2 field to remain reserved")
   }
+  match decode(encode_vcompress_vm(24, 25, 26, true)) {
+    VcompressVm(vd, vs2, vs1) => {
+      assert_eq(vd, 24)
+      assert_eq(vs2, 25)
+      assert_eq(vs1, 26)
+    }
+    _ => fail("expected vcompress.vm")
+  }
+  match decode(encode_vcompress_vm(24, 25, 26, false)) {
+    Unknown(_) => ()
+    _ => fail("expected masked vcompress.vm encoding to remain reserved")
+  }
   match decode(encode_vsll_vv(13, 14, 15, true)) {
     VsllVv(vd, vs2, vs1) => {
       assert_eq(vd, 13)

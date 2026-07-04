@@ -2365,6 +2365,106 @@ test "rv64fdv vector iota rejects overlapping mask sources" {
 }
 
 ///|
+test "rv64fdv vector compress packs selected source elements" {
+  let program = words_to_bytes([
+    encode_vsetivli(0, 8U, 0x11U),
+    encode_vcompress_vm(6, 2, 1, true),
+  ])
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.load_program(program, 0U)
+
+  // e32,m2 source elements are [10,11,12,13,14,15,16,17]. The source mask
+  // selects elements 0,2,4,5,7, so the destination front becomes
+  // [10,12,14,15,17] and the remaining tail slots keep their old contents.
+  runner.cpu.write_vreg(1, 0, 0xb5U.to_uint64())
+  runner.cpu.write_vreg(2, 0, test_join_u64(11U, 10U))
+  runner.cpu.write_vreg(2, 1, test_join_u64(13U, 12U))
+  runner.cpu.write_vreg(3, 0, test_join_u64(15U, 14U))
+  runner.cpu.write_vreg(3, 1, test_join_u64(17U, 16U))
+  runner.cpu.write_vreg(6, 0, test_join_u64(0xaaaaaaaaU, 0xaaaaaaaaU))
+  runner.cpu.write_vreg(6, 1, test_join_u64(0xaaaaaaaaU, 0xaaaaaaaaU))
+  runner.cpu.write_vreg(7, 0, test_join_u64(0xbbbbbbbbU, 0xbbbbbbbbU))
+  runner.cpu.write_vreg(7, 1, test_join_u64(0xbbbbbbbbU, 0xbbbbbbbbU))
+
+  match runner.run(2) {
+    Running => ()
+    _ => fail("expected vector compress sequence to run")
+  }
+
+  assert_eq(runner.read_vreg_u64(6, 0), test_join_u64(12U, 10U))
+  assert_eq(runner.read_vreg_u64(6, 1), test_join_u64(15U, 14U))
+  assert_eq(runner.read_vreg_u64(7, 0), test_join_u64(0xbbbbbbbbU, 17U))
+  assert_eq(runner.read_vreg_u64(7, 1), test_join_u64(0xbbbbbbbbU, 0xbbbbbbbbU))
+}
+
+///|
+test "rv64fdv vector compress rejects reserved overlaps and vstart" {
+  let source_overlap = encode_vcompress_vm(2, 2, 1, true)
+  let mask_overlap = encode_vcompress_vm(0, 4, 1, true)
+  let nonzero_vstart = encode_vcompress_vm(6, 2, 1, true)
+  let source_runner = make_runner(rv64fdv_machine_config())
+  source_runner.load_program(
+    words_to_bytes([encode_vsetivli(0, 8U, 0x11U), source_overlap]),
+    0U,
+  )
+  match source_runner.step() {
+    Running => ()
+    _ => fail("expected vsetivli to run")
+  }
+  match source_runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+      assert_eq(info.trap_value, source_overlap.to_uint64())
+    }
+    _ => fail("expected vcompress.vm source overlap to trap")
+  }
+
+  let mask_runner = make_runner(rv64fdv_machine_config())
+  mask_runner.load_program(
+    words_to_bytes([encode_vsetivli(0, 8U, 0x11U), mask_overlap]),
+    0U,
+  )
+  match mask_runner.step() {
+    Running => ()
+    _ => fail("expected vsetivli to run")
+  }
+  match mask_runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+      assert_eq(info.trap_value, mask_overlap.to_uint64())
+    }
+    _ => fail("expected vcompress.vm mask overlap to trap")
+  }
+
+  let vstart_runner = make_runner(rv64fdv_machine_config())
+  vstart_runner.load_program(
+    words_to_bytes([encode_vsetivli(0, 8U, 0x11U), nonzero_vstart]),
+    0U,
+  )
+  match vstart_runner.step() {
+    Running => ()
+    _ => fail("expected vsetivli to run")
+  }
+  vstart_runner.cpu.write_csr(0x008, 1U.to_uint64())
+  match vstart_runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+      assert_eq(info.trap_value, nonzero_vstart.to_uint64())
+    }
+    _ => fail("expected vcompress.vm nonzero vstart to trap")
+  }
+}
+
+///|
 fn test_vector_vtypei_for_sew(sew_bits : Int) -> UInt {
   match sew_bits {
     8 => 0x00U
