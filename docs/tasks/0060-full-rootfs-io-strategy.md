@@ -349,6 +349,12 @@ implemented.
   when no expected marker appears. This is meant for exploratory diagnostics
   such as package-manager entry checks, where a silent hang should quickly
   become a CPU/userspace investigation target rather than a long wait.
+- The post-init command budget is now configurable with
+  `--post-init-command-step-budget N`, and the report includes both
+  `post_init_command_steps` and `post_init_command_step_budget`. Use a small
+  value for exploratory package-manager probes so `apk` or other heavier
+  userspace tools classify as command-timeout quickly after injection, then
+  turn the timeout into a focused CPU/userspace investigation.
 - Host-side inspection of `_build/alpine-rootfs-riscv64.ext4` confirms that the
   generated Alpine rootfs contains `/sbin/apk` and `/lib/apk/db/installed`.
   Guest-side `apk` execution is not yet a proven usability gate; early attempts

@@ -78,8 +78,9 @@ let drain_interval = 1000000
 ///|
 // Once a rootfs-side command has been injected, a missing marker is usually a
 // command/runtime problem rather than more boot progress. Break earlier so
-// exploratory diagnostics do not burn the full `xlong` budget.
-let post_init_command_step_budget = 150000000
+// exploratory diagnostics do not burn the full `xlong` budget. The CLI can
+// override this default for deliberately tiny failure probes.
+let default_post_init_command_step_budget = 150000000
 
 ///|
 let csr_sstatus = 0x100
@@ -161,6 +162,26 @@ fn parse_arg_value(args : Array[String], flag : String) -> String? {
     }
   }
   None
+}
+
+///|
+fn parse_positive_int_arg(
+  args : Array[String],
+  flag : String,
+  default_value : Int,
+) -> Int {
+  match parse_arg_value(args, flag) {
+    Some(text) => {
+      let parsed = @string.parse_int(text) catch {
+        _ => abort(flag + " must be a positive integer")
+      }
+      if parsed <= 0 {
+        abort(flag + " must be a positive integer")
+      }
+      parsed
+    }
+    None => default_value
+  }
 }
 
 ///|
@@ -431,6 +452,9 @@ fn alpine_post_init_persistence_read_command() -> String {
 async fn main {
   let args = @env.args()
   let max_steps = parse_max_steps(args)
+  let post_init_command_step_budget = parse_positive_int_arg(
+    args, "--post-init-command-step-budget", default_post_init_command_step_budget,
+  )
   let functional_smoke = parse_flag(args, "--functional-smoke")
   let rootfs_smoke = parse_flag(args, "--rootfs-smoke")
   let switch_root_smoke = parse_flag(args, "--switch-root-smoke")
