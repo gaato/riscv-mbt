@@ -715,6 +715,9 @@ async fn main {
             !shell_expect_seen &&
             post_init_command_steps >= 0 &&
             steps - post_init_command_steps >= post_init_command_step_budget {
+            // This timeout is measured from command injection, not from boot
+            // start. It keeps exploratory rootfs commands from hiding behind
+            // the already-expensive Linux/OpenSBI/Alpine startup cost.
             outcome = "post-init-command-timeout"
             break
           }

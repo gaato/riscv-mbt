@@ -352,11 +352,25 @@ implemented.
 - The post-init command budget is now configurable with
   `--post-init-command-step-budget N`, and the report includes both
   `post_init_command_steps` and `post_init_command_step_budget`. Use a small
-  value for exploratory package-manager probes so `apk` or other heavier
-  userspace tools classify as command-timeout quickly after injection, then
-  turn the timeout into a focused CPU/userspace investigation.
+  value for exploratory package-manager probes. The budget starts when the
+  post-init command is injected, not at boot start, so `apk` or other heavier
+  userspace tools classify as command-timeout quickly after they actually
+  start running; turn that timeout into a focused CPU/userspace investigation.
 - Host-side inspection of `_build/alpine-rootfs-riscv64.ext4` confirms that the
   generated Alpine rootfs contains `/sbin/apk` and `/lib/apk/db/installed`.
-  Guest-side `apk` execution is not yet a proven usability gate; early attempts
-  at `apk info` and `apk --version` were interrupted because the previous probe
-  shape encouraged long uninformative waits.
+  Earlier guest-side `apk` attempts were interrupted because the previous probe
+  shape encouraged long uninformative waits; the proofs below use the tunable
+  post-init command budget instead.
+- Current package-manager entry proof:
+  `moon run --target native cmd/alpine_probe xlong --post-init-command-step-budget 1000000 --post-init-command "test -x /sbin/apk && /sbin/apk --version && printf 'post-init-apk-version-ok\n'" --post-init-expect post-init-apk-version-ok`
+  reaches `outcome=console-command`, `shell_expect_seen=true`,
+  `post_init_command_steps=624000000`, `post_init_command_step_budget=1000000`,
+  and `post-init-apk-version-ok` at 625,000,000 guest steps. This proves the
+  rootfs-side `apk` binary can start and report its version.
+- Current package database proof:
+  `moon run --target native cmd/alpine_probe xlong --post-init-command-step-budget 1000000 --post-init-command "apk info -e busybox && printf 'post-init-apk-db-ok\n'" --post-init-expect post-init-apk-db-ok`
+  reaches `outcome=console-command`, `shell_expect_seen=true`,
+  `post_init_command_steps=624000000`, `post_init_command_step_budget=1000000`,
+  and `post-init-apk-db-ok` at 625,000,000 guest steps. This proves `apk` can
+  query the installed package database for BusyBox from the mounted Alpine
+  rootfs.
