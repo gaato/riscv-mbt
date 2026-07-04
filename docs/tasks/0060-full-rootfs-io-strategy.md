@@ -202,12 +202,20 @@ implemented.
   flushes the translation cache when the guest stores to one of those pages.
 - Current ordinary-init proof:
   `moon run --target native cmd/alpine_probe xlong --init-smoke` mounts the
-  virtio-backed ext4 rootfs, runs `switch_root /mnt/root /sbin/init`, prints
-  `Welcome to Alpine Linux 3.24`, reports
-  `Kernel 6.18.37-0-lts on riscv64 (/dev/ttyS0)`, and reaches `(none) login:`
-  at 634,000,000 guest steps. The previous `ld-musl-riscv64.so.1` crash is no
-  longer present.
-- The next full-rootfs usability slice should prove commands after ordinary
-  init starts, either by logging in through the serial getty or by adding a
-  direct post-init command path that still runs under PID 1's initialized
-  userspace.
+  virtio-backed ext4 rootfs, runs `switch_root /mnt/root /sbin/init`, and
+  reaches the rootfs-side post-init marker. The previous
+  `ld-musl-riscv64.so.1` crash is no longer present.
+- The rootfs builder now installs `/sbin/riscv-mbt-autoshell` and starts it on
+  `ttyS0` from BusyBox init. This is a direct post-init shell for emulator
+  validation, not a claim that login/authentication is complete; the minirootfs
+  root account is locked by default.
+- Current post-init command proof:
+  `moon run --target native cmd/alpine_probe xlong --post-init-smoke` reaches
+  `outcome=console-command`, `post_init_command_sent=true`,
+  `shell_expect_seen=true`, and `post-init-functional-ok` at 636,000,000 guest
+  steps. The injected post-init command creates and reads a file under `/tmp`,
+  reports `riscv64`, and verifies `/proc/mounts` is readable from the rootfs
+  shell after PID 1 has started.
+- The next full-rootfs usability slice should broaden ordinary command-session
+  behavior and writable-root behavior instead of returning to initrd-only
+  checks.

@@ -30,6 +30,12 @@ trap 'rm -rf "$root_dir"' EXIT
 tar -xzf "$build_dir/$rootfs_name" -C "$root_dir"
 mkdir -p "$root_dir"/proc "$root_dir"/sys "$root_dir"/dev "$root_dir"/tmp "$root_dir"/root
 mkdir -p "$root_dir"/run
+cat > "$root_dir/sbin/riscv-mbt-autoshell" <<'EOF'
+#!/bin/sh
+printf 'post-init-ready\n'
+exec /bin/sh
+EOF
+chmod +x "$root_dir/sbin/riscv-mbt-autoshell"
 cat > "$root_dir/etc/fstab" <<'EOF'
 proc /proc proc defaults 0 0
 sysfs /sys sysfs defaults 0 0
@@ -43,7 +49,7 @@ cat > "$root_dir/etc/inittab" <<'EOF'
 ::sysinit:/bin/mount -t devtmpfs devtmpfs /dev
 ::sysinit:/bin/mount -t tmpfs tmpfs /run
 ::sysinit:/bin/mount -t tmpfs tmpfs /tmp
-ttyS0::respawn:/sbin/getty -L 115200 ttyS0 vt100
+ttyS0::respawn:/sbin/riscv-mbt-autoshell
 ::shutdown:/bin/umount -a -r
 EOF
 

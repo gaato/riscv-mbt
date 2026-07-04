@@ -38,6 +38,9 @@ let alpine_shell_marker = "riscv-mbt Alpine shell alive"
 let alpine_shell_prompt_marker = "/ #"
 
 ///|
+let alpine_post_init_marker = "post-init-ready"
+
+///|
 let initramfs_unpack_marker_old = "Trying to unpack rootfs image as initramfs"
 
 ///|
@@ -198,6 +201,17 @@ fn alpine_init_smoke_command() -> String {
 }
 
 ///|
+fn alpine_post_init_smoke_command() -> String {
+  "(mount -t proc proc /proc 2>/dev/null || true) && " +
+  "(mount -t sysfs sysfs /sys 2>/dev/null || true) && " +
+  "echo post-file-ok > /tmp/riscv-mbt-post-file && " +
+  "cat /tmp/riscv-mbt-post-file && " +
+  "uname -m && " +
+  "test -r /proc/mounts && " +
+  "printf '\\160\\157\\163\\164\\055\\151\\156\\151\\164\\055\\146\\165\\156\\143\\164\\151\\157\\156\\141\\154\\055\\157\\153\\012'"
+}
+
+///|
 async fn main {
   let args = @env.args()
   let max_steps = parse_max_steps(args)
@@ -205,10 +219,11 @@ async fn main {
   let rootfs_smoke = parse_flag(args, "--rootfs-smoke")
   let switch_root_smoke = parse_flag(args, "--switch-root-smoke")
   let init_smoke = parse_flag(args, "--init-smoke")
+  let post_init_smoke = parse_flag(args, "--post-init-smoke")
   let selected_dtb_path = match parse_arg_value(args, "--dtb") {
     Some(path) => path
     None =>
-      if rootfs_smoke || switch_root_smoke || init_smoke {
+      if rootfs_smoke || switch_root_smoke || init_smoke || post_init_smoke {
         virtio_dtb_path
       } else {
         dtb_path
@@ -221,7 +236,7 @@ async fn main {
   let virtio_blk_disk_path = match parse_arg_value(args, "--virtio-blk-disk") {
     Some(path) => Some(path)
     None =>
-      if rootfs_smoke || switch_root_smoke || init_smoke {
+      if rootfs_smoke || switch_root_smoke || init_smoke || post_init_smoke {
         Some(rootfs_image_path)
       } else {
         None
@@ -239,6 +254,8 @@ async fn main {
     Some(alpine_switch_root_smoke_command())
   } else if init_smoke {
     Some(alpine_init_smoke_command())
+  } else if post_init_smoke {
+    Some(alpine_init_smoke_command())
   } else {
     parse_arg_value(args, "--command")
   }
@@ -249,7 +266,9 @@ async fn main {
   } else if switch_root_smoke {
     Some("switch-root-ok")
   } else if init_smoke {
-    Some("login:")
+    Some(alpine_post_init_marker)
+  } else if post_init_smoke {
+    Some("post-init-functional-ok")
   } else {
     parse_arg_value(args, "--expect")
   }
@@ -289,6 +308,7 @@ async fn main {
   let mut trapped = false
   let mut last_output_steps = 0
   let mut shell_command_sent = false
+  let mut post_init_command_sent = false
   let mut shell_expect_seen = false
   while steps < max_steps {
     match runner.step() {
@@ -320,12 +340,20 @@ async fn main {
             }
             match expect {
               Some(marker) =>
-                if shell_command_sent && output.contains(marker) {
+                if (shell_command_sent || post_init_command_sent) &&
+                  output.contains(marker) {
                   shell_expect_seen = true
                   outcome = "console-command"
                   break
                 }
               None => if outcome == "alpine-shell-prompt" { break }
+            }
+            if post_init_smoke &&
+              shell_command_sent &&
+              !post_init_command_sent &&
+              output.contains(alpine_post_init_marker) {
+              runner.uart_push_input(alpine_post_init_smoke_command() + "\r\n")
+              post_init_command_sent = true
             }
           }
         }
@@ -355,7 +383,8 @@ async fn main {
   }
   match expect {
     Some(marker) =>
-      if shell_command_sent && output.contains(marker) {
+      if (shell_command_sent || post_init_command_sent) &&
+        output.contains(marker) {
         shell_expect_seen = true
         outcome = "console-command"
       }
@@ -367,11 +396,13 @@ async fn main {
   println("last_output_steps=" + last_output_steps.to_string())
   println("trapped=" + trapped.to_string())
   println("shell_command_sent=" + shell_command_sent.to_string())
+  println("post_init_command_sent=" + post_init_command_sent.to_string())
   println("shell_expect_seen=" + shell_expect_seen.to_string())
   println("functional_smoke=" + functional_smoke.to_string())
   println("rootfs_smoke=" + rootfs_smoke.to_string())
   println("switch_root_smoke=" + switch_root_smoke.to_string())
   println("init_smoke=" + init_smoke.to_string())
+  println("post_init_smoke=" + post_init_smoke.to_string())
   println("dtb_path=" + selected_dtb_path)
   println("initrd_path=" + selected_initrd_path)
   println("virtio_blk_disk=" + selected_virtio_blk_disk_path)
@@ -418,6 +449,10 @@ async fn main {
   println(
     "contains_alpine_shell_prompt=" +
     output.contains(alpine_shell_prompt_marker).to_string(),
+  )
+  println(
+    "contains_post_init_marker=" +
+    output.contains(alpine_post_init_marker).to_string(),
   )
   let tail_start = if output.length() > 5000 {
     output.length() - 5000
