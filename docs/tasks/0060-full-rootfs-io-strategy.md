@@ -374,3 +374,10 @@ implemented.
   and `post-init-apk-db-ok` at 625,000,000 guest steps. This proves `apk` can
   query the installed package database for BusyBox from the mounted Alpine
   rootfs.
+- Current package listing proof:
+  `moon run --target native cmd/alpine_probe xlong --post-init-command-step-budget 2000000 --post-init-command "apk info | head -n 5 && apk info | grep '^busybox$' && apk info -L busybox | grep '/bin/busybox' && printf 'post-init-apk-list-ok\n'" --post-init-expect post-init-apk-list-ok`
+  reaches `outcome=console-command`, `shell_expect_seen=true`,
+  `post_init_command_steps=624000000`, `post_init_command_step_budget=2000000`,
+  and `post-init-apk-list-ok` at 625,000,000 guest steps. This proves the
+  installed package list can be streamed through a shell pipeline and that
+  `apk` can list BusyBox-owned files from the mounted Alpine rootfs.
