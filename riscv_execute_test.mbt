@@ -2015,6 +2015,69 @@ test "rv64fdv vector shift slice masks shift amounts by sew" {
 }
 
 ///|
+test "rv64fdv vector compare slice writes mask register bits" {
+  let program = words_to_bytes([
+    encode_vsetivli(0, 8U, 0x11U),
+    encode_vmseq_vv(6, 2, 4, true),
+    encode_vmsne_vv(7, 2, 4, true),
+    encode_vmsltu_vv(8, 2, 4, true),
+    encode_vmslt_vv(9, 2, 4, true),
+    encode_vmsleu_vv(10, 2, 4, true),
+    encode_vmsle_vv(11, 2, 4, true),
+    encode_vmseq_vx(12, 2, 10, true),
+    encode_vmsltu_vx(13, 2, 10, true),
+    encode_vmslt_vx(14, 2, 10, true),
+    encode_vmsgtu_vx(15, 2, 10, true),
+    encode_vmsgt_vx(16, 2, 10, true),
+    encode_vmseq_vi(17, 2, -1, true),
+    encode_vmsleu_vi(18, 2, 15, true),
+    encode_vmsle_vi(19, 2, -1, true),
+    encode_vmsgtu_vi(20, 2, 15, true),
+    encode_vmsgt_vi(21, 2, -1, true),
+    encode_vmseq_vv(30, 2, 4, false),
+  ])
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.load_program(program, 0U)
+  runner.cpu.write_reg(10, 5U.to_uint64())
+
+  // e32,m2 source groups deliberately mix high-bit values so signed and
+  // unsigned comparisons produce different destination mask bits.
+  runner.cpu.write_vreg(2, 0, test_join_u64(2U, 1U))
+  runner.cpu.write_vreg(2, 1, test_join_u64(0x80000000U, 0xffffffffU))
+  runner.cpu.write_vreg(3, 0, test_join_u64(6U, 5U))
+  runner.cpu.write_vreg(3, 1, test_join_u64(0x7fffffffU, 0U))
+  runner.cpu.write_vreg(4, 0, test_join_u64(3U, 1U))
+  runner.cpu.write_vreg(4, 1, test_join_u64(0xffffffffU, 0U))
+  runner.cpu.write_vreg(5, 0, test_join_u64(6U, 4U))
+  runner.cpu.write_vreg(5, 1, test_join_u64(0x80000000U, 0xffffffffU))
+  runner.cpu.write_vreg(0, 0, 0x55U.to_uint64())
+  runner.cpu.write_vreg(30, 0, 0xaaU.to_uint64())
+
+  match runner.run(18) {
+    Running => ()
+    _ => fail("expected vector compare sequence to run")
+  }
+
+  assert_eq(runner.read_vreg_u64(6, 0) & 0xffU.to_uint64(), 0x21U.to_uint64())
+  assert_eq(runner.read_vreg_u64(7, 0) & 0xffU.to_uint64(), 0xdeU.to_uint64())
+  assert_eq(runner.read_vreg_u64(8, 0) & 0xffU.to_uint64(), 0xcaU.to_uint64())
+  assert_eq(runner.read_vreg_u64(9, 0) & 0xffU.to_uint64(), 0x0eU.to_uint64())
+  assert_eq(runner.read_vreg_u64(10, 0) & 0xffU.to_uint64(), 0xebU.to_uint64())
+  assert_eq(runner.read_vreg_u64(11, 0) & 0xffU.to_uint64(), 0x2fU.to_uint64())
+  assert_eq(runner.read_vreg_u64(12, 0) & 0xffU.to_uint64(), 0x10U.to_uint64())
+  assert_eq(runner.read_vreg_u64(13, 0) & 0xffU.to_uint64(), 0x43U.to_uint64())
+  assert_eq(runner.read_vreg_u64(14, 0) & 0xffU.to_uint64(), 0x4fU.to_uint64())
+  assert_eq(runner.read_vreg_u64(15, 0) & 0xffU.to_uint64(), 0xacU.to_uint64())
+  assert_eq(runner.read_vreg_u64(16, 0) & 0xffU.to_uint64(), 0xa0U.to_uint64())
+  assert_eq(runner.read_vreg_u64(17, 0) & 0xffU.to_uint64(), 0x04U.to_uint64())
+  assert_eq(runner.read_vreg_u64(18, 0) & 0xffU.to_uint64(), 0x73U.to_uint64())
+  assert_eq(runner.read_vreg_u64(19, 0) & 0xffU.to_uint64(), 0x0cU.to_uint64())
+  assert_eq(runner.read_vreg_u64(20, 0) & 0xffU.to_uint64(), 0x8cU.to_uint64())
+  assert_eq(runner.read_vreg_u64(21, 0) & 0xffU.to_uint64(), 0xf3U.to_uint64())
+  assert_eq(runner.read_vreg_u64(30, 0) & 0xffU.to_uint64(), 0xabU.to_uint64())
+}
+
+///|
 fn test_vector_vtypei_for_sew(sew_bits : Int) -> UInt {
   match sew_bits {
     8 => 0x00U

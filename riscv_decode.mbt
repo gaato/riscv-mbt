@@ -987,6 +987,26 @@ fn instruction_supported_for_current_config(
     VmaxuVx(_, _, _) => has_v
     VmaxVv(_, _, _) => has_v
     VmaxVx(_, _, _) => has_v
+    VmseqVv(_, _, _) => has_v
+    VmseqVx(_, _, _) => has_v
+    VmseqVi(_, _, _) => has_v
+    VmsneVv(_, _, _) => has_v
+    VmsneVx(_, _, _) => has_v
+    VmsneVi(_, _, _) => has_v
+    VmsltuVv(_, _, _) => has_v
+    VmsltuVx(_, _, _) => has_v
+    VmsltVv(_, _, _) => has_v
+    VmsltVx(_, _, _) => has_v
+    VmsleuVv(_, _, _) => has_v
+    VmsleuVx(_, _, _) => has_v
+    VmsleuVi(_, _, _) => has_v
+    VmsleVv(_, _, _) => has_v
+    VmsleVx(_, _, _) => has_v
+    VmsleVi(_, _, _) => has_v
+    VmsgtuVx(_, _, _) => has_v
+    VmsgtuVi(_, _, _) => has_v
+    VmsgtVx(_, _, _) => has_v
+    VmsgtVi(_, _, _) => has_v
     VsllVv(_, _, _) => has_v
     VsllVx(_, _, _) => has_v
     VsllVi(_, _, _) => has_v
@@ -1199,6 +1219,12 @@ pub fn decode(raw : UInt) -> Instruction {
             0x09U => VandVv(rd(raw), rs2(raw), rs1(raw))
             0x0aU => VorVv(rd(raw), rs2(raw), rs1(raw))
             0x0bU => VxorVv(rd(raw), rs2(raw), rs1(raw))
+            0x18U => VmseqVv(rd(raw), rs2(raw), rs1(raw))
+            0x19U => VmsneVv(rd(raw), rs2(raw), rs1(raw))
+            0x1aU => VmsltuVv(rd(raw), rs2(raw), rs1(raw))
+            0x1bU => VmsltVv(rd(raw), rs2(raw), rs1(raw))
+            0x1cU => VmsleuVv(rd(raw), rs2(raw), rs1(raw))
+            0x1dU => VmsleVv(rd(raw), rs2(raw), rs1(raw))
             0x26U => VsllVv(rd(raw), rs2(raw), rs1(raw))
             0x28U => VsrlVv(rd(raw), rs2(raw), rs1(raw))
             0x29U => VsraVv(rd(raw), rs2(raw), rs1(raw))
@@ -1214,6 +1240,18 @@ pub fn decode(raw : UInt) -> Instruction {
               VorVi(rd(raw), rs2(raw), sign_extend((raw >> 15) & 0x1fU, 5))
             0x0bU =>
               VxorVi(rd(raw), rs2(raw), sign_extend((raw >> 15) & 0x1fU, 5))
+            0x18U =>
+              VmseqVi(rd(raw), rs2(raw), sign_extend((raw >> 15) & 0x1fU, 5))
+            0x19U =>
+              VmsneVi(rd(raw), rs2(raw), sign_extend((raw >> 15) & 0x1fU, 5))
+            0x1cU =>
+              VmsleuVi(rd(raw), rs2(raw), sign_extend((raw >> 15) & 0x1fU, 5))
+            0x1dU =>
+              VmsleVi(rd(raw), rs2(raw), sign_extend((raw >> 15) & 0x1fU, 5))
+            0x1eU =>
+              VmsgtuVi(rd(raw), rs2(raw), sign_extend((raw >> 15) & 0x1fU, 5))
+            0x1fU =>
+              VmsgtVi(rd(raw), rs2(raw), sign_extend((raw >> 15) & 0x1fU, 5))
             0x26U =>
               VsllVi(
                 rd(raw),
@@ -1251,6 +1289,14 @@ pub fn decode(raw : UInt) -> Instruction {
             0x09U => VandVx(rd(raw), rs2(raw), rs1(raw))
             0x0aU => VorVx(rd(raw), rs2(raw), rs1(raw))
             0x0bU => VxorVx(rd(raw), rs2(raw), rs1(raw))
+            0x18U => VmseqVx(rd(raw), rs2(raw), rs1(raw))
+            0x19U => VmsneVx(rd(raw), rs2(raw), rs1(raw))
+            0x1aU => VmsltuVx(rd(raw), rs2(raw), rs1(raw))
+            0x1bU => VmsltVx(rd(raw), rs2(raw), rs1(raw))
+            0x1cU => VmsleuVx(rd(raw), rs2(raw), rs1(raw))
+            0x1dU => VmsleVx(rd(raw), rs2(raw), rs1(raw))
+            0x1eU => VmsgtuVx(rd(raw), rs2(raw), rs1(raw))
+            0x1fU => VmsgtVx(rd(raw), rs2(raw), rs1(raw))
             0x26U => VsllVx(rd(raw), rs2(raw), rs1(raw))
             0x28U => VsrlVx(rd(raw), rs2(raw), rs1(raw))
             0x29U => VsraVx(rd(raw), rs2(raw), rs1(raw))

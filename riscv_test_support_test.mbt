@@ -578,6 +578,106 @@ fn encode_vmax_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
 }
 
 ///|
+fn encode_vmseq_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x18U, vm, vs2, vs1, 0x0U, vd)
+}
+
+///|
+fn encode_vmseq_vi(vd : Int, vs2 : Int, imm : Int, vm : Bool) -> UInt {
+  encode_vop(0x18U, vm, vs2, imm, 0x3U, vd)
+}
+
+///|
+fn encode_vmseq_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x18U, vm, vs2, rs1, 0x4U, vd)
+}
+
+///|
+fn encode_vmsne_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x19U, vm, vs2, vs1, 0x0U, vd)
+}
+
+///|
+fn encode_vmsne_vi(vd : Int, vs2 : Int, imm : Int, vm : Bool) -> UInt {
+  encode_vop(0x19U, vm, vs2, imm, 0x3U, vd)
+}
+
+///|
+fn encode_vmsne_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x19U, vm, vs2, rs1, 0x4U, vd)
+}
+
+///|
+fn encode_vmsltu_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x1aU, vm, vs2, vs1, 0x0U, vd)
+}
+
+///|
+fn encode_vmsltu_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x1aU, vm, vs2, rs1, 0x4U, vd)
+}
+
+///|
+fn encode_vmslt_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x1bU, vm, vs2, vs1, 0x0U, vd)
+}
+
+///|
+fn encode_vmslt_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x1bU, vm, vs2, rs1, 0x4U, vd)
+}
+
+///|
+fn encode_vmsleu_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x1cU, vm, vs2, vs1, 0x0U, vd)
+}
+
+///|
+fn encode_vmsleu_vi(vd : Int, vs2 : Int, imm : Int, vm : Bool) -> UInt {
+  encode_vop(0x1cU, vm, vs2, imm, 0x3U, vd)
+}
+
+///|
+fn encode_vmsleu_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x1cU, vm, vs2, rs1, 0x4U, vd)
+}
+
+///|
+fn encode_vmsle_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x1dU, vm, vs2, vs1, 0x0U, vd)
+}
+
+///|
+fn encode_vmsle_vi(vd : Int, vs2 : Int, imm : Int, vm : Bool) -> UInt {
+  encode_vop(0x1dU, vm, vs2, imm, 0x3U, vd)
+}
+
+///|
+fn encode_vmsle_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x1dU, vm, vs2, rs1, 0x4U, vd)
+}
+
+///|
+fn encode_vmsgtu_vi(vd : Int, vs2 : Int, imm : Int, vm : Bool) -> UInt {
+  encode_vop(0x1eU, vm, vs2, imm, 0x3U, vd)
+}
+
+///|
+fn encode_vmsgtu_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x1eU, vm, vs2, rs1, 0x4U, vd)
+}
+
+///|
+fn encode_vmsgt_vi(vd : Int, vs2 : Int, imm : Int, vm : Bool) -> UInt {
+  encode_vop(0x1fU, vm, vs2, imm, 0x3U, vd)
+}
+
+///|
+fn encode_vmsgt_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x1fU, vm, vs2, rs1, 0x4U, vd)
+}
+
+///|
 fn encode_vsll_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
   encode_vop(0x26U, vm, vs2, vs1, 0x0U, vd)
 }

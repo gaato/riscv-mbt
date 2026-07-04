@@ -1497,6 +1497,46 @@ pub fn Runner::step(self : Runner) -> StepResult {
       self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
     VmaxVx(_, _, _) =>
       self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VmseqVv(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VmseqVx(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VmseqVi(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VmsneVv(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VmsneVx(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VmsneVi(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VmsltuVv(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VmsltuVx(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VmsltVv(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VmsltVx(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VmsleuVv(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VmsleuVx(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VmsleuVi(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VmsleVv(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VmsleVx(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VmsleVi(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VmsgtuVx(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VmsgtuVi(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VmsgtVx(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VmsgtVi(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
     VsllVv(_, _, _) =>
       self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
     VsllVx(_, _, _) =>

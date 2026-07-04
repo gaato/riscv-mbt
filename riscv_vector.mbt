@@ -221,6 +221,25 @@ fn Runner::read_vmask_bit(self : Runner, elem_index : Int) -> Bool {
 }
 
 ///|
+fn Runner::write_vmask_bit(
+  self : Runner,
+  vreg : Int,
+  elem_index : Int,
+  value : Bool,
+) -> Unit {
+  let word = elem_index / 64
+  let bit = elem_index % 64
+  let bit_mask = 1U.to_uint64() << bit
+  let old_word = self.cpu.read_vreg(vreg, word)
+  let next_word = if value {
+    old_word | bit_mask
+  } else {
+    old_word & bit_not(bit_mask)
+  }
+  self.cpu.write_vreg(vreg, word, next_word)
+}
+
+///|
 fn Runner::vector_exec_supported(self : Runner) -> VectorExecConfig? {
   match self.current_vector_exec_config() {
     Some(config) =>
@@ -263,6 +282,18 @@ priv enum VectorBinaryOp {
   VectorBinAnd
   VectorBinOr
   VectorBinXor
+}
+
+///|
+priv enum VectorCompareOp {
+  VectorCmpEq
+  VectorCmpNe
+  VectorCmpLtu
+  VectorCmpLt
+  VectorCmpLeu
+  VectorCmpLe
+  VectorCmpGtu
+  VectorCmpGt
 }
 
 ///|
@@ -314,6 +345,94 @@ fn vector_apply_binary(
     VectorBinOr => lhs | rhs
     VectorBinXor => lhs ^ rhs
   }
+}
+
+///|
+fn vector_apply_compare(
+  lhs : UInt64,
+  rhs : UInt64,
+  op : VectorCompareOp,
+  sew_bits : Int,
+) -> Bool {
+  match op {
+    VectorCmpEq => lhs == rhs
+    VectorCmpNe => lhs != rhs
+    VectorCmpLtu => lhs < rhs
+    VectorCmpLt =>
+      vector_signed_lane(lhs, sew_bits) < vector_signed_lane(rhs, sew_bits)
+    VectorCmpLeu => lhs <= rhs
+    VectorCmpLe =>
+      vector_signed_lane(lhs, sew_bits) <= vector_signed_lane(rhs, sew_bits)
+    VectorCmpGtu => lhs > rhs
+    VectorCmpGt =>
+      vector_signed_lane(lhs, sew_bits) > vector_signed_lane(rhs, sew_bits)
+  }
+}
+
+///|
+fn Runner::execute_vector_compare_vv(
+  self : Runner,
+  vd : Int,
+  vs2 : Int,
+  vs1 : Int,
+  config : VectorExecConfig,
+  active_elems : Int,
+  mask_bits : Array[Bool],
+  use_mask : Bool,
+  op : VectorCompareOp,
+  current_pc : UInt64,
+  next_pc : UInt64,
+  raw : UInt,
+) -> StepResult {
+  if !vector_group_aligned(vs2, config.lmul_log2) ||
+    !vector_group_aligned(vs1, config.lmul_log2) {
+    return self.raise_vector_group_misaligned(current_pc, raw)
+  }
+  for elem in 0..<active_elems {
+    if !use_mask || mask_bits[elem] {
+      let lhs = self.read_vreg_group_elem(vs2, elem, config.sew_bits)
+      let rhs = self.read_vreg_group_elem(vs1, elem, config.sew_bits)
+      self.write_vmask_bit(
+        vd,
+        elem,
+        vector_apply_compare(lhs, rhs, op, config.sew_bits),
+      )
+    }
+  }
+  self.cpu.pc = next_pc
+  Running
+}
+
+///|
+fn Runner::execute_vector_compare_scalar(
+  self : Runner,
+  vd : Int,
+  vs2 : Int,
+  scalar : UInt64,
+  config : VectorExecConfig,
+  active_elems : Int,
+  mask_bits : Array[Bool],
+  use_mask : Bool,
+  op : VectorCompareOp,
+  current_pc : UInt64,
+  next_pc : UInt64,
+  raw : UInt,
+) -> StepResult {
+  if !vector_group_aligned(vs2, config.lmul_log2) {
+    return self.raise_vector_group_misaligned(current_pc, raw)
+  }
+  for elem in 0..<active_elems {
+    if !use_mask || mask_bits[elem] {
+      let lhs = self.read_vreg_group_elem(vs2, elem, config.sew_bits)
+      self.write_vmask_bit(
+        vd,
+        elem,
+        vector_apply_compare(lhs, scalar, op, config.sew_bits),
+      )
+    }
+  }
+  self.cpu.pc = next_pc
+  Running
 }
 
 ///|
@@ -1136,6 +1255,314 @@ fn Runner::execute_vector_first_slice(
         mask_bits,
         use_mask,
         VectorBinMax,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VmseqVv(vd, vs2, vs1) =>
+      self.execute_vector_compare_vv(
+        vd,
+        vs2,
+        vs1,
+        config,
+        active_elems,
+        mask_bits,
+        use_mask,
+        VectorCmpEq,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    VmseqVx(vd, vs2, rs1) => {
+      let scalar = self.cpu.read_reg(rs1) & sew_mask
+      self.execute_vector_compare_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        mask_bits,
+        use_mask,
+        VectorCmpEq,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VmseqVi(vd, vs2, imm) => {
+      let scalar = int_to_uint64_bits(imm) & sew_mask
+      self.execute_vector_compare_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        mask_bits,
+        use_mask,
+        VectorCmpEq,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VmsneVv(vd, vs2, vs1) =>
+      self.execute_vector_compare_vv(
+        vd,
+        vs2,
+        vs1,
+        config,
+        active_elems,
+        mask_bits,
+        use_mask,
+        VectorCmpNe,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    VmsneVx(vd, vs2, rs1) => {
+      let scalar = self.cpu.read_reg(rs1) & sew_mask
+      self.execute_vector_compare_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        mask_bits,
+        use_mask,
+        VectorCmpNe,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VmsneVi(vd, vs2, imm) => {
+      let scalar = int_to_uint64_bits(imm) & sew_mask
+      self.execute_vector_compare_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        mask_bits,
+        use_mask,
+        VectorCmpNe,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VmsltuVv(vd, vs2, vs1) =>
+      self.execute_vector_compare_vv(
+        vd,
+        vs2,
+        vs1,
+        config,
+        active_elems,
+        mask_bits,
+        use_mask,
+        VectorCmpLtu,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    VmsltuVx(vd, vs2, rs1) => {
+      let scalar = self.cpu.read_reg(rs1) & sew_mask
+      self.execute_vector_compare_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        mask_bits,
+        use_mask,
+        VectorCmpLtu,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VmsltVv(vd, vs2, vs1) =>
+      self.execute_vector_compare_vv(
+        vd,
+        vs2,
+        vs1,
+        config,
+        active_elems,
+        mask_bits,
+        use_mask,
+        VectorCmpLt,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    VmsltVx(vd, vs2, rs1) => {
+      let scalar = self.cpu.read_reg(rs1) & sew_mask
+      self.execute_vector_compare_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        mask_bits,
+        use_mask,
+        VectorCmpLt,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VmsleuVv(vd, vs2, vs1) =>
+      self.execute_vector_compare_vv(
+        vd,
+        vs2,
+        vs1,
+        config,
+        active_elems,
+        mask_bits,
+        use_mask,
+        VectorCmpLeu,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    VmsleuVx(vd, vs2, rs1) => {
+      let scalar = self.cpu.read_reg(rs1) & sew_mask
+      self.execute_vector_compare_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        mask_bits,
+        use_mask,
+        VectorCmpLeu,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VmsleuVi(vd, vs2, imm) => {
+      let scalar = int_to_uint64_bits(imm) & sew_mask
+      self.execute_vector_compare_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        mask_bits,
+        use_mask,
+        VectorCmpLeu,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VmsleVv(vd, vs2, vs1) =>
+      self.execute_vector_compare_vv(
+        vd,
+        vs2,
+        vs1,
+        config,
+        active_elems,
+        mask_bits,
+        use_mask,
+        VectorCmpLe,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    VmsleVx(vd, vs2, rs1) => {
+      let scalar = self.cpu.read_reg(rs1) & sew_mask
+      self.execute_vector_compare_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        mask_bits,
+        use_mask,
+        VectorCmpLe,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VmsleVi(vd, vs2, imm) => {
+      let scalar = int_to_uint64_bits(imm) & sew_mask
+      self.execute_vector_compare_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        mask_bits,
+        use_mask,
+        VectorCmpLe,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VmsgtuVx(vd, vs2, rs1) => {
+      let scalar = self.cpu.read_reg(rs1) & sew_mask
+      self.execute_vector_compare_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        mask_bits,
+        use_mask,
+        VectorCmpGtu,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VmsgtuVi(vd, vs2, imm) => {
+      let scalar = int_to_uint64_bits(imm) & sew_mask
+      self.execute_vector_compare_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        mask_bits,
+        use_mask,
+        VectorCmpGtu,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VmsgtVx(vd, vs2, rs1) => {
+      let scalar = self.cpu.read_reg(rs1) & sew_mask
+      self.execute_vector_compare_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        mask_bits,
+        use_mask,
+        VectorCmpGt,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    }
+    VmsgtVi(vd, vs2, imm) => {
+      let scalar = int_to_uint64_bits(imm) & sew_mask
+      self.execute_vector_compare_scalar(
+        vd,
+        vs2,
+        scalar,
+        config,
+        active_elems,
+        mask_bits,
+        use_mask,
+        VectorCmpGt,
         current_pc,
         next_pc,
         raw,

@@ -523,6 +523,166 @@ test "decode first vector arithmetic slice" {
     }
     _ => fail("expected vmax.vx")
   }
+  match decode(encode_vmseq_vv(13, 14, 15, true)) {
+    VmseqVv(vd, vs2, vs1) => {
+      assert_eq(vd, 13)
+      assert_eq(vs2, 14)
+      assert_eq(vs1, 15)
+    }
+    _ => fail("expected vmseq.vv")
+  }
+  match decode(encode_vmseq_vx(16, 17, 18, true)) {
+    VmseqVx(vd, vs2, rs1) => {
+      assert_eq(vd, 16)
+      assert_eq(vs2, 17)
+      assert_eq(rs1, 18)
+    }
+    _ => fail("expected vmseq.vx")
+  }
+  match decode(encode_vmseq_vi(19, 20, -1, true)) {
+    VmseqVi(vd, vs2, imm) => {
+      assert_eq(vd, 19)
+      assert_eq(vs2, 20)
+      assert_eq(imm, -1)
+    }
+    _ => fail("expected vmseq.vi")
+  }
+  match decode(encode_vmsne_vv(21, 22, 23, true)) {
+    VmsneVv(vd, vs2, vs1) => {
+      assert_eq(vd, 21)
+      assert_eq(vs2, 22)
+      assert_eq(vs1, 23)
+    }
+    _ => fail("expected vmsne.vv")
+  }
+  match decode(encode_vmsne_vx(24, 25, 26, true)) {
+    VmsneVx(vd, vs2, rs1) => {
+      assert_eq(vd, 24)
+      assert_eq(vs2, 25)
+      assert_eq(rs1, 26)
+    }
+    _ => fail("expected vmsne.vx")
+  }
+  match decode(encode_vmsne_vi(27, 28, -16, true)) {
+    VmsneVi(vd, vs2, imm) => {
+      assert_eq(vd, 27)
+      assert_eq(vs2, 28)
+      assert_eq(imm, -16)
+    }
+    _ => fail("expected vmsne.vi")
+  }
+  match decode(encode_vmsltu_vv(1, 2, 3, true)) {
+    VmsltuVv(vd, vs2, vs1) => {
+      assert_eq(vd, 1)
+      assert_eq(vs2, 2)
+      assert_eq(vs1, 3)
+    }
+    _ => fail("expected vmsltu.vv")
+  }
+  match decode(encode_vmsltu_vx(4, 5, 6, true)) {
+    VmsltuVx(vd, vs2, rs1) => {
+      assert_eq(vd, 4)
+      assert_eq(vs2, 5)
+      assert_eq(rs1, 6)
+    }
+    _ => fail("expected vmsltu.vx")
+  }
+  match decode(encode_vmslt_vv(7, 8, 9, true)) {
+    VmsltVv(vd, vs2, vs1) => {
+      assert_eq(vd, 7)
+      assert_eq(vs2, 8)
+      assert_eq(vs1, 9)
+    }
+    _ => fail("expected vmslt.vv")
+  }
+  match decode(encode_vmslt_vx(10, 11, 12, true)) {
+    VmsltVx(vd, vs2, rs1) => {
+      assert_eq(vd, 10)
+      assert_eq(vs2, 11)
+      assert_eq(rs1, 12)
+    }
+    _ => fail("expected vmslt.vx")
+  }
+  match decode(encode_vmsleu_vv(13, 14, 15, true)) {
+    VmsleuVv(vd, vs2, vs1) => {
+      assert_eq(vd, 13)
+      assert_eq(vs2, 14)
+      assert_eq(vs1, 15)
+    }
+    _ => fail("expected vmsleu.vv")
+  }
+  match decode(encode_vmsleu_vx(16, 17, 18, true)) {
+    VmsleuVx(vd, vs2, rs1) => {
+      assert_eq(vd, 16)
+      assert_eq(vs2, 17)
+      assert_eq(rs1, 18)
+    }
+    _ => fail("expected vmsleu.vx")
+  }
+  match decode(encode_vmsleu_vi(19, 20, 15, true)) {
+    VmsleuVi(vd, vs2, imm) => {
+      assert_eq(vd, 19)
+      assert_eq(vs2, 20)
+      assert_eq(imm, 15)
+    }
+    _ => fail("expected vmsleu.vi")
+  }
+  match decode(encode_vmsle_vv(21, 22, 23, true)) {
+    VmsleVv(vd, vs2, vs1) => {
+      assert_eq(vd, 21)
+      assert_eq(vs2, 22)
+      assert_eq(vs1, 23)
+    }
+    _ => fail("expected vmsle.vv")
+  }
+  match decode(encode_vmsle_vx(24, 25, 26, true)) {
+    VmsleVx(vd, vs2, rs1) => {
+      assert_eq(vd, 24)
+      assert_eq(vs2, 25)
+      assert_eq(rs1, 26)
+    }
+    _ => fail("expected vmsle.vx")
+  }
+  match decode(encode_vmsle_vi(27, 28, -1, true)) {
+    VmsleVi(vd, vs2, imm) => {
+      assert_eq(vd, 27)
+      assert_eq(vs2, 28)
+      assert_eq(imm, -1)
+    }
+    _ => fail("expected vmsle.vi")
+  }
+  match decode(encode_vmsgtu_vx(1, 2, 3, true)) {
+    VmsgtuVx(vd, vs2, rs1) => {
+      assert_eq(vd, 1)
+      assert_eq(vs2, 2)
+      assert_eq(rs1, 3)
+    }
+    _ => fail("expected vmsgtu.vx")
+  }
+  match decode(encode_vmsgtu_vi(4, 5, 15, true)) {
+    VmsgtuVi(vd, vs2, imm) => {
+      assert_eq(vd, 4)
+      assert_eq(vs2, 5)
+      assert_eq(imm, 15)
+    }
+    _ => fail("expected vmsgtu.vi")
+  }
+  match decode(encode_vmsgt_vx(6, 7, 8, true)) {
+    VmsgtVx(vd, vs2, rs1) => {
+      assert_eq(vd, 6)
+      assert_eq(vs2, 7)
+      assert_eq(rs1, 8)
+    }
+    _ => fail("expected vmsgt.vx")
+  }
+  match decode(encode_vmsgt_vi(9, 10, -16, true)) {
+    VmsgtVi(vd, vs2, imm) => {
+      assert_eq(vd, 9)
+      assert_eq(vs2, 10)
+      assert_eq(imm, -16)
+    }
+    _ => fail("expected vmsgt.vi")
+  }
   match decode(encode_vsll_vv(13, 14, 15, true)) {
     VsllVv(vd, vs2, vs1) => {
       assert_eq(vd, 13)
