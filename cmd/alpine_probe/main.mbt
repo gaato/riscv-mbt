@@ -1011,6 +1011,9 @@ async fn main {
     "\{runner.virtio_blk_write_request_count()} write-req/\{runner.virtio_blk_write_byte_count()} write-bytes",
   )
   println(
+    "virtio_blk_read_cache=\{runner.virtio_blk_read_cache_hit_count()} hits/\{runner.virtio_blk_read_cache_miss_count()} misses",
+  )
+  println(
     "post_init_command_virtio_delta=\{runner.virtio_blk_read_request_count() - post_init_command_start_read_requests} read-req/" +
     "\{runner.virtio_blk_read_byte_count() - post_init_command_start_read_bytes} read-bytes " +
     "\{runner.virtio_blk_write_request_count() - post_init_command_start_write_requests} write-req/" +

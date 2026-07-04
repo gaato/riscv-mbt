@@ -434,6 +434,10 @@ pub struct Runner {
   plic_regs : Array[Byte] // flat PLIC register file (4 MB); shared across SMP harts
   virtio_blk_state : Array[UInt64]
   mut virtio_blk_disk : Bytes
+  mut virtio_blk_read_cache_base : UInt64
+  mut virtio_blk_read_cache_bytes : Bytes
+  mut virtio_blk_read_cache_hits : UInt64
+  mut virtio_blk_read_cache_misses : UInt64
   mut virtio_blk_read_requests : UInt64
   mut virtio_blk_write_requests : UInt64
   mut virtio_blk_read_bytes : UInt64
@@ -1179,6 +1183,10 @@ pub fn make_runner(config : MachineConfig) -> Runner {
     },
     virtio_blk_state: Array::make(16, 0U.to_uint64()),
     virtio_blk_disk: Bytes::from_array([]),
+    virtio_blk_read_cache_base: bit_not(0U.to_uint64()),
+    virtio_blk_read_cache_bytes: Bytes::from_array([]),
+    virtio_blk_read_cache_hits: 0U.to_uint64(),
+    virtio_blk_read_cache_misses: 0U.to_uint64(),
     virtio_blk_read_requests: 0U.to_uint64(),
     virtio_blk_write_requests: 0U.to_uint64(),
     virtio_blk_read_bytes: 0U.to_uint64(),
@@ -1270,6 +1278,10 @@ pub fn make_smp_runners(
       plic_regs: shared_plic,
       virtio_blk_state: shared_virtio_blk_state,
       virtio_blk_disk: shared_virtio_blk_disk,
+      virtio_blk_read_cache_base: bit_not(0U.to_uint64()),
+      virtio_blk_read_cache_bytes: Bytes::from_array([]),
+      virtio_blk_read_cache_hits: 0U.to_uint64(),
+      virtio_blk_read_cache_misses: 0U.to_uint64(),
       virtio_blk_read_requests: 0U.to_uint64(),
       virtio_blk_write_requests: 0U.to_uint64(),
       virtio_blk_read_bytes: 0U.to_uint64(),
@@ -1450,6 +1462,7 @@ pub fn Runner::load_dtb(self : Runner, dtb : Bytes) -> Unit {
 ///|
 pub fn Runner::load_virtio_blk_disk(self : Runner, disk : Bytes) -> Unit {
   self.virtio_blk_disk = disk
+  self.virtio_blk_invalidate_read_cache()
 }
 
 ///|
@@ -1478,6 +1491,16 @@ pub fn Runner::virtio_blk_read_byte_count(self : Runner) -> UInt64 {
 ///|
 pub fn Runner::virtio_blk_write_byte_count(self : Runner) -> UInt64 {
   self.virtio_blk_write_bytes
+}
+
+///|
+pub fn Runner::virtio_blk_read_cache_hit_count(self : Runner) -> UInt64 {
+  self.virtio_blk_read_cache_hits
+}
+
+///|
+pub fn Runner::virtio_blk_read_cache_miss_count(self : Runner) -> UInt64 {
+  self.virtio_blk_read_cache_misses
 }
 
 ///|

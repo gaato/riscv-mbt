@@ -22,6 +22,12 @@ let virtio_blk_queue_max : UInt64 = 8U.to_uint64()
 let virtio_blk_capacity_sectors : UInt64 = 2048U.to_uint64()
 
 ///|
+let virtio_blk_read_cache_invalid_base : UInt64 = bit_not(0U.to_uint64())
+
+///|
+let virtio_blk_read_ahead_bytes : Int = 65536
+
+///|
 let virtio_feature_version_1_page : UInt64 = 1U.to_uint64()
 
 ///|
@@ -123,6 +129,59 @@ fn Runner::virtio_blk_write_status(
 }
 
 ///|
+fn Runner::virtio_blk_invalidate_read_cache(self : Runner) -> Unit {
+  self.virtio_blk_read_cache_base = virtio_blk_read_cache_invalid_base
+  self.virtio_blk_read_cache_bytes = Bytes::from_array([])
+}
+
+///|
+fn Runner::virtio_blk_fill_read_cache(
+  self : Runner,
+  disk_byte_offset : UInt64,
+  min_len : Int,
+) -> Unit {
+  let cache_len = if min_len > virtio_blk_read_ahead_bytes {
+    min_len
+  } else {
+    virtio_blk_read_ahead_bytes
+  }
+  let disk_offset = disk_byte_offset.reinterpret_as_int64().to_int()
+  let cache : Array[Byte] = []
+  for offset in 0..<cache_len {
+    let disk_index = disk_offset + offset
+    if disk_index >= 0 && disk_index < self.virtio_blk_disk.length() {
+      cache.push(self.virtio_blk_disk[disk_index])
+    } else {
+      cache.push(0U.to_byte())
+    }
+  }
+  self.virtio_blk_read_cache_base = disk_byte_offset
+  self.virtio_blk_read_cache_bytes = Bytes::from_array(cache)
+}
+
+///|
+fn Runner::virtio_blk_cached_read_offset(
+  self : Runner,
+  disk_byte_offset : UInt64,
+  len : Int,
+) -> Int? {
+  if self.virtio_blk_read_cache_base == virtio_blk_read_cache_invalid_base {
+    return None
+  }
+  if disk_byte_offset < self.virtio_blk_read_cache_base {
+    return None
+  }
+  let offset = (disk_byte_offset - self.virtio_blk_read_cache_base)
+    .reinterpret_as_int64()
+    .to_int()
+  if offset < 0 || offset + len > self.virtio_blk_read_cache_bytes.length() {
+    None
+  } else {
+    Some(offset)
+  }
+}
+
+///|
 fn Runner::virtio_blk_copy_sector_to_guest(
   self : Runner,
   disk_byte_offset : UInt64,
@@ -131,8 +190,27 @@ fn Runner::virtio_blk_copy_sector_to_guest(
 ) -> Int {
   // Reads past the end of the backing image are zero-filled. That keeps the
   // device behavior deterministic while the rootfs fixture size changes.
-  let disk_offset = disk_byte_offset.reinterpret_as_int64().to_int()
-  self.bus.write_bytes_from(guest_addr, self.virtio_blk_disk, disk_offset, len)
+  match self.virtio_blk_cached_read_offset(disk_byte_offset, len) {
+    Some(cache_offset) => {
+      self.virtio_blk_read_cache_hits += 1U.to_uint64()
+      self.bus.write_bytes_from(
+        guest_addr,
+        self.virtio_blk_read_cache_bytes,
+        cache_offset,
+        len,
+      )
+    }
+    None => {
+      self.virtio_blk_read_cache_misses += 1U.to_uint64()
+      self.virtio_blk_fill_read_cache(disk_byte_offset, len)
+      self.bus.write_bytes_from(
+        guest_addr,
+        self.virtio_blk_read_cache_bytes,
+        0,
+        len,
+      )
+    }
+  }
 }
 
 ///|
@@ -161,6 +239,7 @@ fn Runner::virtio_blk_copy_guest_to_sector(
   }
   if copied > 0 {
     self.virtio_blk_disk = Bytes::from_array(disk)
+    self.virtio_blk_invalidate_read_cache()
   }
   copied
 }

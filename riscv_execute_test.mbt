@@ -5412,6 +5412,83 @@ test "virtio-blk read request zero-fills past disk image" {
 }
 
 ///|
+test "virtio-blk read-ahead cache serves repeated reads and invalidates on disk load" {
+  let runner = make_runner(virtio_blk_machine_config())
+  let desc_base = 0x80001000U.to_uint64()
+  let avail_base = 0x80002000U.to_uint64()
+  let used_base = 0x80003000U.to_uint64()
+  let header_addr = 0x80004000U.to_uint64()
+  let data_addr = 0x80005000U.to_uint64()
+  let status_addr = 0x80006000U.to_uint64()
+  let disk : Array[Byte] = []
+  for index in 0..<1024 {
+    disk.push((index & 0xff).reinterpret_as_uint().to_byte())
+  }
+  runner.load_virtio_blk_disk(Bytes::from_array(disk))
+  runner.bus.store_u64(desc_base, header_addr)
+  runner.bus.store_u32(desc_base + 8U.to_uint64(), 16U.to_uint64())
+  runner.bus.store_u16(desc_base + 12U.to_uint64(), 1U.to_uint64())
+  runner.bus.store_u16(desc_base + 14U.to_uint64(), 1U.to_uint64())
+  runner.bus.store_u64(desc_base + 16U.to_uint64(), data_addr)
+  runner.bus.store_u32(desc_base + 24U.to_uint64(), 4U.to_uint64())
+  runner.bus.store_u16(desc_base + 28U.to_uint64(), 3U.to_uint64())
+  runner.bus.store_u16(desc_base + 30U.to_uint64(), 2U.to_uint64())
+  runner.bus.store_u64(desc_base + 32U.to_uint64(), status_addr)
+  runner.bus.store_u32(desc_base + 40U.to_uint64(), 1U.to_uint64())
+  runner.bus.store_u16(desc_base + 44U.to_uint64(), 2U.to_uint64())
+  runner.bus.store_u32(header_addr, 0U.to_uint64())
+  runner.bus.store_u64(header_addr + 8U.to_uint64(), 0U.to_uint64())
+  runner.bus.store_u16(avail_base + 4U.to_uint64(), 0U.to_uint64())
+  runner.virtio_blk_state[4] = 8U.to_uint64()
+  runner.virtio_blk_state[5] = 1U.to_uint64()
+  runner.virtio_blk_state[8] = desc_base & 0xffffffffU.to_uint64()
+  runner.virtio_blk_state[9] = desc_base >> 32
+  runner.virtio_blk_state[10] = avail_base & 0xffffffffU.to_uint64()
+  runner.virtio_blk_state[11] = avail_base >> 32
+  runner.virtio_blk_state[12] = used_base & 0xffffffffU.to_uint64()
+  runner.virtio_blk_state[13] = used_base >> 32
+  let notify_program = words_to_bytes([
+    encode_u(0x10001000U, 5, 0x37U),
+    encode_s(0x50, 0, 5, 0x2U, 0x23U),
+  ])
+  runner.load_program_u64(notify_program, 0x80000000U.to_uint64())
+  runner.bus.store_u16(avail_base + 2U.to_uint64(), 1U.to_uint64())
+  match runner.run(2) {
+    Running => ()
+    _ => fail("expected running after first cached virtio-blk read")
+  }
+  assert_eq(runner.bus.load_u8(data_addr), 0U.to_uint64())
+  assert_eq(runner.virtio_blk_read_cache_hit_count(), 0U.to_uint64())
+  assert_eq(runner.virtio_blk_read_cache_miss_count(), 1U.to_uint64())
+  runner.load_program_u64(notify_program, 0x80000000U.to_uint64())
+  runner.bus.store_u16(avail_base + 2U.to_uint64(), 2U.to_uint64())
+  runner.bus.store_u16(avail_base + 6U.to_uint64(), 0U.to_uint64())
+  match runner.run(2) {
+    Running => ()
+    _ => fail("expected running after repeated cached virtio-blk read")
+  }
+  assert_eq(runner.virtio_blk_read_cache_hit_count(), 1U.to_uint64())
+  assert_eq(runner.virtio_blk_read_cache_miss_count(), 1U.to_uint64())
+  let new_disk = Bytes::from_array([
+    0xaaU.to_byte(),
+    0xbbU.to_byte(),
+    0xccU.to_byte(),
+    0xddU.to_byte(),
+  ])
+  runner.load_virtio_blk_disk(new_disk)
+  runner.load_program_u64(notify_program, 0x80000000U.to_uint64())
+  runner.bus.store_u16(avail_base + 2U.to_uint64(), 3U.to_uint64())
+  runner.bus.store_u16(avail_base + 8U.to_uint64(), 0U.to_uint64())
+  match runner.run(2) {
+    Running => ()
+    _ => fail("expected running after disk reload cached virtio-blk read")
+  }
+  assert_eq(runner.virtio_blk_read_cache_hit_count(), 1U.to_uint64())
+  assert_eq(runner.virtio_blk_read_cache_miss_count(), 2U.to_uint64())
+  assert_eq(runner.bus.load_u8(data_addr), 0xaaU.to_uint64())
+}
+
+///|
 test "virtio-blk write request copies guest bytes into disk backing" {
   let runner = make_runner(virtio_blk_machine_config())
   let desc_base = 0x80001000U.to_uint64()

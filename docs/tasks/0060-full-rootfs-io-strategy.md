@@ -501,3 +501,21 @@ implemented.
   (`--post-init-apk-install-smoke`), while the repository-style `apk add
   ddate` path needs profiling or storage/read-ahead work before it can replace
   it.
+- Added a 64 KiB virtio-blk read-ahead cache for request-level reads. The cache
+  is invalidated when a new host disk image is loaded and whenever the guest
+  writes to the backing image, so it does not intentionally change guest-visible
+  disk semantics. A regression covers repeated read hits and invalidation after
+  disk reload.
+- The local-repository diagnostic after read-ahead still does not complete
+  `apk.static --repository /root/riscv-mbt-apks add ddate` within the
+  120,000,000 post-command step budget, so this is not a package-manager gate
+  upgrade. It does show that the storage shape is now much better aligned with
+  the observed sequential reads: the run reports `virtio_blk_read_cache=1348
+  hits/134 misses`, while still ending at `outcome=post-init-command-timeout`,
+  `post_init_command_index=2`, and `post_init_command_virtio_delta=979
+  read-req/4866048 read-bytes 0 write-req/0 write-bytes`.
+- The next performance slice should not be another tiny sector cache. Either
+  profile the CPU side of `apk.static` repository parsing now that block data is
+  mostly cache-served, or add richer timing/counter telemetry around
+  post-command execution to separate guest CPU time from host-side block copy
+  cost.
