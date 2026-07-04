@@ -2078,6 +2078,46 @@ test "rv64fdv vector compare slice writes mask register bits" {
 }
 
 ///|
+test "rv64fdv vector mask logical slice ignores lmul grouping" {
+  let program = words_to_bytes([
+    encode_vsetivli(0, 8U, 0x11U),
+    encode_vmand_mm(6, 2, 4),
+    encode_vmnand_mm(7, 2, 4),
+    encode_vmandn_mm(8, 2, 4),
+    encode_vmxor_mm(9, 2, 4),
+    encode_vmor_mm(10, 2, 4),
+    encode_vmnor_mm(11, 2, 4),
+    encode_vmorn_mm(12, 2, 4),
+    encode_vmxnor_mm(13, 2, 4),
+    encode_vmand_mm(14, 3, 5),
+  ])
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.load_program(program, 0U)
+
+  // Mask logical operations read one bit per element from single vector
+  // registers. They are not widened to LMUL=2 register groups.
+  runner.cpu.write_vreg(2, 0, 0xccU.to_uint64())
+  runner.cpu.write_vreg(4, 0, 0xaaU.to_uint64())
+  runner.cpu.write_vreg(3, 0, 0xf0U.to_uint64())
+  runner.cpu.write_vreg(5, 0, 0x0fU.to_uint64())
+
+  match runner.run(10) {
+    Running => ()
+    _ => fail("expected vector mask logical sequence to run")
+  }
+
+  assert_eq(runner.read_vreg_u64(6, 0) & 0xffU.to_uint64(), 0x88U.to_uint64())
+  assert_eq(runner.read_vreg_u64(7, 0) & 0xffU.to_uint64(), 0x77U.to_uint64())
+  assert_eq(runner.read_vreg_u64(8, 0) & 0xffU.to_uint64(), 0x44U.to_uint64())
+  assert_eq(runner.read_vreg_u64(9, 0) & 0xffU.to_uint64(), 0x66U.to_uint64())
+  assert_eq(runner.read_vreg_u64(10, 0) & 0xffU.to_uint64(), 0xeeU.to_uint64())
+  assert_eq(runner.read_vreg_u64(11, 0) & 0xffU.to_uint64(), 0x11U.to_uint64())
+  assert_eq(runner.read_vreg_u64(12, 0) & 0xffU.to_uint64(), 0xddU.to_uint64())
+  assert_eq(runner.read_vreg_u64(13, 0) & 0xffU.to_uint64(), 0x99U.to_uint64())
+  assert_eq(runner.read_vreg_u64(14, 0) & 0xffU.to_uint64(), 0x00U.to_uint64())
+}
+
+///|
 fn test_vector_vtypei_for_sew(sew_bits : Int) -> UInt {
   match sew_bits {
     8 => 0x00U

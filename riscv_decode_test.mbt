@@ -683,6 +683,74 @@ test "decode first vector arithmetic slice" {
     }
     _ => fail("expected vmsgt.vi")
   }
+  match decode(encode_vmand_mm(11, 12, 13)) {
+    VmandMm(vd, vs2, vs1) => {
+      assert_eq(vd, 11)
+      assert_eq(vs2, 12)
+      assert_eq(vs1, 13)
+    }
+    _ => fail("expected vmand.mm")
+  }
+  match decode(encode_vmnand_mm(14, 15, 16)) {
+    VmnandMm(vd, vs2, vs1) => {
+      assert_eq(vd, 14)
+      assert_eq(vs2, 15)
+      assert_eq(vs1, 16)
+    }
+    _ => fail("expected vmnand.mm")
+  }
+  match decode(encode_vmandn_mm(17, 18, 19)) {
+    VmandnMm(vd, vs2, vs1) => {
+      assert_eq(vd, 17)
+      assert_eq(vs2, 18)
+      assert_eq(vs1, 19)
+    }
+    _ => fail("expected vmandn.mm")
+  }
+  match decode(encode_vmxor_mm(20, 21, 22)) {
+    VmxorMm(vd, vs2, vs1) => {
+      assert_eq(vd, 20)
+      assert_eq(vs2, 21)
+      assert_eq(vs1, 22)
+    }
+    _ => fail("expected vmxor.mm")
+  }
+  match decode(encode_vmor_mm(23, 24, 25)) {
+    VmorMm(vd, vs2, vs1) => {
+      assert_eq(vd, 23)
+      assert_eq(vs2, 24)
+      assert_eq(vs1, 25)
+    }
+    _ => fail("expected vmor.mm")
+  }
+  match decode(encode_vmnor_mm(26, 27, 28)) {
+    VmnorMm(vd, vs2, vs1) => {
+      assert_eq(vd, 26)
+      assert_eq(vs2, 27)
+      assert_eq(vs1, 28)
+    }
+    _ => fail("expected vmnor.mm")
+  }
+  match decode(encode_vmorn_mm(29, 30, 31)) {
+    VmornMm(vd, vs2, vs1) => {
+      assert_eq(vd, 29)
+      assert_eq(vs2, 30)
+      assert_eq(vs1, 31)
+    }
+    _ => fail("expected vmorn.mm")
+  }
+  match decode(encode_vmxnor_mm(1, 2, 3)) {
+    VmxnorMm(vd, vs2, vs1) => {
+      assert_eq(vd, 1)
+      assert_eq(vs2, 2)
+      assert_eq(vs1, 3)
+    }
+    _ => fail("expected vmxnor.mm")
+  }
+  match decode(encode_vop(0x18U, false, 12, 13, 0x2U, 11)) {
+    Unknown(_) => ()
+    _ => fail("expected masked vmand.mm encoding to remain reserved")
+  }
   match decode(encode_vsll_vv(13, 14, 15, true)) {
     VsllVv(vd, vs2, vs1) => {
       assert_eq(vd, 13)

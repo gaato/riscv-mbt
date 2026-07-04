@@ -1007,6 +1007,14 @@ fn instruction_supported_for_current_config(
     VmsgtuVi(_, _, _) => has_v
     VmsgtVx(_, _, _) => has_v
     VmsgtVi(_, _, _) => has_v
+    VmandMm(_, _, _) => has_v
+    VmnandMm(_, _, _) => has_v
+    VmandnMm(_, _, _) => has_v
+    VmxorMm(_, _, _) => has_v
+    VmorMm(_, _, _) => has_v
+    VmnorMm(_, _, _) => has_v
+    VmornMm(_, _, _) => has_v
+    VmxnorMm(_, _, _) => has_v
     VsllVv(_, _, _) => has_v
     VsllVx(_, _, _) => has_v
     VsllVi(_, _, _) => has_v
@@ -1229,6 +1237,22 @@ pub fn decode(raw : UInt) -> Instruction {
             0x28U => VsrlVv(rd(raw), rs2(raw), rs1(raw))
             0x29U => VsraVv(rd(raw), rs2(raw), rs1(raw))
             _ => Unknown(raw)
+          }
+        0x2U =>
+          if ((raw >> 25) & 0x1U) == 1U {
+            match funct6(raw) {
+              0x18U => VmandMm(rd(raw), rs2(raw), rs1(raw))
+              0x19U => VmnandMm(rd(raw), rs2(raw), rs1(raw))
+              0x1aU => VmandnMm(rd(raw), rs2(raw), rs1(raw))
+              0x1bU => VmxorMm(rd(raw), rs2(raw), rs1(raw))
+              0x1cU => VmorMm(rd(raw), rs2(raw), rs1(raw))
+              0x1dU => VmnorMm(rd(raw), rs2(raw), rs1(raw))
+              0x1eU => VmornMm(rd(raw), rs2(raw), rs1(raw))
+              0x1fU => VmxnorMm(rd(raw), rs2(raw), rs1(raw))
+              _ => Unknown(raw)
+            }
+          } else {
+            Unknown(raw)
           }
         0x3U =>
           match funct6(raw) {

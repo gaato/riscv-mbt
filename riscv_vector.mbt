@@ -215,9 +215,18 @@ fn Runner::write_vreg_group_elem(
 
 ///|
 fn Runner::read_vmask_bit(self : Runner, elem_index : Int) -> Bool {
+  self.read_vmask_bit_from(0, elem_index)
+}
+
+///|
+fn Runner::read_vmask_bit_from(
+  self : Runner,
+  vreg : Int,
+  elem_index : Int,
+) -> Bool {
   let word = elem_index / 64
   let bit = elem_index % 64
-  ((self.cpu.read_vreg(0, word) >> bit) & 1U.to_uint64()) != 0U.to_uint64()
+  ((self.cpu.read_vreg(vreg, word) >> bit) & 1U.to_uint64()) != 0U.to_uint64()
 }
 
 ///|
@@ -297,6 +306,18 @@ priv enum VectorCompareOp {
 }
 
 ///|
+priv enum VectorMaskLogicalOp {
+  VectorMaskAnd
+  VectorMaskNand
+  VectorMaskAndNot
+  VectorMaskXor
+  VectorMaskOr
+  VectorMaskNor
+  VectorMaskOrNot
+  VectorMaskXnor
+}
+
+///|
 fn vector_signed_lane(value : UInt64, sew_bits : Int) -> Int64 {
   // Signed RVV integer comparisons interpret each lane at SEW width, not at
   // host UInt64 width. Sign-extend before comparing so e32 0xffffffff is -1.
@@ -367,6 +388,49 @@ fn vector_apply_compare(
     VectorCmpGt =>
       vector_signed_lane(lhs, sew_bits) > vector_signed_lane(rhs, sew_bits)
   }
+}
+
+///|
+fn vector_apply_mask_logical(
+  lhs : Bool,
+  rhs : Bool,
+  op : VectorMaskLogicalOp,
+) -> Bool {
+  match op {
+    VectorMaskAnd => lhs && rhs
+    VectorMaskNand => !(lhs && rhs)
+    VectorMaskAndNot => lhs && !rhs
+    VectorMaskXor => lhs != rhs
+    VectorMaskOr => lhs || rhs
+    VectorMaskNor => !(lhs || rhs)
+    VectorMaskOrNot => lhs || !rhs
+    VectorMaskXnor => lhs == rhs
+  }
+}
+
+///|
+fn Runner::execute_vector_mask_logical(
+  self : Runner,
+  vd : Int,
+  vs2 : Int,
+  vs1 : Int,
+  config : VectorExecConfig,
+  op : VectorMaskLogicalOp,
+  current_pc : UInt64,
+  next_pc : UInt64,
+  raw : UInt,
+) -> StepResult {
+  if self.cpu.read_csr(CSR_VSTART) != 0U.to_uint64() {
+    return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+  }
+  let active_elems = config.vl.reinterpret_as_int64().to_int()
+  for elem in 0..<active_elems {
+    let lhs = self.read_vmask_bit_from(vs2, elem)
+    let rhs = self.read_vmask_bit_from(vs1, elem)
+    self.write_vmask_bit(vd, elem, vector_apply_mask_logical(lhs, rhs, op))
+  }
+  self.cpu.pc = next_pc
+  Running
 }
 
 ///|
@@ -1120,6 +1184,94 @@ fn Runner::execute_vector_first_slice(
         raw,
       )
     }
+    VmandMm(vd, vs2, vs1) =>
+      self.execute_vector_mask_logical(
+        vd,
+        vs2,
+        vs1,
+        config,
+        VectorMaskAnd,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    VmnandMm(vd, vs2, vs1) =>
+      self.execute_vector_mask_logical(
+        vd,
+        vs2,
+        vs1,
+        config,
+        VectorMaskNand,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    VmandnMm(vd, vs2, vs1) =>
+      self.execute_vector_mask_logical(
+        vd,
+        vs2,
+        vs1,
+        config,
+        VectorMaskAndNot,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    VmxorMm(vd, vs2, vs1) =>
+      self.execute_vector_mask_logical(
+        vd,
+        vs2,
+        vs1,
+        config,
+        VectorMaskXor,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    VmorMm(vd, vs2, vs1) =>
+      self.execute_vector_mask_logical(
+        vd,
+        vs2,
+        vs1,
+        config,
+        VectorMaskOr,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    VmnorMm(vd, vs2, vs1) =>
+      self.execute_vector_mask_logical(
+        vd,
+        vs2,
+        vs1,
+        config,
+        VectorMaskNor,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    VmornMm(vd, vs2, vs1) =>
+      self.execute_vector_mask_logical(
+        vd,
+        vs2,
+        vs1,
+        config,
+        VectorMaskOrNot,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    VmxnorMm(vd, vs2, vs1) =>
+      self.execute_vector_mask_logical(
+        vd,
+        vs2,
+        vs1,
+        config,
+        VectorMaskXnor,
+        current_pc,
+        next_pc,
+        raw,
+      )
     VsllVv(vd, vs2, vs1) =>
       self.execute_vector_binary_vv(
         vd,

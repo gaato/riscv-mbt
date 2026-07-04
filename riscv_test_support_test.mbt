@@ -678,6 +678,46 @@ fn encode_vmsgt_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
 }
 
 ///|
+fn encode_vmand_mm(vd : Int, vs2 : Int, vs1 : Int) -> UInt {
+  encode_vop(0x18U, true, vs2, vs1, 0x2U, vd)
+}
+
+///|
+fn encode_vmnand_mm(vd : Int, vs2 : Int, vs1 : Int) -> UInt {
+  encode_vop(0x19U, true, vs2, vs1, 0x2U, vd)
+}
+
+///|
+fn encode_vmandn_mm(vd : Int, vs2 : Int, vs1 : Int) -> UInt {
+  encode_vop(0x1aU, true, vs2, vs1, 0x2U, vd)
+}
+
+///|
+fn encode_vmxor_mm(vd : Int, vs2 : Int, vs1 : Int) -> UInt {
+  encode_vop(0x1bU, true, vs2, vs1, 0x2U, vd)
+}
+
+///|
+fn encode_vmor_mm(vd : Int, vs2 : Int, vs1 : Int) -> UInt {
+  encode_vop(0x1cU, true, vs2, vs1, 0x2U, vd)
+}
+
+///|
+fn encode_vmnor_mm(vd : Int, vs2 : Int, vs1 : Int) -> UInt {
+  encode_vop(0x1dU, true, vs2, vs1, 0x2U, vd)
+}
+
+///|
+fn encode_vmorn_mm(vd : Int, vs2 : Int, vs1 : Int) -> UInt {
+  encode_vop(0x1eU, true, vs2, vs1, 0x2U, vd)
+}
+
+///|
+fn encode_vmxnor_mm(vd : Int, vs2 : Int, vs1 : Int) -> UInt {
+  encode_vop(0x1fU, true, vs2, vs1, 0x2U, vd)
+}
+
+///|
 fn encode_vsll_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
   encode_vop(0x26U, vm, vs2, vs1, 0x0U, vd)
 }
