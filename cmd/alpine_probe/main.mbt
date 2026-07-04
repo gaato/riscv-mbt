@@ -694,6 +694,10 @@ async fn main {
   let mut post_init_command_sent = false
   let mut post_init_command_index = 0
   let mut post_init_command_steps = -1
+  let mut post_init_command_start_read_requests = 0U.to_uint64()
+  let mut post_init_command_start_read_bytes = 0U.to_uint64()
+  let mut post_init_command_start_write_requests = 0U.to_uint64()
+  let mut post_init_command_start_write_bytes = 0U.to_uint64()
   let mut shell_expect_seen = false
   while steps < max_steps {
     match runner.step() {
@@ -744,6 +748,10 @@ async fn main {
               post_init_command_sent = true
               post_init_command_index = 1
               post_init_command_steps = steps
+              post_init_command_start_read_requests = runner.virtio_blk_read_request_count()
+              post_init_command_start_read_bytes = runner.virtio_blk_read_byte_count()
+              post_init_command_start_write_requests = runner.virtio_blk_write_request_count()
+              post_init_command_start_write_bytes = runner.virtio_blk_write_byte_count()
             } else if post_init_command_index > 0 &&
               post_init_command_index < post_init_commands.length() &&
               output.contains(post_init_markers[post_init_command_index - 1]) {
@@ -754,6 +762,10 @@ async fn main {
               )
               post_init_command_index += 1
               post_init_command_steps = steps
+              post_init_command_start_read_requests = runner.virtio_blk_read_request_count()
+              post_init_command_start_read_bytes = runner.virtio_blk_read_byte_count()
+              post_init_command_start_write_requests = runner.virtio_blk_write_request_count()
+              post_init_command_start_write_bytes = runner.virtio_blk_write_byte_count()
             }
           }
           if post_init_command_sent &&
@@ -872,6 +884,12 @@ async fn main {
   println(
     "virtio_blk=\{runner.virtio_blk_read_request_count()} read-req/\{runner.virtio_blk_read_byte_count()} read-bytes " +
     "\{runner.virtio_blk_write_request_count()} write-req/\{runner.virtio_blk_write_byte_count()} write-bytes",
+  )
+  println(
+    "post_init_command_virtio_delta=\{runner.virtio_blk_read_request_count() - post_init_command_start_read_requests} read-req/" +
+    "\{runner.virtio_blk_read_byte_count() - post_init_command_start_read_bytes} read-bytes " +
+    "\{runner.virtio_blk_write_request_count() - post_init_command_start_write_requests} write-req/" +
+    "\{runner.virtio_blk_write_byte_count() - post_init_command_start_write_bytes} write-bytes",
   )
   println("output_chars=" + output.length().to_string())
   println(

@@ -388,3 +388,18 @@ implemented.
   before adding more long waits: rising read counters point at block/rootfs
   throughput during library loading, while flat counters with advancing steps
   point at CPU-side loader, relocation, syscall, or ISA behavior.
+- First staged `apk` rerun with cumulative counters still times out before
+  `apk-loader-ok` and reports `virtio_blk=1372 read-req/5182464 read-bytes 1
+  write-req/1024 write-bytes`. That is useful but not enough because the count
+  includes boot, rootfs mount, and earlier post-init setup. The probe now also
+  reports `post_init_command_virtio_delta`, resetting at each post-init command
+  injection, so the next `apk` run can distinguish loader-time block I/O from
+  CPU-side dynamic-loader, relocation, syscall, or ISA work.
+- Staged `apk` rerun with per-command counters again times out before
+  `apk-loader-ok`, but now reports
+  `post_init_command_virtio_delta=868 read-req/3577856 read-bytes 0 write-req/0
+  write-bytes`. The loader path is still actively issuing block reads during
+  the 20,000,000-step post-init command window. This weakens the flat
+  CPU-spin/illegal-instruction theory for this particular timeout. Next work
+  should narrow or speed the dynamic-loader/library-read path before treating
+  `apk --version` itself as the failing operation.
