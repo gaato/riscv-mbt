@@ -2465,6 +2465,123 @@ test "rv64fdv vector compress rejects reserved overlaps and vstart" {
 }
 
 ///|
+test "rv64fdv vector gather permutes and splats source elements" {
+  let program = words_to_bytes([
+    encode_vsetivli(0, 8U, 0x11U),
+    encode_vrgather_vv(6, 2, 4, true),
+    encode_vrgather_vx(8, 2, 10, false),
+    encode_vrgather_vi(10, 2, 31, true),
+  ])
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.load_program(program, 0U)
+
+  // e32,m2 gives VLMAX=8. The vector-vector gather uses indices
+  // [7,0,8,2,4,1,6,3], so index 8 is out of range and returns zero.
+  runner.cpu.write_reg(10, 5U.to_uint64())
+  runner.cpu.write_vreg(0, 0, 0x4bU.to_uint64())
+  runner.cpu.write_vreg(2, 0, test_join_u64(11U, 10U))
+  runner.cpu.write_vreg(2, 1, test_join_u64(13U, 12U))
+  runner.cpu.write_vreg(3, 0, test_join_u64(15U, 14U))
+  runner.cpu.write_vreg(3, 1, test_join_u64(17U, 16U))
+  runner.cpu.write_vreg(4, 0, test_join_u64(0U, 7U))
+  runner.cpu.write_vreg(4, 1, test_join_u64(2U, 8U))
+  runner.cpu.write_vreg(5, 0, test_join_u64(1U, 4U))
+  runner.cpu.write_vreg(5, 1, test_join_u64(3U, 6U))
+  runner.cpu.write_vreg(8, 0, test_join_u64(0xaaaaaaaaU, 0xaaaaaaaaU))
+  runner.cpu.write_vreg(8, 1, test_join_u64(0xaaaaaaaaU, 0xaaaaaaaaU))
+  runner.cpu.write_vreg(9, 0, test_join_u64(0xbbbbbbbbU, 0xbbbbbbbbU))
+  runner.cpu.write_vreg(9, 1, test_join_u64(0xbbbbbbbbU, 0xbbbbbbbbU))
+  runner.cpu.write_vreg(10, 0, test_join_u64(0xccccccccU, 0xccccccccU))
+  runner.cpu.write_vreg(10, 1, test_join_u64(0xccccccccU, 0xccccccccU))
+  runner.cpu.write_vreg(11, 0, test_join_u64(0xddddddddU, 0xddddddddU))
+  runner.cpu.write_vreg(11, 1, test_join_u64(0xddddddddU, 0xddddddddU))
+
+  match runner.run(4) {
+    Running => ()
+    _ => fail("expected vector gather sequence to run")
+  }
+
+  assert_eq(runner.read_vreg_u64(6, 0), test_join_u64(10U, 17U))
+  assert_eq(runner.read_vreg_u64(6, 1), test_join_u64(12U, 0U))
+  assert_eq(runner.read_vreg_u64(7, 0), test_join_u64(11U, 14U))
+  assert_eq(runner.read_vreg_u64(7, 1), test_join_u64(13U, 16U))
+  assert_eq(runner.read_vreg_u64(8, 0), test_join_u64(15U, 15U))
+  assert_eq(runner.read_vreg_u64(8, 1), test_join_u64(15U, 0xaaaaaaaaU))
+  assert_eq(runner.read_vreg_u64(9, 0), test_join_u64(0xbbbbbbbbU, 0xbbbbbbbbU))
+  assert_eq(runner.read_vreg_u64(9, 1), test_join_u64(0xbbbbbbbbU, 15U))
+  assert_eq(runner.read_vreg_u64(10, 0), 0U.to_uint64())
+  assert_eq(runner.read_vreg_u64(10, 1), 0U.to_uint64())
+  assert_eq(runner.read_vreg_u64(11, 0), 0U.to_uint64())
+  assert_eq(runner.read_vreg_u64(11, 1), 0U.to_uint64())
+}
+
+///|
+test "rv64fdv vector gather rejects overlapping source groups" {
+  let data_overlap = encode_vrgather_vv(2, 2, 4, true)
+  let index_overlap = encode_vrgather_vv(4, 2, 4, true)
+  let scalar_overlap = encode_vrgather_vx(2, 2, 10, true)
+  let data_runner = make_runner(rv64fdv_machine_config())
+  data_runner.load_program(
+    words_to_bytes([encode_vsetivli(0, 8U, 0x11U), data_overlap]),
+    0U,
+  )
+  match data_runner.step() {
+    Running => ()
+    _ => fail("expected vsetivli to run")
+  }
+  match data_runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+      assert_eq(info.trap_value, data_overlap.to_uint64())
+    }
+    _ => fail("expected vrgather.vv data overlap to trap")
+  }
+
+  let index_runner = make_runner(rv64fdv_machine_config())
+  index_runner.load_program(
+    words_to_bytes([encode_vsetivli(0, 8U, 0x11U), index_overlap]),
+    0U,
+  )
+  match index_runner.step() {
+    Running => ()
+    _ => fail("expected vsetivli to run")
+  }
+  match index_runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+      assert_eq(info.trap_value, index_overlap.to_uint64())
+    }
+    _ => fail("expected vrgather.vv index overlap to trap")
+  }
+
+  let scalar_runner = make_runner(rv64fdv_machine_config())
+  scalar_runner.load_program(
+    words_to_bytes([encode_vsetivli(0, 8U, 0x11U), scalar_overlap]),
+    0U,
+  )
+  match scalar_runner.step() {
+    Running => ()
+    _ => fail("expected vsetivli to run")
+  }
+  match scalar_runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+      assert_eq(info.trap_value, scalar_overlap.to_uint64())
+    }
+    _ => fail("expected vrgather.vx data overlap to trap")
+  }
+}
+
+///|
 fn test_vector_vtypei_for_sew(sew_bits : Int) -> UInt {
   match sew_bits {
     8 => 0x00U

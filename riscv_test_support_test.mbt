@@ -758,6 +758,21 @@ fn encode_vcompress_vm(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
 }
 
 ///|
+fn encode_vrgather_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x0cU, vm, vs2, vs1, 0x0U, vd)
+}
+
+///|
+fn encode_vrgather_vi(vd : Int, vs2 : Int, imm : Int, vm : Bool) -> UInt {
+  encode_vop(0x0cU, vm, vs2, imm, 0x3U, vd)
+}
+
+///|
+fn encode_vrgather_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x0cU, vm, vs2, rs1, 0x4U, vd)
+}
+
+///|
 fn encode_vsll_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
   encode_vop(0x26U, vm, vs2, vs1, 0x0U, vd)
 }

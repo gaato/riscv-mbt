@@ -838,6 +838,30 @@ test "decode first vector arithmetic slice" {
     Unknown(_) => ()
     _ => fail("expected masked vcompress.vm encoding to remain reserved")
   }
+  match decode(encode_vrgather_vv(25, 26, 27, true)) {
+    VrgatherVv(vd, vs2, vs1) => {
+      assert_eq(vd, 25)
+      assert_eq(vs2, 26)
+      assert_eq(vs1, 27)
+    }
+    _ => fail("expected vrgather.vv")
+  }
+  match decode(encode_vrgather_vx(28, 29, 30, false)) {
+    VrgatherVx(vd, vs2, rs1) => {
+      assert_eq(vd, 28)
+      assert_eq(vs2, 29)
+      assert_eq(rs1, 30)
+    }
+    _ => fail("expected masked vrgather.vx")
+  }
+  match decode(encode_vrgather_vi(1, 2, 31, true)) {
+    VrgatherVi(vd, vs2, imm) => {
+      assert_eq(vd, 1)
+      assert_eq(vs2, 2)
+      assert_eq(imm, 31)
+    }
+    _ => fail("expected vrgather.vi")
+  }
   match decode(encode_vsll_vv(13, 14, 15, true)) {
     VsllVv(vd, vs2, vs1) => {
       assert_eq(vd, 13)
