@@ -44,6 +44,9 @@ fn c_funct3(raw : UInt) -> UInt {
 
 ///|
 fn instruction_length_from_low16(low16 : UInt) -> Int {
+  // RISC-V encodes 16-bit compressed instructions with low bits != 0b11.
+  // Fetch uses this before full decode, including the page-crossing 32-bit
+  // case that Linux userspace exposed.
   if (low16 & 0x3U) == 0x3U {
     4
   } else {
@@ -88,6 +91,8 @@ fn c_rs2_prime(raw : UInt) -> Int {
 
 ///|
 fn sign_extend(value : UInt, bits : Int) -> Int {
+  // Decode immediates as signed host Int values. Execute converts them back to
+  // XLEN-sized bit patterns where needed, keeping sign-extension centralized.
   let shift = 32 - bits
   (value << shift).reinterpret_as_int() >> shift
 }
@@ -116,6 +121,9 @@ fn imm_s(raw : UInt) -> Int {
 
 ///|
 fn imm_b(raw : UInt) -> Int {
+  // Branch and jump immediates are deliberately reconstructed by named bit
+  // groups; compact formulas are easier to get wrong when debugging raw Linux
+  // fault words.
   let bit12 = ((raw >> 31) & 0x1U) << 12
   let bit11 = ((raw >> 7) & 0x1U) << 11
   let bits10_5 = ((raw >> 25) & 0x3fU) << 5

@@ -294,3 +294,25 @@ implemented.
   This is still one emulator run rather than host-persistent disk mutation, but
   it exercises the Linux ext4 and virtio-blk read/write paths more directly
   than the applet-oriented BusyBox smoke.
+- Added a host-image persistence probe pair:
+  `--post-init-persistence-write-smoke --write-back-virtio-blk-disk` creates a
+  marker file from rootfs-side Alpine userspace, waits for the guest-visible
+  `persistence-write-ok` marker, then writes the mutated virtio-blk backing
+  image back to the selected host disk path. A later
+  `--post-init-persistence-read-smoke` boot uses the saved image and checks that
+  `/root/riscv-mbt-persist` is still present before emitting
+  `persistence-read-ok`. This closes the gap between "writes work during one
+  emulator run" and "rootfs mutations can survive through the host disk image".
+- Current host-persistence proof:
+  after copying `_build/alpine-rootfs-riscv64.ext4` to
+  `_build/alpine-rootfs-riscv64-persist-probe.ext4`,
+  `moon run --target native cmd/alpine_probe xlong --virtio-blk-disk _build/alpine-rootfs-riscv64-persist-probe.ext4 --post-init-persistence-write-smoke --write-back-virtio-blk-disk`
+  reaches `outcome=console-command`, `shell_expect_seen=true`,
+  `post_init_persistence_write_smoke=true`, and `persistence-write-ok` at
+  633,000,000 guest steps. A second boot with
+  `moon run --target native cmd/alpine_probe xlong --virtio-blk-disk _build/alpine-rootfs-riscv64-persist-probe.ext4 --post-init-persistence-read-smoke`
+  reaches `outcome=console-command`, `shell_expect_seen=true`,
+  `post_init_persistence_read_smoke=true`, and `persistence-read-ok` at
+  633,000,000 guest steps. The second boot also reports ext4 journal recovery,
+  which is expected after the host saves the mutated backing image and then
+  boots it again.

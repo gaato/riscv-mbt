@@ -44,6 +44,9 @@ fn sv39_vpn(vaddr : UInt64, level : Int) -> UInt64 {
 
 ///|
 fn sv39_va_canonical(vaddr : UInt64) -> Bool {
+  // Sv39 virtual addresses are sign-extended from bit 38. Rejecting
+  // non-canonical addresses here keeps fetch/load/store fault behavior aligned
+  // before any page table memory is touched.
   let bit38 = (vaddr >> 38) & 1U.to_uint64()
   let upper = (vaddr >> 39) & 0x1FFFFFFU.to_uint64()
   if bit38 == 0U.to_uint64() {
@@ -198,6 +201,9 @@ fn Runner::translate_address(
   access_type : AccessType,
   privilege : PrivilegeMode,
 ) -> TranslateResult {
+  // Machine mode uses physical addressing for the OpenSBI path in this model.
+  // S/U mode go through Sv39 only when satp.MODE says Sv39; Bare mode is still
+  // useful for early kernel boot and low-level tests.
   if !self.sv39_active_for_privilege(privilege) {
     return TranslatedAddr(vaddr)
   }
@@ -238,6 +244,9 @@ fn known_page_table_index(ppn : UInt64) -> Int {
 
 ///|
 fn Runner::remember_page_table_page(self : Runner, pte_addr : UInt64) -> Unit {
+  // Coarse page-table write tracking protects the translation cache from stale
+  // PTEs without trying to implement full hardware TLB coherence. Guest stores
+  // to a remembered page-table page flush cached translations.
   let ppn = pte_addr >> 12
   self.known_page_table_ppns[known_page_table_index(ppn)] = ppn
 }
@@ -248,6 +257,9 @@ fn Runner::record_page_table_walk(
   satp : UInt64,
   vaddr : UInt64,
 ) -> Unit {
+  // Record every page-table page touched by the same walk shape used for
+  // translation. This makes later guest PTE writes visible to the cache layer
+  // even if Linux modifies a non-leaf table page.
   let mut a = satp_ppn(satp) * SV39_PAGESIZE
   let mut i = SV39_LEVELS - 1
   while i >= 0 {
@@ -275,6 +287,8 @@ fn Runner::store_touches_known_page_table(
   pa : UInt64,
   width : Int,
 ) -> Bool {
+  // Stores can span a page boundary. Check every touched physical page so a
+  // wide guest store into page-table memory cannot leave stale translations.
   let start_ppn = pa >> 12
   let end_ppn = (pa + width.reinterpret_as_uint().to_uint64() - 1U.to_uint64()) >>
     12
@@ -311,6 +325,9 @@ fn Runner::translate_cached(
   let index = translate_cache_index(vpage)
   let access_id = translate_cache_access_id(access_type)
   let privilege_id = translate_cache_privilege_id(privilege)
+  // Cache entries include access type, privilege, satp, SUM, and MXR because
+  // the same virtual page can be legal for one access shape and fault for
+  // another.
   if self.translate_cache_vpages[index] == vpage &&
     self.translate_cache_satps[index] == satp &&
     self.translate_cache_accesses[index] == access_id &&
@@ -341,6 +358,8 @@ fn Runner::translate_cached(
 
 ///|
 fn Runner::effective_data_access_privilege(self : Runner) -> PrivilegeMode {
+  // Loads/stores in M-mode can be translated as MPP when MPRV is set. This is
+  // how firmware and kernels safely copy data using another privilege's view.
   match self.cpu.privilege {
     Machine => ()
     _ => return self.cpu.privilege
@@ -357,6 +376,9 @@ fn Runner::fetch_instruction(
   self : Runner,
   addr : UInt64,
 ) -> (FetchedInstruction?, StepResult?) {
+  // Fetch the low halfword first to determine instruction length. If the
+  // instruction is 32-bit, translate pc+2 independently; a 32-bit instruction
+  // can cross a virtual page boundary and land on a different physical page.
   let low_pa = match self.translate_address(addr, Fetch, self.cpu.privilege) {
     TranslatedAddr(pa) => pa
     TranslateFault(cause) =>

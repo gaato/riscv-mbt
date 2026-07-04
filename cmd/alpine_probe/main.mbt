@@ -107,6 +107,15 @@ async fn read_binary(path : String) -> Bytes {
 }
 
 ///|
+async fn write_binary(path : String, bytes : Bytes) -> Unit {
+  // Used by persistence probes to materialize the virtio-blk backing image
+  // after guest writes. write_at avoids depending on stream cursor state.
+  let file = @fs.create(path, permission=0o644)
+  defer file.close()
+  file.write_at(bytes[:], position=0L)
+}
+
+///|
 fn parse_max_steps(args : Array[String]) -> Int {
   if args.length() >= 2 {
     match args[1] {
@@ -306,6 +315,24 @@ fn alpine_post_init_storage_markers() -> Array[String] {
 }
 
 ///|
+fn alpine_post_init_persistence_write_command() -> String {
+  // First half of the persistence proof: create a rootfs file from ordinary
+  // Alpine userspace, then let the host-side probe save the mutated disk image.
+  "printf 'persisted-through-host-image\\n' > /root/riscv-mbt-persist && " +
+  "sync && " +
+  "cat /root/riscv-mbt-persist && " +
+  "printf '\\160\\145\\162\\163\\151\\163\\164\\145\\156\\143\\145\\055\\167\\162\\151\\164\\145\\055\\157\\153\\012'"
+}
+
+///|
+fn alpine_post_init_persistence_read_command() -> String {
+  // Second half of the persistence proof: boot from the saved image and read
+  // the file without recreating it in this emulator run.
+  "cat /root/riscv-mbt-persist | grep persisted-through-host-image && " +
+  "printf '\\160\\145\\162\\163\\151\\163\\164\\145\\156\\143\\145\\055\\162\\145\\141\\144\\055\\157\\153\\012'"
+}
+
+///|
 async fn main {
   let args = @env.args()
   let max_steps = parse_max_steps(args)
@@ -317,6 +344,15 @@ async fn main {
   let post_init_session_smoke = parse_flag(args, "--post-init-session-smoke")
   let post_init_busybox_smoke = parse_flag(args, "--post-init-busybox-smoke")
   let post_init_storage_smoke = parse_flag(args, "--post-init-storage-smoke")
+  let post_init_persistence_write_smoke = parse_flag(
+    args, "--post-init-persistence-write-smoke",
+  )
+  let post_init_persistence_read_smoke = parse_flag(
+    args, "--post-init-persistence-read-smoke",
+  )
+  let write_back_virtio_blk_disk = parse_flag(
+    args, "--write-back-virtio-blk-disk",
+  )
   let post_init_custom_command = parse_arg_value(args, "--post-init-command")
   let post_init_custom_expect = match post_init_custom_command {
     Some(_) =>
@@ -327,6 +363,9 @@ async fn main {
     None => None
   }
   let has_post_init_custom_command = post_init_custom_command is Some(_)
+  // Any smoke beyond the tiny initramfs prompt needs the virtio DTB and rootfs
+  // disk image. Keep that routing centralized so adding a new post-init proof
+  // does not accidentally boot the no-block-device platform.
   let uses_virtio_rootfs = rootfs_smoke ||
     switch_root_smoke ||
     init_smoke ||
@@ -334,6 +373,8 @@ async fn main {
     post_init_session_smoke ||
     post_init_busybox_smoke ||
     post_init_storage_smoke ||
+    post_init_persistence_write_smoke ||
+    post_init_persistence_read_smoke ||
     has_post_init_custom_command
   let selected_dtb_path = match parse_arg_value(args, "--dtb") {
     Some(path) => path
@@ -363,7 +404,12 @@ async fn main {
     post_init_session_smoke ||
     post_init_busybox_smoke ||
     post_init_storage_smoke ||
+    post_init_persistence_write_smoke ||
+    post_init_persistence_read_smoke ||
     has_post_init_custom_command {
+    // Post-init probes first run the standard root handoff command. The
+    // per-proof commands are injected only after rootfs-side init emits
+    // `post-init-ready`.
     Some(alpine_init_smoke_command())
   } else {
     parse_arg_value(args, "--command")
@@ -384,6 +430,10 @@ async fn main {
     Some("post-init-busybox-ok")
   } else if post_init_storage_smoke {
     Some("post-init-storage-ok")
+  } else if post_init_persistence_write_smoke {
+    Some("persistence-write-ok")
+  } else if post_init_persistence_read_smoke {
+    Some("persistence-read-ok")
   } else if post_init_custom_expect is Some(marker) {
     Some(marker)
   } else {
@@ -395,6 +445,10 @@ async fn main {
     alpine_post_init_busybox_commands()
   } else if post_init_storage_smoke {
     alpine_post_init_storage_commands()
+  } else if post_init_persistence_write_smoke {
+    [alpine_post_init_persistence_write_command()]
+  } else if post_init_persistence_read_smoke {
+    [alpine_post_init_persistence_read_command()]
   } else if post_init_session_smoke {
     alpine_post_init_session_commands()
   } else if post_init_smoke {
@@ -408,6 +462,10 @@ async fn main {
     alpine_post_init_busybox_markers()
   } else if post_init_storage_smoke {
     alpine_post_init_storage_markers()
+  } else if post_init_persistence_write_smoke {
+    ["persistence-write-ok"]
+  } else if post_init_persistence_read_smoke {
+    ["persistence-read-ok"]
   } else if post_init_session_smoke {
     alpine_post_init_session_markers()
   } else if post_init_smoke {
@@ -496,12 +554,17 @@ async fn main {
               shell_command_sent &&
               post_init_command_index == 0 &&
               output.contains(alpine_post_init_marker) {
+              // Rootfs-side autoshell is alive. Start the first post-init
+              // command only now, otherwise initramfs shell success could be
+              // mistaken for mounted-rootfs usability.
               runner.uart_push_input(post_init_commands[0] + "\r\n")
               post_init_command_sent = true
               post_init_command_index = 1
             } else if post_init_command_index > 0 &&
               post_init_command_index < post_init_commands.length() &&
               output.contains(post_init_markers[post_init_command_index - 1]) {
+              // Multi-command proofs advance by marker, not by prompt count:
+              // command echo and shell prompts are noisy under serial console.
               runner.uart_push_input(
                 post_init_commands[post_init_command_index] + "\r\n",
               )
@@ -542,6 +605,13 @@ async fn main {
       }
     None => ()
   }
+  if write_back_virtio_blk_disk &&
+    shell_expect_seen &&
+    virtio_blk_disk_path is Some(path) {
+    // This is intentionally after marker evaluation: only guest-visible Linux
+    // behavior decides success, then the host persists the resulting disk.
+    write_binary(path, runner.virtio_blk_disk_bytes())
+  }
   println("Alpine native probe")
   println("outcome=" + outcome)
   println("steps=" + steps.to_string())
@@ -558,6 +628,17 @@ async fn main {
   println("post_init_session_smoke=" + post_init_session_smoke.to_string())
   println("post_init_busybox_smoke=" + post_init_busybox_smoke.to_string())
   println("post_init_storage_smoke=" + post_init_storage_smoke.to_string())
+  println(
+    "post_init_persistence_write_smoke=" +
+    post_init_persistence_write_smoke.to_string(),
+  )
+  println(
+    "post_init_persistence_read_smoke=" +
+    post_init_persistence_read_smoke.to_string(),
+  )
+  println(
+    "write_back_virtio_blk_disk=" + write_back_virtio_blk_disk.to_string(),
+  )
   println(
     "post_init_custom_command=" + has_post_init_custom_command.to_string(),
   )

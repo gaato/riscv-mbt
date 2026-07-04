@@ -467,6 +467,7 @@ pub fn Runner::uart_output_byte_at(Self, Int) -> Int
 pub fn Runner::uart_output_length(Self) -> Int
 pub fn Runner::uart_push_input(Self, String) -> Unit
 pub fn Runner::uart_push_input_byte(Self, Int) -> Unit
+pub fn Runner::virtio_blk_disk_bytes(Self) -> Bytes
 pub fn Runner::write_memory_bytes(Self, UInt64, Bytes) -> Unit
 
 pub enum StepResult {

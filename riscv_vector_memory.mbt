@@ -3,6 +3,9 @@
 
 ///|
 fn Runner::vector_memory_exec_config(self : Runner) -> VectorExecConfig? {
+  // Memory slices currently require vstart=0. Restartable partial vector
+  // memory exceptions are a separate contract; unsupported restart state traps
+  // visibly instead of committing a misleading prefix.
   match self.current_vector_exec_config() {
     Some(config) =>
       if config.lmul_log2 <= 3 &&
@@ -48,6 +51,8 @@ fn vector_segment_group_aligned(
   field_count : Int,
   lmul_log2 : Int,
 ) -> Bool {
+  // Segment fields are independent register groups. Every field group must be
+  // aligned for the current LMUL, not just the first destination/source group.
   for field in 0..<field_count {
     if !vector_group_aligned(
         vector_segment_field_vreg(base_vreg, field, lmul_log2),
@@ -93,6 +98,8 @@ fn Runner::vector_mask_memory_config(self : Runner) -> VectorExecConfig? {
 
 ///|
 fn vector_mask_memory_bytes(vl : UInt64) -> Int {
+  // Mask load/store size is ceil(vl / 8) bytes and is independent of SEW/LMUL.
+  // That differs from ordinary vector element memory operations.
   ((vl + 7U.to_uint64()) / 8U.to_uint64()).reinterpret_as_int64().to_int()
 }
 
@@ -224,6 +231,9 @@ fn Runner::execute_vector_load_unit_stride(
   let pas : Array[UInt64] = []
   let elems : Array[Int] = []
   let values : Array[UInt64] = []
+  // Translate every active lane before loading or writing destination state.
+  // That approximates the current no-partial-commit policy and keeps masked
+  // inactive lanes from faulting.
   for elem in 0..<active_elems {
     if self.vector_memory_elem_active(raw, elem) {
       let addr = vector_unit_stride_addr(base, elem, elem_bytes)

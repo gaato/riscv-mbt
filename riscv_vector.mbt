@@ -9,6 +9,9 @@ fn Runner::read_vcsr(self : Runner) -> UInt64 {
 
 ///|
 fn Runner::write_vcsr(self : Runner, value : UInt64) -> Unit {
+  // vcsr is the combined guest-visible CSR; vxsat/vxrm are aliases. Writing
+  // one backing value here keeps CSR reads consistent regardless of which
+  // architectural alias Linux or a test touches.
   let visible = value & VCSR_VISIBLE_MASK
   self.cpu.write_csr(CSR_VCSR, visible)
   self.cpu.write_csr(CSR_VXSAT, visible & VCSR_VXSAT_MASK)
@@ -94,6 +97,9 @@ fn encode_vtype(config : VectorVtypeConfig, _xlen : Int) -> UInt64 {
 
 ///|
 fn compute_vl(avl : UInt64, vsew_log2 : Int, vlmul_log2 : Int) -> UInt64 {
+  // This emulator currently exposes VLEN=128 bits. VL is min(AVL, VLMAX),
+  // with fractional LMUL reducing the element capacity instead of allocating
+  // fractional register storage.
   let sew = 8U.to_uint64() << vsew_log2
   let elems_per_register = VLEN_BYTES.to_uint64() * 8U.to_uint64() / sew
   let vlmax = if vlmul_log2 >= 0 {
@@ -206,6 +212,9 @@ fn vector_elems_per_register(sew_bits : Int) -> Int {
 
 ///|
 fn vector_group_aligned(vreg : Int, lmul_log2 : Int) -> Bool {
+  // For LMUL>1 the base register must be aligned to the group size and the
+  // whole group must fit inside v0..v31. Fractional LMUL still occupies one
+  // physical register in this representation.
   let registers = vector_lmul_registers(lmul_log2)
   vreg % registers == 0 && vreg + registers <= VREG_COUNT
 }

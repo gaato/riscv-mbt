@@ -81,6 +81,8 @@ fn f32_from_bits(bits : UInt) -> Float {
 
 ///|
 fn f32_bits_from_host(value : Float) -> UInt {
+  // Host Float operations are used for the practical Linux path, but NaN
+  // payload/sign details are normalized so tests see a stable canonical value.
   let bits = Float::reinterpret_as_uint(value)
   if f32_is_nan_bits(bits) {
     f32_canonical_nan_bits()
@@ -121,6 +123,8 @@ fn f64_from_bits(bits : UInt64) -> Double {
 
 ///|
 fn f64_bits_from_host(value : Double) -> UInt64 {
+  // Same policy as single precision: use the host for arithmetic, then
+  // canonicalize NaN bits so behavior is deterministic across hosts.
   let bits = value.reinterpret_as_uint64()
   if f64_is_nan_bits(bits) {
     f64_canonical_nan_bits()
@@ -131,6 +135,8 @@ fn f64_bits_from_host(value : Double) -> UInt64 {
 
 ///|
 fn f32_min_bits(lhs : UInt, rhs : UInt) -> UInt {
+  // FMIN/FMAX have special zero and NaN rules that ordinary host min/max do
+  // not express. Keep the bit-level cases explicit instead of delegating.
   if f32_is_nan_bits(lhs) && f32_is_nan_bits(rhs) {
     f32_canonical_nan_bits()
   } else if f32_is_nan_bits(lhs) {

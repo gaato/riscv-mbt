@@ -101,6 +101,8 @@ fn Runner::virtio_blk_queue_addr(
 
 ///|
 fn Runner::virtio_blk_capacity(self : Runner) -> UInt64 {
+  // Linux reads capacity from the device config area in 512-byte sectors. When
+  // no disk is loaded, keep a small deterministic fallback for unit tests.
   let disk_sectors = self.virtio_blk_disk.length() / 512
   if disk_sectors > 0 {
     disk_sectors.reinterpret_as_uint().to_uint64()
@@ -206,6 +208,9 @@ fn Runner::virtio_blk_finish_used(
   head : UInt64,
   written_len : UInt64,
 ) -> Unit {
+  // A completed virtqueue request has three guest-visible effects: used-ring
+  // element, used index advance, and interrupt-status bit. PLIC reflection is
+  // handled by the platform layer after the status bit becomes visible.
   if queue_num <= 0 || !self.bus.contains_range(used_base, 4) {
     return
   }
@@ -257,6 +262,9 @@ fn Runner::virtio_blk_process_chain(
   let mut copied = 0
   let mut disk_offset = sector * 512U.to_uint64()
   let mut walked = 0
+  // Walk the descriptor chain defensively. Linux normally supplies a short
+  // header/data/status chain, but malformed chains from tests should not escape
+  // the queue or loop forever.
   while walked < queue_num {
     if current < 0 || current >= queue_num {
       return

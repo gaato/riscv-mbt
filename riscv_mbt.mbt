@@ -1409,6 +1409,14 @@ pub fn Runner::load_virtio_blk_disk(self : Runner, disk : Bytes) -> Unit {
 }
 
 ///|
+pub fn Runner::virtio_blk_disk_bytes(self : Runner) -> Bytes {
+  // Expose the current backing image for host-side persistence probes. The
+  // emulator still owns request processing; callers should treat this as a
+  // snapshot taken after Linux has issued writes and syncs.
+  self.virtio_blk_disk
+}
+
+///|
 /// Set up the SBI/Linux boot ABI: a0 = hart_id, a1 = dtb_addr.
 pub fn Runner::setup_boot_abi(self : Runner) -> Unit {
   self.cpu.write_reg(10, self.config.hart_id) // a0 = hart_id

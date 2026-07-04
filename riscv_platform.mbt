@@ -19,6 +19,9 @@ priv enum PhyTarget {
 
 ///|
 fn Runner::phy_dispatch(self : Runner, pa : UInt64, width : Int) -> PhyTarget {
+  // RAM wins before MMIO because QEMU-virt devices live outside the configured
+  // RAM aperture. Device ranges are disabled by setting their base address to
+  // zero in MachineConfig, which keeps bare ISA tests free of platform effects.
   if self.bus.contains_range(pa, width) {
     return PhyRam
   }
@@ -114,6 +117,9 @@ fn Runner::uart_dlab(self : Runner) -> Bool {
 
 ///|
 fn Runner::uart_thre_interrupt_pending(self : Runner) -> Bool {
+  // The UART transmitter is modeled as always empty, so enabling THRI makes a
+  // transmit-empty interrupt immediately claimable. Linux uses this during
+  // serial console setup and expects it to clear by masking IER.
   (self.uart_ier[0].to_int() & uart_ier_thri.to_int()) != 0
 }
 
@@ -230,6 +236,9 @@ fn Runner::plic_context_enabled(
   context : Int,
   source : Int,
 ) -> Bool {
+  // PLIC enable bits are per-context. The virt platform uses context 0 for
+  // M-mode and context 1 for S-mode, so Linux virtio-blk interrupts depend on
+  // the S-mode context enabling source 1.
   let idx = 0x2000 + context * 0x80 + source / 8
   if idx < self.plic_regs.length() {
     ((self.plic_regs[idx].to_int() >> (source % 8)) & 1) != 0
@@ -257,6 +266,9 @@ fn Runner::plic_uart_claimable_with_priority(
   context : Int,
   priority : UInt64,
 ) -> Bool {
+  // Claimability is recomputed from live UART state rather than stored only in
+  // the pending bitmap, because receive-data availability changes when the
+  // guest reads RBR.
   priority > self.plic_context_threshold(context) &&
   self.plic_context_enabled(context, plic_uart_source)
 }
