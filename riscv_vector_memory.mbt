@@ -5,7 +5,7 @@
 fn Runner::vector_memory_exec_config(self : Runner) -> VectorExecConfig? {
   match self.current_vector_exec_config() {
     Some(config) =>
-      if config.lmul_log2 <= 1 &&
+      if config.lmul_log2 <= 2 &&
         self.cpu.read_csr(CSR_VSTART) == 0U.to_uint64() {
         Some(config)
       } else {
