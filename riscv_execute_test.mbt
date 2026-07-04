@@ -771,12 +771,22 @@ test "rv64fd f and d conversion paths preserve expected values" {
     encode_fld(0x108, 0, 2),
     encode_fcvt_d_s(1, 0x0U, 3),
     encode_fcvt_s_d(2, 0x0U, 4),
+    encode_fcvt_d_w(5, 0x0U, 6),
+    encode_fcvt_d_w(7, 0x0U, 8),
+    encode_fcvt_d_wu(9, 0x0U, 10),
+    encode_fcvt_d_l(11, 0x7U, 12),
+    encode_fcvt_d_lu(13, 0x7U, 14),
   ])
   let runner = make_runner(rv64fd_machine_config())
   runner.load_program(words_to_bytes([single]), 0x100U)
   runner.load_program_u64(exec_test_u64_to_le_bytes(double), 0x108U.to_uint64())
+  runner.cpu.write_reg(5, 42U.to_uint64())
+  runner.cpu.write_reg(7, 0xffffffffU.to_uint64())
+  runner.cpu.write_reg(9, 0xffffffffU.to_uint64())
+  runner.cpu.write_reg(11, (-17L).reinterpret_as_uint64())
+  runner.cpu.write_reg(13, 1024U.to_uint64())
   runner.load_program(program, 0U)
-  match runner.run(4) {
+  match runner.run(9) {
     Running => ()
     _ => fail("expected rv64fd convert path to run")
   }
@@ -785,6 +795,114 @@ test "rv64fd f and d conversion paths preserve expected values" {
     runner.read_freg_u64(4),
     exec_test_nan_box_single(exec_test_f32_bits(Float::from_double(2.25))),
   )
+  assert_eq(runner.read_freg_u64(6), exec_test_f64_bits(42.0))
+  assert_eq(runner.read_freg_u64(8), exec_test_f64_bits(-1.0))
+  assert_eq(runner.read_freg_u64(10), exec_test_f64_bits(4294967295.0))
+  assert_eq(runner.read_freg_u64(12), exec_test_f64_bits(-17.0))
+  assert_eq(runner.read_freg_u64(14), exec_test_f64_bits(1024.0))
+}
+
+///|
+test "rv64fd double comparisons write integer results" {
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, exec_test_f64_bits(1.0))
+  runner.cpu.write_freg(2, exec_test_f64_bits(2.0))
+  runner.cpu.write_freg(3, exec_test_f64_bits(2.0))
+  runner.cpu.write_freg(4, 0x7ff8000000000000UL)
+  runner.cpu.write_freg(8, exec_test_f64_bits(2.0))
+  runner.cpu.write_freg(10, exec_test_f64_bits(1.0))
+  runner.load_program(
+    words_to_bytes([
+      encode_fle_d(1, 2, 5),
+      encode_flt_d(2, 1, 6),
+      encode_feq_d(2, 3, 7),
+      encode_fle_d(4, 2, 8),
+      encode_fle_d(10, 8, 15),
+    ]),
+    0U,
+  )
+  match runner.run(5) {
+    Running => ()
+    _ => fail("expected rv64fd compare path to run")
+  }
+  assert_eq(runner.read_reg_u64(5), 1U.to_uint64())
+  assert_eq(runner.read_reg_u64(6), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(7), 1U.to_uint64())
+  assert_eq(runner.read_reg_u64(8), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(15), 1U.to_uint64())
+}
+
+///|
+test "rv64fd double sign injection preserves magnitude bits" {
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, exec_test_f64_bits(1.5))
+  runner.cpu.write_freg(2, exec_test_f64_bits(-2.0))
+  runner.load_program(
+    words_to_bytes([
+      encode_fsgnj_d(1, 2, 3),
+      encode_fsgnjn_d(1, 2, 4),
+      encode_fsgnjx_d(1, 2, 5),
+      encode_fsgnj_d(1, 1, 6),
+      encode_fsgnj_d(10, 10, 9),
+    ]),
+    0U,
+  )
+  runner.cpu.write_freg(10, exec_test_f64_bits(3.0))
+  match runner.run(5) {
+    Running => ()
+    _ => fail("expected rv64fd sign injection path to run")
+  }
+  assert_eq(runner.read_freg_u64(3), exec_test_f64_bits(-1.5))
+  assert_eq(runner.read_freg_u64(4), exec_test_f64_bits(1.5))
+  assert_eq(runner.read_freg_u64(5), exec_test_f64_bits(-1.5))
+  assert_eq(runner.read_freg_u64(6), exec_test_f64_bits(1.5))
+  assert_eq(runner.read_freg_u64(9), exec_test_f64_bits(3.0))
+}
+
+///|
+test "rv64fd double to signed word conversion uses rtz" {
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, exec_test_f64_bits(4.75))
+  runner.cpu.write_freg(2, exec_test_f64_bits(-2.75))
+  runner.load_program(
+    words_to_bytes([encode_fcvt_w_d(1, 0x1U, 3), encode_fcvt_w_d(2, 0x1U, 4)]),
+    0U,
+  )
+  match runner.run(2) {
+    Running => ()
+    _ => fail("expected rv64fd fcvt.w.d path to run")
+  }
+  assert_eq(runner.read_reg_u64(3), 4U.to_uint64())
+  assert_eq(runner.read_reg_u64(4), test_sign_extend_word64(0xfffffffeU))
+}
+
+///|
+test "rv64fd double to signed long conversion uses rtz" {
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, exec_test_f64_bits(1024.75))
+  runner.cpu.write_freg(2, exec_test_f64_bits(-9.5))
+  runner.load_program(
+    words_to_bytes([encode_fcvt_l_d(1, 0x1U, 3), encode_fcvt_l_d(2, 0x1U, 4)]),
+    0U,
+  )
+  match runner.run(2) {
+    Running => ()
+    _ => fail("expected rv64fd fcvt.l.d path to run")
+  }
+  assert_eq(runner.read_reg_u64(3), 1024U.to_uint64())
+  assert_eq(runner.read_reg_u64(4), (-9L).reinterpret_as_uint64())
+}
+
+///|
+test "rv64fd double to unsigned long conversion uses rtz" {
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, exec_test_f64_bits(42.75))
+  runner.load_program(words_to_bytes([encode_fcvt_lu_d(1, 0x1U, 2)]), 0U)
+  match runner.run(1) {
+    Running => ()
+    _ => fail("expected rv64fd fcvt.lu.d path to run")
+  }
+  assert_eq(runner.read_reg_u64(2), 42U.to_uint64())
 }
 
 ///|

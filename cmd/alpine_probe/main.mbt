@@ -238,6 +238,48 @@ fn alpine_post_init_session_markers() -> Array[String] {
 }
 
 ///|
+fn alpine_post_init_busybox_commands() -> Array[String] {
+  [
+    "busybox --list > /root/riscv-mbt-applets && " +
+    "grep -x awk /root/riscv-mbt-applets && " +
+    "grep -x sed /root/riscv-mbt-applets && " +
+    "grep -x sort /root/riscv-mbt-applets && " +
+    "grep -x xargs /root/riscv-mbt-applets && " +
+    "wc -l /root/riscv-mbt-applets && " +
+    "printf '\\142\\165\\163\\171\\142\\157\\170\\055\\154\\151\\163\\164\\055\\157\\153\\012'",
+    "printf 'z:3\\na:1\\na:1\\n' > /root/riscv-mbt-text && " +
+    "sort /root/riscv-mbt-text | uniq > /root/riscv-mbt-sorted && " +
+    "sed -n '1p' /root/riscv-mbt-sorted | cut -d: -f1 | tr a-z A-Z && " +
+    "awk -F: '{s += $2} END {print s}' /root/riscv-mbt-sorted && " +
+    "printf '\\142\\165\\163\\171\\142\\157\\170\\055\\164\\145\\170\\164\\055\\157\\153\\012'",
+    "touch /root/riscv-mbt-touch && " +
+    "chmod 755 /root/riscv-mbt-touch && " +
+    "test -x /root/riscv-mbt-touch && " +
+    "ln -sf /root/riscv-mbt-touch /root/riscv-mbt-link && " +
+    "readlink /root/riscv-mbt-link | grep riscv-mbt-touch && " +
+    "find /root -name riscv-mbt-touch | grep riscv-mbt-touch && " +
+    "printf '\\142\\165\\163\\171\\142\\157\\170\\055\\146\\163\\055\\157\\153\\012'",
+    "dd if=/root/riscv-mbt-text of=/root/riscv-mbt-dd bs=1 count=8 && " +
+    "head -n 1 /root/riscv-mbt-text && " +
+    "tail -n 1 /root/riscv-mbt-text && " +
+    "printf 'riscv-mbt-xargs\\n' | xargs echo && " +
+    "env | grep PATH && " +
+    "ps | head -n 1 && " +
+    "date >/root/riscv-mbt-date && " +
+    "sleep 0 && " +
+    "sync && " +
+    "printf '\\160\\157\\163\\164\\055\\151\\156\\151\\164\\055\\142\\165\\163\\171\\142\\157\\170\\055\\157\\153\\012'",
+  ]
+}
+
+///|
+fn alpine_post_init_busybox_markers() -> Array[String] {
+  [
+    "busybox-list-ok", "busybox-text-ok", "busybox-fs-ok", "post-init-busybox-ok",
+  ]
+}
+
+///|
 async fn main {
   let args = @env.args()
   let max_steps = parse_max_steps(args)
@@ -247,11 +289,13 @@ async fn main {
   let init_smoke = parse_flag(args, "--init-smoke")
   let post_init_smoke = parse_flag(args, "--post-init-smoke")
   let post_init_session_smoke = parse_flag(args, "--post-init-session-smoke")
+  let post_init_busybox_smoke = parse_flag(args, "--post-init-busybox-smoke")
   let uses_virtio_rootfs = rootfs_smoke ||
     switch_root_smoke ||
     init_smoke ||
     post_init_smoke ||
-    post_init_session_smoke
+    post_init_session_smoke ||
+    post_init_busybox_smoke
   let selected_dtb_path = match parse_arg_value(args, "--dtb") {
     Some(path) => path
     None => if uses_virtio_rootfs { virtio_dtb_path } else { dtb_path }
@@ -276,7 +320,9 @@ async fn main {
     Some(alpine_switch_root_smoke_command())
   } else if init_smoke {
     Some(alpine_init_smoke_command())
-  } else if post_init_smoke || post_init_session_smoke {
+  } else if post_init_smoke ||
+    post_init_session_smoke ||
+    post_init_busybox_smoke {
     Some(alpine_init_smoke_command())
   } else {
     parse_arg_value(args, "--command")
@@ -293,17 +339,23 @@ async fn main {
     Some("post-init-functional-ok")
   } else if post_init_session_smoke {
     Some("post-init-session-ok")
+  } else if post_init_busybox_smoke {
+    Some("post-init-busybox-ok")
   } else {
     parse_arg_value(args, "--expect")
   }
-  let post_init_commands = if post_init_session_smoke {
+  let post_init_commands = if post_init_busybox_smoke {
+    alpine_post_init_busybox_commands()
+  } else if post_init_session_smoke {
     alpine_post_init_session_commands()
   } else if post_init_smoke {
     [alpine_post_init_smoke_command()]
   } else {
     []
   }
-  let post_init_markers = if post_init_session_smoke {
+  let post_init_markers = if post_init_busybox_smoke {
+    alpine_post_init_busybox_markers()
+  } else if post_init_session_smoke {
     alpine_post_init_session_markers()
   } else if post_init_smoke {
     ["post-init-functional-ok"]
@@ -451,6 +503,7 @@ async fn main {
   println("init_smoke=" + init_smoke.to_string())
   println("post_init_smoke=" + post_init_smoke.to_string())
   println("post_init_session_smoke=" + post_init_session_smoke.to_string())
+  println("post_init_busybox_smoke=" + post_init_busybox_smoke.to_string())
   println("post_init_command_index=" + post_init_command_index.to_string())
   println("dtb_path=" + selected_dtb_path)
   println("initrd_path=" + selected_initrd_path)

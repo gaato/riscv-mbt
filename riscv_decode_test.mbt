@@ -236,6 +236,182 @@ test "decode scalar d instructions" {
     }
     _ => fail("expected fcvt.d.s")
   }
+  match decode(encode_fcvt_d_w(14, 0x0U, 15)) {
+    FCvtDW(rd, rs1, rm) => {
+      assert_eq(rd, 15)
+      assert_eq(rs1, 14)
+      assert_eq(rm, 0U)
+    }
+    _ => fail("expected fcvt.d.w")
+  }
+  match decode(0xd20707d3U) {
+    FCvtDW(rd, rs1, rm) => {
+      assert_eq(rd, 15)
+      assert_eq(rs1, 14)
+      assert_eq(rm, 0U)
+    }
+    _ => fail("expected BusyBox awk fcvt.d.w")
+  }
+  match decode(encode_fcvt_d_wu(15, 0x0U, 8)) {
+    FCvtDWU(rd, rs1, rm) => {
+      assert_eq(rd, 8)
+      assert_eq(rs1, 15)
+      assert_eq(rm, 0U)
+    }
+    _ => fail("expected fcvt.d.wu")
+  }
+  match decode(0xd2178453U) {
+    FCvtDWU(rd, rs1, rm) => {
+      assert_eq(rd, 8)
+      assert_eq(rs1, 15)
+      assert_eq(rm, 0U)
+    }
+    _ => fail("expected BusyBox awk fcvt.d.wu")
+  }
+  match decode(encode_fcvt_d_l(13, 0x7U, 15)) {
+    FCvtDL(rd, rs1, rm) => {
+      assert_eq(rd, 15)
+      assert_eq(rs1, 13)
+      assert_eq(rm, 7U)
+    }
+    _ => fail("expected fcvt.d.l")
+  }
+  match decode(0xd226f7d3U) {
+    FCvtDL(rd, rs1, rm) => {
+      assert_eq(rd, 15)
+      assert_eq(rs1, 13)
+      assert_eq(rm, 7U)
+    }
+    _ => fail("expected BusyBox awk fcvt.d.l")
+  }
+  match decode(encode_fcvt_d_lu(15, 0x7U, 8)) {
+    FCvtDLU(rd, rs1, rm) => {
+      assert_eq(rd, 8)
+      assert_eq(rs1, 15)
+      assert_eq(rm, 7U)
+    }
+    _ => fail("expected fcvt.d.lu")
+  }
+  match decode(0xd237f453U) {
+    FCvtDLU(rd, rs1, rm) => {
+      assert_eq(rd, 8)
+      assert_eq(rs1, 15)
+      assert_eq(rm, 7U)
+    }
+    _ => fail("expected BusyBox dd fcvt.d.lu")
+  }
+  match decode(encode_fcvt_lu_d(15, 0x1U, 10)) {
+    FCvtLUD(rd, rs1, rm) => {
+      assert_eq(rd, 10)
+      assert_eq(rs1, 15)
+      assert_eq(rm, 1U)
+    }
+    _ => fail("expected fcvt.lu.d")
+  }
+  match decode(0xc2379553U) {
+    FCvtLUD(rd, rs1, rm) => {
+      assert_eq(rd, 10)
+      assert_eq(rs1, 15)
+      assert_eq(rm, 1U)
+    }
+    _ => fail("expected BusyBox dd fcvt.lu.d")
+  }
+  match decode(encode_fle_d(10, 8, 15)) {
+    FLeD(rd, rs1, rs2) => {
+      assert_eq(rd, 15)
+      assert_eq(rs1, 10)
+      assert_eq(rs2, 8)
+    }
+    _ => fail("expected fle.d")
+  }
+  match decode(encode_flt_d(10, 8, 15)) {
+    FLtD(rd, rs1, rs2) => {
+      assert_eq(rd, 15)
+      assert_eq(rs1, 10)
+      assert_eq(rs2, 8)
+    }
+    _ => fail("expected flt.d")
+  }
+  match decode(encode_feq_d(10, 8, 15)) {
+    FEqD(rd, rs1, rs2) => {
+      assert_eq(rd, 15)
+      assert_eq(rs1, 10)
+      assert_eq(rs2, 8)
+    }
+    _ => fail("expected feq.d")
+  }
+  match decode(0xa28507d3U) {
+    FLeD(rd, rs1, rs2) => {
+      assert_eq(rd, 15)
+      assert_eq(rs1, 10)
+      assert_eq(rs2, 8)
+    }
+    _ => fail("expected BusyBox awk fle.d")
+  }
+  match decode(encode_fsgnj_d(10, 10, 9)) {
+    FSgnjD(rd, rs1, rs2) => {
+      assert_eq(rd, 9)
+      assert_eq(rs1, 10)
+      assert_eq(rs2, 10)
+    }
+    _ => fail("expected fsgnj.d")
+  }
+  match decode(encode_fsgnjn_d(10, 8, 9)) {
+    FSgnjnD(rd, rs1, rs2) => {
+      assert_eq(rd, 9)
+      assert_eq(rs1, 10)
+      assert_eq(rs2, 8)
+    }
+    _ => fail("expected fsgnjn.d")
+  }
+  match decode(encode_fsgnjx_d(10, 8, 9)) {
+    FSgnjxD(rd, rs1, rs2) => {
+      assert_eq(rd, 9)
+      assert_eq(rs1, 10)
+      assert_eq(rs2, 8)
+    }
+    _ => fail("expected fsgnjx.d")
+  }
+  match decode(0x22a504d3U) {
+    FSgnjD(rd, rs1, rs2) => {
+      assert_eq(rd, 9)
+      assert_eq(rs1, 10)
+      assert_eq(rs2, 10)
+    }
+    _ => fail("expected BusyBox awk fsgnj.d")
+  }
+  match decode(encode_fcvt_w_d(10, 0x1U, 8)) {
+    FCvtWD(rd, rs1, rm) => {
+      assert_eq(rd, 8)
+      assert_eq(rs1, 10)
+      assert_eq(rm, 1U)
+    }
+    _ => fail("expected fcvt.w.d")
+  }
+  match decode(0xc2051453U) {
+    FCvtWD(rd, rs1, rm) => {
+      assert_eq(rd, 8)
+      assert_eq(rs1, 10)
+      assert_eq(rm, 1U)
+    }
+    _ => fail("expected BusyBox awk fcvt.w.d")
+  }
+  match decode(encode_fcvt_l_d(10, 0x1U, 13)) {
+    FCvtLD(rd, rs1, rm) => {
+      assert_eq(rd, 13)
+      assert_eq(rs1, 10)
+      assert_eq(rm, 1U)
+    }
+    _ => fail("expected fcvt.l.d")
+  }
+  match decode(0xc22516d3U) {
+    FCvtLD(rd, rs1, rm) => {
+      assert_eq(rd, 13)
+      assert_eq(rs1, 10)
+      assert_eq(rm, 1U)
+    }
+    _ => fail("expected BusyBox awk fcvt.l.d")
+  }
 }
 
 ///|

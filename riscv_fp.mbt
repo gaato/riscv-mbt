@@ -236,6 +236,11 @@ fn Runner::fp_rounding_mode_supported(self : Runner, rm : UInt) -> Bool {
 }
 
 ///|
+fn Runner::fp_rounding_mode_is_rtz(self : Runner, rm : UInt) -> Bool {
+  rm == 1U || (rm == 7U && self.read_frm() == 1U)
+}
+
+///|
 fn Runner::execute_fp_load_store(
   self : Runner,
   instruction : Instruction,
@@ -426,6 +431,33 @@ fn Runner::execute_fp(
       self.cpu.pc = next_pc
       Running
     }
+    FSgnjD(rd, rs1, rs2) => {
+      let sign_mask = 1U.to_uint64() << 63
+      let magnitude = self.read_freg_double_bits(rs1) & sign_mask.lnot()
+      let sign = self.read_freg_double_bits(rs2) & sign_mask
+      self.write_freg_double_bits(rd, magnitude | sign)
+      self.cpu.pc = next_pc
+      Running
+    }
+    FSgnjnD(rd, rs1, rs2) => {
+      let sign_mask = 1U.to_uint64() << 63
+      let magnitude = self.read_freg_double_bits(rs1) & sign_mask.lnot()
+      let sign = self.read_freg_double_bits(rs2).lnot() & sign_mask
+      self.write_freg_double_bits(rd, magnitude | sign)
+      self.cpu.pc = next_pc
+      Running
+    }
+    FSgnjxD(rd, rs1, rs2) => {
+      let sign_mask = 1U.to_uint64() << 63
+      let lhs = self.read_freg_double_bits(rs1)
+      let rhs = self.read_freg_double_bits(rs2)
+      self.write_freg_double_bits(
+        rd,
+        (lhs & sign_mask.lnot()) | ((lhs ^ rhs) & sign_mask),
+      )
+      self.cpu.pc = next_pc
+      Running
+    }
     FSqrtD(rd, rs1, rm) => {
       if !self.fp_rounding_mode_supported(rm) {
         return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
@@ -459,6 +491,48 @@ fn Runner::execute_fp(
       self.cpu.pc = next_pc
       Running
     }
+    FLeD(rd, rs1, rs2) => {
+      let lhs_bits = self.read_freg_double_bits(rs1)
+      let rhs_bits = self.read_freg_double_bits(rs2)
+      let result = if f64_is_nan_bits(lhs_bits) || f64_is_nan_bits(rhs_bits) {
+        0U.to_uint64()
+      } else if f64_from_bits(lhs_bits) <= f64_from_bits(rhs_bits) {
+        1U.to_uint64()
+      } else {
+        0U.to_uint64()
+      }
+      self.write_xlen_reg(rd, result)
+      self.cpu.pc = next_pc
+      Running
+    }
+    FLtD(rd, rs1, rs2) => {
+      let lhs_bits = self.read_freg_double_bits(rs1)
+      let rhs_bits = self.read_freg_double_bits(rs2)
+      let result = if f64_is_nan_bits(lhs_bits) || f64_is_nan_bits(rhs_bits) {
+        0U.to_uint64()
+      } else if f64_from_bits(lhs_bits) < f64_from_bits(rhs_bits) {
+        1U.to_uint64()
+      } else {
+        0U.to_uint64()
+      }
+      self.write_xlen_reg(rd, result)
+      self.cpu.pc = next_pc
+      Running
+    }
+    FEqD(rd, rs1, rs2) => {
+      let lhs_bits = self.read_freg_double_bits(rs1)
+      let rhs_bits = self.read_freg_double_bits(rs2)
+      let result = if f64_is_nan_bits(lhs_bits) || f64_is_nan_bits(rhs_bits) {
+        0U.to_uint64()
+      } else if f64_from_bits(lhs_bits) == f64_from_bits(rhs_bits) {
+        1U.to_uint64()
+      } else {
+        0U.to_uint64()
+      }
+      self.write_xlen_reg(rd, result)
+      self.cpu.pc = next_pc
+      Running
+    }
     FCvtSD(rd, rs1, rm) => {
       if !self.fp_rounding_mode_supported(rm) {
         return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
@@ -473,6 +547,83 @@ fn Runner::execute_fp(
     FCvtDS(rd, rs1, _) => {
       let result = f32_from_bits(self.read_freg_single_value_bits(rs1)).to_double()
       self.write_freg_double_bits(rd, f64_bits_from_host(result))
+      self.cpu.pc = next_pc
+      Running
+    }
+    FCvtDW(rd, rs1, rm) => {
+      if !self.fp_rounding_mode_supported(rm) {
+        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      }
+      let signed = sign_extend_64(self.cpu.read_reg(rs1), 32).reinterpret_as_int64()
+      self.write_freg_double_bits(rd, f64_bits_from_host(signed.to_double()))
+      self.cpu.pc = next_pc
+      Running
+    }
+    FCvtDWU(rd, rs1, rm) => {
+      if !self.fp_rounding_mode_supported(rm) {
+        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      }
+      let unsigned = self.cpu.read_reg(rs1) & 0xffffffffU.to_uint64()
+      self.write_freg_double_bits(
+        rd,
+        f64_bits_from_host(Double::convert_uint64(unsigned)),
+      )
+      self.cpu.pc = next_pc
+      Running
+    }
+    FCvtDL(rd, rs1, rm) => {
+      if !self.fp_rounding_mode_supported(rm) {
+        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      }
+      let signed = self.cpu.read_reg(rs1).reinterpret_as_int64()
+      self.write_freg_double_bits(rd, f64_bits_from_host(signed.to_double()))
+      self.cpu.pc = next_pc
+      Running
+    }
+    FCvtDLU(rd, rs1, rm) => {
+      if !self.fp_rounding_mode_supported(rm) {
+        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      }
+      self.write_freg_double_bits(
+        rd,
+        f64_bits_from_host(Double::convert_uint64(self.cpu.read_reg(rs1))),
+      )
+      self.cpu.pc = next_pc
+      Running
+    }
+    FCvtWD(rd, rs1, rm) => {
+      if !self.fp_rounding_mode_is_rtz(rm) {
+        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      }
+      let result = f64_from_bits(self.read_freg_double_bits(rs1))
+        .trunc()
+        .to_int64()
+      self.write_xlen_reg(
+        rd,
+        sign_extend_64(result.reinterpret_as_uint64(), 32),
+      )
+      self.cpu.pc = next_pc
+      Running
+    }
+    FCvtLD(rd, rs1, rm) => {
+      if !self.fp_rounding_mode_is_rtz(rm) {
+        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      }
+      let result = f64_from_bits(self.read_freg_double_bits(rs1))
+        .trunc()
+        .to_int64()
+      self.write_xlen_reg(rd, result.reinterpret_as_uint64())
+      self.cpu.pc = next_pc
+      Running
+    }
+    FCvtLUD(rd, rs1, rm) => {
+      if !self.fp_rounding_mode_is_rtz(rm) {
+        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      }
+      let result = UInt64::trunc_double(
+        f64_from_bits(self.read_freg_double_bits(rs1)),
+      )
+      self.write_xlen_reg(rd, result)
       self.cpu.pc = next_pc
       Running
     }

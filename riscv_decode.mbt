@@ -959,15 +959,28 @@ fn instruction_supported_for_current_config(
     FSubD(_, _, _, _) => has_d
     FMulD(_, _, _, _) => has_d
     FDivD(_, _, _, _) => has_d
+    FSgnjD(_, _, _) => has_d
+    FSgnjnD(_, _, _) => has_d
+    FSgnjxD(_, _, _) => has_d
     FSqrtD(_, _, _) => has_d
     FMinD(_, _, _) => has_d
     FMaxD(_, _, _) => has_d
+    FLeD(_, _, _) => has_d
+    FLtD(_, _, _) => has_d
+    FEqD(_, _, _) => has_d
     FmvXW(_, _) => has_f
     FmvWX(_, _) => has_f
     FmvXD(_, _) => has_d && xlen == XLEN_64
     FmvDX(_, _) => has_d && xlen == XLEN_64
     FCvtSD(_, _, _) => has_d
     FCvtDS(_, _, _) => has_d
+    FCvtDW(_, _, _) => has_d
+    FCvtDWU(_, _, _) => has_d
+    FCvtDL(_, _, _) => has_d && xlen == XLEN_64
+    FCvtDLU(_, _, _) => has_d && xlen == XLEN_64
+    FCvtWD(_, _, _) => has_d
+    FCvtLD(_, _, _) => has_d && xlen == XLEN_64
+    FCvtLUD(_, _, _) => has_d && xlen == XLEN_64
     Vsetvli(_, _, _) => has_v
     Vsetivli(_, _, _) => has_v
     Vsetvl(_, _, _) => has_v
@@ -1580,6 +1593,13 @@ pub fn decode(raw : UInt) -> Instruction {
             0x1U => FMaxD(rd(raw), rs1(raw), rs2(raw))
             _ => Unknown(raw)
           }
+        0x11U =>
+          match funct3(raw) {
+            0x0U => FSgnjD(rd(raw), rs1(raw), rs2(raw))
+            0x1U => FSgnjnD(rd(raw), rs1(raw), rs2(raw))
+            0x2U => FSgnjxD(rd(raw), rs1(raw), rs2(raw))
+            _ => Unknown(raw)
+          }
         0x20U =>
           if rs2(raw) == 1 {
             FCvtSD(rd(raw), rs1(raw), funct3(raw))
@@ -1592,6 +1612,14 @@ pub fn decode(raw : UInt) -> Instruction {
           } else {
             Unknown(raw)
           }
+        0x69U =>
+          match rs2(raw) {
+            0 => FCvtDW(rd(raw), rs1(raw), funct3(raw))
+            1 => FCvtDWU(rd(raw), rs1(raw), funct3(raw))
+            2 => FCvtDL(rd(raw), rs1(raw), funct3(raw))
+            3 => FCvtDLU(rd(raw), rs1(raw), funct3(raw))
+            _ => Unknown(raw)
+          }
         0x2CU =>
           if rs2(raw) == 0 {
             FSqrtS(rd(raw), rs1(raw), funct3(raw))
@@ -1603,6 +1631,20 @@ pub fn decode(raw : UInt) -> Instruction {
             FSqrtD(rd(raw), rs1(raw), funct3(raw))
           } else {
             Unknown(raw)
+          }
+        0x51U =>
+          match funct3(raw) {
+            0x0U => FLeD(rd(raw), rs1(raw), rs2(raw))
+            0x1U => FLtD(rd(raw), rs1(raw), rs2(raw))
+            0x2U => FEqD(rd(raw), rs1(raw), rs2(raw))
+            _ => Unknown(raw)
+          }
+        0x61U =>
+          match rs2(raw) {
+            0 => FCvtWD(rd(raw), rs1(raw), funct3(raw))
+            2 => FCvtLD(rd(raw), rs1(raw), funct3(raw))
+            3 => FCvtLUD(rd(raw), rs1(raw), funct3(raw))
+            _ => Unknown(raw)
           }
         0x70U =>
           if rs2(raw) == 0 && funct3(raw) == 0x0U {

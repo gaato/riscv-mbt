@@ -233,6 +233,25 @@ implemented.
   reaches `outcome=console-command`, `post_init_command_index=3`,
   `shell_expect_seen=true`, and `post-init-session-ok` at 655,000,000 guest
   steps.
-- The next full-rootfs usability slice should broaden ordinary command-session
-  behavior, persistence-oriented checks, and more shell utilities instead of
-  returning to initrd-only checks.
+- Added `cmd/alpine_probe --post-init-busybox-smoke` as a broader ordinary
+  BusyBox session proof on the mounted Alpine rootfs. It lists applets, runs a
+  small text pipeline through `sort`, `uniq`, `sed`, `cut`, `tr`, and `awk`,
+  exercises file/link/search behavior with `touch`, `chmod`, `test`, `ln`,
+  `readlink`, and `find`, then runs `dd`, `head`, `tail`, `xargs`, `env`, `ps`,
+  `date`, `sleep`, and `sync`.
+- That standard BusyBox run exposed real CPU-side D-extension gaps, not test
+  harness gaps. The Linux/BusyBox faults led to `fcvt.d.w`, `fcvt.d.wu`,
+  `fcvt.d.l`, `fcvt.d.lu`, `fcvt.w.d`, `fcvt.l.d`, `fcvt.lu.d`, D
+  sign-injection, and D compare support, with decode regressions tied to the
+  raw instruction words reported by Linux.
+- Current broader BusyBox proof:
+  `moon run --target native cmd/alpine_probe xlong --post-init-busybox-smoke`
+  reaches `outcome=console-command`, `post_init_command_index=4`,
+  `shell_expect_seen=true`, and `post-init-busybox-ok` at 710,000,000 guest
+  steps. This proves `awk`, filesystem utilities, `dd`, simple pipelines,
+  process/environment inspection, and rootfs writes through the post-init shell.
+- The next full-rootfs usability slice should keep broadening ordinary
+  command-session behavior and persistence-oriented checks, but the broad
+  BusyBox smoke is too slow for every edit loop. Prefer shorter
+  standard-command diagnostics while keeping this broader proof as the stronger
+  integration gate.

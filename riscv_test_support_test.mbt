@@ -1200,6 +1200,71 @@ fn encode_fcvt_d_s(rs1 : Int, rm : UInt, rd : Int) -> UInt {
 }
 
 ///|
+fn encode_fcvt_d_w(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+  encode_fp_r(0x69U, 0, rs1, rm, rd)
+}
+
+///|
+fn encode_fcvt_d_wu(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+  encode_fp_r(0x69U, 1, rs1, rm, rd)
+}
+
+///|
+fn encode_fcvt_d_l(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+  encode_fp_r(0x69U, 2, rs1, rm, rd)
+}
+
+///|
+fn encode_fcvt_d_lu(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+  encode_fp_r(0x69U, 3, rs1, rm, rd)
+}
+
+///|
+fn encode_fle_d(rs1 : Int, rs2 : Int, rd : Int) -> UInt {
+  encode_fp_r(0x51U, rs2, rs1, 0x0U, rd)
+}
+
+///|
+fn encode_flt_d(rs1 : Int, rs2 : Int, rd : Int) -> UInt {
+  encode_fp_r(0x51U, rs2, rs1, 0x1U, rd)
+}
+
+///|
+fn encode_feq_d(rs1 : Int, rs2 : Int, rd : Int) -> UInt {
+  encode_fp_r(0x51U, rs2, rs1, 0x2U, rd)
+}
+
+///|
+fn encode_fsgnj_d(rs1 : Int, rs2 : Int, rd : Int) -> UInt {
+  encode_fp_r(0x11U, rs2, rs1, 0x0U, rd)
+}
+
+///|
+fn encode_fsgnjn_d(rs1 : Int, rs2 : Int, rd : Int) -> UInt {
+  encode_fp_r(0x11U, rs2, rs1, 0x1U, rd)
+}
+
+///|
+fn encode_fsgnjx_d(rs1 : Int, rs2 : Int, rd : Int) -> UInt {
+  encode_fp_r(0x11U, rs2, rs1, 0x2U, rd)
+}
+
+///|
+fn encode_fcvt_w_d(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+  encode_fp_r(0x61U, 0, rs1, rm, rd)
+}
+
+///|
+fn encode_fcvt_l_d(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+  encode_fp_r(0x61U, 2, rs1, rm, rd)
+}
+
+///|
+fn encode_fcvt_lu_d(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+  encode_fp_r(0x61U, 3, rs1, rm, rd)
+}
+
+///|
 fn trap_cause_name(cause : TrapCause) -> String {
   match cause {
     InstructionAccessFault => "instruction access fault"
