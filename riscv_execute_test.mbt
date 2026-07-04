@@ -5002,12 +5002,19 @@ test "virtio-blk read request copies disk bytes and raises plic interrupt" {
   runner.bus.store_u16(desc_base + 12U.to_uint64(), 1U.to_uint64())
   runner.bus.store_u16(desc_base + 14U.to_uint64(), 1U.to_uint64())
   runner.bus.store_u64(desc_base + 16U.to_uint64(), data_addr)
-  runner.bus.store_u32(desc_base + 24U.to_uint64(), 512U.to_uint64())
+  runner.bus.store_u32(desc_base + 24U.to_uint64(), 256U.to_uint64())
   runner.bus.store_u16(desc_base + 28U.to_uint64(), 3U.to_uint64())
   runner.bus.store_u16(desc_base + 30U.to_uint64(), 2U.to_uint64())
-  runner.bus.store_u64(desc_base + 32U.to_uint64(), status_addr)
-  runner.bus.store_u32(desc_base + 40U.to_uint64(), 1U.to_uint64())
-  runner.bus.store_u16(desc_base + 44U.to_uint64(), 2U.to_uint64())
+  runner.bus.store_u64(
+    desc_base + 32U.to_uint64(),
+    data_addr + 256U.to_uint64(),
+  )
+  runner.bus.store_u32(desc_base + 40U.to_uint64(), 256U.to_uint64())
+  runner.bus.store_u16(desc_base + 44U.to_uint64(), 3U.to_uint64())
+  runner.bus.store_u16(desc_base + 46U.to_uint64(), 3U.to_uint64())
+  runner.bus.store_u64(desc_base + 48U.to_uint64(), status_addr)
+  runner.bus.store_u32(desc_base + 56U.to_uint64(), 1U.to_uint64())
+  runner.bus.store_u16(desc_base + 60U.to_uint64(), 2U.to_uint64())
   runner.bus.store_u32(header_addr, 0U.to_uint64())
   runner.bus.store_u64(header_addr + 8U.to_uint64(), 0U.to_uint64())
   runner.bus.store_u16(avail_base + 2U.to_uint64(), 1U.to_uint64())
@@ -5046,6 +5053,7 @@ test "virtio-blk read request copies disk bytes and raises plic interrupt" {
   assert_eq(runner.bus.load_u32(used_base + 8U.to_uint64()), 513U.to_uint64())
   assert_eq(runner.bus.load_u16(used_base + 2U.to_uint64()), 1U.to_uint64())
   assert_eq(runner.virtio_blk_state[6], 1U.to_uint64())
+  assert_eq(runner.read_csr_u64(0x344) & 0xa00U.to_uint64(), 0xa00U.to_uint64())
   assert_eq(runner.read_reg_u64(6), 1U.to_uint64())
   assert_eq(runner.read_reg_u64(8), 1U.to_uint64())
 }

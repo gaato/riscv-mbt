@@ -129,11 +129,6 @@ fn Runner::uart_interrupt_pending(self : Runner) -> Bool {
 }
 
 ///|
-fn Runner::cached_plic_uart_pending(self : Runner) -> Bool {
-  (self.uart_ier[0].to_int() & uart_cached_plic_pending_bit.to_int()) != 0
-}
-
-///|
 fn Runner::uart_read(self : Runner, off : UInt64) -> UInt64 {
   // RBR (offset 0): dequeue one pending byte if available.
   if off == 0U.to_uint64() {
@@ -304,6 +299,13 @@ fn Runner::plic_any_uart_claimable(self : Runner) -> Bool {
   let priority = self.plic_source_priority(plic_uart_source)
   self.plic_uart_claimable_with_priority(0, priority) ||
   self.plic_uart_claimable_with_priority(1, priority)
+}
+
+///|
+fn Runner::plic_any_external_claimable(self : Runner) -> Bool {
+  self.plic_any_uart_claimable() ||
+  self.plic_virtio_blk_claimable_for_context(0) ||
+  self.plic_virtio_blk_claimable_for_context(1)
 }
 
 ///|
@@ -839,7 +841,8 @@ fn Runner::update_timer(self : Runner) -> Unit {
   } else {
     new_mip & mip_msip_clear_mask
   }
-  let external_pending = self.cached_plic_uart_pending()
+  let external_pending = self.config.plic_base != 0U.to_uint64() &&
+    self.plic_any_external_claimable()
   let new_mip3 = if external_pending {
     new_mip2 | mip_meip_bit | mip_seip_bit
   } else {

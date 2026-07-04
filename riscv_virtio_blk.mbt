@@ -115,11 +115,11 @@ fn Runner::virtio_blk_write_status(
 ///|
 fn Runner::virtio_blk_copy_sector_to_guest(
   self : Runner,
-  sector : UInt64,
+  disk_byte_offset : UInt64,
   guest_addr : UInt64,
   len : Int,
 ) -> Int {
-  let disk_offset = (sector * 512U.to_uint64()).reinterpret_as_int64().to_int()
+  let disk_offset = disk_byte_offset.reinterpret_as_int64().to_int()
   let mut copied = 0
   for offset in 0..<len {
     if !self.bus.contains_range(
@@ -207,50 +207,52 @@ fn Runner::virtio_blk_process_chain(
     !self.bus.contains_range(header_addr, 16) {
     return
   }
-  let data_desc_addr = virtio_blk_desc_addr(desc_base, data_index)
-  if !self.bus.contains_range(data_desc_addr, 16) {
-    return
-  }
-  let data_addr = self.bus.load_u64(data_desc_addr)
-  let data_len = self.bus.load_u32(data_desc_addr + 8U.to_uint64()).to_int()
-  let data_flags = self.bus.load_u16(data_desc_addr + 12U.to_uint64())
-  let status_index = self.bus
-    .load_u16(data_desc_addr + 14U.to_uint64())
-    .to_int()
-  if !virtio_blk_desc_has_next(data_flags) ||
-    !virtio_blk_desc_is_write(data_flags) {
-    return
-  }
-  let status_desc_addr = virtio_blk_desc_addr(desc_base, status_index)
-  if !self.bus.contains_range(status_desc_addr, 16) {
-    return
-  }
-  let status_addr = self.bus.load_u64(status_desc_addr)
-  let status_flags = self.bus.load_u16(status_desc_addr + 12U.to_uint64())
-  if !virtio_blk_desc_is_write(status_flags) {
-    return
-  }
   let request_type = self.bus.load_u32(header_addr)
   let sector = self.bus.load_u64(header_addr + 8U.to_uint64())
-  if request_type == virtio_blk_t_in {
-    let copied = self.virtio_blk_copy_sector_to_guest(
-      sector, data_addr, data_len,
-    )
-    self.virtio_blk_write_status(status_addr, virtio_blk_status_ok)
-    self.virtio_blk_finish_used(
-      used_base,
-      queue_num,
-      head.reinterpret_as_uint().to_uint64(),
-      (copied + 1).reinterpret_as_uint().to_uint64(),
-    )
-  } else {
-    self.virtio_blk_write_status(status_addr, virtio_blk_status_unsupp)
-    self.virtio_blk_finish_used(
-      used_base,
-      queue_num,
-      head.reinterpret_as_uint().to_uint64(),
-      1U.to_uint64(),
-    )
+  let mut current = data_index
+  let mut copied = 0
+  let mut disk_offset = sector * 512U.to_uint64()
+  let mut walked = 0
+  while walked < queue_num {
+    if current < 0 || current >= queue_num {
+      return
+    }
+    let desc_addr = virtio_blk_desc_addr(desc_base, current)
+    if !self.bus.contains_range(desc_addr, 16) {
+      return
+    }
+    let guest_addr = self.bus.load_u64(desc_addr)
+    let len = self.bus.load_u32(desc_addr + 8U.to_uint64()).to_int()
+    let flags = self.bus.load_u16(desc_addr + 12U.to_uint64())
+    let has_next = virtio_blk_desc_has_next(flags)
+    let is_write = virtio_blk_desc_is_write(flags)
+    if !is_write {
+      return
+    }
+    if !has_next {
+      let status = if request_type == virtio_blk_t_in {
+        virtio_blk_status_ok
+      } else {
+        virtio_blk_status_unsupp
+      }
+      self.virtio_blk_write_status(guest_addr, status)
+      self.virtio_blk_finish_used(
+        used_base,
+        queue_num,
+        head.reinterpret_as_uint().to_uint64(),
+        (copied + 1).reinterpret_as_uint().to_uint64(),
+      )
+      return
+    }
+    if request_type == virtio_blk_t_in {
+      let chunk = self.virtio_blk_copy_sector_to_guest(
+        disk_offset, guest_addr, len,
+      )
+      copied += chunk
+      disk_offset = disk_offset + chunk.reinterpret_as_uint().to_uint64()
+    }
+    current = self.bus.load_u16(desc_addr + 14U.to_uint64()).to_int()
+    walked += 1
   }
 }
 
@@ -299,9 +301,6 @@ fn Runner::virtio_blk_process_available(self : Runner) -> Unit {
 
 ///|
 fn Runner::virtio_blk_read_u32(self : Runner, off : UInt64) -> UInt64 {
-  // This first slice exposes the Linux-visible MMIO transport identity and
-  // queue configuration registers. Request processing is added in a later
-  // slice; until then QueueNotify is intentionally inert.
   match off {
     0x000 => virtio_mmio_magic
     0x004 => virtio_mmio_version

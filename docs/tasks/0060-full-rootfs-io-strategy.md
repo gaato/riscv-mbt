@@ -127,3 +127,27 @@ implemented.
   not complete by 600,000,000 guest steps, so the next work should focus on
   post-enumeration block request progress and interrupt behavior before claiming
   ordinary full-rootfs use.
+- Fixed the virtio-blk interrupt path so PLIC claimability is reflected into
+  CPU external interrupt pending bits for virtio-blk, not just UART. The
+  regression now checks that a completed virtio-blk read sets `mip.MEIP/SEIP`.
+- Generalized virtio-blk read requests from one data descriptor to a normal
+  split-virtqueue chain with one or more writable data descriptors followed by
+  a final writable status descriptor. The regression now uses two data
+  descriptors to cover scatter-gather reads.
+- Added `cmd/alpine_probe --rootfs-smoke`. It defaults to
+  `_build/minimal-alpine-virtio.dtb` and `_build/alpine-rootfs-riscv64.ext4`,
+  loads the virtio and ext4 modules, mounts `/dev/vda` read-only as ext4, and
+  emits `rootfs-mount-ok` from BusyBox inside the mounted rootfs. The probe uses
+  octal `printf` markers so command echo cannot satisfy the expectation.
+- The Alpine initramfs builder now expands copied kernel modules to `.ko`
+  files and rewrites `modules.dep` accordingly. This avoids BusyBox `modprobe`
+  passing compressed `.ko.gz` files to the kernel and producing
+  `Invalid ELF header magic` logs.
+- Current mounted-rootfs proof:
+  `moon run --target native cmd/alpine_probe xlong --rootfs-smoke` reaches
+  `outcome=console-command`, `shell_expect_seen=true`, `steps=603000000`,
+  `EXT4-fs (vda): mounted filesystem ... ro`, and `rootfs-mount-ok`.
+  This proves read-only rootfs block I/O and execution of a binary from the
+  mounted rootfs. It is still not a full root handoff: Linux is still booted
+  through the tiny initramfs shell, so the next step is an initramfs-driven
+  `switch_root` or an equivalent direct-root boot path.

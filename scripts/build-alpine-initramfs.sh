@@ -87,7 +87,7 @@ if [[ "$initrd_profile" == "tiny" ]]; then
     ./bin/sh \
     ./lib/ld-musl-riscv64.so.1 \
     ./lib/libc.musl-riscv64.so.1
-  for applet in mount cat ls dmesg grep printf; do
+  for applet in mount cat ls dmesg grep printf mkdir uname; do
     ln -sf /bin/busybox "$root_dir/bin/$applet"
   done
   ln -sf /bin/busybox "$root_dir/sbin/modprobe"
@@ -98,12 +98,35 @@ mkdir -p "$root_dir"/proc "$root_dir"/sys "$root_dir"/dev "$root_dir"/tmp
 if [[ -n "$linux_modules_dir" ]]; then
   module_version="$(basename "$linux_modules_dir")"
   target_modules="$root_dir/lib/modules/$module_version"
-  mkdir -p "$target_modules/kernel/drivers/virtio" "$target_modules/kernel/drivers/block"
-  cp "$linux_modules_dir"/modules.{alias,dep,builtin} "$target_modules"/
-  cp "$linux_modules_dir"/kernel/drivers/virtio/virtio.ko.* "$target_modules/kernel/drivers/virtio"/
-  cp "$linux_modules_dir"/kernel/drivers/virtio/virtio_ring.ko.* "$target_modules/kernel/drivers/virtio"/
-  cp "$linux_modules_dir"/kernel/drivers/virtio/virtio_mmio.ko.* "$target_modules/kernel/drivers/virtio"/
-  cp "$linux_modules_dir"/kernel/drivers/block/virtio_blk.ko.* "$target_modules/kernel/drivers/block"/
+  install_module() {
+    local src="$1"
+    local dest_dir="$2"
+    local name
+    mkdir -p "$dest_dir"
+    name="$(basename "$src")"
+    if [[ "$name" == *.gz ]]; then
+      gzip -dc "$src" > "$dest_dir/${name%.gz}"
+    else
+      cp "$src" "$dest_dir/"
+    fi
+  }
+  mkdir -p \
+    "$target_modules/kernel/drivers/virtio" \
+    "$target_modules/kernel/drivers/block" \
+    "$target_modules/kernel/fs/ext4" \
+    "$target_modules/kernel/fs/jbd2" \
+    "$target_modules/kernel/fs" \
+    "$target_modules/kernel/lib/crc"
+  cp "$linux_modules_dir"/modules.{alias,builtin} "$target_modules"/
+  sed 's/\.ko\.gz/.ko/g' "$linux_modules_dir/modules.dep" > "$target_modules/modules.dep"
+  install_module "$linux_modules_dir"/kernel/drivers/virtio/virtio.ko.* "$target_modules/kernel/drivers/virtio"
+  install_module "$linux_modules_dir"/kernel/drivers/virtio/virtio_ring.ko.* "$target_modules/kernel/drivers/virtio"
+  install_module "$linux_modules_dir"/kernel/drivers/virtio/virtio_mmio.ko.* "$target_modules/kernel/drivers/virtio"
+  install_module "$linux_modules_dir"/kernel/drivers/block/virtio_blk.ko.* "$target_modules/kernel/drivers/block"
+  install_module "$linux_modules_dir"/kernel/fs/ext4/ext4.ko.* "$target_modules/kernel/fs/ext4"
+  install_module "$linux_modules_dir"/kernel/fs/jbd2/jbd2.ko.* "$target_modules/kernel/fs/jbd2"
+  install_module "$linux_modules_dir"/kernel/fs/mbcache.ko.* "$target_modules/kernel/fs"
+  install_module "$linux_modules_dir"/kernel/lib/crc/crc16.ko.* "$target_modules/kernel/lib/crc"
 fi
 if [[ "$init_style" == "static" ]]; then
   riscv64-elf-as -march=rv64imac -mabi=lp64 \

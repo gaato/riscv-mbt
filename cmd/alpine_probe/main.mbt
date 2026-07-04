@@ -11,7 +11,13 @@ let kernel_path = "_build/linux-kernel-riscv64"
 let dtb_path = "_build/minimal-alpine.dtb"
 
 ///|
+let virtio_dtb_path = "_build/minimal-alpine-virtio.dtb"
+
+///|
 let initrd_path = "_build/alpine-initramfs-riscv64.cpio"
+
+///|
+let rootfs_image_path = "_build/alpine-rootfs-riscv64.ext4"
 
 ///|
 let initrd_addr : UInt64 = 0x84000000U.to_uint64()
@@ -143,34 +149,56 @@ fn alpine_functional_smoke_command() -> String {
   "/bin/sh -c 'echo pipe-ok' | grep pipe-ok && " +
   "uname -m && " +
   "cat /proc/cpuinfo > /tmp/riscv-mbt-cpuinfo && " +
-  "echo linux-functional-ok"
+  "printf '\\154\\151\\156\\165\\170\\055\\146\\165\\156\\143\\164\\151\\157\\156\\141\\154\\055\\157\\153\\012'"
+}
+
+///|
+fn alpine_rootfs_smoke_command() -> String {
+  "modprobe virtio_mmio && " +
+  "modprobe virtio_blk && " +
+  "modprobe ext4 && " +
+  "mount -t proc proc /proc && " +
+  "mount -t sysfs sysfs /sys && " +
+  "mount -t devtmpfs devtmpfs /dev && " +
+  "mkdir -p /mnt/root && " +
+  "mount -t ext4 -o ro /dev/vda /mnt/root && " +
+  "test -x /mnt/root/bin/busybox && " +
+  "/mnt/root/bin/busybox printf '\\162\\157\\157\\164\\146\\163\\055\\155\\157\\165\\156\\164\\055\\157\\153\\012'"
 }
 
 ///|
 async fn main {
   let args = @env.args()
   let max_steps = parse_max_steps(args)
+  let functional_smoke = parse_flag(args, "--functional-smoke")
+  let rootfs_smoke = parse_flag(args, "--rootfs-smoke")
   let selected_dtb_path = match parse_arg_value(args, "--dtb") {
     Some(path) => path
-    None => dtb_path
+    None => if rootfs_smoke { virtio_dtb_path } else { dtb_path }
   }
   let selected_initrd_path = match parse_arg_value(args, "--initrd") {
     Some(path) => path
     None => initrd_path
   }
-  let virtio_blk_disk_path = parse_arg_value(args, "--virtio-blk-disk")
+  let virtio_blk_disk_path = match parse_arg_value(args, "--virtio-blk-disk") {
+    Some(path) => Some(path)
+    None => if rootfs_smoke { Some(rootfs_image_path) } else { None }
+  }
   let selected_virtio_blk_disk_path = match virtio_blk_disk_path {
     Some(path) => path
     None => ""
   }
-  let functional_smoke = parse_flag(args, "--functional-smoke")
   let command = if functional_smoke {
     Some(alpine_functional_smoke_command())
+  } else if rootfs_smoke {
+    Some(alpine_rootfs_smoke_command())
   } else {
     parse_arg_value(args, "--command")
   }
   let expect = if functional_smoke {
     Some("linux-functional-ok")
+  } else if rootfs_smoke {
+    Some("rootfs-mount-ok")
   } else {
     parse_arg_value(args, "--expect")
   }
@@ -290,6 +318,7 @@ async fn main {
   println("shell_command_sent=" + shell_command_sent.to_string())
   println("shell_expect_seen=" + shell_expect_seen.to_string())
   println("functional_smoke=" + functional_smoke.to_string())
+  println("rootfs_smoke=" + rootfs_smoke.to_string())
   println("dtb_path=" + selected_dtb_path)
   println("initrd_path=" + selected_initrd_path)
   println("virtio_blk_disk=" + selected_virtio_blk_disk_path)
