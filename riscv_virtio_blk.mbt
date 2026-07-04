@@ -220,25 +220,16 @@ fn Runner::virtio_blk_copy_guest_to_sector(
   disk_byte_offset : UInt64,
   len : Int,
 ) -> Int {
-  // Writes are bounded by both guest RAM validity and the loaded disk image.
-  // A short copy is reported through the request status instead of panicking.
+  // Writes mutate the backing array in place. This path is hot for ext4 and
+  // apk install probes, so avoid rebuilding the whole disk image per request.
   let disk_offset = disk_byte_offset.reinterpret_as_int64().to_int()
-  let disk = self.virtio_blk_disk.to_array()
-  let mut copied = 0
-  for offset in 0..<len {
-    let guest_byte_addr = guest_addr + offset.reinterpret_as_uint().to_uint64()
-    if !self.bus.contains_range(guest_byte_addr, 1) {
-      break
-    }
-    let disk_index = disk_offset + offset
-    if disk_index < 0 || disk_index >= disk.length() {
-      break
-    }
-    disk[disk_index] = self.bus.load_u8(guest_byte_addr).to_byte()
-    copied += 1
-  }
+  let copied = self.bus.copy_bytes_to_array(
+    guest_addr,
+    self.virtio_blk_disk,
+    disk_offset,
+    len,
+  )
   if copied > 0 {
-    self.virtio_blk_disk = Bytes::from_array(disk)
     self.virtio_blk_invalidate_read_cache()
   }
   copied

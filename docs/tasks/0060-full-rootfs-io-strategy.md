@@ -628,3 +628,13 @@ implemented.
   `post-init-functional-ok`. This proves auto-root is not merely reaching init:
   the resulting rootfs-side shell remains usable for the existing functional
   command gate.
+- Reworked the virtio-blk write hot path so the backing disk is held internally
+  as an `Array[Byte]` and mutated in place. Host persistence still receives a
+  `Bytes` snapshot through `Runner::virtio_blk_disk_bytes`, but normal write
+  descriptors no longer convert the whole ext4 image to an array and back per
+  request. Added a Bus-level guest-to-array descriptor copy helper and a
+  white-box regression that verifies in-place writes invalidate the read-ahead
+  cache and are visible through the host snapshot. Validation:
+  `moon test --target native --filter 'virtio-blk*'` passes 7 tests. This is a
+  storage-path cleanup for ext4/package-install workloads; the next long Alpine
+  run should be a purposeful package/storage probe, not a wait-only check.

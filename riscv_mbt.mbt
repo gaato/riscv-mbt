@@ -433,7 +433,7 @@ pub struct Runner {
   all_mtimecmp : Array[UInt64] // [hart_id] = mtimecmp; shared across SMP harts
   plic_regs : Array[Byte] // flat PLIC register file (4 MB); shared across SMP harts
   virtio_blk_state : Array[UInt64]
-  mut virtio_blk_disk : Bytes
+  virtio_blk_disk : Array[Byte]
   mut virtio_blk_read_cache_base : UInt64
   mut virtio_blk_read_cache_bytes : Bytes
   mut virtio_blk_read_cache_hits : UInt64
@@ -1142,6 +1142,41 @@ fn Bus::write_bytes_from(
 }
 
 ///|
+fn Bus::copy_bytes_to_array(
+  self : Bus,
+  base_addr : UInt64,
+  dest : Array[Byte],
+  dest_offset : Int,
+  len : Int,
+) -> Int {
+  // Virtio write requests copy guest RAM into the disk backing. Bound both
+  // sides once per descriptor so package-manager writes do not scan the whole
+  // disk image or re-check the guest range byte by byte.
+  if len <= 0 ||
+    base_addr < self.base_addr ||
+    dest_offset < 0 ||
+    dest_offset >= dest.length() {
+    return 0
+  }
+  let start_index = bus_offset_as_int(base_addr - self.base_addr)
+  if start_index < 0 || start_index >= self.memory.length() {
+    return 0
+  }
+  let guest_available = self.memory.length() - start_index
+  let dest_available = dest.length() - dest_offset
+  let guest_copy_len = if len < guest_available { len } else { guest_available }
+  let copy_len = if guest_copy_len < dest_available {
+    guest_copy_len
+  } else {
+    dest_available
+  }
+  for offset in 0..<copy_len {
+    dest[dest_offset + offset] = self.memory[start_index + offset]
+  }
+  copy_len
+}
+
+///|
 pub fn Bus::zero_range(self : Bus, base_addr : UInt64, len : Int) -> Unit {
   for index in 0..<len {
     self.store_u8(
@@ -1182,7 +1217,7 @@ pub fn make_runner(config : MachineConfig) -> Runner {
       []
     },
     virtio_blk_state: Array::make(16, 0U.to_uint64()),
-    virtio_blk_disk: Bytes::from_array([]),
+    virtio_blk_disk: [],
     virtio_blk_read_cache_base: bit_not(0U.to_uint64()),
     virtio_blk_read_cache_bytes: Bytes::from_array([]),
     virtio_blk_read_cache_hits: 0U.to_uint64(),
@@ -1243,7 +1278,7 @@ pub fn make_smp_runners(
     bit_not(0U.to_uint64()),
   )
   let shared_virtio_blk_state : Array[UInt64] = Array::make(16, 0U.to_uint64())
-  let shared_virtio_blk_disk : Bytes = Bytes::from_array([])
+  let shared_virtio_blk_disk : Array[Byte] = []
   let harts : Array[Runner] = []
   for i in 0..<num_harts {
     let hart_config : MachineConfig = {
@@ -1461,7 +1496,10 @@ pub fn Runner::load_dtb(self : Runner, dtb : Bytes) -> Unit {
 
 ///|
 pub fn Runner::load_virtio_blk_disk(self : Runner, disk : Bytes) -> Unit {
-  self.virtio_blk_disk = disk
+  self.virtio_blk_disk.clear()
+  for byte in disk {
+    self.virtio_blk_disk.push(byte)
+  }
   self.virtio_blk_invalidate_read_cache()
 }
 
@@ -1470,7 +1508,7 @@ pub fn Runner::virtio_blk_disk_bytes(self : Runner) -> Bytes {
   // Expose the current backing image for host-side persistence probes. The
   // emulator still owns request processing; callers should treat this as a
   // snapshot taken after Linux has issued writes and syncs.
-  self.virtio_blk_disk
+  Bytes::from_array(self.virtio_blk_disk)
 }
 
 ///|
