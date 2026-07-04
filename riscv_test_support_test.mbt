@@ -793,6 +793,16 @@ fn encode_vslidedown_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
 }
 
 ///|
+fn encode_vslide1up_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x0eU, vm, vs2, rs1, 0x6U, vd)
+}
+
+///|
+fn encode_vslide1down_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x0fU, vm, vs2, rs1, 0x6U, vd)
+}
+
+///|
 fn encode_vsll_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
   encode_vop(0x26U, vm, vs2, vs1, 0x0U, vd)
 }

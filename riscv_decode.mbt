@@ -1030,6 +1030,8 @@ fn instruction_supported_for_current_config(
     VslideupVi(_, _, _) => has_v
     VslidedownVx(_, _, _) => has_v
     VslidedownVi(_, _, _) => has_v
+    Vslide1upVx(_, _, _) => has_v
+    Vslide1downVx(_, _, _) => has_v
     VsllVv(_, _, _) => has_v
     VsllVx(_, _, _) => has_v
     VsllVi(_, _, _) => has_v
@@ -1391,10 +1393,16 @@ pub fn decode(raw : UInt) -> Instruction {
             _ => Unknown(raw)
           }
         0x6U =>
-          if ((raw >> 25) & 0x1U) == 1U && funct6(raw) == 0x10U && rs1(raw) == 0 {
-            VmvXS(rd(raw), rs2(raw))
-          } else {
-            Unknown(raw)
+          match funct6(raw) {
+            0x0eU => Vslide1upVx(rd(raw), rs2(raw), rs1(raw))
+            0x0fU => Vslide1downVx(rd(raw), rs2(raw), rs1(raw))
+            0x10U =>
+              if ((raw >> 25) & 0x1U) == 1U && rs1(raw) == 0 {
+                VmvXS(rd(raw), rs2(raw))
+              } else {
+                Unknown(raw)
+              }
+            _ => Unknown(raw)
           }
         0x7U =>
           if ((raw >> 31) & 0x1U) == 0U {

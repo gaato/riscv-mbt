@@ -230,3 +230,103 @@ fn Runner::execute_vector_slidedown(
   self.cpu.pc = next_pc
   Running
 }
+
+///|
+fn Runner::vector_scalar_to_sew(
+  self : Runner,
+  scalar : UInt64,
+  config : VectorExecConfig,
+) -> UInt64 {
+  let xlen = self.xlen_bits()
+  let sew_mask = vector_elem_mask(config.sew_bits)
+  if xlen < config.sew_bits {
+    xlen_sign_extend(scalar, xlen, XLEN_64) & sew_mask
+  } else {
+    scalar & sew_mask
+  }
+}
+
+///|
+fn Runner::execute_vector_slide1up(
+  self : Runner,
+  vd : Int,
+  vs2 : Int,
+  scalar : UInt64,
+  config : VectorExecConfig,
+  active_elems : Int,
+  sew_mask : UInt64,
+  mask_bits : Array[Bool],
+  use_mask : Bool,
+  current_pc : UInt64,
+  next_pc : UInt64,
+  raw : UInt,
+) -> StepResult {
+  if !vector_group_aligned(vd, config.lmul_log2) ||
+    !vector_group_aligned(vs2, config.lmul_log2) {
+    return self.raise_vector_group_misaligned(current_pc, raw)
+  }
+  // `vslide1up` is restartable only when destination writes cannot clobber
+  // later source reads.
+  if vector_group_overlaps(vd, vs2, config) {
+    return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+  }
+  if active_elems > 0 && (!use_mask || mask_bits[0]) {
+    self.write_vreg_group_elem(
+      vd,
+      0,
+      config.sew_bits,
+      self.vector_scalar_to_sew(scalar, config),
+    )
+  }
+  for elem in 1..<active_elems {
+    if !use_mask || mask_bits[elem] {
+      self.write_vreg_group_elem(
+        vd,
+        elem,
+        config.sew_bits,
+        self.read_vreg_group_elem(vs2, elem - 1, config.sew_bits) & sew_mask,
+      )
+    }
+  }
+  self.cpu.pc = next_pc
+  Running
+}
+
+///|
+fn Runner::execute_vector_slide1down(
+  self : Runner,
+  vd : Int,
+  vs2 : Int,
+  scalar : UInt64,
+  config : VectorExecConfig,
+  active_elems : Int,
+  sew_mask : UInt64,
+  mask_bits : Array[Bool],
+  use_mask : Bool,
+  current_pc : UInt64,
+  next_pc : UInt64,
+  raw : UInt,
+) -> StepResult {
+  if !vector_group_aligned(vd, config.lmul_log2) ||
+    !vector_group_aligned(vs2, config.lmul_log2) {
+    return self.raise_vector_group_misaligned(current_pc, raw)
+  }
+  // Overlap is legal for slide1down. Snapshot source results before writes so
+  // in-place uses follow the architectural source-before-destination behavior.
+  let values : Array[UInt64] = []
+  for elem in 0..<active_elems {
+    let value = if elem == active_elems - 1 {
+      self.vector_scalar_to_sew(scalar, config)
+    } else {
+      self.read_vreg_group_elem(vs2, elem + 1, config.sew_bits) & sew_mask
+    }
+    values.push(value)
+  }
+  for elem in 0..<active_elems {
+    if !use_mask || mask_bits[elem] {
+      self.write_vreg_group_elem(vd, elem, config.sew_bits, values[elem])
+    }
+  }
+  self.cpu.pc = next_pc
+  Running
+}

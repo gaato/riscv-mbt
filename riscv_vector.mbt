@@ -1580,6 +1580,34 @@ fn Runner::execute_vector_first_slice(
         next_pc,
         raw,
       )
+    Vslide1upVx(vd, vs2, rs1) =>
+      self.execute_vector_slide1up(
+        vd,
+        vs2,
+        self.cpu.read_reg(rs1),
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    Vslide1downVx(vd, vs2, rs1) =>
+      self.execute_vector_slide1down(
+        vd,
+        vs2,
+        self.cpu.read_reg(rs1),
+        config,
+        active_elems,
+        sew_mask,
+        mask_bits,
+        use_mask,
+        current_pc,
+        next_pc,
+        raw,
+      )
     VsllVv(vd, vs2, vs1) =>
       self.execute_vector_binary_vv(
         vd,
