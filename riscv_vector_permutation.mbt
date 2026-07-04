@@ -3,6 +3,167 @@
 // vector file focused on shared config, masks, arithmetic, and dispatch.
 
 ///|
+fn Runner::execute_vector_permutation_dispatch(
+  self : Runner,
+  instruction : Instruction,
+  config : VectorExecConfig,
+  active_elems : Int,
+  sew_mask : UInt64,
+  mask_bits : Array[Bool],
+  use_mask : Bool,
+  current_pc : UInt64,
+  next_pc : UInt64,
+  raw : UInt,
+) -> StepResult? {
+  // This helper owns only permutation-style vector instructions that share the
+  // standard element execution config. Whole-register moves are intentionally
+  // handled before config creation because their NREG field is independent of
+  // the current LMUL.
+  match instruction {
+    VcompressVm(vd, vs2, vs1) =>
+      Some(
+        self.execute_vector_compress(
+          vd, vs2, vs1, config, active_elems, current_pc, next_pc, raw,
+        ),
+      )
+    VrgatherVv(vd, vs2, vs1) =>
+      Some(
+        self.execute_vector_gather_vv(
+          vd, vs2, vs1, config, active_elems, sew_mask, mask_bits, use_mask, current_pc,
+          next_pc, raw,
+        ),
+      )
+    VrgatherVx(vd, vs2, rs1) =>
+      Some(
+        self.execute_vector_gather_scalar(
+          vd,
+          vs2,
+          self.cpu.read_reg(rs1),
+          config,
+          active_elems,
+          sew_mask,
+          mask_bits,
+          use_mask,
+          current_pc,
+          next_pc,
+          raw,
+        ),
+      )
+    VrgatherVi(vd, vs2, imm) =>
+      Some(
+        self.execute_vector_gather_scalar(
+          vd,
+          vs2,
+          imm.to_uint64(),
+          config,
+          active_elems,
+          sew_mask,
+          mask_bits,
+          use_mask,
+          current_pc,
+          next_pc,
+          raw,
+        ),
+      )
+    VslideupVx(vd, vs2, rs1) =>
+      Some(
+        self.execute_vector_slideup(
+          vd,
+          vs2,
+          self.cpu.read_reg(rs1),
+          config,
+          active_elems,
+          mask_bits,
+          use_mask,
+          current_pc,
+          next_pc,
+          raw,
+        ),
+      )
+    VslideupVi(vd, vs2, imm) =>
+      Some(
+        self.execute_vector_slideup(
+          vd,
+          vs2,
+          imm.to_uint64(),
+          config,
+          active_elems,
+          mask_bits,
+          use_mask,
+          current_pc,
+          next_pc,
+          raw,
+        ),
+      )
+    VslidedownVx(vd, vs2, rs1) =>
+      Some(
+        self.execute_vector_slidedown(
+          vd,
+          vs2,
+          self.cpu.read_reg(rs1),
+          config,
+          active_elems,
+          sew_mask,
+          mask_bits,
+          use_mask,
+          current_pc,
+          next_pc,
+          raw,
+        ),
+      )
+    VslidedownVi(vd, vs2, imm) =>
+      Some(
+        self.execute_vector_slidedown(
+          vd,
+          vs2,
+          imm.to_uint64(),
+          config,
+          active_elems,
+          sew_mask,
+          mask_bits,
+          use_mask,
+          current_pc,
+          next_pc,
+          raw,
+        ),
+      )
+    Vslide1upVx(vd, vs2, rs1) =>
+      Some(
+        self.execute_vector_slide1up(
+          vd,
+          vs2,
+          self.cpu.read_reg(rs1),
+          config,
+          active_elems,
+          sew_mask,
+          mask_bits,
+          use_mask,
+          current_pc,
+          next_pc,
+          raw,
+        ),
+      )
+    Vslide1downVx(vd, vs2, rs1) =>
+      Some(
+        self.execute_vector_slide1down(
+          vd,
+          vs2,
+          self.cpu.read_reg(rs1),
+          config,
+          active_elems,
+          sew_mask,
+          mask_bits,
+          use_mask,
+          current_pc,
+          next_pc,
+          raw,
+        ),
+      )
+    _ => None
+  }
+}
+
+///|
 fn Runner::execute_vector_compress(
   self : Runner,
   vd : Int,
