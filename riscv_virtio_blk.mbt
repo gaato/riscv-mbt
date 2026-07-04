@@ -77,6 +77,9 @@ let virtq_desc_f_write : UInt64 = 2U.to_uint64()
 let virtio_blk_t_in : UInt64 = 0U.to_uint64()
 
 ///|
+let virtio_blk_t_out : UInt64 = 1U.to_uint64()
+
+///|
 let virtio_blk_status_ok : UInt64 = 0U.to_uint64()
 
 ///|
@@ -139,6 +142,34 @@ fn Runner::virtio_blk_copy_sector_to_guest(
       value,
     )
     copied += 1
+  }
+  copied
+}
+
+///|
+fn Runner::virtio_blk_copy_guest_to_sector(
+  self : Runner,
+  guest_addr : UInt64,
+  disk_byte_offset : UInt64,
+  len : Int,
+) -> Int {
+  let disk_offset = disk_byte_offset.reinterpret_as_int64().to_int()
+  let disk = self.virtio_blk_disk.to_array()
+  let mut copied = 0
+  for offset in 0..<len {
+    let guest_byte_addr = guest_addr + offset.reinterpret_as_uint().to_uint64()
+    if !self.bus.contains_range(guest_byte_addr, 1) {
+      break
+    }
+    let disk_index = disk_offset + offset
+    if disk_index < 0 || disk_index >= disk.length() {
+      break
+    }
+    disk[disk_index] = self.bus.load_u8(guest_byte_addr).to_byte()
+    copied += 1
+  }
+  if copied > 0 {
+    self.virtio_blk_disk = Bytes::from_array(disk)
   }
   copied
 }
@@ -226,11 +257,12 @@ fn Runner::virtio_blk_process_chain(
     let flags = self.bus.load_u16(desc_addr + 12U.to_uint64())
     let has_next = virtio_blk_desc_has_next(flags)
     let is_write = virtio_blk_desc_is_write(flags)
-    if !is_write {
-      return
-    }
     if !has_next {
-      let status = if request_type == virtio_blk_t_in {
+      if !is_write {
+        return
+      }
+      let status = if request_type == virtio_blk_t_in ||
+        request_type == virtio_blk_t_out {
         virtio_blk_status_ok
       } else {
         virtio_blk_status_unsupp
@@ -244,9 +276,21 @@ fn Runner::virtio_blk_process_chain(
       )
       return
     }
+    if request_type == virtio_blk_t_in && !is_write {
+      return
+    }
+    if request_type == virtio_blk_t_out && is_write {
+      return
+    }
     if request_type == virtio_blk_t_in {
       let chunk = self.virtio_blk_copy_sector_to_guest(
         disk_offset, guest_addr, len,
+      )
+      copied += chunk
+      disk_offset = disk_offset + chunk.reinterpret_as_uint().to_uint64()
+    } else if request_type == virtio_blk_t_out {
+      let chunk = self.virtio_blk_copy_guest_to_sector(
+        guest_addr, disk_offset, len,
       )
       copied += chunk
       disk_offset = disk_offset + chunk.reinterpret_as_uint().to_uint64()

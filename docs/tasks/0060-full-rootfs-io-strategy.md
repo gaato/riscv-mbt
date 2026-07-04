@@ -212,10 +212,17 @@ implemented.
 - Current post-init command proof:
   `moon run --target native cmd/alpine_probe xlong --post-init-smoke` reaches
   `outcome=console-command`, `post_init_command_sent=true`,
-  `shell_expect_seen=true`, and `post-init-functional-ok` at 636,000,000 guest
-  steps. The injected post-init command creates and reads a file under `/tmp`,
-  reports `riscv64`, and verifies `/proc/mounts` is readable from the rootfs
-  shell after PID 1 has started.
+  `shell_expect_seen=true`, and `post-init-functional-ok`.
+- Added the first virtio-blk write request path (`VIRTIO_BLK_T_OUT`). The
+  regression builds a split virtqueue write chain, notifies the device, and
+  checks that guest bytes are copied into the disk backing with an OK status
+  and used-ring length.
+- Current writable-rootfs proof:
+  `moon run --target native cmd/alpine_probe xlong --post-init-smoke` now mounts
+  the ext4 rootfs as `r/w`, reaches the post-init shell, creates and reads a
+  tmpfs file under `/tmp`, creates and reads `/root/riscv-mbt-rootfs-write` on
+  the mounted rootfs, runs `sync`, reports `riscv64`, verifies `/proc/mounts` is
+  readable, and reaches `post-init-functional-ok` at 643,000,000 guest steps.
 - The next full-rootfs usability slice should broaden ordinary command-session
-  behavior and writable-root behavior instead of returning to initrd-only
-  checks.
+  behavior, persistence-oriented checks, and more shell utilities instead of
+  returning to initrd-only checks.

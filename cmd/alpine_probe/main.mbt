@@ -191,7 +191,7 @@ fn alpine_init_smoke_command() -> String {
   "modprobe ext4 && " +
   "mount -t devtmpfs devtmpfs /dev && " +
   "mkdir -p /mnt/root && " +
-  "mount -t ext4 -o ro /dev/vda /mnt/root && " +
+  "mount -t ext4 /dev/vda /mnt/root && " +
   "mount -t proc proc /mnt/root/proc && " +
   "mount -t sysfs sysfs /mnt/root/sys && " +
   "mount -t devtmpfs devtmpfs /mnt/root/dev && " +
@@ -206,6 +206,9 @@ fn alpine_post_init_smoke_command() -> String {
   "(mount -t sysfs sysfs /sys 2>/dev/null || true) && " +
   "echo post-file-ok > /tmp/riscv-mbt-post-file && " +
   "cat /tmp/riscv-mbt-post-file && " +
+  "echo rootfs-write-ok > /root/riscv-mbt-rootfs-write && " +
+  "cat /root/riscv-mbt-rootfs-write && " +
+  "sync && " +
   "uname -m && " +
   "test -r /proc/mounts && " +
   "printf '\\160\\157\\163\\164\\055\\151\\156\\151\\164\\055\\146\\165\\156\\143\\164\\151\\157\\156\\141\\154\\055\\157\\153\\012'"
