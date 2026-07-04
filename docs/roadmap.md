@@ -4,7 +4,7 @@
 
 - Active milestone: `Extensions: A, F/D, V, H`
 - Current checkpoint: browser Wasm Linux boot is complete, and the active browser path now targets Alpine rootfs boot with a measured `wasm-gc` default
-- Next concrete target: Alpine initramfs reaches userspace in browser Wasm practical time, then broader vector memory/addressing and the first `LMUL>1` path resumes
+- Next concrete target: keep Alpine initramfs as the short functional gate, then add a minimal `virtio,mmio` `virtio-blk` path so a normal Alpine root filesystem can be mounted as a block device
 - Design rule: protect implementation boundaries first, then add instructions
 - Milestone semantics:
   - `RV32IMC` = core completion checkpoint
@@ -53,7 +53,7 @@
 - Browser demo depends on the Linux-capable core staying UI-independent.
 - Browser delivery is complete once the thin host exists and the public smoke deploy is live.
 - Browser Wasm Linux boot depends on preserving the shared core boundary while adding a Wasm artifact, browser-loadable Linux artifacts, long-run scheduling, and browser serial observability.
-- Browser Wasm Linux boot is now stable enough to resume extension work against the chosen compatibility profile instead of opportunistic ISA growth.
+- Browser Wasm Linux boot and the tiny Alpine initramfs proof are stable enough that the next usability bottleneck is Linux I/O, not opportunistic ISA growth. RVV backlog work should pause behind full-rootfs I/O unless Linux execution exposes a concrete ISA or privileged-architecture gap.
 
 ## Operating Rules
 

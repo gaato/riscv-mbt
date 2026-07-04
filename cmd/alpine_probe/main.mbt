@@ -127,11 +127,40 @@ fn parse_arg_value(args : Array[String], flag : String) -> String? {
 }
 
 ///|
+fn parse_flag(args : Array[String], flag : String) -> Bool {
+  args.any(fn(arg) { arg == flag })
+}
+
+///|
+fn alpine_functional_smoke_command() -> String {
+  // Keep this close to the browser functional smoke so console/native and
+  // browser evidence prove the same early-userspace behavior.
+  "mount -t proc proc /proc && " +
+  "mount -t sysfs sysfs /sys && " +
+  "echo file-ok > /tmp/riscv-mbt-file && " +
+  "cat /tmp/riscv-mbt-file && " +
+  "mkdir -p /tmp/riscv-mbt-dir && " +
+  "/bin/sh -c 'echo pipe-ok' | grep pipe-ok && " +
+  "uname -m && " +
+  "cat /proc/cpuinfo > /tmp/riscv-mbt-cpuinfo && " +
+  "echo linux-functional-ok"
+}
+
+///|
 async fn main {
   let args = @env.args()
   let max_steps = parse_max_steps(args)
-  let command = parse_arg_value(args, "--command")
-  let expect = parse_arg_value(args, "--expect")
+  let functional_smoke = parse_flag(args, "--functional-smoke")
+  let command = if functional_smoke {
+    Some(alpine_functional_smoke_command())
+  } else {
+    parse_arg_value(args, "--command")
+  }
+  let expect = if functional_smoke {
+    Some("linux-functional-ok")
+  } else {
+    parse_arg_value(args, "--expect")
+  }
   let fw_bytes = read_binary(opensbi_path)
   let kernel_bytes = read_binary(kernel_path)
   let dtb_bytes = read_binary(dtb_path)
@@ -233,6 +262,7 @@ async fn main {
   println("trapped=" + trapped.to_string())
   println("shell_command_sent=" + shell_command_sent.to_string())
   println("shell_expect_seen=" + shell_expect_seen.to_string())
+  println("functional_smoke=" + functional_smoke.to_string())
   println("final_pc=" + hex(runner.pc_u64()))
   println("final_privilege=" + privilege_name(runner.privilege_mode()))
   println("csr_sstatus=" + hex(runner.read_csr_u64(csr_sstatus)))
