@@ -318,6 +318,13 @@ priv enum VectorMaskLogicalOp {
 }
 
 ///|
+priv enum VectorMaskPrefixOp {
+  VectorMaskSetBeforeFirst
+  VectorMaskSetIncludingFirst
+  VectorMaskSetOnlyFirst
+}
+
+///|
 fn vector_signed_lane(value : UInt64, sew_bits : Int) -> Int64 {
   // Signed RVV integer comparisons interpret each lane at SEW width, not at
   // host UInt64 width. Sign-extend before comparing so e32 0xffffffff is -1.
@@ -428,6 +435,44 @@ fn Runner::execute_vector_mask_logical(
     let lhs = self.read_vmask_bit_from(vs2, elem)
     let rhs = self.read_vmask_bit_from(vs1, elem)
     self.write_vmask_bit(vd, elem, vector_apply_mask_logical(lhs, rhs, op))
+  }
+  self.cpu.pc = next_pc
+  Running
+}
+
+///|
+fn Runner::execute_vector_mask_prefix(
+  self : Runner,
+  vd : Int,
+  vs2 : Int,
+  active_elems : Int,
+  mask_bits : Array[Bool],
+  use_mask : Bool,
+  op : VectorMaskPrefixOp,
+  current_pc : UInt64,
+  next_pc : UInt64,
+  raw : UInt,
+) -> StepResult {
+  // These instructions scan the source mask, and masked forms also read v0.
+  // Reject destination overlap so writes cannot disturb later source bits.
+  if vd == vs2 || (use_mask && vd == 0) {
+    return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+  }
+  let mut found = false
+  for elem in 0..<active_elems {
+    if use_mask && !mask_bits[elem] {
+      continue
+    }
+    let source_set = self.read_vmask_bit_from(vs2, elem)
+    let value = match op {
+      VectorMaskSetBeforeFirst => !found && !source_set
+      VectorMaskSetIncludingFirst => !found
+      VectorMaskSetOnlyFirst => !found && source_set
+    }
+    self.write_vmask_bit(vd, elem, value)
+    if source_set {
+      found = true
+    }
   }
   self.cpu.pc = next_pc
   Running
@@ -1326,6 +1371,42 @@ fn Runner::execute_vector_first_slice(
     VfirstM(rd, vs2) =>
       self.execute_vector_mask_first(
         rd, vs2, active_elems, mask_bits, use_mask, next_pc,
+      )
+    VmsbfM(vd, vs2) =>
+      self.execute_vector_mask_prefix(
+        vd,
+        vs2,
+        active_elems,
+        mask_bits,
+        use_mask,
+        VectorMaskSetBeforeFirst,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    VmsofM(vd, vs2) =>
+      self.execute_vector_mask_prefix(
+        vd,
+        vs2,
+        active_elems,
+        mask_bits,
+        use_mask,
+        VectorMaskSetOnlyFirst,
+        current_pc,
+        next_pc,
+        raw,
+      )
+    VmsifM(vd, vs2) =>
+      self.execute_vector_mask_prefix(
+        vd,
+        vs2,
+        active_elems,
+        mask_bits,
+        use_mask,
+        VectorMaskSetIncludingFirst,
+        current_pc,
+        next_pc,
+        raw,
       )
     VsllVv(vd, vs2, vs1) =>
       self.execute_vector_binary_vv(

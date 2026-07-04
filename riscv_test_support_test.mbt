@@ -728,6 +728,21 @@ fn encode_vfirst_m(rd : Int, vs2 : Int, vm : Bool) -> UInt {
 }
 
 ///|
+fn encode_vmsbf_m(vd : Int, vs2 : Int, vm : Bool) -> UInt {
+  encode_vop(0x14U, vm, vs2, 0x01, 0x2U, vd)
+}
+
+///|
+fn encode_vmsof_m(vd : Int, vs2 : Int, vm : Bool) -> UInt {
+  encode_vop(0x14U, vm, vs2, 0x02, 0x2U, vd)
+}
+
+///|
+fn encode_vmsif_m(vd : Int, vs2 : Int, vm : Bool) -> UInt {
+  encode_vop(0x14U, vm, vs2, 0x03, 0x2U, vd)
+}
+
+///|
 fn encode_vsll_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
   encode_vop(0x26U, vm, vs2, vs1, 0x0U, vd)
 }

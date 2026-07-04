@@ -779,6 +779,27 @@ test "decode first vector arithmetic slice" {
     }
     _ => fail("expected masked vfirst.m")
   }
+  match decode(encode_vmsbf_m(12, 13, true)) {
+    VmsbfM(vd, vs2) => {
+      assert_eq(vd, 12)
+      assert_eq(vs2, 13)
+    }
+    _ => fail("expected vmsbf.m")
+  }
+  match decode(encode_vmsof_m(14, 15, false)) {
+    VmsofM(vd, vs2) => {
+      assert_eq(vd, 14)
+      assert_eq(vs2, 15)
+    }
+    _ => fail("expected masked vmsof.m")
+  }
+  match decode(encode_vmsif_m(16, 17, true)) {
+    VmsifM(vd, vs2) => {
+      assert_eq(vd, 16)
+      assert_eq(vs2, 17)
+    }
+    _ => fail("expected vmsif.m")
+  }
   match decode(encode_vsll_vv(13, 14, 15, true)) {
     VsllVv(vd, vs2, vs1) => {
       assert_eq(vd, 13)

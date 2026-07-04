@@ -2180,6 +2180,95 @@ test "rv64fdv vector mask population rejects nonzero vstart" {
 }
 
 ///|
+test "rv64fdv vector mask prefix and only-first operations" {
+  let program = words_to_bytes([
+    encode_vsetivli(0, 8U, 0x11U),
+    encode_vmsbf_m(6, 2, true),
+    encode_vmsif_m(7, 2, true),
+    encode_vmsof_m(8, 2, true),
+    encode_vmsbf_m(9, 3, true),
+    encode_vmsif_m(10, 3, true),
+    encode_vmsof_m(11, 3, true),
+    encode_vmsbf_m(12, 4, false),
+    encode_vmsif_m(13, 4, false),
+    encode_vmsof_m(14, 4, false),
+  ])
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.load_program(program, 0U)
+
+  // v2 first active set bit is element 2; v3 has no set bits. v4 and v0
+  // exercise masked active-element selection, where masked-off destination bits
+  // retain their previous values in this implementation.
+  runner.cpu.write_vreg(2, 0, 0xb4U.to_uint64())
+  runner.cpu.write_vreg(3, 0, 0U.to_uint64())
+  runner.cpu.write_vreg(4, 0, 0xb4U.to_uint64())
+  runner.cpu.write_vreg(0, 0, 0x53U.to_uint64())
+  runner.cpu.write_vreg(12, 0, 0xf0U.to_uint64())
+  runner.cpu.write_vreg(13, 0, 0xf0U.to_uint64())
+  runner.cpu.write_vreg(14, 0, 0xf0U.to_uint64())
+
+  match runner.run(10) {
+    Running => ()
+    _ => fail("expected vector mask prefix sequence to run")
+  }
+
+  assert_eq(runner.read_vreg_u64(6, 0) & 0xffU.to_uint64(), 0x03U.to_uint64())
+  assert_eq(runner.read_vreg_u64(7, 0) & 0xffU.to_uint64(), 0x07U.to_uint64())
+  assert_eq(runner.read_vreg_u64(8, 0) & 0xffU.to_uint64(), 0x04U.to_uint64())
+  assert_eq(runner.read_vreg_u64(9, 0) & 0xffU.to_uint64(), 0xffU.to_uint64())
+  assert_eq(runner.read_vreg_u64(10, 0) & 0xffU.to_uint64(), 0xffU.to_uint64())
+  assert_eq(runner.read_vreg_u64(11, 0) & 0xffU.to_uint64(), 0x00U.to_uint64())
+  assert_eq(runner.read_vreg_u64(12, 0) & 0xffU.to_uint64(), 0xa3U.to_uint64())
+  assert_eq(runner.read_vreg_u64(13, 0) & 0xffU.to_uint64(), 0xb3U.to_uint64())
+  assert_eq(runner.read_vreg_u64(14, 0) & 0xffU.to_uint64(), 0xb0U.to_uint64())
+}
+
+///|
+test "rv64fdv vector mask prefix rejects overlapping operands" {
+  let source_overlap = encode_vmsbf_m(2, 2, true)
+  let mask_overlap = encode_vmsif_m(0, 2, false)
+  let source_runner = make_runner(rv64fdv_machine_config())
+  source_runner.load_program(
+    words_to_bytes([encode_vsetivli(0, 8U, 0x11U), source_overlap]),
+    0U,
+  )
+  match source_runner.step() {
+    Running => ()
+    _ => fail("expected vsetivli to run")
+  }
+  match source_runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+      assert_eq(info.trap_value, source_overlap.to_uint64())
+    }
+    _ => fail("expected vmsbf.m source overlap to trap")
+  }
+
+  let mask_runner = make_runner(rv64fdv_machine_config())
+  mask_runner.load_program(
+    words_to_bytes([encode_vsetivli(0, 8U, 0x11U), mask_overlap]),
+    0U,
+  )
+  match mask_runner.step() {
+    Running => ()
+    _ => fail("expected vsetivli to run")
+  }
+  match mask_runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+      assert_eq(info.trap_value, mask_overlap.to_uint64())
+    }
+    _ => fail("expected masked vmsif.m v0 overlap to trap")
+  }
+}
+
+///|
 fn test_vector_vtypei_for_sew(sew_bits : Int) -> UInt {
   match sew_bits {
     8 => 0x00U
