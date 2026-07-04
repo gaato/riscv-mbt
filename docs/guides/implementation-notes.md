@@ -5,6 +5,10 @@ This document captures the practical cautions that matter across milestones, esp
 ## Global Rules
 
 - Prefer stable implementation boundaries over fast instruction-count growth.
+- Prefer straightforward contract-shaped implementations over defensive
+  accretion. It is acceptable for a new Linux-facing subsystem to be incomplete
+  while it is being brought up, but its register surface, state ownership,
+  interrupt path, and backing model should be easy to inspect and replace.
 - Keep fetch, decode, CSR handling, trap flow, and address translation separable.
 - Treat Linux boot as a platform-integration problem, not as proof that “enough instructions” exist.
 - Keep one-hart bring-up as the baseline; add SMP only after single-hart boot is stable.

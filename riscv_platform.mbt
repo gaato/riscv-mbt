@@ -105,6 +105,9 @@ let uart_lcr_dlab : Byte = 0x80U.to_byte()
 let plic_uart_source : Int = 10
 
 ///|
+let plic_virtio_blk_source : Int = 1
+
+///|
 fn Runner::uart_dlab(self : Runner) -> Bool {
   (self.uart_lcr[0].to_int() & uart_lcr_dlab.to_int()) != 0
 }
@@ -276,6 +279,24 @@ fn Runner::plic_uart_claimable_for_context(
 }
 
 ///|
+fn Runner::plic_virtio_blk_pending(self : Runner) -> Bool {
+  self.config.virtio_blk_base != 0U.to_uint64() &&
+  (self.virtio_blk_state[virtio_blk_idx_interrupt_status] & 1U.to_uint64()) !=
+  0U.to_uint64()
+}
+
+///|
+fn Runner::plic_virtio_blk_claimable_for_context(
+  self : Runner,
+  context : Int,
+) -> Bool {
+  self.plic_virtio_blk_pending() &&
+  self.plic_context_enabled(context, plic_virtio_blk_source) &&
+  self.plic_source_priority(plic_virtio_blk_source) >
+  self.plic_context_threshold(context)
+}
+
+///|
 fn Runner::plic_any_uart_claimable(self : Runner) -> Bool {
   if !self.uart_interrupt_pending() {
     return false
@@ -301,9 +322,16 @@ fn Runner::plic_read_u8(self : Runner, off : UInt64) -> UInt64 {
   let idx = off.to_int()
   if idx >= 0x1000 && idx < 0x1080 {
     let source_byte = plic_uart_source / 8
+    let virtio_source_byte = plic_virtio_blk_source / 8
+    let mut pending = 0U.to_uint64()
     if idx == 0x1000 + source_byte && self.uart_interrupt_pending() {
-      return self.plic_regs[idx].to_uint64() |
-        (1U.to_uint64() << (plic_uart_source % 8))
+      pending = pending | (1U.to_uint64() << (plic_uart_source % 8))
+    }
+    if idx == 0x1000 + virtio_source_byte && self.plic_virtio_blk_pending() {
+      pending = pending | (1U.to_uint64() << (plic_virtio_blk_source % 8))
+    }
+    if pending != 0U.to_uint64() {
+      return self.plic_regs[idx].to_uint64() | pending
     }
   }
   if idx < self.plic_regs.length() {
@@ -317,10 +345,12 @@ fn Runner::plic_read_u8(self : Runner, off : UInt64) -> UInt64 {
 fn Runner::plic_read_u32(self : Runner, off : UInt64) -> UInt64 {
   let idx = off.to_int()
   if idx == 0x1000 {
-    let pending = if self.uart_interrupt_pending() {
-      1U.to_uint64() << plic_uart_source
-    } else {
-      0U.to_uint64()
+    let mut pending = 0U.to_uint64()
+    if self.uart_interrupt_pending() {
+      pending = pending | (1U.to_uint64() << plic_uart_source)
+    }
+    if self.plic_virtio_blk_pending() {
+      pending = pending | (1U.to_uint64() << plic_virtio_blk_source)
     }
     return self.plic_regs[idx].to_uint64() |
       (self.plic_regs[idx + 1].to_uint64() << 8) |
@@ -332,7 +362,9 @@ fn Runner::plic_read_u32(self : Runner, off : UInt64) -> UInt64 {
   let ctx_off = idx - 0x200000
   if ctx_off >= 0 && ctx_off % 0x1000 == 4 {
     let context = ctx_off / 0x1000
-    return if self.plic_uart_claimable_for_context(context) {
+    return if self.plic_virtio_blk_claimable_for_context(context) {
+      plic_virtio_blk_source.reinterpret_as_uint().to_uint64()
+    } else if self.plic_uart_claimable_for_context(context) {
       plic_uart_source.reinterpret_as_uint().to_uint64()
     } else {
       0U.to_uint64()

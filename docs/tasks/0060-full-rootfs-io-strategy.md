@@ -101,3 +101,8 @@ implemented.
   machine config, MMIO identity/status/queue register surface, shared device
   state across SMP harts, and an optional DTB `virtio,mmio` node. Request queue
   processing and disk-image backing remain the next implementation work.
+- Added the first read-only request queue path: `QueueNotify` now consumes split
+  virtqueue available entries, copies sector data from `Runner` disk backing to
+  a writable data descriptor, writes the status byte, advances the used ring,
+  and raises PLIC source 1. This is still a contract slice, not yet a full-rootfs
+  Linux proof: disk image loading and a real Alpine rootfs boot are next.

@@ -383,6 +383,7 @@ pub struct Runner {
   all_mtimecmp : Array[UInt64] // [hart_id] = mtimecmp; shared across SMP harts
   plic_regs : Array[Byte] // flat PLIC register file (4 MB); shared across SMP harts
   virtio_blk_state : Array[UInt64]
+  mut virtio_blk_disk : Bytes
   decode_cache_tags : Array[UInt64]
   decode_cache_raws : Array[UInt]
   decode_cache_lengths : Array[Int]
@@ -1083,6 +1084,7 @@ pub fn make_runner(config : MachineConfig) -> Runner {
       []
     },
     virtio_blk_state: Array::make(16, 0U.to_uint64()),
+    virtio_blk_disk: Bytes::from_array([]),
     decode_cache_tags: Array::make(decode_cache_sets, decode_cache_invalid_tag),
     decode_cache_raws: Array::make(decode_cache_sets, 0U),
     decode_cache_lengths: Array::make(decode_cache_sets, 0),
@@ -1132,6 +1134,7 @@ pub fn make_smp_runners(
     bit_not(0U.to_uint64()),
   )
   let shared_virtio_blk_state : Array[UInt64] = Array::make(16, 0U.to_uint64())
+  let shared_virtio_blk_disk : Bytes = Bytes::from_array([])
   let harts : Array[Runner] = []
   for i in 0..<num_harts {
     let hart_config : MachineConfig = {
@@ -1165,6 +1168,7 @@ pub fn make_smp_runners(
       all_mtimecmp: shared_mtimecmp,
       plic_regs: shared_plic,
       virtio_blk_state: shared_virtio_blk_state,
+      virtio_blk_disk: shared_virtio_blk_disk,
       decode_cache_tags: Array::make(
         decode_cache_sets, decode_cache_invalid_tag,
       ),
@@ -1333,6 +1337,11 @@ pub fn Runner::translate_cache_flush_count(self : Runner) -> UInt64 {
 /// Load a DTB blob into RAM at config.dtb_addr.
 pub fn Runner::load_dtb(self : Runner, dtb : Bytes) -> Unit {
   self.bus.write_bytes(self.config.dtb_addr, dtb)
+}
+
+///|
+pub fn Runner::load_virtio_blk_disk(self : Runner, disk : Bytes) -> Unit {
+  self.virtio_blk_disk = disk
 }
 
 ///|

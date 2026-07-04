@@ -59,6 +59,229 @@ let virtio_blk_idx_queue_device_lo : Int = 12
 let virtio_blk_idx_queue_device_hi : Int = 13
 
 ///|
+let virtio_blk_idx_last_avail : Int = 14
+
+///|
+let virtq_desc_f_next : UInt64 = 1U.to_uint64()
+
+///|
+let virtq_desc_f_write : UInt64 = 2U.to_uint64()
+
+///|
+let virtio_blk_t_in : UInt64 = 0U.to_uint64()
+
+///|
+let virtio_blk_status_ok : UInt64 = 0U.to_uint64()
+
+///|
+let virtio_blk_status_unsupp : UInt64 = 2U.to_uint64()
+
+///|
+fn Runner::virtio_blk_queue_addr(
+  self : Runner,
+  lo_index : Int,
+  hi_index : Int,
+) -> UInt64 {
+  self.virtio_blk_state[lo_index] | (self.virtio_blk_state[hi_index] << 32)
+}
+
+///|
+fn Runner::virtio_blk_write_status(
+  self : Runner,
+  addr : UInt64,
+  status : UInt64,
+) -> Unit {
+  if self.bus.contains_range(addr, 1) {
+    self.bus.store_u8(addr, status)
+  }
+}
+
+///|
+fn Runner::virtio_blk_copy_sector_to_guest(
+  self : Runner,
+  sector : UInt64,
+  guest_addr : UInt64,
+  len : Int,
+) -> Int {
+  let disk_offset = (sector * 512U.to_uint64()).reinterpret_as_int64().to_int()
+  let mut copied = 0
+  for offset in 0..<len {
+    if !self.bus.contains_range(
+        guest_addr + offset.reinterpret_as_uint().to_uint64(),
+        1,
+      ) {
+      return copied
+    }
+    let disk_index = disk_offset + offset
+    let value = if disk_index >= 0 && disk_index < self.virtio_blk_disk.length() {
+      self.virtio_blk_disk[disk_index].to_uint64()
+    } else {
+      0U.to_uint64()
+    }
+    self.bus.store_u8(
+      guest_addr + offset.reinterpret_as_uint().to_uint64(),
+      value,
+    )
+    copied += 1
+  }
+  copied
+}
+
+///|
+fn virtio_blk_desc_addr(desc_base : UInt64, index : Int) -> UInt64 {
+  desc_base + (index * 16).reinterpret_as_uint().to_uint64()
+}
+
+///|
+fn virtio_blk_desc_has_next(flags : UInt64) -> Bool {
+  (flags & virtq_desc_f_next) != 0U.to_uint64()
+}
+
+///|
+fn virtio_blk_desc_is_write(flags : UInt64) -> Bool {
+  (flags & virtq_desc_f_write) != 0U.to_uint64()
+}
+
+///|
+fn Runner::virtio_blk_finish_used(
+  self : Runner,
+  used_base : UInt64,
+  queue_num : Int,
+  head : UInt64,
+  written_len : UInt64,
+) -> Unit {
+  if queue_num <= 0 || !self.bus.contains_range(used_base, 4) {
+    return
+  }
+  let used_idx = self.bus.load_u16(used_base + 2U.to_uint64())
+  let slot = (used_idx % queue_num.reinterpret_as_uint().to_uint64()).to_int()
+  let elem_addr = used_base +
+    4U.to_uint64() +
+    (slot * 8).reinterpret_as_uint().to_uint64()
+  if self.bus.contains_range(elem_addr, 8) {
+    self.bus.store_u32(elem_addr, head)
+    self.bus.store_u32(elem_addr + 4U.to_uint64(), written_len)
+    self.bus.store_u16(
+      used_base + 2U.to_uint64(),
+      (used_idx + 1U.to_uint64()) & 0xffffU.to_uint64(),
+    )
+    self.virtio_blk_state[virtio_blk_idx_interrupt_status] = self.virtio_blk_state[virtio_blk_idx_interrupt_status] |
+      1U.to_uint64()
+  }
+}
+
+///|
+fn Runner::virtio_blk_process_chain(
+  self : Runner,
+  desc_base : UInt64,
+  used_base : UInt64,
+  queue_num : Int,
+  head : Int,
+) -> Unit {
+  let head_addr = virtio_blk_desc_addr(desc_base, head)
+  if !self.bus.contains_range(head_addr, 16) {
+    return
+  }
+  let header_addr = self.bus.load_u64(head_addr)
+  let header_len = self.bus.load_u32(head_addr + 8U.to_uint64()).to_int()
+  let header_flags = self.bus.load_u16(head_addr + 12U.to_uint64())
+  let data_index = self.bus.load_u16(head_addr + 14U.to_uint64()).to_int()
+  if header_len < 16 ||
+    !virtio_blk_desc_has_next(header_flags) ||
+    !self.bus.contains_range(header_addr, 16) {
+    return
+  }
+  let data_desc_addr = virtio_blk_desc_addr(desc_base, data_index)
+  if !self.bus.contains_range(data_desc_addr, 16) {
+    return
+  }
+  let data_addr = self.bus.load_u64(data_desc_addr)
+  let data_len = self.bus.load_u32(data_desc_addr + 8U.to_uint64()).to_int()
+  let data_flags = self.bus.load_u16(data_desc_addr + 12U.to_uint64())
+  let status_index = self.bus
+    .load_u16(data_desc_addr + 14U.to_uint64())
+    .to_int()
+  if !virtio_blk_desc_has_next(data_flags) ||
+    !virtio_blk_desc_is_write(data_flags) {
+    return
+  }
+  let status_desc_addr = virtio_blk_desc_addr(desc_base, status_index)
+  if !self.bus.contains_range(status_desc_addr, 16) {
+    return
+  }
+  let status_addr = self.bus.load_u64(status_desc_addr)
+  let status_flags = self.bus.load_u16(status_desc_addr + 12U.to_uint64())
+  if !virtio_blk_desc_is_write(status_flags) {
+    return
+  }
+  let request_type = self.bus.load_u32(header_addr)
+  let sector = self.bus.load_u64(header_addr + 8U.to_uint64())
+  if request_type == virtio_blk_t_in {
+    let copied = self.virtio_blk_copy_sector_to_guest(
+      sector, data_addr, data_len,
+    )
+    self.virtio_blk_write_status(status_addr, virtio_blk_status_ok)
+    self.virtio_blk_finish_used(
+      used_base,
+      queue_num,
+      head.reinterpret_as_uint().to_uint64(),
+      (copied + 1).reinterpret_as_uint().to_uint64(),
+    )
+  } else {
+    self.virtio_blk_write_status(status_addr, virtio_blk_status_unsupp)
+    self.virtio_blk_finish_used(
+      used_base,
+      queue_num,
+      head.reinterpret_as_uint().to_uint64(),
+      1U.to_uint64(),
+    )
+  }
+}
+
+///|
+fn Runner::virtio_blk_process_available(self : Runner) -> Unit {
+  let queue_num = self.virtio_blk_state[virtio_blk_idx_queue_num].to_int()
+  if queue_num <= 0 ||
+    queue_num > virtio_blk_queue_max.to_int() ||
+    self.virtio_blk_state[virtio_blk_idx_queue_ready] == 0U.to_uint64() {
+    return
+  }
+  let desc_base = self.virtio_blk_queue_addr(
+    virtio_blk_idx_queue_desc_lo, virtio_blk_idx_queue_desc_hi,
+  )
+  let avail_base = self.virtio_blk_queue_addr(
+    virtio_blk_idx_queue_driver_lo, virtio_blk_idx_queue_driver_hi,
+  )
+  let used_base = self.virtio_blk_queue_addr(
+    virtio_blk_idx_queue_device_lo, virtio_blk_idx_queue_device_hi,
+  )
+  if !self.bus.contains_range(avail_base, 4) ||
+    !self.bus.contains_range(used_base, 4) {
+    return
+  }
+  let avail_idx = self.bus.load_u16(avail_base + 2U.to_uint64())
+  let mut last = self.virtio_blk_state[virtio_blk_idx_last_avail] &
+    0xffffU.to_uint64()
+  let mut processed = 0
+  while last != avail_idx && processed < queue_num {
+    let slot = (last % queue_num.reinterpret_as_uint().to_uint64()).to_int()
+    let ring_addr = avail_base +
+      4U.to_uint64() +
+      (slot * 2).reinterpret_as_uint().to_uint64()
+    if !self.bus.contains_range(ring_addr, 2) {
+      return
+    }
+    let head = self.bus.load_u16(ring_addr).to_int()
+    if head >= 0 && head < queue_num {
+      self.virtio_blk_process_chain(desc_base, used_base, queue_num, head)
+    }
+    last = (last + 1U.to_uint64()) & 0xffffU.to_uint64()
+    processed += 1
+  }
+  self.virtio_blk_state[virtio_blk_idx_last_avail] = last
+}
+
+///|
 fn Runner::virtio_blk_read_u32(self : Runner, off : UInt64) -> UInt64 {
   // This first slice exposes the Linux-visible MMIO transport identity and
   // queue configuration registers. Request processing is added in a later
@@ -119,6 +342,10 @@ fn Runner::virtio_blk_write_u32(
     0x044 =>
       self.virtio_blk_state[virtio_blk_idx_queue_ready] = value32 &
         1U.to_uint64()
+    0x050 =>
+      if (value32 & 0xffffU.to_uint64()) == 0U.to_uint64() {
+        self.virtio_blk_process_available()
+      }
     0x060 => ()
     0x064 =>
       self.virtio_blk_state[virtio_blk_idx_interrupt_status] = self.virtio_blk_state[virtio_blk_idx_interrupt_status] &
