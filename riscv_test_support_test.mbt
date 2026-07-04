@@ -642,6 +642,46 @@ fn encode_vrsub_vi(vd : Int, vs2 : Int, imm : Int, vm : Bool) -> UInt {
 }
 
 ///|
+fn encode_vwaddu_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x30U, vm, vs2, vs1, 0x0U, vd)
+}
+
+///|
+fn encode_vwaddu_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x30U, vm, vs2, rs1, 0x4U, vd)
+}
+
+///|
+fn encode_vwadd_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x31U, vm, vs2, vs1, 0x0U, vd)
+}
+
+///|
+fn encode_vwadd_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x31U, vm, vs2, rs1, 0x4U, vd)
+}
+
+///|
+fn encode_vwsubu_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x32U, vm, vs2, vs1, 0x0U, vd)
+}
+
+///|
+fn encode_vwsubu_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x32U, vm, vs2, rs1, 0x4U, vd)
+}
+
+///|
+fn encode_vwsub_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x33U, vm, vs2, vs1, 0x0U, vd)
+}
+
+///|
+fn encode_vwsub_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vop(0x33U, vm, vs2, rs1, 0x4U, vd)
+}
+
+///|
 fn encode_vmul_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
   encode_vop(0x25U, vm, vs2, vs1, 0x2U, vd)
 }

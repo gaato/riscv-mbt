@@ -590,6 +590,70 @@ test "decode first vector arithmetic slice" {
     }
     _ => fail("expected masked vrsub.vi")
   }
+  match decode(encode_vwaddu_vv(1, 2, 3, true)) {
+    VwadduVv(vd, vs2, vs1) => {
+      assert_eq(vd, 1)
+      assert_eq(vs2, 2)
+      assert_eq(vs1, 3)
+    }
+    _ => fail("expected vwaddu.vv")
+  }
+  match decode(encode_vwaddu_vx(4, 5, 6, true)) {
+    VwadduVx(vd, vs2, rs1) => {
+      assert_eq(vd, 4)
+      assert_eq(vs2, 5)
+      assert_eq(rs1, 6)
+    }
+    _ => fail("expected vwaddu.vx")
+  }
+  match decode(encode_vwadd_vv(7, 8, 9, false)) {
+    VwaddVv(vd, vs2, vs1) => {
+      assert_eq(vd, 7)
+      assert_eq(vs2, 8)
+      assert_eq(vs1, 9)
+    }
+    _ => fail("expected vwadd.vv")
+  }
+  match decode(encode_vwadd_vx(10, 11, 12, true)) {
+    VwaddVx(vd, vs2, rs1) => {
+      assert_eq(vd, 10)
+      assert_eq(vs2, 11)
+      assert_eq(rs1, 12)
+    }
+    _ => fail("expected vwadd.vx")
+  }
+  match decode(encode_vwsubu_vv(13, 14, 15, true)) {
+    VwsubuVv(vd, vs2, vs1) => {
+      assert_eq(vd, 13)
+      assert_eq(vs2, 14)
+      assert_eq(vs1, 15)
+    }
+    _ => fail("expected vwsubu.vv")
+  }
+  match decode(encode_vwsubu_vx(16, 17, 18, false)) {
+    VwsubuVx(vd, vs2, rs1) => {
+      assert_eq(vd, 16)
+      assert_eq(vs2, 17)
+      assert_eq(rs1, 18)
+    }
+    _ => fail("expected vwsubu.vx")
+  }
+  match decode(encode_vwsub_vv(19, 20, 21, true)) {
+    VwsubVv(vd, vs2, vs1) => {
+      assert_eq(vd, 19)
+      assert_eq(vs2, 20)
+      assert_eq(vs1, 21)
+    }
+    _ => fail("expected vwsub.vv")
+  }
+  match decode(encode_vwsub_vx(22, 23, 24, false)) {
+    VwsubVx(vd, vs2, rs1) => {
+      assert_eq(vd, 22)
+      assert_eq(vs2, 23)
+      assert_eq(rs1, 24)
+    }
+    _ => fail("expected vwsub.vx")
+  }
   match decode(encode_vmul_vv(30, 31, 1, true)) {
     VmulVv(vd, vs2, vs1) => {
       assert_eq(vd, 30)

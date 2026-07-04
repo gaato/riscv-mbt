@@ -14,6 +14,11 @@ fn test_join_u64(upper : UInt, lower : UInt) -> UInt64 {
 }
 
 ///|
+fn test_not_u64(value : UInt64) -> UInt64 {
+  value ^ test_join_u64(0xffffffffU, 0xffffffffU)
+}
+
+///|
 fn assert_vreg_e32x4(
   runner : Runner,
   vreg : Int,
@@ -1790,6 +1795,128 @@ test "rv64fd without v rejects first vector arithmetic slice as illegal" {
       assert_eq(info.trap_value, raw.to_uint64())
     }
     _ => fail("expected vector arithmetic to trap without v")
+  }
+}
+
+///|
+test "rv64fdv vector widening add-sub supports e32 to e64 results" {
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.load_program(
+    words_to_bytes([
+      encode_i(4, 0, 0x0U, 1, 0x13U),
+      encode_vsetvli(2, 1, 0x10U),
+      encode_vwadd_vv(8, 4, 5, true),
+      encode_vwaddu_vx(10, 4, 6, true),
+      encode_vwsub_vv(12, 4, 5, true),
+      encode_vwsubu_vx(14, 4, 7, true),
+    ]),
+    0U,
+  )
+  runner.cpu.write_vreg(4, 0, test_join_u64(2U, 0xffffffffU))
+  runner.cpu.write_vreg(4, 1, test_join_u64(0x80000000U, 7U))
+  runner.cpu.write_vreg(5, 0, test_join_u64(3U, 1U))
+  runner.cpu.write_vreg(5, 1, test_join_u64(0xffffffffU, 8U))
+  runner.cpu.write_reg(6, 5U.to_uint64())
+  runner.cpu.write_reg(7, 9U.to_uint64())
+  match runner.run(6) {
+    Running => ()
+    _ => fail("expected vector widening arithmetic sequence to run")
+  }
+  assert_eq(runner.read_vreg_u64(8, 0), 0U.to_uint64())
+  assert_eq(runner.read_vreg_u64(8, 1), 5U.to_uint64())
+  assert_eq(runner.read_vreg_u64(8, 2), 15U.to_uint64())
+  assert_eq(runner.read_vreg_u64(8, 3), test_join_u64(0xffffffffU, 0x7fffffffU))
+  assert_eq(
+    runner.read_vreg_u64(10, 0),
+    (1U.to_uint64() << 32) | 4U.to_uint64(),
+  )
+  assert_eq(runner.read_vreg_u64(10, 1), 7U.to_uint64())
+  assert_eq(runner.read_vreg_u64(10, 2), 12U.to_uint64())
+  assert_eq(runner.read_vreg_u64(10, 3), 0x80000005U.to_uint64())
+  assert_eq(runner.read_vreg_u64(12, 0), test_not_u64(1U.to_uint64()))
+  assert_eq(runner.read_vreg_u64(12, 1), test_not_u64(0U.to_uint64()))
+  assert_eq(runner.read_vreg_u64(12, 2), test_not_u64(0U.to_uint64()))
+  assert_eq(
+    runner.read_vreg_u64(12, 3),
+    test_join_u64(0xffffffffU, 0x80000001U),
+  )
+  assert_eq(runner.read_vreg_u64(14, 0), 0xfffffff6U.to_uint64())
+  assert_eq(runner.read_vreg_u64(14, 1), test_not_u64(6U.to_uint64()))
+  assert_eq(runner.read_vreg_u64(14, 2), test_not_u64(1U.to_uint64()))
+  assert_eq(runner.read_vreg_u64(14, 3), 0x7ffffff7U.to_uint64())
+}
+
+///|
+test "rv64fdv vector widening arithmetic honors masks and rejects bad groups" {
+  let masked = make_runner(rv64fdv_machine_config())
+  masked.load_program(
+    words_to_bytes([
+      encode_i(4, 0, 0x0U, 1, 0x13U),
+      encode_vsetvli(2, 1, 0x10U),
+      encode_vwadd_vv(6, 4, 5, false),
+    ]),
+    0U,
+  )
+  masked.cpu.write_vreg(0, 0, 0x5U.to_uint64())
+  masked.cpu.write_vreg(4, 0, test_join_u64(2U, 1U))
+  masked.cpu.write_vreg(4, 1, test_join_u64(4U, 3U))
+  masked.cpu.write_vreg(5, 0, test_join_u64(20U, 10U))
+  masked.cpu.write_vreg(5, 1, test_join_u64(40U, 30U))
+  let aaaa = test_join_u64(0xaaaaaaaaU, 0xaaaaaaaaU)
+  let bbbb = test_join_u64(0xbbbbbbbbU, 0xbbbbbbbbU)
+  for word in 0..<2 {
+    masked.cpu.write_vreg(6, word, aaaa)
+    masked.cpu.write_vreg(7, word, bbbb)
+  }
+  match masked.run(3) {
+    Running => ()
+    _ => fail("expected masked vector widening arithmetic to run")
+  }
+  assert_eq(masked.read_vreg_u64(6, 0), 11U.to_uint64())
+  assert_eq(masked.read_vreg_u64(6, 1), aaaa)
+  assert_eq(masked.read_vreg_u64(7, 0), 33U.to_uint64())
+  assert_eq(masked.read_vreg_u64(7, 1), bbbb)
+
+  let bad_dest = make_runner(rv64fdv_machine_config())
+  let bad_raw = encode_vwadd_vv(7, 4, 5, true)
+  bad_dest.load_program(
+    words_to_bytes([
+      encode_i(4, 0, 0x0U, 1, 0x13U),
+      encode_vsetvli(2, 1, 0x10U),
+      bad_raw,
+    ]),
+    0U,
+  )
+  match bad_dest.run(3) {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+      assert_eq(info.trap_value, bad_raw.to_uint64())
+    }
+    _ => fail("expected misaligned widening destination to trap")
+  }
+
+  let e64 = make_runner(rv64fdv_machine_config())
+  let e64_raw = encode_vwadd_vv(8, 4, 5, true)
+  e64.load_program(
+    words_to_bytes([
+      encode_i(2, 0, 0x0U, 1, 0x13U),
+      encode_vsetvli(2, 1, 0x18U),
+      e64_raw,
+    ]),
+    0U,
+  )
+  match e64.run(3) {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+      assert_eq(info.trap_value, e64_raw.to_uint64())
+    }
+    _ => fail("expected e64 widening result to trap")
   }
 }
 

@@ -1493,6 +1493,22 @@ pub fn Runner::step(self : Runner) -> StepResult {
       self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
     VrsubVi(_, _, _) =>
       self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VwadduVv(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VwadduVx(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VwaddVv(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VwaddVx(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VwsubuVv(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VwsubuVx(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VwsubVv(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VwsubVx(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
     VmulVv(_, _, _) =>
       self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
     VmulVx(_, _, _) =>

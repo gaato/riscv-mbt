@@ -1044,6 +1044,18 @@ fn Runner::execute_vector_first_slice(
         raw,
       )
     }
+    VwadduVv(_, _, _)
+    | VwadduVx(_, _, _)
+    | VwaddVv(_, _, _)
+    | VwaddVx(_, _, _)
+    | VwsubuVv(_, _, _)
+    | VwsubuVx(_, _, _)
+    | VwsubVv(_, _, _)
+    | VwsubVx(_, _, _) =>
+      self.execute_vector_widening_instruction(
+        instruction, config, active_elems, mask_bits, use_mask, current_pc, next_pc,
+        raw,
+      )
     VmulVv(_, _, _)
     | VmulVx(_, _, _)
     | VmulhuVv(_, _, _)
