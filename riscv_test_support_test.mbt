@@ -296,6 +296,22 @@ fn encode_vload_unit_stride_lumop(
 }
 
 ///|
+fn encode_vload_unit_stride_segment(
+  vd : Int,
+  rs1 : Int,
+  elem_bits : Int,
+  fields : Int,
+  vm : Bool,
+) -> UInt {
+  (((fields - 1).reinterpret_as_uint() & 0x7U) << 29) |
+  (((if vm { 1U } else { 0U }) & 0x1U) << 25) |
+  (rs1.reinterpret_as_uint() << 15) |
+  (encode_vmem_width(elem_bits) << 12) |
+  (vd.reinterpret_as_uint() << 7) |
+  0x07U
+}
+
+///|
 fn encode_vload_mask(vd : Int, rs1 : Int) -> UInt {
   (1U << 25) |
   (0x0bU << 20) |
@@ -362,6 +378,22 @@ fn encode_vstore_unit_stride(
   elem_bits : Int,
   vm : Bool,
 ) -> UInt {
+  (((if vm { 1U } else { 0U }) & 0x1U) << 25) |
+  (rs1.reinterpret_as_uint() << 15) |
+  (encode_vmem_width(elem_bits) << 12) |
+  (vs3.reinterpret_as_uint() << 7) |
+  0x27U
+}
+
+///|
+fn encode_vstore_unit_stride_segment(
+  vs3 : Int,
+  rs1 : Int,
+  elem_bits : Int,
+  fields : Int,
+  vm : Bool,
+) -> UInt {
+  (((fields - 1).reinterpret_as_uint() & 0x7U) << 29) |
   (((if vm { 1U } else { 0U }) & 0x1U) << 25) |
   (rs1.reinterpret_as_uint() << 15) |
   (encode_vmem_width(elem_bits) << 12) |
@@ -490,6 +522,11 @@ fn encode_vlse32(vd : Int, rs1 : Int, rs2 : Int, vm : Bool) -> UInt {
 }
 
 ///|
+fn encode_vlseg2e32(vd : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vload_unit_stride_segment(vd, rs1, 32, 2, vm)
+}
+
+///|
 fn encode_vse8(vs3 : Int, rs1 : Int, vm : Bool) -> UInt {
   encode_vstore_unit_stride(vs3, rs1, 8, vm)
 }
@@ -527,6 +564,11 @@ fn encode_vsoxei32(vs3 : Int, rs1 : Int, vs2 : Int, vm : Bool) -> UInt {
 ///|
 fn encode_vsse32(vs3 : Int, rs1 : Int, rs2 : Int, vm : Bool) -> UInt {
   encode_vstore_strided(vs3, rs1, rs2, 32, vm)
+}
+
+///|
+fn encode_vsseg2e32(vs3 : Int, rs1 : Int, vm : Bool) -> UInt {
+  encode_vstore_unit_stride_segment(vs3, rs1, 32, 2, vm)
 }
 
 ///|

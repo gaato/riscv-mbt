@@ -3704,6 +3704,119 @@ test "rv64fdv vector memory supports fractional lmul register fractions" {
 }
 
 ///|
+test "rv64fdv vector memory supports unit-stride segment e32 loads and stores" {
+  let load32 = make_runner(rv64fdv_machine_config())
+  load32.load_program(
+    words_to_bytes([
+      encode_vsetivli(0, 3U, test_vector_vtypei_for_sew(32)),
+      encode_vlseg2e32(4, 10, true),
+    ]),
+    0U,
+  )
+  load32.cpu.write_reg(10, 0x780U.to_uint64())
+  load32.cpu.write_vreg(4, 0, test_join_u64(0xffffffffU, 0xffffffffU))
+  load32.cpu.write_vreg(4, 1, test_join_u64(0xffffffffU, 0xffffffffU))
+  load32.cpu.write_vreg(5, 0, test_join_u64(0xffffffffU, 0xffffffffU))
+  load32.cpu.write_vreg(5, 1, test_join_u64(0xffffffffU, 0xffffffffU))
+  load32.bus.store_u32(0x780U.to_uint64(), 0x10U.to_uint64())
+  load32.bus.store_u32(0x784U.to_uint64(), 0x20U.to_uint64())
+  load32.bus.store_u32(0x788U.to_uint64(), 0x11U.to_uint64())
+  load32.bus.store_u32(0x78cU.to_uint64(), 0x21U.to_uint64())
+  load32.bus.store_u32(0x790U.to_uint64(), 0x12U.to_uint64())
+  load32.bus.store_u32(0x794U.to_uint64(), 0x22U.to_uint64())
+  match load32.run(2) {
+    Running => ()
+    _ => fail("expected vlseg2e32.v sequence to run")
+  }
+  assert_eq(load32.read_vreg_u64(4, 0), test_join_u64(0x11U, 0x10U))
+  assert_eq(load32.read_vreg_u64(4, 1), test_join_u64(0xffffffffU, 0x12U))
+  assert_eq(load32.read_vreg_u64(5, 0), test_join_u64(0x21U, 0x20U))
+  assert_eq(load32.read_vreg_u64(5, 1), test_join_u64(0xffffffffU, 0x22U))
+
+  let store32 = make_runner(rv64fdv_machine_config())
+  store32.load_program(
+    words_to_bytes([
+      encode_vsetivli(0, 3U, test_vector_vtypei_for_sew(32)),
+      encode_vsseg2e32(4, 10, true),
+    ]),
+    0U,
+  )
+  store32.cpu.write_reg(10, 0x7c0U.to_uint64())
+  store32.cpu.write_vreg(4, 0, test_join_u64(0x31U, 0x30U))
+  store32.cpu.write_vreg(4, 1, test_join_u64(0xffffffffU, 0x32U))
+  store32.cpu.write_vreg(5, 0, test_join_u64(0x41U, 0x40U))
+  store32.cpu.write_vreg(5, 1, test_join_u64(0xffffffffU, 0x42U))
+  match store32.run(2) {
+    Running => ()
+    _ => fail("expected vsseg2e32.v sequence to run")
+  }
+  assert_eq(store32.bus.load_u32(0x7c0U.to_uint64()), 0x30U.to_uint64())
+  assert_eq(store32.bus.load_u32(0x7c4U.to_uint64()), 0x40U.to_uint64())
+  assert_eq(store32.bus.load_u32(0x7c8U.to_uint64()), 0x31U.to_uint64())
+  assert_eq(store32.bus.load_u32(0x7ccU.to_uint64()), 0x41U.to_uint64())
+  assert_eq(store32.bus.load_u32(0x7d0U.to_uint64()), 0x32U.to_uint64())
+  assert_eq(store32.bus.load_u32(0x7d4U.to_uint64()), 0x42U.to_uint64())
+}
+
+///|
+test "rv64fdv vector segment memory honors masks and avoids partial load commit" {
+  let masked = make_runner(rv64fdv_machine_config())
+  masked.load_program(
+    words_to_bytes([
+      encode_vsetivli(0, 3U, test_vector_vtypei_for_sew(32)),
+      encode_vlseg2e32(6, 10, false),
+    ]),
+    0U,
+  )
+  masked.cpu.write_reg(10, 0x820U.to_uint64())
+  masked.cpu.write_vreg(0, 0, 0x5U.to_uint64())
+  masked.cpu.write_vreg(6, 0, test_join_u64(0xffffffffU, 0xffffffffU))
+  masked.cpu.write_vreg(6, 1, test_join_u64(0xffffffffU, 0xffffffffU))
+  masked.cpu.write_vreg(7, 0, test_join_u64(0xffffffffU, 0xffffffffU))
+  masked.cpu.write_vreg(7, 1, test_join_u64(0xffffffffU, 0xffffffffU))
+  for i in 0..<6 {
+    masked.bus.store_u32(
+      0x820U.to_uint64() + (i * 4).reinterpret_as_uint().to_uint64(),
+      (0x50 + i).reinterpret_as_uint().to_uint64(),
+    )
+  }
+  match masked.run(2) {
+    Running => ()
+    _ => fail("expected masked vlseg2e32.v sequence to run")
+  }
+  assert_eq(masked.read_vreg_u64(6, 0), test_join_u64(0xffffffffU, 0x50U))
+  assert_eq(masked.read_vreg_u64(6, 1), test_join_u64(0xffffffffU, 0x54U))
+  assert_eq(masked.read_vreg_u64(7, 0), test_join_u64(0xffffffffU, 0x51U))
+  assert_eq(masked.read_vreg_u64(7, 1), test_join_u64(0xffffffffU, 0x55U))
+
+  let fault = make_runner(rv64fdv_machine_config())
+  fault.load_program(
+    words_to_bytes([
+      encode_vsetivli(0, 1U, test_vector_vtypei_for_sew(32)),
+      encode_vlseg2e32(8, 10, true),
+    ]),
+    0U,
+  )
+  let base = fault.config.ram_base +
+    fault.config.ram_size.reinterpret_as_uint().to_uint64() -
+    4U.to_uint64()
+  fault.cpu.write_reg(10, base)
+  fault.cpu.write_vreg(8, 0, test_join_u64(0xffffffffU, 0xaaaaaaaaU))
+  fault.cpu.write_vreg(9, 0, test_join_u64(0xffffffffU, 0xbbbbbbbbU))
+  fault.bus.store_u32(base, 0x77777777U.to_uint64())
+  match fault.run(2) {
+    Trap(info) =>
+      match info.cause {
+        LoadAccessFault => ()
+        _ => fail("expected segment field load access fault")
+      }
+    _ => fail("expected vlseg2e32.v field fault to trap")
+  }
+  assert_eq(fault.read_vreg_u64(8, 0), test_join_u64(0xffffffffU, 0xaaaaaaaaU))
+  assert_eq(fault.read_vreg_u64(9, 0), test_join_u64(0xffffffffU, 0xbbbbbbbbU))
+}
+
+///|
 test "rv64fdv vector memory supports mask loads and stores" {
   let load_mask = make_runner(rv64fdv_machine_config())
   load_mask.load_program(

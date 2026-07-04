@@ -34,6 +34,51 @@ fn Runner::vector_memory_group_config(
 }
 
 ///|
+fn vector_segment_field_vreg(
+  base_vreg : Int,
+  field : Int,
+  lmul_log2 : Int,
+) -> Int {
+  base_vreg + field * vector_lmul_registers(lmul_log2)
+}
+
+///|
+fn vector_segment_group_aligned(
+  base_vreg : Int,
+  field_count : Int,
+  lmul_log2 : Int,
+) -> Bool {
+  for field in 0..<field_count {
+    if !vector_group_aligned(
+        vector_segment_field_vreg(base_vreg, field, lmul_log2),
+        lmul_log2,
+      ) {
+      return false
+    }
+  }
+  true
+}
+
+///|
+fn Runner::vector_segment_memory_config(
+  self : Runner,
+  base_vreg : Int,
+  elem_bytes : Int,
+  field_count : Int,
+) -> VectorExecConfig? {
+  match self.vector_memory_exec_config() {
+    Some(config) =>
+      if config.sew_bits == elem_bytes * 8 &&
+        vector_segment_group_aligned(base_vreg, field_count, config.lmul_log2) {
+        Some(config)
+      } else {
+        None
+      }
+    None => None
+  }
+}
+
+///|
 fn Runner::vector_mask_memory_config(self : Runner) -> VectorExecConfig? {
   match self.current_vector_exec_config() {
     Some(config) =>
@@ -94,6 +139,20 @@ fn vector_strided_addr(
 ///|
 fn vector_indexed_addr(base : UInt64, offset : UInt64) -> UInt64 {
   base + offset
+}
+
+///|
+fn vector_segment_unit_stride_addr(
+  base : UInt64,
+  elem_index : Int,
+  field : Int,
+  field_count : Int,
+  elem_bytes : Int,
+) -> UInt64 {
+  base +
+  ((elem_index * field_count + field) * elem_bytes)
+  .reinterpret_as_uint()
+  .to_uint64()
 }
 
 ///|
@@ -184,6 +243,70 @@ fn Runner::execute_vector_load_unit_stride(
   for commit_index in 0..<elems.length() {
     self.write_vreg_group_elem(
       vd,
+      elems[commit_index],
+      sew_bits,
+      values[commit_index],
+    )
+  }
+  self.cpu.pc = next_pc
+  Running
+}
+
+///|
+fn Runner::execute_vector_load_unit_stride_segment(
+  self : Runner,
+  vd : Int,
+  rs1 : Int,
+  field_count : Int,
+  elem_bytes : Int,
+  current_pc : UInt64,
+  next_pc : UInt64,
+  raw : UInt,
+) -> StepResult {
+  let config = match
+    self.vector_segment_memory_config(vd, elem_bytes, field_count) {
+    Some(config) => config
+    None =>
+      return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+  }
+  let sew_bits = elem_bytes * 8
+  let active_elems = config.vl.reinterpret_as_int64().to_int()
+  let base = self.cpu.read_reg(rs1)
+  let elems : Array[Int] = []
+  let fields : Array[Int] = []
+  let pas : Array[UInt64] = []
+  let values : Array[UInt64] = []
+  // Unit-stride segment memory is laid out as packed structures:
+  // element0.field0, element0.field1, element1.field0, ...
+  for elem in 0..<active_elems {
+    if self.vector_memory_elem_active(raw, elem) {
+      for field in 0..<field_count {
+        let addr = vector_segment_unit_stride_addr(
+          base, elem, field, field_count, elem_bytes,
+        )
+        let (pa, check) = self.load_check(addr, elem_bytes)
+        match check {
+          Some(result) => return result
+          None => {
+            elems.push(elem)
+            fields.push(field)
+            pas.push(pa)
+          }
+        }
+      }
+    }
+  }
+  for pa in pas {
+    values.push(self.vector_load_elem_bits(pa, elem_bytes))
+  }
+  for commit_index in 0..<pas.length() {
+    let field_vreg = vector_segment_field_vreg(
+      vd,
+      fields[commit_index],
+      config.lmul_log2,
+    )
+    self.write_vreg_group_elem(
+      field_vreg,
       elems[commit_index],
       sew_bits,
       values[commit_index],
@@ -439,6 +562,61 @@ fn Runner::execute_vector_store_unit_stride(
 }
 
 ///|
+fn Runner::execute_vector_store_unit_stride_segment(
+  self : Runner,
+  vs3 : Int,
+  rs1 : Int,
+  field_count : Int,
+  elem_bytes : Int,
+  current_pc : UInt64,
+  next_pc : UInt64,
+  raw : UInt,
+) -> StepResult {
+  let config = match
+    self.vector_segment_memory_config(vs3, elem_bytes, field_count) {
+    Some(config) => config
+    None =>
+      return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+  }
+  let sew_bits = elem_bytes * 8
+  let active_elems = config.vl.reinterpret_as_int64().to_int()
+  let base = self.cpu.read_reg(rs1)
+  let pas : Array[UInt64] = []
+  let values : Array[UInt64] = []
+  for elem in 0..<active_elems {
+    if self.vector_memory_elem_active(raw, elem) {
+      for field in 0..<field_count {
+        let addr = vector_segment_unit_stride_addr(
+          base, elem, field, field_count, elem_bytes,
+        )
+        let (pa, check) = self.store_check(addr, elem_bytes)
+        match check {
+          Some(result) => return result
+          None => {
+            let field_vreg = vector_segment_field_vreg(
+              vs3,
+              field,
+              config.lmul_log2,
+            )
+            pas.push(pa)
+            values.push(self.read_vreg_group_elem(field_vreg, elem, sew_bits))
+          }
+        }
+      }
+    }
+  }
+  for commit_index in 0..<pas.length() {
+    self.vector_store_elem_bits(
+      pas[commit_index],
+      elem_bytes,
+      values[commit_index],
+    )
+  }
+  self.cpu.pc = next_pc
+  Running
+}
+
+///|
 fn Runner::execute_vector_mask_store(
   self : Runner,
   vs3 : Int,
@@ -602,6 +780,10 @@ fn Runner::execute_vector_memory_first_slice(
       self.execute_vector_load_fault_only_first(
         vd, rs1, 8, current_pc, next_pc, raw,
       )
+    Vlseg2e32V(vd, rs1) =>
+      self.execute_vector_load_unit_stride_segment(
+        vd, rs1, 2, 4, current_pc, next_pc, raw,
+      )
     Vluxei32V(vd, rs1, vs2) =>
       self.execute_vector_load_indexed_e32(
         vd, rs1, vs2, current_pc, next_pc, raw,
@@ -631,6 +813,10 @@ fn Runner::execute_vector_memory_first_slice(
     Vse64V(vs3, rs1) =>
       self.execute_vector_store_unit_stride(
         vs3, rs1, 8, current_pc, next_pc, raw,
+      )
+    Vsseg2e32V(vs3, rs1) =>
+      self.execute_vector_store_unit_stride_segment(
+        vs3, rs1, 2, 4, current_pc, next_pc, raw,
       )
     Vsuxei32V(vs3, rs1, vs2) =>
       self.execute_vector_store_indexed_e32(

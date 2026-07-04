@@ -1705,6 +1705,10 @@ pub fn Runner::step(self : Runner) -> StepResult {
       self.execute_vector_memory_first_slice(
         instruction, current_pc, next_pc, raw,
       )
+    Vlseg2e32V(_, _) =>
+      self.execute_vector_memory_first_slice(
+        instruction, current_pc, next_pc, raw,
+      )
     Vluxei32V(_, _, _) =>
       self.execute_vector_memory_first_slice(
         instruction, current_pc, next_pc, raw,
@@ -1730,6 +1734,10 @@ pub fn Runner::step(self : Runner) -> StepResult {
         instruction, current_pc, next_pc, raw,
       )
     Vse64V(_, _) =>
+      self.execute_vector_memory_first_slice(
+        instruction, current_pc, next_pc, raw,
+      )
+    Vsseg2e32V(_, _) =>
       self.execute_vector_memory_first_slice(
         instruction, current_pc, next_pc, raw,
       )
