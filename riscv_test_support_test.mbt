@@ -508,8 +508,28 @@ fn encode_vmv_v_x(vd : Int, rs1 : Int) -> UInt {
 }
 
 ///|
+fn encode_vmv_v_v(vd : Int, vs1 : Int) -> UInt {
+  encode_vop(0x17U, true, 0, vs1, 0x0U, vd)
+}
+
+///|
 fn encode_vmv_x_s(rd : Int, vs2 : Int) -> UInt {
   encode_vop(0x10U, true, vs2, 0, 0x6U, rd)
+}
+
+///|
+fn encode_vmerge_vvm(vd : Int, vs2 : Int, vs1 : Int) -> UInt {
+  encode_vop(0x17U, false, vs2, vs1, 0x0U, vd)
+}
+
+///|
+fn encode_vmerge_vxm(vd : Int, vs2 : Int, rs1 : Int) -> UInt {
+  encode_vop(0x17U, false, vs2, rs1, 0x4U, vd)
+}
+
+///|
+fn encode_vmerge_vim(vd : Int, vs2 : Int, imm : Int) -> UInt {
+  encode_vop(0x17U, false, vs2, imm, 0x3U, vd)
 }
 
 ///|

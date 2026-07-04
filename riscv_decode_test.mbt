@@ -411,6 +411,41 @@ test "decode first vector arithmetic slice" {
     }
     _ => fail("expected vmv.x.s")
   }
+  match decode(encode_vmv_v_v(6, 7)) {
+    VmvVV(vd, vs1) => {
+      assert_eq(vd, 6)
+      assert_eq(vs1, 7)
+    }
+    _ => fail("expected vmv.v.v")
+  }
+  match decode(encode_vop(0x17U, true, 2, 3, 0x0U, 1)) {
+    Unknown(_) => ()
+    _ => fail("expected unmasked non-vmv vmerge.vvm encoding to be reserved")
+  }
+  match decode(encode_vmerge_vvm(8, 9, 10)) {
+    VmergeVvm(vd, vs2, vs1) => {
+      assert_eq(vd, 8)
+      assert_eq(vs2, 9)
+      assert_eq(vs1, 10)
+    }
+    _ => fail("expected vmerge.vvm")
+  }
+  match decode(encode_vmerge_vxm(11, 12, 13)) {
+    VmergeVxm(vd, vs2, rs1) => {
+      assert_eq(vd, 11)
+      assert_eq(vs2, 12)
+      assert_eq(rs1, 13)
+    }
+    _ => fail("expected vmerge.vxm")
+  }
+  match decode(encode_vmerge_vim(14, 15, -1)) {
+    VmergeVim(vd, vs2, imm) => {
+      assert_eq(vd, 14)
+      assert_eq(vs2, 15)
+      assert_eq(imm, -1)
+    }
+    _ => fail("expected vmerge.vim")
+  }
   match decode(encode_vadd_vv(6, 7, 8, true)) {
     VaddVv(vd, vs2, vs1) => {
       assert_eq(vd, 6)

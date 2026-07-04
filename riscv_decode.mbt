@@ -973,7 +973,11 @@ fn instruction_supported_for_current_config(
     Vsetvl(_, _, _) => has_v
     VmvVI(_, _) => has_v
     VmvVX(_, _) => has_v
+    VmvVV(_, _) => has_v
     VmvXS(_, _) => has_v
+    VmergeVvm(_, _, _) => has_v
+    VmergeVxm(_, _, _) => has_v
+    VmergeVim(_, _, _) => has_v
     VaddVv(_, _, _) => has_v
     VaddVx(_, _, _) => has_v
     VaddVi(_, _, _) => has_v
@@ -1246,6 +1250,16 @@ pub fn decode(raw : UInt) -> Instruction {
             0x0aU => VorVv(rd(raw), rs2(raw), rs1(raw))
             0x0bU => VxorVv(rd(raw), rs2(raw), rs1(raw))
             0x0cU => VrgatherVv(rd(raw), rs2(raw), rs1(raw))
+            0x17U =>
+              // `vmv.v.v` is the unmasked `vmerge.vvm` encoding with vs2=v0.
+              // Other unmasked 0x17 OPIVV forms remain reserved.
+              if ((raw >> 25) & 0x1U) == 1U && rs2(raw) == 0 {
+                VmvVV(rd(raw), rs1(raw))
+              } else if ((raw >> 25) & 0x1U) == 0U {
+                VmergeVvm(rd(raw), rs2(raw), rs1(raw))
+              } else {
+                Unknown(raw)
+              }
             0x18U => VmseqVv(rd(raw), rs2(raw), rs1(raw))
             0x19U => VmsneVv(rd(raw), rs2(raw), rs1(raw))
             0x1aU => VmsltuVv(rd(raw), rs2(raw), rs1(raw))
@@ -1367,6 +1381,12 @@ pub fn decode(raw : UInt) -> Instruction {
             0x17U =>
               if ((raw >> 25) & 0x1U) == 1U && rs2(raw) == 0 {
                 VmvVI(rd(raw), sign_extend((raw >> 15) & 0x1fU, 5))
+              } else if ((raw >> 25) & 0x1U) == 0U {
+                VmergeVim(
+                  rd(raw),
+                  rs2(raw),
+                  sign_extend((raw >> 15) & 0x1fU, 5),
+                )
               } else {
                 Unknown(raw)
               }
@@ -1400,6 +1420,8 @@ pub fn decode(raw : UInt) -> Instruction {
             0x17U =>
               if ((raw >> 25) & 0x1U) == 1U && rs2(raw) == 0 {
                 VmvVX(rd(raw), rs1(raw))
+              } else if ((raw >> 25) & 0x1U) == 0U {
+                VmergeVxm(rd(raw), rs2(raw), rs1(raw))
               } else {
                 Unknown(raw)
               }

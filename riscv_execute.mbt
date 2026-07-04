@@ -1469,7 +1469,15 @@ pub fn Runner::step(self : Runner) -> StepResult {
       self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
     VmvVX(_, _) =>
       self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VmvVV(_, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
     VmvXS(_, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VmergeVvm(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VmergeVxm(_, _, _) =>
+      self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
+    VmergeVim(_, _, _) =>
       self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)
     VaddVv(_, _, _) =>
       self.execute_vector_first_slice(instruction, current_pc, next_pc, raw)

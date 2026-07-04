@@ -844,6 +844,10 @@ fn Runner::execute_vector_first_slice(
       self.cpu.pc = next_pc
       Running
     }
+    VmvVV(vd, vs1) =>
+      self.execute_vector_move_vv(
+        vd, vs1, config, active_elems, current_pc, next_pc, raw,
+      )
     VmvXS(rd, vs2) => {
       if !vector_group_aligned(vs2, config.lmul_log2) {
         return self.raise_vector_group_misaligned(current_pc, raw)
@@ -858,6 +862,22 @@ fn Runner::execute_vector_first_slice(
       )
       self.cpu.pc = next_pc
       Running
+    }
+    VmergeVvm(vd, vs2, vs1) =>
+      self.execute_vector_merge_vv(
+        vd, vs2, vs1, config, active_elems, current_pc, next_pc, raw,
+      )
+    VmergeVxm(vd, vs2, rs1) => {
+      let scalar = self.cpu.read_reg(rs1) & sew_mask
+      self.execute_vector_merge_scalar(
+        vd, vs2, scalar, config, active_elems, current_pc, next_pc, raw,
+      )
+    }
+    VmergeVim(vd, vs2, imm) => {
+      let scalar = int_to_uint64_bits(imm) & sew_mask
+      self.execute_vector_merge_scalar(
+        vd, vs2, scalar, config, active_elems, current_pc, next_pc, raw,
+      )
     }
     VaddVv(vd, vs2, vs1) =>
       self.execute_vector_binary_vv(
