@@ -480,7 +480,7 @@ implemented.
   virtio-net or a deliberate local repository/cache design, and the dynamic
   `/sbin/apk` loader path remains a separate performance diagnostic.
 - Added the first local-repository layout experiment: the rootfs builder now
-  copies `APKINDEX.tar.gz` and the offline package files both directly under
+  lays out `APKINDEX.tar.gz` and offline package files both directly under
   `/root/riscv-mbt-apks` and under `/root/riscv-mbt-apks/riscv64`. The arch
   subdirectory matters because `apk.static --repository /root/riscv-mbt-apks`
   looks for `/root/riscv-mbt-apks/riscv64/APKINDEX.tar.gz`.
@@ -488,34 +488,36 @@ implemented.
   repository-shaped path with
   `apk.static --no-network --allow-untrusted --repository /root/riscv-mbt-apks add ddate`.
   The first run before the arch subdirectory reported missing
-  `riscv64/APKINDEX.tar.gz`. After adding that layout, the probe reaches
-  `apk-local-repo-files-ok` and starts the name-based `apk add ddate`, but does
+  `riscv64/APKINDEX.tar.gz`. After adding that layout, the probe reached
+  `apk-local-repo-files-ok` and started the name-based `apk add ddate`, but did
   not reach `apk-local-repo-add-ok` within the 120,000,000 post-command step
-  budget. It reports `outcome=post-init-command-timeout`,
-  `post_init_apk_local_repo_smoke=true`, `post_init_command_index=2`,
-  `virtio_blk=1482 read-req/6469632 read-bytes 1 write-req/1024 write-bytes`,
-  and `post_init_command_virtio_delta=979 read-req/4866048 read-bytes 0
-  write-req/0 write-bytes`.
-- Treat the local-repository smoke as a diagnostic for now, not the usability
-  gate. The completed package-manager gate remains the file-path offline add
-  (`--post-init-apk-install-smoke`), while the repository-style `apk add
-  ddate` path needs profiling or storage/read-ahead work before it can replace
-  it.
+  budget while it was still parsing Alpine's full main APKINDEX.
+- The rootfs builder now generates a package-selected local `APKINDEX.tar.gz`
+  for `ALPINE_OFFLINE_APK_PACKAGES` instead of copying Alpine's full main
+  `APKINDEX.tar.gz` into the guest repository. For the default `ddate` proof,
+  that shrinks the guest local index from the cached 522,190-byte upstream
+  index to a 454-byte local tarball containing only the `ddate` package record.
+  The builder also stores both file-path compatibility names such as
+  `ddate.apk` and repository names such as `ddate-0.2.2-r6.apk`.
 - Added a 64 KiB virtio-blk read-ahead cache for request-level reads. The cache
   is invalidated when a new host disk image is loaded and whenever the guest
   writes to the backing image, so it does not intentionally change guest-visible
   disk semantics. A regression covers repeated read hits and invalidation after
   disk reload.
-- The local-repository diagnostic after read-ahead still does not complete
-  `apk.static --repository /root/riscv-mbt-apks add ddate` within the
-  120,000,000 post-command step budget, so this is not a package-manager gate
-  upgrade. It does show that the storage shape is now much better aligned with
-  the observed sequential reads: the run reports `virtio_blk_read_cache=1348
-  hits/134 misses`, while still ending at `outcome=post-init-command-timeout`,
-  `post_init_command_index=2`, and `post_init_command_virtio_delta=979
-  read-req/4866048 read-bytes 0 write-req/0 write-bytes`.
-- The next performance slice should not be another tiny sector cache. Either
-  profile the CPU side of `apk.static` repository parsing now that block data is
-  mostly cache-served, or add richer timing/counter telemetry around
-  post-command execution to separate guest CPU time from host-side block copy
-  cost.
+- Current repository-style package-manager proof:
+  `moon run --target native cmd/alpine_probe xlong --post-init-command-step-budget 120000000 --post-init-apk-local-repo-smoke`
+  reaches `outcome=console-command`, `shell_expect_seen=true`,
+  `post_init_apk_local_repo_smoke=true`, `post_init_command_index=3`, and
+  `post-init-apk-local-repo-ok` at 725,000,000 guest steps. The run reports
+  `virtio_blk=1488 read-req/5962752 read-bytes 8 write-req/21504 write-bytes`
+  and `virtio_blk_read_cache=1350 hits/138 misses`. The UART tail shows
+  `apk-local-repo-files-ok`, `Installing ddate (0.2.2-r6)`,
+  `apk-local-repo-add-ok`, `ddate`, the expected `ddate` output, and
+  `post-init-apk-local-repo-ok`.
+- This is still an offline local repository proof, not a virtio-net or remote
+  repository proof. It does, however, promote name-based
+  `apk.static --repository /root/riscv-mbt-apks add ddate` from a timeout
+  diagnostic to a practical package-manager usability gate. The next
+  package-manager slice should avoid repeated long probes and either add
+  shorter post-init telemetry or move deliberately toward networking/remote
+  repository behavior.

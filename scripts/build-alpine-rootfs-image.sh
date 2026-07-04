@@ -9,6 +9,7 @@ base_url="${ALPINE_BASE_URL:-https://dl-cdn.alpinelinux.org/alpine/latest-stable
 apk_repo_base_url="${ALPINE_APK_REPO_BASE_URL:-https://dl-cdn.alpinelinux.org/alpine/latest-stable/main/$arch}"
 apkindex_url="${ALPINE_APKINDEX_URL:-$apk_repo_base_url/APKINDEX.tar.gz}"
 apkindex_path="$build_dir/APKINDEX.tar.gz"
+local_apkindex_path="$build_dir/APKINDEX-local-$arch.tar.gz"
 include_apk_static="${ALPINE_INCLUDE_APK_STATIC:-1}"
 offline_apk_packages="${ALPINE_OFFLINE_APK_PACKAGES:-ddate}"
 rootfs_name="alpine-minirootfs-$version-$arch.tar.gz"
@@ -51,6 +52,29 @@ download_main_apk() {
   printf '%s\n' "$apk_path"
 }
 
+write_local_apkindex() {
+  local index_dir="$1"
+  rm -rf "$index_dir"
+  mkdir -p "$index_dir"
+  : > "$index_dir/APKINDEX"
+  ensure_apkindex_content
+  for package_name in $offline_apk_packages; do
+    local package_record
+    package_record="$(
+      awk -v package_name="$package_name" 'BEGIN{RS="\n\n"} $0 ~ "(^|\n)P:" package_name "(\n|$)" { print; exit }' <<< "$apkindex_content"
+    )"
+    if [[ -z "$package_record" ]]; then
+      printf '%s not found in %s\n' "$package_name" "$apkindex_url" >&2
+      exit 1
+    fi
+    printf '%s\n\n' "$package_record" >> "$index_dir/APKINDEX"
+  done
+  (
+    cd "$index_dir"
+    tar -czf "$local_apkindex_path" APKINDEX
+  )
+}
+
 if [[ ! -f "$build_dir/$rootfs_name" ]]; then
   curl -L -o "$build_dir/$rootfs_name" "$rootfs_url"
 fi
@@ -77,13 +101,17 @@ fi
 if [[ -n "$offline_apk_packages" ]]; then
   mkdir -p "$root_dir/root/riscv-mbt-apks"
   mkdir -p "$root_dir/root/riscv-mbt-apks/$arch"
-  ensure_apkindex_content
-  cp "$apkindex_path" "$root_dir/root/riscv-mbt-apks/APKINDEX.tar.gz"
-  cp "$apkindex_path" "$root_dir/root/riscv-mbt-apks/$arch/APKINDEX.tar.gz"
+  local_index_dir="$build_dir/local-apkindex"
+  write_local_apkindex "$local_index_dir"
+  cp "$local_apkindex_path" "$root_dir/root/riscv-mbt-apks/APKINDEX.tar.gz"
+  cp "$local_apkindex_path" "$root_dir/root/riscv-mbt-apks/$arch/APKINDEX.tar.gz"
   for package_name in $offline_apk_packages; do
     package_apk="$(download_main_apk "$package_name")"
+    package_apk_name="$(basename "$package_apk")"
     cp "$package_apk" "$root_dir/root/riscv-mbt-apks/$package_name.apk"
     cp "$package_apk" "$root_dir/root/riscv-mbt-apks/$arch/$package_name.apk"
+    cp "$package_apk" "$root_dir/root/riscv-mbt-apks/$package_apk_name"
+    cp "$package_apk" "$root_dir/root/riscv-mbt-apks/$arch/$package_apk_name"
   done
 fi
 
