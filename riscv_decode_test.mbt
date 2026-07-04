@@ -169,6 +169,118 @@ test "decode scalar f instructions" {
     }
     _ => fail("expected fmv.w.x")
   }
+  match decode(encode_fsgnj_s(10, 10, 9)) {
+    FSgnjS(rd, rs1, rs2) => {
+      assert_eq(rd, 9)
+      assert_eq(rs1, 10)
+      assert_eq(rs2, 10)
+    }
+    _ => fail("expected fsgnj.s")
+  }
+  match decode(encode_fsgnjn_s(10, 8, 9)) {
+    FSgnjnS(rd, rs1, rs2) => {
+      assert_eq(rd, 9)
+      assert_eq(rs1, 10)
+      assert_eq(rs2, 8)
+    }
+    _ => fail("expected fsgnjn.s")
+  }
+  match decode(encode_fsgnjx_s(10, 8, 9)) {
+    FSgnjxS(rd, rs1, rs2) => {
+      assert_eq(rd, 9)
+      assert_eq(rs1, 10)
+      assert_eq(rs2, 8)
+    }
+    _ => fail("expected fsgnjx.s")
+  }
+  match decode(encode_fle_s(10, 8, 15)) {
+    FLeS(rd, rs1, rs2) => {
+      assert_eq(rd, 15)
+      assert_eq(rs1, 10)
+      assert_eq(rs2, 8)
+    }
+    _ => fail("expected fle.s")
+  }
+  match decode(encode_flt_s(10, 8, 15)) {
+    FLtS(rd, rs1, rs2) => {
+      assert_eq(rd, 15)
+      assert_eq(rs1, 10)
+      assert_eq(rs2, 8)
+    }
+    _ => fail("expected flt.s")
+  }
+  match decode(encode_feq_s(10, 8, 15)) {
+    FEqS(rd, rs1, rs2) => {
+      assert_eq(rd, 15)
+      assert_eq(rs1, 10)
+      assert_eq(rs2, 8)
+    }
+    _ => fail("expected feq.s")
+  }
+  match decode(encode_fcvt_s_w(14, 0x0U, 15)) {
+    FCvtSW(rd, rs1, rm) => {
+      assert_eq(rd, 15)
+      assert_eq(rs1, 14)
+      assert_eq(rm, 0U)
+    }
+    _ => fail("expected fcvt.s.w")
+  }
+  match decode(encode_fcvt_s_wu(15, 0x0U, 8)) {
+    FCvtSWU(rd, rs1, rm) => {
+      assert_eq(rd, 8)
+      assert_eq(rs1, 15)
+      assert_eq(rm, 0U)
+    }
+    _ => fail("expected fcvt.s.wu")
+  }
+  match decode(encode_fcvt_s_l(13, 0x7U, 15)) {
+    FCvtSL(rd, rs1, rm) => {
+      assert_eq(rd, 15)
+      assert_eq(rs1, 13)
+      assert_eq(rm, 7U)
+    }
+    _ => fail("expected fcvt.s.l")
+  }
+  match decode(encode_fcvt_s_lu(15, 0x7U, 8)) {
+    FCvtSLU(rd, rs1, rm) => {
+      assert_eq(rd, 8)
+      assert_eq(rs1, 15)
+      assert_eq(rm, 7U)
+    }
+    _ => fail("expected fcvt.s.lu")
+  }
+  match decode(encode_fcvt_w_s(10, 0x1U, 8)) {
+    FCvtWS(rd, rs1, rm) => {
+      assert_eq(rd, 8)
+      assert_eq(rs1, 10)
+      assert_eq(rm, 1U)
+    }
+    _ => fail("expected fcvt.w.s")
+  }
+  match decode(encode_fcvt_wu_s(10, 0x1U, 8)) {
+    FCvtWUS(rd, rs1, rm) => {
+      assert_eq(rd, 8)
+      assert_eq(rs1, 10)
+      assert_eq(rm, 1U)
+    }
+    _ => fail("expected fcvt.wu.s")
+  }
+  match decode(encode_fcvt_l_s(10, 0x1U, 13)) {
+    FCvtLS(rd, rs1, rm) => {
+      assert_eq(rd, 13)
+      assert_eq(rs1, 10)
+      assert_eq(rm, 1U)
+    }
+    _ => fail("expected fcvt.l.s")
+  }
+  match decode(encode_fcvt_lu_s(15, 0x1U, 10)) {
+    FCvtLUS(rd, rs1, rm) => {
+      assert_eq(rd, 10)
+      assert_eq(rs1, 15)
+      assert_eq(rm, 1U)
+    }
+    _ => fail("expected fcvt.lu.s")
+  }
 }
 
 ///|
@@ -395,6 +507,14 @@ test "decode scalar d instructions" {
       assert_eq(rm, 1U)
     }
     _ => fail("expected BusyBox awk fcvt.w.d")
+  }
+  match decode(encode_fcvt_wu_d(10, 0x1U, 8)) {
+    FCvtWUD(rd, rs1, rm) => {
+      assert_eq(rd, 8)
+      assert_eq(rs1, 10)
+      assert_eq(rm, 1U)
+    }
+    _ => fail("expected fcvt.wu.d")
   }
   match decode(encode_fcvt_l_d(10, 0x1U, 13)) {
     FCvtLD(rd, rs1, rm) => {

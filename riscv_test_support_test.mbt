@@ -1200,6 +1200,26 @@ fn encode_fcvt_d_s(rs1 : Int, rm : UInt, rd : Int) -> UInt {
 }
 
 ///|
+fn encode_fcvt_s_w(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+  encode_fp_r(0x68U, 0, rs1, rm, rd)
+}
+
+///|
+fn encode_fcvt_s_wu(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+  encode_fp_r(0x68U, 1, rs1, rm, rd)
+}
+
+///|
+fn encode_fcvt_s_l(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+  encode_fp_r(0x68U, 2, rs1, rm, rd)
+}
+
+///|
+fn encode_fcvt_s_lu(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+  encode_fp_r(0x68U, 3, rs1, rm, rd)
+}
+
+///|
 fn encode_fcvt_d_w(rs1 : Int, rm : UInt, rd : Int) -> UInt {
   encode_fp_r(0x69U, 0, rs1, rm, rd)
 }
@@ -1217,6 +1237,21 @@ fn encode_fcvt_d_l(rs1 : Int, rm : UInt, rd : Int) -> UInt {
 ///|
 fn encode_fcvt_d_lu(rs1 : Int, rm : UInt, rd : Int) -> UInt {
   encode_fp_r(0x69U, 3, rs1, rm, rd)
+}
+
+///|
+fn encode_fle_s(rs1 : Int, rs2 : Int, rd : Int) -> UInt {
+  encode_fp_r(0x50U, rs2, rs1, 0x0U, rd)
+}
+
+///|
+fn encode_flt_s(rs1 : Int, rs2 : Int, rd : Int) -> UInt {
+  encode_fp_r(0x50U, rs2, rs1, 0x1U, rd)
+}
+
+///|
+fn encode_feq_s(rs1 : Int, rs2 : Int, rd : Int) -> UInt {
+  encode_fp_r(0x50U, rs2, rs1, 0x2U, rd)
 }
 
 ///|
@@ -1250,8 +1285,48 @@ fn encode_fsgnjx_d(rs1 : Int, rs2 : Int, rd : Int) -> UInt {
 }
 
 ///|
+fn encode_fsgnj_s(rs1 : Int, rs2 : Int, rd : Int) -> UInt {
+  encode_fp_r(0x10U, rs2, rs1, 0x0U, rd)
+}
+
+///|
+fn encode_fsgnjn_s(rs1 : Int, rs2 : Int, rd : Int) -> UInt {
+  encode_fp_r(0x10U, rs2, rs1, 0x1U, rd)
+}
+
+///|
+fn encode_fsgnjx_s(rs1 : Int, rs2 : Int, rd : Int) -> UInt {
+  encode_fp_r(0x10U, rs2, rs1, 0x2U, rd)
+}
+
+///|
+fn encode_fcvt_w_s(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+  encode_fp_r(0x60U, 0, rs1, rm, rd)
+}
+
+///|
+fn encode_fcvt_wu_s(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+  encode_fp_r(0x60U, 1, rs1, rm, rd)
+}
+
+///|
+fn encode_fcvt_l_s(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+  encode_fp_r(0x60U, 2, rs1, rm, rd)
+}
+
+///|
+fn encode_fcvt_lu_s(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+  encode_fp_r(0x60U, 3, rs1, rm, rd)
+}
+
+///|
 fn encode_fcvt_w_d(rs1 : Int, rm : UInt, rd : Int) -> UInt {
   encode_fp_r(0x61U, 0, rs1, rm, rd)
+}
+
+///|
+fn encode_fcvt_wu_d(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+  encode_fp_r(0x61U, 1, rs1, rm, rd)
 }
 
 ///|

@@ -955,6 +955,12 @@ fn instruction_supported_for_current_config(
     FSqrtS(_, _, _) => has_f
     FMinS(_, _, _) => has_f
     FMaxS(_, _, _) => has_f
+    FSgnjS(_, _, _) => has_f
+    FSgnjnS(_, _, _) => has_f
+    FSgnjxS(_, _, _) => has_f
+    FLeS(_, _, _) => has_f
+    FLtS(_, _, _) => has_f
+    FEqS(_, _, _) => has_f
     FAddD(_, _, _, _) => has_d
     FSubD(_, _, _, _) => has_d
     FMulD(_, _, _, _) => has_d
@@ -974,11 +980,20 @@ fn instruction_supported_for_current_config(
     FmvDX(_, _) => has_d && xlen == XLEN_64
     FCvtSD(_, _, _) => has_d
     FCvtDS(_, _, _) => has_d
+    FCvtSW(_, _, _) => has_f
+    FCvtSWU(_, _, _) => has_f
+    FCvtSL(_, _, _) => has_f && xlen == XLEN_64
+    FCvtSLU(_, _, _) => has_f && xlen == XLEN_64
     FCvtDW(_, _, _) => has_d
     FCvtDWU(_, _, _) => has_d
     FCvtDL(_, _, _) => has_d && xlen == XLEN_64
     FCvtDLU(_, _, _) => has_d && xlen == XLEN_64
+    FCvtWS(_, _, _) => has_f
+    FCvtWUS(_, _, _) => has_f
+    FCvtLS(_, _, _) => has_f && xlen == XLEN_64
+    FCvtLUS(_, _, _) => has_f && xlen == XLEN_64
     FCvtWD(_, _, _) => has_d
+    FCvtWUD(_, _, _) => has_d
     FCvtLD(_, _, _) => has_d && xlen == XLEN_64
     FCvtLUD(_, _, _) => has_d && xlen == XLEN_64
     Vsetvli(_, _, _) => has_v
@@ -1593,6 +1608,13 @@ pub fn decode(raw : UInt) -> Instruction {
             0x1U => FMaxD(rd(raw), rs1(raw), rs2(raw))
             _ => Unknown(raw)
           }
+        0x10U =>
+          match funct3(raw) {
+            0x0U => FSgnjS(rd(raw), rs1(raw), rs2(raw))
+            0x1U => FSgnjnS(rd(raw), rs1(raw), rs2(raw))
+            0x2U => FSgnjxS(rd(raw), rs1(raw), rs2(raw))
+            _ => Unknown(raw)
+          }
         0x11U =>
           match funct3(raw) {
             0x0U => FSgnjD(rd(raw), rs1(raw), rs2(raw))
@@ -1611,6 +1633,14 @@ pub fn decode(raw : UInt) -> Instruction {
             FCvtDS(rd(raw), rs1(raw), funct3(raw))
           } else {
             Unknown(raw)
+          }
+        0x68U =>
+          match rs2(raw) {
+            0 => FCvtSW(rd(raw), rs1(raw), funct3(raw))
+            1 => FCvtSWU(rd(raw), rs1(raw), funct3(raw))
+            2 => FCvtSL(rd(raw), rs1(raw), funct3(raw))
+            3 => FCvtSLU(rd(raw), rs1(raw), funct3(raw))
+            _ => Unknown(raw)
           }
         0x69U =>
           match rs2(raw) {
@@ -1632,6 +1662,13 @@ pub fn decode(raw : UInt) -> Instruction {
           } else {
             Unknown(raw)
           }
+        0x50U =>
+          match funct3(raw) {
+            0x0U => FLeS(rd(raw), rs1(raw), rs2(raw))
+            0x1U => FLtS(rd(raw), rs1(raw), rs2(raw))
+            0x2U => FEqS(rd(raw), rs1(raw), rs2(raw))
+            _ => Unknown(raw)
+          }
         0x51U =>
           match funct3(raw) {
             0x0U => FLeD(rd(raw), rs1(raw), rs2(raw))
@@ -1639,9 +1676,18 @@ pub fn decode(raw : UInt) -> Instruction {
             0x2U => FEqD(rd(raw), rs1(raw), rs2(raw))
             _ => Unknown(raw)
           }
+        0x60U =>
+          match rs2(raw) {
+            0 => FCvtWS(rd(raw), rs1(raw), funct3(raw))
+            1 => FCvtWUS(rd(raw), rs1(raw), funct3(raw))
+            2 => FCvtLS(rd(raw), rs1(raw), funct3(raw))
+            3 => FCvtLUS(rd(raw), rs1(raw), funct3(raw))
+            _ => Unknown(raw)
+          }
         0x61U =>
           match rs2(raw) {
             0 => FCvtWD(rd(raw), rs1(raw), funct3(raw))
+            1 => FCvtWUD(rd(raw), rs1(raw), funct3(raw))
             2 => FCvtLD(rd(raw), rs1(raw), funct3(raw))
             3 => FCvtLUD(rd(raw), rs1(raw), funct3(raw))
             _ => Unknown(raw)

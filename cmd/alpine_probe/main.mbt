@@ -290,12 +290,23 @@ async fn main {
   let post_init_smoke = parse_flag(args, "--post-init-smoke")
   let post_init_session_smoke = parse_flag(args, "--post-init-session-smoke")
   let post_init_busybox_smoke = parse_flag(args, "--post-init-busybox-smoke")
+  let post_init_custom_command = parse_arg_value(args, "--post-init-command")
+  let post_init_custom_expect = match post_init_custom_command {
+    Some(_) =>
+      match parse_arg_value(args, "--post-init-expect") {
+        Some(marker) => Some(marker)
+        None => abort("--post-init-expect is required with --post-init-command")
+      }
+    None => None
+  }
+  let has_post_init_custom_command = post_init_custom_command is Some(_)
   let uses_virtio_rootfs = rootfs_smoke ||
     switch_root_smoke ||
     init_smoke ||
     post_init_smoke ||
     post_init_session_smoke ||
-    post_init_busybox_smoke
+    post_init_busybox_smoke ||
+    has_post_init_custom_command
   let selected_dtb_path = match parse_arg_value(args, "--dtb") {
     Some(path) => path
     None => if uses_virtio_rootfs { virtio_dtb_path } else { dtb_path }
@@ -322,7 +333,8 @@ async fn main {
     Some(alpine_init_smoke_command())
   } else if post_init_smoke ||
     post_init_session_smoke ||
-    post_init_busybox_smoke {
+    post_init_busybox_smoke ||
+    has_post_init_custom_command {
     Some(alpine_init_smoke_command())
   } else {
     parse_arg_value(args, "--command")
@@ -341,10 +353,14 @@ async fn main {
     Some("post-init-session-ok")
   } else if post_init_busybox_smoke {
     Some("post-init-busybox-ok")
+  } else if post_init_custom_expect is Some(marker) {
+    Some(marker)
   } else {
     parse_arg_value(args, "--expect")
   }
-  let post_init_commands = if post_init_busybox_smoke {
+  let post_init_commands = if post_init_custom_command is Some(text) {
+    [text]
+  } else if post_init_busybox_smoke {
     alpine_post_init_busybox_commands()
   } else if post_init_session_smoke {
     alpine_post_init_session_commands()
@@ -353,7 +369,9 @@ async fn main {
   } else {
     []
   }
-  let post_init_markers = if post_init_busybox_smoke {
+  let post_init_markers = if post_init_custom_expect is Some(marker) {
+    [marker]
+  } else if post_init_busybox_smoke {
     alpine_post_init_busybox_markers()
   } else if post_init_session_smoke {
     alpine_post_init_session_markers()
@@ -504,6 +522,9 @@ async fn main {
   println("post_init_smoke=" + post_init_smoke.to_string())
   println("post_init_session_smoke=" + post_init_session_smoke.to_string())
   println("post_init_busybox_smoke=" + post_init_busybox_smoke.to_string())
+  println(
+    "post_init_custom_command=" + has_post_init_custom_command.to_string(),
+  )
   println("post_init_command_index=" + post_init_command_index.to_string())
   println("dtb_path=" + selected_dtb_path)
   println("initrd_path=" + selected_initrd_path)

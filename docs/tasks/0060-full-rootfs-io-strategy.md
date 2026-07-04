@@ -250,6 +250,38 @@ implemented.
   `shell_expect_seen=true`, and `post-init-busybox-ok` at 710,000,000 guest
   steps. This proves `awk`, filesystem utilities, `dd`, simple pipelines,
   process/environment inspection, and rootfs writes through the post-init shell.
+- Added `cmd/alpine_probe --post-init-command ... --post-init-expect ...` for
+  shorter targeted post-init diagnostics after the full rootfs and BusyBox init
+  handoff. This keeps the Linux-provided userspace as the test surface while
+  avoiding the broader BusyBox smoke for every CPU-side change.
+- Current custom-command proof:
+  `moon run --target native cmd/alpine_probe xlong --post-init-command "printf 'x:2\ny:5\n' > /root/riscv-mbt-short && awk -F: '{s += \$2} END {print s}' /root/riscv-mbt-short && dd if=/root/riscv-mbt-short of=/root/riscv-mbt-short-dd bs=1 count=4 && sync && printf 'post-init-custom-ok\n'" --post-init-expect post-init-custom-ok`
+  reaches `outcome=console-command`, `post_init_command_index=1`,
+  `shell_expect_seen=true`, and `post-init-custom-ok` at 625,000,000 guest
+  steps.
+- Closed the next practical D-extension conversion gap exposed by ordinary C
+  double userspace by adding `fcvt.wu.d`. The local unprivileged ISA PDF under
+  `docs/specs/riscv-unprivileged.pdf` confirms that RV64 `FCVT.W[U].D`
+  sign-extends the 32-bit result; the execute regression now pins that behavior
+  for the unsigned-word path.
+- Closed the matching practical F-extension gaps before they became the next
+  one-instruction-at-a-time Linux failure loop. Single-precision sign injection,
+  comparisons, integer-to-single conversions, and single-to-integer conversions
+  now decode and execute, with regressions covering RV64 `FCVT.W[U].S`
+  sign-extension, sign injection, comparisons, and the `L/LU` conversion forms.
+- Floating-point rounding and exception behavior is still intentionally
+  practical, not fully architectural. Float arithmetic and integer-to-float
+  conversions currently accept static RNE or dynamic RNE; float-to-integer
+  conversions accept static RTZ or dynamic RTZ. Other rounding modes trap as
+  illegal instructions so the missing modes are visible instead of silently
+  producing misleading results.
+- Floating-point invalid/overflow/NaN conversion behavior and `fflags` updates
+  are not complete. Comparisons return false on NaN, min/max use the current
+  canonical-NaN fallback, and out-of-domain float-to-integer conversions still
+  need a separate spec-compliance slice for exact clipping and exception flag
+  updates. Until that slice exists, Linux-driven ordinary userspace behavior is
+  the priority and `fcsr`/`fflags` should not be treated as architecturally
+  complete.
 - The next full-rootfs usability slice should keep broadening ordinary
   command-session behavior and persistence-oriented checks, but the broad
   BusyBox smoke is too slow for every edit loop. Prefer shorter

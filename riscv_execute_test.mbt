@@ -613,6 +613,101 @@ test "rv64f min and max handle signed zero and canonical nan fallback" {
 }
 
 ///|
+test "rv64f single comparisons write integer results" {
+  let runner = make_runner(rv64f_machine_config())
+  runner.cpu.write_freg(1, exec_test_f32_bits(1.0).to_uint64())
+  runner.cpu.write_freg(2, exec_test_f32_bits(2.0).to_uint64())
+  runner.cpu.write_freg(3, exec_test_f32_bits(2.0).to_uint64())
+  runner.cpu.write_freg(4, 0x7fc00000U.to_uint64())
+  runner.load_program(
+    words_to_bytes([
+      encode_fle_s(1, 2, 5),
+      encode_flt_s(2, 1, 6),
+      encode_feq_s(2, 3, 7),
+      encode_fle_s(4, 2, 8),
+    ]),
+    0U,
+  )
+  match runner.run(4) {
+    Running => ()
+    _ => fail("expected rv64f compare path to run")
+  }
+  assert_eq(runner.read_reg_u64(5), 1U.to_uint64())
+  assert_eq(runner.read_reg_u64(6), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(7), 1U.to_uint64())
+  assert_eq(runner.read_reg_u64(8), 0U.to_uint64())
+}
+
+///|
+test "rv64f single sign injection preserves magnitude bits" {
+  let runner = make_runner(rv64f_machine_config())
+  runner.cpu.write_freg(1, exec_test_f32_bits(1.5).to_uint64())
+  runner.cpu.write_freg(2, exec_test_f32_bits(-2.0).to_uint64())
+  runner.load_program(
+    words_to_bytes([
+      encode_fsgnj_s(1, 2, 3),
+      encode_fsgnjn_s(1, 2, 4),
+      encode_fsgnjx_s(1, 2, 5),
+      encode_fsgnj_s(1, 1, 6),
+    ]),
+    0U,
+  )
+  match runner.run(4) {
+    Running => ()
+    _ => fail("expected rv64f sign injection path to run")
+  }
+  assert_eq(runner.read_freg_u64(3), exec_test_f32_bits(-1.5).to_uint64())
+  assert_eq(runner.read_freg_u64(4), exec_test_f32_bits(1.5).to_uint64())
+  assert_eq(runner.read_freg_u64(5), exec_test_f32_bits(-1.5).to_uint64())
+  assert_eq(runner.read_freg_u64(6), exec_test_f32_bits(1.5).to_uint64())
+}
+
+///|
+test "rv64f integer and single conversion paths preserve expected values" {
+  let runner = make_runner(rv64f_machine_config())
+  runner.cpu.write_reg(1, 42U.to_uint64())
+  runner.cpu.write_reg(2, 0xffffffffU.to_uint64())
+  runner.cpu.write_reg(3, (-17L).reinterpret_as_uint64())
+  runner.cpu.write_reg(4, 1024U.to_uint64())
+  runner.cpu.write_freg(9, exec_test_f32_bits(4.75).to_uint64())
+  runner.cpu.write_freg(10, exec_test_f32_bits(-2.75).to_uint64())
+  runner.cpu.write_freg(11, exec_test_f32_bits(2147483648.0).to_uint64())
+  runner.cpu.write_freg(12, exec_test_f32_bits(42.75).to_uint64())
+  runner.load_program(
+    words_to_bytes([
+      encode_fcvt_s_w(1, 0x0U, 5),
+      encode_fcvt_s_w(2, 0x0U, 6),
+      encode_fcvt_s_wu(2, 0x0U, 7),
+      encode_fcvt_s_l(3, 0x7U, 8),
+      encode_fcvt_s_lu(4, 0x7U, 13),
+      encode_fcvt_w_s(9, 0x1U, 14),
+      encode_fcvt_w_s(10, 0x1U, 15),
+      encode_fcvt_wu_s(11, 0x1U, 16),
+      encode_fcvt_l_s(10, 0x1U, 17),
+      encode_fcvt_lu_s(12, 0x1U, 18),
+    ]),
+    0U,
+  )
+  match runner.run(10) {
+    Running => ()
+    _ => fail("expected rv64f conversion path to run")
+  }
+  assert_eq(runner.read_freg_u64(5), exec_test_f32_bits(42.0).to_uint64())
+  assert_eq(runner.read_freg_u64(6), exec_test_f32_bits(-1.0).to_uint64())
+  assert_eq(
+    runner.read_freg_u64(7),
+    exec_test_f32_bits(4294967296.0).to_uint64(),
+  )
+  assert_eq(runner.read_freg_u64(8), exec_test_f32_bits(-17.0).to_uint64())
+  assert_eq(runner.read_freg_u64(13), exec_test_f32_bits(1024.0).to_uint64())
+  assert_eq(runner.read_reg_u64(14), 4U.to_uint64())
+  assert_eq(runner.read_reg_u64(15), test_sign_extend_word64(0xfffffffeU))
+  assert_eq(runner.read_reg_u64(16), test_sign_extend_word64(0x80000000U))
+  assert_eq(runner.read_reg_u64(17), (-2L).reinterpret_as_uint64())
+  assert_eq(runner.read_reg_u64(18), 42U.to_uint64())
+}
+
+///|
 test "rv64f fcsr frm and fflags views share one visible register" {
   let csr_fflags = 0x001
   let csr_frm = 0x002
@@ -874,6 +969,23 @@ test "rv64fd double to signed word conversion uses rtz" {
   }
   assert_eq(runner.read_reg_u64(3), 4U.to_uint64())
   assert_eq(runner.read_reg_u64(4), test_sign_extend_word64(0xfffffffeU))
+}
+
+///|
+test "rv64fd double to unsigned word conversion sign extends on rv64" {
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, exec_test_f64_bits(42.75))
+  runner.cpu.write_freg(2, exec_test_f64_bits(4294967295.0))
+  runner.load_program(
+    words_to_bytes([encode_fcvt_wu_d(1, 0x1U, 3), encode_fcvt_wu_d(2, 0x1U, 4)]),
+    0U,
+  )
+  match runner.run(2) {
+    Running => ()
+    _ => fail("expected rv64fd fcvt.wu.d path to run")
+  }
+  assert_eq(runner.read_reg_u64(3), 42U.to_uint64())
+  assert_eq(runner.read_reg_u64(4), test_sign_extend_word64(0xffffffffU))
 }
 
 ///|
