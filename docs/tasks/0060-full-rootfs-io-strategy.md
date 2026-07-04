@@ -223,6 +223,16 @@ implemented.
   tmpfs file under `/tmp`, creates and reads `/root/riscv-mbt-rootfs-write` on
   the mounted rootfs, runs `sync`, reports `riscv64`, verifies `/proc/mounts` is
   readable, and reaches `post-init-functional-ok` at 643,000,000 guest steps.
+- Added `cmd/alpine_probe --post-init-session-smoke`, which sends multiple
+  commands through the same post-init UART shell instead of treating one long
+  command line as the whole proof. The session writes `alpha`, appends and
+  greps `beta`, checks `wc -l`, creates a directory, copies the file, lists and
+  greps the copy, and runs `sync`.
+- Current post-init session proof:
+  `moon run --target native cmd/alpine_probe xlong --post-init-session-smoke`
+  reaches `outcome=console-command`, `post_init_command_index=3`,
+  `shell_expect_seen=true`, and `post-init-session-ok` at 655,000,000 guest
+  steps.
 - The next full-rootfs usability slice should broaden ordinary command-session
   behavior, persistence-oriented checks, and more shell utilities instead of
   returning to initrd-only checks.

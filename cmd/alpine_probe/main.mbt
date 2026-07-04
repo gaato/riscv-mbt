@@ -215,6 +215,29 @@ fn alpine_post_init_smoke_command() -> String {
 }
 
 ///|
+fn alpine_post_init_session_commands() -> Array[String] {
+  [
+    "printf 'alpha\\n' > /root/riscv-mbt-session && " +
+    "cat /root/riscv-mbt-session && " +
+    "printf '\\163\\145\\163\\163\\151\\157\\156\\055\\163\\164\\145\\160\\061\\055\\157\\153\\012'",
+    "printf 'beta\\n' >> /root/riscv-mbt-session && " +
+    "grep beta /root/riscv-mbt-session && " +
+    "wc -l /root/riscv-mbt-session && " +
+    "printf '\\163\\145\\163\\163\\151\\157\\156\\055\\163\\164\\145\\160\\062\\055\\157\\153\\012'",
+    "mkdir -p /root/riscv-mbt-session-dir && " +
+    "cp /root/riscv-mbt-session /root/riscv-mbt-session-dir/copy && " +
+    "ls /root/riscv-mbt-session-dir | grep copy && " +
+    "sync && " +
+    "printf '\\160\\157\\163\\164\\055\\151\\156\\151\\164\\055\\163\\145\\163\\163\\151\\157\\156\\055\\157\\153\\012'",
+  ]
+}
+
+///|
+fn alpine_post_init_session_markers() -> Array[String] {
+  ["session-step1-ok", "session-step2-ok", "post-init-session-ok"]
+}
+
+///|
 async fn main {
   let args = @env.args()
   let max_steps = parse_max_steps(args)
@@ -223,14 +246,15 @@ async fn main {
   let switch_root_smoke = parse_flag(args, "--switch-root-smoke")
   let init_smoke = parse_flag(args, "--init-smoke")
   let post_init_smoke = parse_flag(args, "--post-init-smoke")
+  let post_init_session_smoke = parse_flag(args, "--post-init-session-smoke")
+  let uses_virtio_rootfs = rootfs_smoke ||
+    switch_root_smoke ||
+    init_smoke ||
+    post_init_smoke ||
+    post_init_session_smoke
   let selected_dtb_path = match parse_arg_value(args, "--dtb") {
     Some(path) => path
-    None =>
-      if rootfs_smoke || switch_root_smoke || init_smoke || post_init_smoke {
-        virtio_dtb_path
-      } else {
-        dtb_path
-      }
+    None => if uses_virtio_rootfs { virtio_dtb_path } else { dtb_path }
   }
   let selected_initrd_path = match parse_arg_value(args, "--initrd") {
     Some(path) => path
@@ -238,12 +262,7 @@ async fn main {
   }
   let virtio_blk_disk_path = match parse_arg_value(args, "--virtio-blk-disk") {
     Some(path) => Some(path)
-    None =>
-      if rootfs_smoke || switch_root_smoke || init_smoke || post_init_smoke {
-        Some(rootfs_image_path)
-      } else {
-        None
-      }
+    None => if uses_virtio_rootfs { Some(rootfs_image_path) } else { None }
   }
   let selected_virtio_blk_disk_path = match virtio_blk_disk_path {
     Some(path) => path
@@ -257,7 +276,7 @@ async fn main {
     Some(alpine_switch_root_smoke_command())
   } else if init_smoke {
     Some(alpine_init_smoke_command())
-  } else if post_init_smoke {
+  } else if post_init_smoke || post_init_session_smoke {
     Some(alpine_init_smoke_command())
   } else {
     parse_arg_value(args, "--command")
@@ -272,8 +291,24 @@ async fn main {
     Some(alpine_post_init_marker)
   } else if post_init_smoke {
     Some("post-init-functional-ok")
+  } else if post_init_session_smoke {
+    Some("post-init-session-ok")
   } else {
     parse_arg_value(args, "--expect")
+  }
+  let post_init_commands = if post_init_session_smoke {
+    alpine_post_init_session_commands()
+  } else if post_init_smoke {
+    [alpine_post_init_smoke_command()]
+  } else {
+    []
+  }
+  let post_init_markers = if post_init_session_smoke {
+    alpine_post_init_session_markers()
+  } else if post_init_smoke {
+    ["post-init-functional-ok"]
+  } else {
+    []
   }
   let fw_bytes = read_binary(opensbi_path)
   let kernel_bytes = read_binary(kernel_path)
@@ -312,6 +347,7 @@ async fn main {
   let mut last_output_steps = 0
   let mut shell_command_sent = false
   let mut post_init_command_sent = false
+  let mut post_init_command_index = 0
   let mut shell_expect_seen = false
   while steps < max_steps {
     match runner.step() {
@@ -351,12 +387,20 @@ async fn main {
                 }
               None => if outcome == "alpine-shell-prompt" { break }
             }
-            if post_init_smoke &&
+            if post_init_commands.length() > 0 &&
               shell_command_sent &&
-              !post_init_command_sent &&
+              post_init_command_index == 0 &&
               output.contains(alpine_post_init_marker) {
-              runner.uart_push_input(alpine_post_init_smoke_command() + "\r\n")
+              runner.uart_push_input(post_init_commands[0] + "\r\n")
               post_init_command_sent = true
+              post_init_command_index = 1
+            } else if post_init_command_index > 0 &&
+              post_init_command_index < post_init_commands.length() &&
+              output.contains(post_init_markers[post_init_command_index - 1]) {
+              runner.uart_push_input(
+                post_init_commands[post_init_command_index] + "\r\n",
+              )
+              post_init_command_index += 1
             }
           }
         }
@@ -406,6 +450,8 @@ async fn main {
   println("switch_root_smoke=" + switch_root_smoke.to_string())
   println("init_smoke=" + init_smoke.to_string())
   println("post_init_smoke=" + post_init_smoke.to_string())
+  println("post_init_session_smoke=" + post_init_session_smoke.to_string())
+  println("post_init_command_index=" + post_init_command_index.to_string())
   println("dtb_path=" + selected_dtb_path)
   println("initrd_path=" + selected_initrd_path)
   println("virtio_blk_disk=" + selected_virtio_blk_disk_path)
