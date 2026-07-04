@@ -167,14 +167,35 @@ fn alpine_rootfs_smoke_command() -> String {
 }
 
 ///|
+fn alpine_switch_root_smoke_command() -> String {
+  "modprobe virtio_mmio && " +
+  "modprobe virtio_blk && " +
+  "modprobe ext4 && " +
+  "mount -t devtmpfs devtmpfs /dev && " +
+  "mkdir -p /mnt/root && " +
+  "mount -t ext4 -o ro /dev/vda /mnt/root && " +
+  "mount -t proc proc /mnt/root/proc && " +
+  "mount -t sysfs sysfs /mnt/root/sys && " +
+  "mount -t devtmpfs devtmpfs /mnt/root/dev && " +
+  "exec switch_root /mnt/root /bin/busybox sh -c " +
+  "\"printf '\\163\\167\\151\\164\\143\\150\\055\\162\\157\\157\\164\\055\\157\\153\\012'; exec /bin/sh\""
+}
+
+///|
 async fn main {
   let args = @env.args()
   let max_steps = parse_max_steps(args)
   let functional_smoke = parse_flag(args, "--functional-smoke")
   let rootfs_smoke = parse_flag(args, "--rootfs-smoke")
+  let switch_root_smoke = parse_flag(args, "--switch-root-smoke")
   let selected_dtb_path = match parse_arg_value(args, "--dtb") {
     Some(path) => path
-    None => if rootfs_smoke { virtio_dtb_path } else { dtb_path }
+    None =>
+      if rootfs_smoke || switch_root_smoke {
+        virtio_dtb_path
+      } else {
+        dtb_path
+      }
   }
   let selected_initrd_path = match parse_arg_value(args, "--initrd") {
     Some(path) => path
@@ -182,7 +203,12 @@ async fn main {
   }
   let virtio_blk_disk_path = match parse_arg_value(args, "--virtio-blk-disk") {
     Some(path) => Some(path)
-    None => if rootfs_smoke { Some(rootfs_image_path) } else { None }
+    None =>
+      if rootfs_smoke || switch_root_smoke {
+        Some(rootfs_image_path)
+      } else {
+        None
+      }
   }
   let selected_virtio_blk_disk_path = match virtio_blk_disk_path {
     Some(path) => path
@@ -192,6 +218,8 @@ async fn main {
     Some(alpine_functional_smoke_command())
   } else if rootfs_smoke {
     Some(alpine_rootfs_smoke_command())
+  } else if switch_root_smoke {
+    Some(alpine_switch_root_smoke_command())
   } else {
     parse_arg_value(args, "--command")
   }
@@ -199,6 +227,8 @@ async fn main {
     Some("linux-functional-ok")
   } else if rootfs_smoke {
     Some("rootfs-mount-ok")
+  } else if switch_root_smoke {
+    Some("switch-root-ok")
   } else {
     parse_arg_value(args, "--expect")
   }
@@ -319,6 +349,7 @@ async fn main {
   println("shell_expect_seen=" + shell_expect_seen.to_string())
   println("functional_smoke=" + functional_smoke.to_string())
   println("rootfs_smoke=" + rootfs_smoke.to_string())
+  println("switch_root_smoke=" + switch_root_smoke.to_string())
   println("dtb_path=" + selected_dtb_path)
   println("initrd_path=" + selected_initrd_path)
   println("virtio_blk_disk=" + selected_virtio_blk_disk_path)

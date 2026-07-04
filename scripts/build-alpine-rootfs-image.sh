@@ -29,11 +29,15 @@ trap 'rm -rf "$root_dir"' EXIT
 
 tar -xzf "$build_dir/$rootfs_name" -C "$root_dir"
 mkdir -p "$root_dir"/proc "$root_dir"/sys "$root_dir"/dev "$root_dir"/tmp "$root_dir"/root
+mkdir -p "$root_dir"/run
 cat > "$root_dir/etc/fstab" <<'EOF'
 proc /proc proc defaults 0 0
 sysfs /sys sysfs defaults 0 0
 devtmpfs /dev devtmpfs defaults 0 0
+tmpfs /run tmpfs defaults 0 0
+tmpfs /tmp tmpfs defaults 0 0
 EOF
+sed -i 's|^#ttyS0::respawn:/sbin/getty.*|ttyS0::respawn:/sbin/getty -L 3686400 ttyS0 vt100|' "$root_dir/etc/inittab"
 
 rm -f "$image_path"
 truncate -s "$image_size" "$image_path"

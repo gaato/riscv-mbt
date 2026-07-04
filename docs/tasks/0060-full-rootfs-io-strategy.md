@@ -151,3 +151,28 @@ implemented.
   mounted rootfs. It is still not a full root handoff: Linux is still booted
   through the tiny initramfs shell, so the next step is an initramfs-driven
   `switch_root` or an equivalent direct-root boot path.
+- Added `cmd/alpine_probe --switch-root-smoke` and the `switch_root` BusyBox
+  applet to the tiny initramfs. This probe mounts `/dev/vda` read-only, mounts
+  `/proc`, `/sys`, and `/dev` under the new root, then runs
+  `switch_root /mnt/root /bin/busybox sh -c ...` so the final marker is emitted
+  after the root handoff.
+- Current root-handoff proof:
+  `moon run --target native cmd/alpine_probe xlong --switch-root-smoke` reaches
+  `outcome=console-command`, `shell_expect_seen=true`, `switch_root_smoke=true`,
+  `steps=612000000`, `EXT4-fs (vda): mounted filesystem ... ro`, and
+  `switch-root-ok`. This is stronger than the mounted-rootfs proof because the
+  command after `switch_root` runs from the mounted Alpine rootfs. It still does
+  not prove the ordinary Alpine init path; the next work should try
+  `switch_root /mnt/root /sbin/init` or an equivalent direct-root boot command
+  and then validate normal userspace after init starts.
+- First ordinary-init handoff attempt:
+  `switch_root /mnt/root /sbin/init` mounts the virtio-backed ext4 rootfs and
+  hands control to Alpine's init, but does not reach `Welcome to Alpine` within
+  1,000,000,000 guest steps. The kernel reports
+  `init[1]: unhandled signal 11` in `ld-musl-riscv64.so.1`, with
+  `badaddr: 0000000000000308`, then panics with
+  `Attempted to kill init! exitcode=0x0000000b`.
+- This moves the active blocker past block I/O and root handoff. The next
+  implementation slice should isolate why ordinary dynamically linked Alpine
+  userspace or BusyBox init faults after `switch_root`, preferably with a
+  smaller command/rootfs reproducer before adding broad ISA or RVV coverage.

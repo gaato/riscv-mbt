@@ -87,7 +87,7 @@ if [[ "$initrd_profile" == "tiny" ]]; then
     ./bin/sh \
     ./lib/ld-musl-riscv64.so.1 \
     ./lib/libc.musl-riscv64.so.1
-  for applet in mount cat ls dmesg grep printf mkdir uname; do
+  for applet in mount cat ls dmesg grep printf mkdir uname switch_root; do
     ln -sf /bin/busybox "$root_dir/bin/$applet"
   done
   ln -sf /bin/busybox "$root_dir/sbin/modprobe"
