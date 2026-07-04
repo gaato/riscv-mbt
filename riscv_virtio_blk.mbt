@@ -132,27 +132,7 @@ fn Runner::virtio_blk_copy_sector_to_guest(
   // Reads past the end of the backing image are zero-filled. That keeps the
   // device behavior deterministic while the rootfs fixture size changes.
   let disk_offset = disk_byte_offset.reinterpret_as_int64().to_int()
-  let mut copied = 0
-  for offset in 0..<len {
-    if !self.bus.contains_range(
-        guest_addr + offset.reinterpret_as_uint().to_uint64(),
-        1,
-      ) {
-      return copied
-    }
-    let disk_index = disk_offset + offset
-    let value = if disk_index >= 0 && disk_index < self.virtio_blk_disk.length() {
-      self.virtio_blk_disk[disk_index].to_uint64()
-    } else {
-      0U.to_uint64()
-    }
-    self.bus.store_u8(
-      guest_addr + offset.reinterpret_as_uint().to_uint64(),
-      value,
-    )
-    copied += 1
-  }
-  copied
+  self.bus.write_bytes_from(guest_addr, self.virtio_blk_disk, disk_offset, len)
 }
 
 ///|

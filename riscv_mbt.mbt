@@ -1106,6 +1106,38 @@ pub fn Bus::write_bytes(self : Bus, base_addr : UInt64, bytes : Bytes) -> Unit {
 }
 
 ///|
+fn Bus::write_bytes_from(
+  self : Bus,
+  base_addr : UInt64,
+  bytes : Bytes,
+  source_offset : Int,
+  len : Int,
+) -> Int {
+  // Device DMA-style copies should validate the guest range once per
+  // descriptor, not once per byte. Reads past the source bytes are zero-filled
+  // to match the old virtio-blk behavior for sectors past the backing image.
+  if len <= 0 || base_addr < self.base_addr {
+    return 0
+  }
+  let start_index = bus_offset_as_int(base_addr - self.base_addr)
+  if start_index < 0 || start_index >= self.memory.length() {
+    return 0
+  }
+  let available = self.memory.length() - start_index
+  let copy_len = if len < available { len } else { available }
+  for offset in 0..<copy_len {
+    let source_index = source_offset + offset
+    self.memory[start_index + offset] = if source_index >= 0 &&
+      source_index < bytes.length() {
+      bytes[source_index]
+    } else {
+      0U.to_byte()
+    }
+  }
+  copy_len
+}
+
+///|
 pub fn Bus::zero_range(self : Bus, base_addr : UInt64, len : Int) -> Unit {
   for index in 0..<len {
     self.store_u8(

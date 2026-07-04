@@ -403,3 +403,16 @@ implemented.
   CPU-spin/illegal-instruction theory for this particular timeout. Next work
   should narrow or speed the dynamic-loader/library-read path before treating
   `apk --version` itself as the failing operation.
+- Replaced virtio-blk read descriptor copies with a Bus helper that validates
+  the guest range once per descriptor and writes directly into RAM. The previous
+  implementation checked guest range and called `store_u8` for every byte,
+  which is the wrong shape for the multi-megabyte loader path above. A
+  regression now covers the preserved zero-fill behavior for reads past the end
+  of the backing image.
+- Rerunning the staged `apk` diagnostic after the descriptor-copy cleanup still
+  reaches `outcome=post-init-command-timeout`, `post_init_command_index=2`, and
+  `post_init_command_virtio_delta=868 read-req/3577856 read-bytes 0 write-req/0
+  write-bytes` before `apk-loader-ok`. Do not claim package-manager usability
+  or guest-step improvement from this cleanup. The next useful slice is to
+  understand why the dynamic loader path generates so many block reads or to
+  add a Linux-relevant cache/read-ahead improvement.
