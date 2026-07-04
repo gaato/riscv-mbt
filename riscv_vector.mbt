@@ -262,11 +262,12 @@ fn Runner::write_vmask_bit(
 fn Runner::vector_exec_supported(self : Runner) -> VectorExecConfig? {
   match self.current_vector_exec_config() {
     Some(config) =>
-      // This execute slice supports integer LMUL=1, 2, and 4 register groups.
+      // This execute slice supports required integer LMUL=1, 2, 4, and 8
+      // register groups.
       // It still rejects nonzero vstart because restart semantics need a
       // separate fault/replay contract before Linux-facing vector state can
       // rely on it.
-      if config.lmul_log2 <= 2 &&
+      if config.lmul_log2 <= 3 &&
         self.cpu.read_csr(CSR_VSTART) == 0U.to_uint64() {
         Some(config)
       } else {

@@ -1991,6 +1991,47 @@ test "rv64fdv vector arithmetic supports lmul4 register groups" {
 }
 
 ///|
+test "rv64fdv vector arithmetic supports lmul8 register groups" {
+  // e32,m8 is the largest required integer LMUL group: with VLEN=128 it
+  // spans thirty-two elements across eight consecutive vector registers.
+  let program = words_to_bytes([
+    encode_vsetvli(0, 5, 0x13U),
+    encode_vmv_v_i(8, 1),
+    encode_vmv_v_i(16, 2),
+    encode_vadd_vv(24, 8, 16, true),
+  ])
+  let runner = make_runner(rv64fdv_machine_config())
+  runner.load_program(program, 0U)
+  runner.cpu.write_reg(5, 32U.to_uint64())
+  match runner.run(4) {
+    Running => ()
+    _ => fail("expected lmul8 vector arithmetic sequence to run")
+  }
+  for reg in 24..<32 {
+    assert_eq(runner.read_vreg_u64(reg, 0), test_join_u64(3U, 3U))
+    assert_eq(runner.read_vreg_u64(reg, 1), test_join_u64(3U, 3U))
+  }
+
+  let misaligned = make_runner(rv64fdv_machine_config())
+  misaligned.load_program(
+    words_to_bytes([encode_vsetivli(0, 4U, 0x13U), encode_vmv_v_i(4, 1)]),
+    0U,
+  )
+  match misaligned.step() {
+    Running => ()
+    _ => fail("expected lmul8 vsetivli to run")
+  }
+  match misaligned.step() {
+    Trap(info) =>
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+    _ => fail("expected misaligned lmul8 vector arithmetic to trap")
+  }
+}
+
+///|
 test "rv64fdv vrsub honors mask and reverse operand order" {
   let program = words_to_bytes([
     encode_vsetivli(0, 4U, 0x10U),
@@ -3510,6 +3551,71 @@ test "rv64fdv vector memory supports lmul4 register groups" {
         0x4c0U.to_uint64() + (elem * 4).reinterpret_as_uint().to_uint64(),
       ),
       (0xa0 + elem).reinterpret_as_uint().to_uint64(),
+    )
+  }
+}
+
+///|
+test "rv64fdv vector memory supports lmul8 register groups" {
+  let load32 = make_runner(rv64fdv_machine_config())
+  load32.load_program(
+    words_to_bytes([encode_vsetvli(0, 5, 0x13U), encode_vle32(8, 10, true)]),
+    0U,
+  )
+  load32.cpu.write_reg(5, 32U.to_uint64())
+  load32.cpu.write_reg(10, 0x540U.to_uint64())
+  for elem in 0..<32 {
+    load32.bus.store_u32(
+      0x540U.to_uint64() + (elem * 4).reinterpret_as_uint().to_uint64(),
+      (0xb0 + elem).reinterpret_as_uint().to_uint64(),
+    )
+  }
+  match load32.run(2) {
+    Running => ()
+    _ => fail("expected lmul8 vle32.v sequence to run")
+  }
+  for reg in 8..<16 {
+    let first_elem = ((reg - 8) * 4).reinterpret_as_uint()
+    assert_eq(
+      load32.read_vreg_u64(reg, 0),
+      test_join_u64(0xb0U + first_elem + 1U, 0xb0U + first_elem),
+    )
+    assert_eq(
+      load32.read_vreg_u64(reg, 1),
+      test_join_u64(0xb0U + first_elem + 3U, 0xb0U + first_elem + 2U),
+    )
+  }
+
+  let store32 = make_runner(rv64fdv_machine_config())
+  store32.load_program(
+    words_to_bytes([encode_vsetvli(0, 5, 0x13U), encode_vse32(8, 10, true)]),
+    0U,
+  )
+  store32.cpu.write_reg(5, 32U.to_uint64())
+  for reg in 8..<16 {
+    let first_elem = ((reg - 8) * 4).reinterpret_as_uint()
+    store32.cpu.write_vreg(
+      reg,
+      0,
+      test_join_u64(0xd0U + first_elem + 1U, 0xd0U + first_elem),
+    )
+    store32.cpu.write_vreg(
+      reg,
+      1,
+      test_join_u64(0xd0U + first_elem + 3U, 0xd0U + first_elem + 2U),
+    )
+  }
+  store32.cpu.write_reg(10, 0x5c0U.to_uint64())
+  match store32.run(2) {
+    Running => ()
+    _ => fail("expected lmul8 vse32.v sequence to run")
+  }
+  for elem in 0..<32 {
+    assert_eq(
+      store32.bus.load_u32(
+        0x5c0U.to_uint64() + (elem * 4).reinterpret_as_uint().to_uint64(),
+      ),
+      (0xd0 + elem).reinterpret_as_uint().to_uint64(),
     )
   }
 }
