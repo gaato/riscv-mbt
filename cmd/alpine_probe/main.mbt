@@ -289,6 +289,38 @@ fn alpine_post_init_busybox_markers() -> Array[String] {
 }
 
 ///|
+fn alpine_post_init_shell_commands() -> Array[String] {
+  // This is intentionally about shell behavior rather than individual applets:
+  // script execution from the rootfs, env/argv propagation, background jobs,
+  // wait, exit-status control flow, subshells, and redirection.
+  [
+    "printf '#!/bin/sh\\nset -e\\necho script-arg:$1\\necho script-env:$RISCV_MBT_SHELL\\nprintf \"script-output\\\\n\" > /root/riscv-mbt-script-output\\n' > /root/riscv-mbt-script && " +
+    "chmod 755 /root/riscv-mbt-script && " +
+    "RISCV_MBT_SHELL=ok /root/riscv-mbt-script arg1 | tee /root/riscv-mbt-script-log && " +
+    "grep script-arg:arg1 /root/riscv-mbt-script-log && " +
+    "grep script-env:ok /root/riscv-mbt-script-log && " +
+    "grep script-output /root/riscv-mbt-script-output && " +
+    "printf '\\163\\150\\145\\154\\154\\055\\163\\143\\162\\151\\160\\164\\055\\157\\153\\012'",
+    "(sleep 0; printf 'background-ok\\n' > /root/riscv-mbt-bg) & " +
+    "pid=$! && wait $pid && " +
+    "cat /root/riscv-mbt-bg && " +
+    "false || printf 'exit-status-ok\\n' && " +
+    "printf '\\163\\150\\145\\154\\154\\055\\152\\157\\142\\055\\157\\153\\012'",
+    "(printf 'subshell-ok\\n') > /root/riscv-mbt-shell-redir && " +
+    "printf 'append-ok\\n' >> /root/riscv-mbt-shell-redir && " +
+    "grep subshell-ok /root/riscv-mbt-shell-redir && " +
+    "grep append-ok /root/riscv-mbt-shell-redir && " +
+    "sync && " +
+    "printf '\\160\\157\\163\\164\\055\\151\\156\\151\\164\\055\\163\\150\\145\\154\\154\\055\\157\\153\\012'",
+  ]
+}
+
+///|
+fn alpine_post_init_shell_markers() -> Array[String] {
+  ["shell-script-ok", "shell-job-ok", "post-init-shell-ok"]
+}
+
+///|
 fn alpine_post_init_storage_commands() -> Array[String] {
   // This smoke is about the block-backed rootfs path, not applet breadth:
   // write a file, force writeback, then read and compare it through a second
@@ -343,6 +375,7 @@ async fn main {
   let post_init_smoke = parse_flag(args, "--post-init-smoke")
   let post_init_session_smoke = parse_flag(args, "--post-init-session-smoke")
   let post_init_busybox_smoke = parse_flag(args, "--post-init-busybox-smoke")
+  let post_init_shell_smoke = parse_flag(args, "--post-init-shell-smoke")
   let post_init_storage_smoke = parse_flag(args, "--post-init-storage-smoke")
   let post_init_persistence_write_smoke = parse_flag(
     args, "--post-init-persistence-write-smoke",
@@ -372,6 +405,7 @@ async fn main {
     post_init_smoke ||
     post_init_session_smoke ||
     post_init_busybox_smoke ||
+    post_init_shell_smoke ||
     post_init_storage_smoke ||
     post_init_persistence_write_smoke ||
     post_init_persistence_read_smoke ||
@@ -403,6 +437,7 @@ async fn main {
   } else if post_init_smoke ||
     post_init_session_smoke ||
     post_init_busybox_smoke ||
+    post_init_shell_smoke ||
     post_init_storage_smoke ||
     post_init_persistence_write_smoke ||
     post_init_persistence_read_smoke ||
@@ -428,6 +463,8 @@ async fn main {
     Some("post-init-session-ok")
   } else if post_init_busybox_smoke {
     Some("post-init-busybox-ok")
+  } else if post_init_shell_smoke {
+    Some("post-init-shell-ok")
   } else if post_init_storage_smoke {
     Some("post-init-storage-ok")
   } else if post_init_persistence_write_smoke {
@@ -443,6 +480,8 @@ async fn main {
     [text]
   } else if post_init_busybox_smoke {
     alpine_post_init_busybox_commands()
+  } else if post_init_shell_smoke {
+    alpine_post_init_shell_commands()
   } else if post_init_storage_smoke {
     alpine_post_init_storage_commands()
   } else if post_init_persistence_write_smoke {
@@ -460,6 +499,8 @@ async fn main {
     [marker]
   } else if post_init_busybox_smoke {
     alpine_post_init_busybox_markers()
+  } else if post_init_shell_smoke {
+    alpine_post_init_shell_markers()
   } else if post_init_storage_smoke {
     alpine_post_init_storage_markers()
   } else if post_init_persistence_write_smoke {
@@ -588,6 +629,8 @@ async fn main {
     output = output + tail
   }
   if outcome == "timeout" && output.contains(alpine_marker) {
+    // Preserve the strongest boot milestone visible in the final UART buffer
+    // even when no command expectation was satisfied before max_steps.
     outcome = "alpine-marker"
   }
   if output.contains(alpine_shell_marker) {
@@ -600,6 +643,8 @@ async fn main {
     Some(marker) =>
       if (shell_command_sent || post_init_command_sent) &&
         output.contains(marker) {
+        // Final full-buffer check catches markers emitted after the last
+        // periodic drain, especially near the step budget boundary.
         shell_expect_seen = true
         outcome = "console-command"
       }
@@ -627,6 +672,7 @@ async fn main {
   println("post_init_smoke=" + post_init_smoke.to_string())
   println("post_init_session_smoke=" + post_init_session_smoke.to_string())
   println("post_init_busybox_smoke=" + post_init_busybox_smoke.to_string())
+  println("post_init_shell_smoke=" + post_init_shell_smoke.to_string())
   println("post_init_storage_smoke=" + post_init_storage_smoke.to_string())
   println(
     "post_init_persistence_write_smoke=" +

@@ -409,6 +409,9 @@ fn Runner::plic_write_u32(self : Runner, off : UInt64, value : UInt64) -> Unit {
   // Complete register: same offset as claim (0x200004+ctx*0x1000), write ignored
   let ctx_off = idx - 0x200000
   if ctx_off >= 0 && ctx_off % 0x1000 == 4 {
+    // UART pending is derived from live UART state, and virtio-blk clears via
+    // its InterruptACK register. The PLIC complete write therefore has no
+    // separate queue to drain in the current device model.
     return
   }
   if idx + 3 < self.plic_regs.length() {

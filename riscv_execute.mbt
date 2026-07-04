@@ -1187,6 +1187,9 @@ fn Runner::execute_system(
 
 ///|
 fn Runner::execute_mret(self : Runner) -> StepResult {
+  // Return instructions restore privilege and interrupt-enable state from
+  // mstatus before jumping to the saved EPC. The helper functions encode the
+  // bit shuffling so this path stays readable.
   let mstatus = self.cpu.read_csr(CSR_MSTATUS)
   self.cpu.write_csr(CSR_MSTATUS, mstatus_after_mret(mstatus))
   self.cpu.privilege = mstatus_mpp(mstatus)
@@ -1196,6 +1199,8 @@ fn Runner::execute_mret(self : Runner) -> StepResult {
 
 ///|
 fn Runner::execute_sret(self : Runner) -> StepResult {
+  // SRET is the same shape as MRET but uses SPP/SPIE and sepc. Linux relies on
+  // this during every user/kernel boundary after userspace is alive.
   let mstatus = self.cpu.read_csr(CSR_MSTATUS)
   self.cpu.write_csr(CSR_MSTATUS, mstatus_after_sret(mstatus))
   self.cpu.privilege = mstatus_spp(mstatus)

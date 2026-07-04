@@ -316,3 +316,18 @@ implemented.
   633,000,000 guest steps. The second boot also reports ext4 journal recovery,
   which is expected after the host saves the mutated backing image and then
   boots it again.
+- Added `cmd/alpine_probe --post-init-shell-smoke` as a rootfs-side shell
+  usability probe. It creates and executes a `#!/bin/sh` script from `/root`,
+  checks argument and environment propagation, verifies redirected script
+  output, runs a background job with `wait`, checks boolean exit-status flow
+  through `false || ...`, and verifies subshell output plus append redirection
+  before emitting `post-init-shell-ok`.
+- Current shell usability proof:
+  `moon run --target native cmd/alpine_probe xlong --post-init-shell-smoke`
+  reaches `outcome=console-command`, `post_init_command_index=3`,
+  `shell_expect_seen=true`, `post_init_shell_smoke=true`, and
+  `post-init-shell-ok` at 662,000,000 guest steps. The UART tail shows the
+  script output (`script-arg:arg1`, `script-env:ok`, `script-output`),
+  background job output (`background-ok`), exit-status branch
+  (`exit-status-ok`), and redirection/subshell output
+  (`subshell-ok`, `append-ok`).
