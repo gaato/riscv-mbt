@@ -416,3 +416,10 @@ implemented.
   or guest-step improvement from this cleanup. The next useful slice is to
   understand why the dynamic loader path generates so many block reads or to
   add a Linux-relevant cache/read-ahead improvement.
+- A direct-mapped 512-byte sector cache was tested and deliberately not kept.
+  It produced only `virtio_blk_read_cache=4 hits/10118 misses` on the staged
+  `apk` diagnostic and still timed out at the same `post_init_command_index=2`
+  before `apk-loader-ok`. The observed stream is mostly sequential and
+  multi-megabyte, so a tiny sector cache is the wrong shape. Prefer readahead,
+  larger chunking, request coalescing, or CPU-side dynamic-loader profiling as
+  the next slice.
