@@ -329,6 +329,29 @@ fn alpine_post_init_busybox_markers() -> Array[String] {
 }
 
 ///|
+fn alpine_post_init_apk_commands() -> Array[String] {
+  // Package-manager smoke stays offline: it proves the rootfs-side `apk`
+  // binary and installed database, without depending on network or repository
+  // updates. Repository fetch/install is a separate future networking proof.
+  [
+    "test -x /sbin/apk && " +
+    "/sbin/apk --version && " +
+    "printf '\\141\\160\\153\\055\\166\\145\\162\\163\\151\\157\\156\\055\\157\\153\\012'",
+    "apk info -e busybox && " +
+    "apk info | head -n 5 && " +
+    "apk info | grep '^busybox$' && " +
+    "printf '\\141\\160\\153\\055\\144\\142\\055\\157\\153\\012'",
+    "apk info -L busybox | grep '/bin/busybox' && " +
+    "printf '\\160\\157\\163\\164\\055\\151\\156\\151\\164\\055\\141\\160\\153\\055\\157\\153\\012'",
+  ]
+}
+
+///|
+fn alpine_post_init_apk_markers() -> Array[String] {
+  ["apk-version-ok", "apk-db-ok", "post-init-apk-ok"]
+}
+
+///|
 fn alpine_post_init_shell_commands() -> Array[String] {
   // This is intentionally about shell behavior rather than individual applets:
   // script execution from the rootfs, env/argv propagation, background jobs,
@@ -462,6 +485,7 @@ async fn main {
   let post_init_smoke = parse_flag(args, "--post-init-smoke")
   let post_init_session_smoke = parse_flag(args, "--post-init-session-smoke")
   let post_init_busybox_smoke = parse_flag(args, "--post-init-busybox-smoke")
+  let post_init_apk_smoke = parse_flag(args, "--post-init-apk-smoke")
   let post_init_shell_smoke = parse_flag(args, "--post-init-shell-smoke")
   let post_init_system_smoke = parse_flag(args, "--post-init-system-smoke")
   let post_init_storage_smoke = parse_flag(args, "--post-init-storage-smoke")
@@ -493,6 +517,7 @@ async fn main {
     post_init_smoke ||
     post_init_session_smoke ||
     post_init_busybox_smoke ||
+    post_init_apk_smoke ||
     post_init_shell_smoke ||
     post_init_system_smoke ||
     post_init_storage_smoke ||
@@ -526,6 +551,7 @@ async fn main {
   } else if post_init_smoke ||
     post_init_session_smoke ||
     post_init_busybox_smoke ||
+    post_init_apk_smoke ||
     post_init_shell_smoke ||
     post_init_system_smoke ||
     post_init_storage_smoke ||
@@ -553,6 +579,8 @@ async fn main {
     Some("post-init-session-ok")
   } else if post_init_busybox_smoke {
     Some("post-init-busybox-ok")
+  } else if post_init_apk_smoke {
+    Some("post-init-apk-ok")
   } else if post_init_shell_smoke {
     Some("post-init-shell-ok")
   } else if post_init_system_smoke {
@@ -572,6 +600,8 @@ async fn main {
     [text]
   } else if post_init_busybox_smoke {
     alpine_post_init_busybox_commands()
+  } else if post_init_apk_smoke {
+    alpine_post_init_apk_commands()
   } else if post_init_shell_smoke {
     alpine_post_init_shell_commands()
   } else if post_init_system_smoke {
@@ -593,6 +623,8 @@ async fn main {
     [marker]
   } else if post_init_busybox_smoke {
     alpine_post_init_busybox_markers()
+  } else if post_init_apk_smoke {
+    alpine_post_init_apk_markers()
   } else if post_init_shell_smoke {
     alpine_post_init_shell_markers()
   } else if post_init_system_smoke {
@@ -737,16 +769,18 @@ async fn main {
   if tail.length() > 0 {
     output = output + tail
   }
-  if outcome == "timeout" && output.contains(alpine_marker) {
+  if outcome == "timeout" {
     // Preserve the strongest boot milestone visible in the final UART buffer
-    // even when no command expectation was satisfied before max_steps.
-    outcome = "alpine-marker"
-  }
-  if output.contains(alpine_shell_marker) {
-    outcome = "alpine-shell"
-  }
-  if output.contains(alpine_shell_prompt_marker) {
-    outcome = "alpine-shell-prompt"
+    // when the run otherwise timed out. Do not downgrade specific outcomes
+    // such as post-init command timeout or traps just because a prompt was
+    // visible earlier in the buffer.
+    if output.contains(alpine_shell_prompt_marker) {
+      outcome = "alpine-shell-prompt"
+    } else if output.contains(alpine_shell_marker) {
+      outcome = "alpine-shell"
+    } else if output.contains(alpine_marker) {
+      outcome = "alpine-marker"
+    }
   }
   match expect {
     Some(marker) =>
@@ -781,6 +815,7 @@ async fn main {
   println("post_init_smoke=" + post_init_smoke.to_string())
   println("post_init_session_smoke=" + post_init_session_smoke.to_string())
   println("post_init_busybox_smoke=" + post_init_busybox_smoke.to_string())
+  println("post_init_apk_smoke=" + post_init_apk_smoke.to_string())
   println("post_init_shell_smoke=" + post_init_shell_smoke.to_string())
   println("post_init_system_smoke=" + post_init_system_smoke.to_string())
   println("post_init_storage_smoke=" + post_init_storage_smoke.to_string())

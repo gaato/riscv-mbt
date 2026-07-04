@@ -359,25 +359,17 @@ implemented.
 - Host-side inspection of `_build/alpine-rootfs-riscv64.ext4` confirms that the
   generated Alpine rootfs contains `/sbin/apk` and `/lib/apk/db/installed`.
   Earlier guest-side `apk` attempts were interrupted because the previous probe
-  shape encouraged long uninformative waits; the proofs below use the tunable
-  post-init command budget instead.
-- Current package-manager entry proof:
-  `moon run --target native cmd/alpine_probe xlong --post-init-command-step-budget 1000000 --post-init-command "test -x /sbin/apk && /sbin/apk --version && printf 'post-init-apk-version-ok\n'" --post-init-expect post-init-apk-version-ok`
-  reaches `outcome=console-command`, `shell_expect_seen=true`,
-  `post_init_command_steps=624000000`, `post_init_command_step_budget=1000000`,
-  and `post-init-apk-version-ok` at 625,000,000 guest steps. This proves the
-  rootfs-side `apk` binary can start and report its version.
-- Current package database proof:
-  `moon run --target native cmd/alpine_probe xlong --post-init-command-step-budget 1000000 --post-init-command "apk info -e busybox && printf 'post-init-apk-db-ok\n'" --post-init-expect post-init-apk-db-ok`
-  reaches `outcome=console-command`, `shell_expect_seen=true`,
-  `post_init_command_steps=624000000`, `post_init_command_step_budget=1000000`,
-  and `post-init-apk-db-ok` at 625,000,000 guest steps. This proves `apk` can
-  query the installed package database for BusyBox from the mounted Alpine
-  rootfs.
-- Current package listing proof:
-  `moon run --target native cmd/alpine_probe xlong --post-init-command-step-budget 2000000 --post-init-command "apk info | head -n 5 && apk info | grep '^busybox$' && apk info -L busybox | grep '/bin/busybox' && printf 'post-init-apk-list-ok\n'" --post-init-expect post-init-apk-list-ok`
-  reaches `outcome=console-command`, `shell_expect_seen=true`,
-  `post_init_command_steps=624000000`, `post_init_command_step_budget=2000000`,
-  and `post-init-apk-list-ok` at 625,000,000 guest steps. This proves the
-  installed package list can be streamed through a shell pipeline and that
-  `apk` can list BusyBox-owned files from the mounted Alpine rootfs.
+  shape encouraged long uninformative waits.
+- Added `cmd/alpine_probe --post-init-apk-smoke` as an echo-safe package-manager
+  diagnostic. Unlike the earlier custom `apk` commands, this smoke emits all
+  markers through octal `printf` sequences so command echo cannot satisfy the
+  expected marker before `apk` has actually run.
+- Current echo-safe package-manager status:
+  `moon run --target native cmd/alpine_probe xlong --post-init-command-step-budget 20000000 --post-init-apk-smoke`
+  reaches `outcome=post-init-command-timeout`, `post_init_apk_smoke=true`,
+  `post_init_command_index=1`, `post_init_command_steps=624000000`, and
+  `post_init_command_step_budget=20000000` at 644,000,000 guest steps. The first
+  command is `test -x /sbin/apk && /sbin/apk --version && ...`, so package
+  manager usability is not yet echo-safely proven. The next implementation work
+  should treat this as a focused `/sbin/apk` userspace execution gap rather
+  than accepting earlier literal-marker custom command results as proof.
