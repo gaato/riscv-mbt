@@ -779,9 +779,6 @@ const CSR_PMPCFG0 : Int = 0x3A0
 const CSR_PMPADDR0 : Int = 0x3B0
 
 ///|
-const CSR_MNSTATUS : Int = 0x744
-
-///|
 const CSR_MSCRATCH : Int = 0x340
 
 ///|

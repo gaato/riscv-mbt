@@ -149,6 +149,9 @@ official coverage improve.
   not implemented. The OpenSBI smoke still boots and reports `PMP Count: 0`,
   avoiding the old mismatch where firmware could configure protection rules the
   emulator would silently ignore.
+  `mnstatus` is no longer exposed as compatibility storage. It belongs to the
+  optional Smrnmi resumable-NMI extension, which is not implemented in the
+  RV64GC baseline, so read and write attempts now trap as illegal instruction.
   `mstatus.MPP` now rejects the reserved privilege encoding 2 at the CSR write
   boundary. The remaining audit is a spec pass over remaining WARL behavior,
   read-only/write-ignored fields, and privilege-visible side effects for every
@@ -423,3 +426,5 @@ official coverage improve.
   A write-all-ones regression pins the current no-PMP-enforcement profile as
   read-only zero, and the native OpenSBI smoke confirms the firmware-visible
   PMP count is zero.
+- `mnstatus` is no longer part of the supported CSR table. Focused regressions
+  cover both read and suppressed-read write forms trapping when Smrnmi is absent.

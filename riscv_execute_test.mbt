@@ -4129,6 +4129,28 @@ test "pmp csrs are read only zero without pmp enforcement" {
 }
 
 ///|
+test "mnstatus traps when Smrnmi is absent" {
+  let mnstatus = 0x744
+  let read_raw = encode_csr(mnstatus, 0, 0x2U, 1)
+  let write_raw = encode_csr(mnstatus, 1, 0x1U, 0)
+  for raw in [read_raw, write_raw] {
+    let runner = make_runner(rv64_machine_config())
+    runner.cpu.write_reg(1, 1U.to_uint64())
+    runner.load_program(words_to_bytes([raw]), 0U)
+    match runner.step() {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected illegal instruction cause for absent Smrnmi CSR")
+        }
+        assert_eq(info.trap_value, raw.to_uint64())
+      }
+      _ => fail("expected absent Smrnmi CSR access to trap")
+    }
+  }
+}
+
+///|
 test "csr address privilege bits gate supervisor and machine csrs" {
   let read_mstatus = encode_csr(0x300, 0, 0x2U, 1)
   let supervisor_machine_denied = make_runner(rv64_machine_config())

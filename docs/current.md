@@ -191,6 +191,9 @@
   not implemented. The OpenSBI smoke still boots and now reports `PMP Count: 0`,
   which is more accurate than accepting protection rules the emulator would
   ignore.
+- `mnstatus` is no longer exposed as compatibility storage. It belongs to the
+  optional Smrnmi resumable-NMI extension, which is not implemented in the
+  RV64GC baseline, so read and write attempts now trap as illegal instruction.
 
 ## Known Blockers
 

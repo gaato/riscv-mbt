@@ -967,7 +967,6 @@ fn is_compatibility_storage_csr(csr : Int) -> Bool {
     CSR_MIDELEG => true
     CSR_PMPCFG0 => true
     CSR_PMPADDR0 => true
-    CSR_MNSTATUS => true
     CSR_MCOUNTEREN => true
     CSR_SCOUNTEREN => true
     CSR_MENVCFG => true
