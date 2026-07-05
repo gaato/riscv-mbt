@@ -114,13 +114,16 @@ official coverage improve.
   Exact widening `FCVT.D.S` and exact
   RV32-width-to-double `FCVT.D.W[U]` now treat the otherwise unaffected `rm`
   field as architecturally significant for legal/reserved static and dynamic
-  encodings. `mstatus.FS` is now part of the execution contract: FP-capable
-  reset profiles start with FS enabled, but scalar F/D load/store and arithmetic
-  instructions trap as illegal when software sets FS=Off. FP register and
-  `fcsr` writes also mark FS Dirty, making the visible `SD` summary track
-  modeled FP state changes. The `fflags`, `frm`, and `fcsr` CSR aliases are
-  now governed by the same FS state, so both read and write attempts trap when
-  FS=Off. Writes to absent `fcsr` bits 31:8 are covered as
+  encodings. `FCVT.S.D` now has explicit NaN narrowing coverage: quiet NaNs
+  produce the canonical NaN-boxed single result without NV, while signaling
+  NaNs produce the same canonical result and accrue NV. `mstatus.FS` is now
+  part of the execution contract: FP-capable reset profiles start with FS
+  enabled, but scalar F/D load/store and arithmetic instructions trap as illegal
+  when software sets FS=Off. FP register and `fcsr` writes also mark FS Dirty,
+  making the visible `SD` summary track modeled FP state changes. The `fflags`,
+  `frm`, and `fcsr` CSR aliases are now governed by the same FS state, so both
+  read and write attempts trap when FS=Off. Writes to absent `fcsr` bits 31:8
+  are covered as
   ignored-on-write/read-as-zero. The corrected official-test harness now
   advertises manifest arch FP bits, and the passing `rv64uf`/`rv64ud`
   classification, compare, conversion, min/max, load/store, move, recoding,

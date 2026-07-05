@@ -1990,6 +1990,37 @@ test "rv64fd double to single conversion rejects reserved rounding modes" {
 }
 
 ///|
+test "rv64fd fcvt.s.d canonicalizes nan inputs and flags signaling nan" {
+  let csr_fcsr = 0x003
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, 0x7ff8000000012345UL)
+  runner.cpu.write_freg(2, 0x7ff0000000012345UL)
+  runner.load_program(
+    words_to_bytes([
+      encode_fcvt_s_d(1, 0x0U, 10),
+      encode_csr(csr_fcsr, 0, 0x2U, 11),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_s_d(2, 0x0U, 12),
+      encode_csr(csr_fcsr, 0, 0x2U, 13),
+    ]),
+    0U,
+  )
+  match runner.run(5) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected fcvt.s.d nan path to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  // FCVT.S.D is a narrowing FP operation, so NaN results are canonical single
+  // NaNs. Only the signaling input accrues NV; quiet NaNs remain flag-clean.
+  assert_eq(runner.read_freg_u64(10), exec_test_nan_box_single(0x7fc00000U))
+  assert_eq(runner.read_reg_u64(11), 0U.to_uint64())
+  assert_eq(runner.read_freg_u64(12), exec_test_nan_box_single(0x7fc00000U))
+  assert_eq(runner.read_reg_u64(13) & 0x10U.to_uint64(), 0x10U.to_uint64())
+}
+
+///|
 test "rv64fd fcvt.d.s accepts legal unaffected rounding modes" {
   let runner = make_runner(rv64fd_machine_config())
   runner.cpu.write_freg(1, exec_test_nan_box_single(exec_test_f32_bits(1.5)))
