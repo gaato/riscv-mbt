@@ -171,6 +171,10 @@ official coverage improve.
   operand results through the emulator-side double-to-single helper. Legal
   static non-RNE modes are accepted where they change the result, reserved
   rounding modes still trap, and inexact results accrue NX.
+- `FDIV.S` and `FSQRT.S` now also accept legal static non-RNE modes and use the
+  same double-to-single result helper, retiring the previous RNE-only trap
+  boundary for the scalar single-precision arithmetic family. Exact quotient
+  and square-root rounding audits remain part of the broader strict FP work.
 - `Zifencei` now has an execute regression for the key same-hart contract:
   fetch and decode an instruction, store a different instruction to the same
   address, execute `FENCE.I`, jump back, and require the replacement instruction
@@ -234,6 +238,9 @@ official coverage improve.
   Focused regressions cover positive inexact `FADD.S`, `FSUB.S`, and `FMUL.S`
   cases where RTZ and RUP select adjacent single-precision results, plus
   reserved arithmetic rounding-mode traps.
+- Single-precision div/sqrt now have the same first non-RNE coverage. Focused
+  regressions cover `FDIV.S` `1.0 / 3.0` and `FSQRT.S` `sqrt(2.0)` cases where
+  directed rounding selects adjacent single-precision results and accrues NX.
 - The first RV64C reserved/hint correction slice is in place. `EBREAK` and
   `C.EBREAK` now trap as architectural breakpoint exceptions instead of illegal
   instructions, RV64C rejects reserved `C.ADDIW rd=x0`, `C.LUI rd=x0` and
