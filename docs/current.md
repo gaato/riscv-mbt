@@ -167,6 +167,8 @@
   extensions in the 32-bit profile.
   `C.ADD rd=x0, rs2!=x0` forms now execute as ignored hints, including the
   `rs2=x2..x5` compressed Zihintntl non-temporal locality hint subrange.
+  CR-format coverage now also pins `C.MV rd=x0, rs2!=x0` as an ignored hint,
+  `C.JR rs1=x0` as reserved, and the `C.JALR rs1=x0` encoding as `C.EBREAK`.
   Focused regressions cover the decode and execute behavior. Post-decode
   profile legality now also rejects all 16-bit compressed encodings when
   `MISA.C` is not advertised, keeping the permissive decoder while making the

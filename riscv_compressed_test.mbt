@@ -570,6 +570,62 @@ test "compressed add rd x0 forms execute as hints" {
 }
 
 ///|
+test "compressed mv rd x0 forms execute as hints" {
+  for rs2 in 1..<=31 {
+    let raw = encode_c_mv(0, rs2)
+    let hint_runner = make_runner(rv64_machine_config())
+    hint_runner.load_program(
+      mixed_program_bytes([(2, raw.reinterpret_as_uint())]),
+      0U,
+    )
+    hint_runner.cpu.write_reg(rs2, 0x4321U.to_uint64())
+    match hint_runner.step() {
+      Running => ()
+      _ => fail("expected c.mv hint to run as a no-op")
+    }
+    assert_eq(hint_runner.pc_u64(), 2U.to_uint64())
+    assert_eq(hint_runner.read_reg_u64(0), 0U.to_uint64())
+  }
+}
+
+///|
+test "compressed jump-register x0 forms keep reserved and ebreak meanings" {
+  let jr_x0 = encode_c_jr(0)
+  let jr_runner = make_runner(rv64_machine_config())
+  jr_runner.load_program(
+    mixed_program_bytes([(2, jr_x0.reinterpret_as_uint())]),
+    0U,
+  )
+  match jr_runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected c.jr x0 to remain reserved")
+      }
+      assert_eq(info.trap_value, jr_x0.reinterpret_as_uint().to_uint64())
+    }
+    _ => fail("expected c.jr x0 to trap")
+  }
+
+  let jalr_x0 = encode_c_jalr(0)
+  let ebreak_runner = make_runner(rv64_machine_config())
+  ebreak_runner.load_program(
+    mixed_program_bytes([(2, jalr_x0.reinterpret_as_uint())]),
+    0U,
+  )
+  match ebreak_runner.step() {
+    Trap(info) => {
+      match info.cause {
+        Breakpoint => ()
+        _ => fail("expected c.jalr x0 encoding to mean c.ebreak")
+      }
+      assert_eq(info.trap_value, 0U.to_uint64())
+    }
+    _ => fail("expected c.ebreak trap")
+  }
+}
+
+///|
 test "compressed jump-register forms use jalr semantics with a 2-byte link address" {
   let runner = make_runner(default_machine_config())
   runner.load_program(

@@ -122,9 +122,12 @@ official coverage improve.
   `shamt[5]=1` space for `C.SLLI`, `C.SRLI`, and `C.SRAI`, including the
   `C.SLLI rd=x0` hint-looking form. `C.ADD rd=x0, rs2!=x0` forms now execute as
   ignored hints, including the `rs2=x2..x5` compressed Zihintntl non-temporal
-  locality hint subrange. Post-decode profile legality now rejects all 16-bit
-  compressed encodings when `MISA.C` is not advertised, preserving the
-  permissive decoder while making execution obey the active ISA profile.
+  locality hint subrange. CR-format coverage now also pins `C.MV rd=x0,
+  rs2!=x0` as an ignored hint, `C.JR rs1=x0` as reserved, and the
+  `C.JALR rs1=x0` encoding as `C.EBREAK`. Post-decode profile legality now
+  rejects all 16-bit compressed encodings when `MISA.C` is not advertised,
+  preserving the permissive decoder while making execution obey the active ISA
+  profile.
   The remaining audit is broader reserved/hint behavior beyond those focused
   cases and the official aggregate compressed test.
 - `Zicsr`: CSR decode, read-side and write-side privilege checks,
