@@ -4174,6 +4174,50 @@ test "sret restores supervisor mode when sstatus.spp is set" {
 }
 
 ///|
+test "mstatus tsr traps supervisor sret as illegal instruction" {
+  let mstatus = 0x300
+  let mepc = 0x341
+  let mcause = 0x342
+  let mtval = 0x343
+  let mstatus_mpp_s = 0x800U.to_uint64()
+  let mstatus_tsr = 0x400000U.to_uint64()
+  let sret_raw = encode_sret()
+  let runner = make_runner(default_machine_config())
+  runner.cpu.write_csr(mstatus, mstatus_mpp_s | mstatus_tsr)
+  runner.cpu.write_csr(mepc, 4U.to_uint64())
+  runner.load_program(words_to_bytes([encode_mret(), sret_raw]), 0U)
+
+  match runner.step() {
+    Running => ()
+    _ => fail("expected mret to enter supervisor mode")
+  }
+  match runner.privilege_mode() {
+    Supervisor => ()
+    _ => fail("expected supervisor mode before trapped sret")
+  }
+
+  match runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause for TSR-trapped sret")
+      }
+      assert_eq(info.faulting_pc, 4U.to_uint64())
+      assert_eq(info.trap_value, sret_raw.to_uint64())
+    }
+    _ => fail("expected trapped sret to report a trap event")
+  }
+  match runner.privilege_mode() {
+    Machine => ()
+    _ => fail("expected illegal sret trap to enter machine mode")
+  }
+  assert_eq(runner.read_csr_u64(mcause), 2U.to_uint64())
+  assert_eq(runner.read_csr_u64(mepc), 4U.to_uint64())
+  assert_eq(runner.read_csr_u64(mtval), sret_raw.to_uint64())
+  assert_eq(runner.pc_u64(), 4U.to_uint64())
+}
+
+///|
 test "mret sets mie from mpie, sets mpie to 1, and clears mpp" {
   let program = words_to_bytes([
     encode_u(0U, 5, 0x17U),
