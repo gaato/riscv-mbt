@@ -1573,6 +1573,54 @@ test "uart plic external interrupt traps to supervisor mode" {
 }
 
 ///|
+test "PLIC claim chooses highest priority and lower source ID on ties" {
+  let claim_context1 = words_to_bytes([
+    encode_u(0x0c201000U, 1, 0x37U),
+    encode_i(4, 1, 0x2U, 2, 0x03U),
+  ])
+  let higher_uart = make_runner(virtio_blk_machine_config())
+  // Source 1 is virtio-blk and source 10 is UART. Enable both in context 1.
+  higher_uart.plic_regs[4] = 1U.to_byte()
+  higher_uart.plic_regs[40] = 3U.to_byte()
+  higher_uart.plic_regs[0x2080] = 2U.to_byte()
+  higher_uart.plic_regs[0x2081] = 4U.to_byte()
+  higher_uart.virtio_blk_state[6] = 1U.to_uint64()
+  higher_uart.uart_ier[0] = 1U.to_byte()
+  higher_uart.uart_push_input("P")
+  higher_uart.load_program_u64(claim_context1, 0x80000000U.to_uint64())
+  match higher_uart.run(2) {
+    Running => ()
+    _ => fail("expected running after high-priority UART claim")
+  }
+  assert_eq(higher_uart.read_reg_u64(2), 10U.to_uint64())
+  let tie = make_runner(virtio_blk_machine_config())
+  tie.plic_regs[4] = 2U.to_byte()
+  tie.plic_regs[40] = 2U.to_byte()
+  tie.plic_regs[0x2080] = 2U.to_byte()
+  tie.plic_regs[0x2081] = 4U.to_byte()
+  tie.virtio_blk_state[6] = 1U.to_uint64()
+  tie.uart_ier[0] = 1U.to_byte()
+  tie.uart_push_input("T")
+  tie.load_program_u64(claim_context1, 0x80000000U.to_uint64())
+  match tie.run(2) {
+    Running => ()
+    _ => fail("expected running after tied-priority PLIC claim")
+  }
+  assert_eq(tie.read_reg_u64(2), 1U.to_uint64())
+  let masked_notification = make_runner(virtio_blk_machine_config())
+  masked_notification.plic_regs[4] = 1U.to_byte()
+  masked_notification.plic_regs[0x2080] = 2U.to_byte()
+  masked_notification.plic_regs[0x201000] = 7U.to_byte()
+  masked_notification.virtio_blk_state[6] = 1U.to_uint64()
+  masked_notification.load_program_u64(claim_context1, 0x80000000U.to_uint64())
+  match masked_notification.run(2) {
+    Running => ()
+    _ => fail("expected running after threshold-masked PLIC claim")
+  }
+  assert_eq(masked_notification.read_reg_u64(2), 1U.to_uint64())
+}
+
+///|
 test "sret restores user mode from delegated supervisor trap and resumes at sepc" {
   let program = words_to_bytes([
     encode_i(33, 0, 0x0U, 6, 0x13U),

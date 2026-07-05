@@ -288,6 +288,15 @@ fn Runner::plic_uart_claimable_for_context(
 }
 
 ///|
+fn Runner::plic_uart_enabled_pending_for_context(
+  self : Runner,
+  context : Int,
+) -> Bool {
+  self.uart_interrupt_pending() &&
+  self.plic_context_enabled(context, plic_uart_source)
+}
+
+///|
 fn Runner::plic_virtio_blk_pending(self : Runner) -> Bool {
   self.config.virtio_blk_base != 0U.to_uint64() &&
   (self.virtio_blk_state[virtio_blk_idx_interrupt_status] & 1U.to_uint64()) !=
@@ -303,6 +312,15 @@ fn Runner::plic_virtio_blk_claimable_for_context(
   self.plic_context_enabled(context, plic_virtio_blk_source) &&
   self.plic_source_priority(plic_virtio_blk_source) >
   self.plic_context_threshold(context)
+}
+
+///|
+fn Runner::plic_virtio_blk_enabled_pending_for_context(
+  self : Runner,
+  context : Int,
+) -> Bool {
+  self.plic_virtio_blk_pending() &&
+  self.plic_context_enabled(context, plic_virtio_blk_source)
 }
 
 ///|
@@ -322,6 +340,37 @@ fn Runner::plic_external_claimable_for_context(
 ) -> Bool {
   self.plic_uart_claimable_for_context(context) ||
   self.plic_virtio_blk_claimable_for_context(context)
+}
+
+///|
+fn Runner::plic_claim_source_for_context(self : Runner, context : Int) -> Int {
+  let virtio_priority = if self.plic_virtio_blk_enabled_pending_for_context(
+      context,
+    ) {
+    self.plic_source_priority(plic_virtio_blk_source)
+  } else {
+    0U.to_uint64()
+  }
+  let uart_priority = if self.plic_uart_enabled_pending_for_context(context) {
+    self.plic_source_priority(plic_uart_source)
+  } else {
+    0U.to_uint64()
+  }
+  if virtio_priority == 0U.to_uint64() && uart_priority == 0U.to_uint64() {
+    return 0
+  }
+  if uart_priority > virtio_priority {
+    return plic_uart_source
+  }
+  if virtio_priority > uart_priority {
+    return plic_virtio_blk_source
+  }
+  // Equal priorities are resolved by interrupt ID; lower IDs win.
+  if plic_virtio_blk_source < plic_uart_source {
+    plic_virtio_blk_source
+  } else {
+    plic_uart_source
+  }
 }
 
 ///|
@@ -380,13 +429,10 @@ fn Runner::plic_read_u32(self : Runner, off : UInt64) -> UInt64 {
   let ctx_off = idx - 0x200000
   if ctx_off >= 0 && ctx_off % 0x1000 == 4 {
     let context = ctx_off / 0x1000
-    return if self.plic_virtio_blk_claimable_for_context(context) {
-      plic_virtio_blk_source.reinterpret_as_uint().to_uint64()
-    } else if self.plic_uart_claimable_for_context(context) {
-      plic_uart_source.reinterpret_as_uint().to_uint64()
-    } else {
-      0U.to_uint64()
-    }
+    return self
+      .plic_claim_source_for_context(context)
+      .reinterpret_as_uint()
+      .to_uint64()
   }
   if idx + 3 < self.plic_regs.length() {
     self.plic_regs[idx].to_uint64() |

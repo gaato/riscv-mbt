@@ -266,3 +266,12 @@ but it is not the same as a more ordinary Alpine service environment.
   interrupt reaches the S-mode external handler before the body instruction
   executes. This closes a console-input test gap on the full-rootfs path without
   adding another OpenRC-specific probe variant.
+- PLIC claim now follows the local `docs/specs/riscv-plic.pdf` rules for the
+  two modeled sources instead of using the old fixed virtio-before-UART order:
+  the claim register returns the highest-priority enabled pending source for the
+  context, breaks equal-priority ties by the lower interrupt ID, and does not
+  apply the priority threshold to the claim read itself. Thresholds still gate
+  external interrupt notification through `MIP.MEIP`/`MIP.SEIP`. The regression
+  covers simultaneous virtio-blk source 1 and UART source 10 pending in the
+  S-mode PLIC context, including a high-priority UART case, a same-priority
+  lower-ID tie, and a threshold-masked-but-claimable source.
