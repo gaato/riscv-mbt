@@ -1928,6 +1928,9 @@ fn decode_c_q0(raw : UInt, xlen : Int) -> Instruction {
         Addi(c_rd_prime(raw), 2, imm)
       }
     }
+    // C.FLD/C.FSD exist only when D is present. Decode still expands the
+    // architectural shape here; instruction_supported_for_current_config()
+    // applies the active MISA.D legality check before execution.
     0x1U => Fld(c_rd_prime(raw), c_rs1_prime(raw), c_uimm_ld_sd(raw))
     0x2U => Lw(c_rd_prime(raw), c_rs1_prime(raw), c_uimm_lw_sw(raw))
     0x3U =>
@@ -2080,6 +2083,9 @@ fn decode_c_q2(raw : UInt, xlen : Int) -> Instruction {
         Slli(rd, rd, c_shamt6(raw))
       }
     }
+    // Stack-pointer floating double forms are RV32DC/RV64DC, not standalone
+    // C. Keep the decoder simple and let the shared D-extension profile gate
+    // reject them for integer-only compressed profiles.
     0x1U => Fld(c_rd_rs1(raw), 2, c_uimm_ldsp(raw))
     0x2U => {
       let rd = c_rd_rs1(raw)

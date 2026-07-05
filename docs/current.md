@@ -218,6 +218,9 @@
   `rd=x0` hint encodings.
   Integer stack loads now also pin their reserved `rd=x0` encodings for
   `C.LWSP` and `C.LDSP`, while adjacent stack stores from `x0` remain legal.
+  RV64C compressed floating double load/store aliases are now pinned as
+  D-dependent RV64DC forms: they execute under the FD profile and trap as
+  illegal instructions under integer-only RV64C.
   Immediate-form HINTs now cover nonzero `C.NOP`, zero-immediate
   `C.ADDI rd!=x0`, and `C.LI rd=x0` as no-ops.
   Zero-shift HINTs now cover `C.SLLI`, `C.SRLI`, and `C.SRAI` as no-ops.

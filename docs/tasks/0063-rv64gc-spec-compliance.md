@@ -176,6 +176,10 @@ official coverage improve.
   rejects all 16-bit compressed encodings when `MISA.C` is not advertised,
   preserving the permissive decoder while making execution obey the active ISA
   profile.
+  The compressed floating double load/store aliases are now also pinned as
+  RV64DC forms rather than integer-only RV64C forms: `C.FLD`, `C.FSD`,
+  `C.FLDSP`, and `C.FSDSP` trap without `MISA.D` and execute under the FD
+  profile.
   The remaining audit is broader reserved/hint behavior beyond those focused
   cases and the official aggregate compressed test.
 - `Zicsr`: CSR decode, read-side and write-side privilege checks,
@@ -510,6 +514,10 @@ official coverage improve.
 - RV64C register-based integer double memory coverage now round-trips
   `C.SD`/`C.LD`, while the same integer double aliases trap in the RV32C
   profile.
+- RV64C compressed floating double memory coverage now keeps `C.FLD`,
+  `C.FSD`, `C.FLDSP`, and `C.FSDSP` tied to the D extension. The decoder still
+  expands them to their ordinary F/D operations, but the execute profile gate
+  rejects them under integer-only RV64C and allows them under RV64FD.
 - RV32C quadrant-2 integer double stack coverage now keeps `C.LDSP` and
   `C.SDSP` reserved in the 32-bit profile while preserving their RV64C
   expansion path.

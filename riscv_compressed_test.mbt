@@ -429,6 +429,34 @@ test "rv64dc compressed floating load and store reuse double memory path" {
 }
 
 ///|
+test "rv64c compressed floating double forms require d extension" {
+  // The C spec provides compressed double load/store aliases for RV64DC, but
+  // they are not integer-only RV64C instructions. Pin this at the execute
+  // profile gate so decode can keep expanding them to the matching F/D op.
+  let cases = [
+    encode_c_fld(8, 10, 16),
+    encode_c_fsd(8, 10, 16),
+    encode_c_fldsp(8, 16),
+    encode_c_fsdsp(8, 16),
+  ]
+  for raw_int in cases {
+    let raw = raw_int.reinterpret_as_uint()
+    let runner = make_runner(rv64_machine_config())
+    runner.load_program(mixed_program_bytes([(2, raw)]), 0U)
+    match runner.step() {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected illegal instruction trap")
+        }
+        assert_eq(info.trap_value, raw.to_uint64())
+      }
+      _ => fail("expected rv64c floating double form without D to trap")
+    }
+  }
+}
+
+///|
 test "stack-pointer compressed forms reuse addi shift and memory execute paths" {
   let runner = make_runner(default_machine_config())
   runner.load_program(
