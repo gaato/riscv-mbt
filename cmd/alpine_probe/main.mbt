@@ -784,6 +784,35 @@ fn alpine_post_init_openrc_surface_markers() -> Array[String] {
 }
 
 ///|
+fn alpine_post_init_openrc_service_commands() -> Array[String] {
+  // Exercise OpenRC's service command surface on a prepared image. This does
+  // not claim OpenRC is PID 1; it proves the installed OpenRC tooling can
+  // manage an openrc-run service script from the current BusyBox-init shell.
+  [
+    "mkdir -p /run/openrc /etc/init.d && " +
+    "touch /run/openrc/softlevel && " +
+    "printf '#!/sbin/openrc-run\\ndescription=\"riscv-mbt OpenRC smoke\"\\npidfile=\"/run/riscv-mbt-openrc-service.pid\"\\nstart() { sleep 1000 & echo $! > \"$pidfile\"; }\\nstatus() { test -s \"$pidfile\" && kill -0 $(cat \"$pidfile\"); }\\nstop() { if test -s \"$pidfile\"; then kill $(cat \"$pidfile\"); fi; rm -f \"$pidfile\"; }\\n' > /etc/init.d/riscv-mbt-openrc-service && " +
+    "chmod 755 /etc/init.d/riscv-mbt-openrc-service && " +
+    "test -x /etc/init.d/riscv-mbt-openrc-service && " +
+    "printf '\\157\\160\\145\\156\\162\\143\\055\\163\\145\\162\\166\\151\\143\\145\\055\\146\\151\\154\\145\\163\\055\\157\\153\\012'",
+    "/sbin/rc-update add riscv-mbt-openrc-service default && " +
+    "/sbin/rc-update show default | grep riscv-mbt-openrc-service && " +
+    "printf '\\157\\160\\145\\156\\162\\143\\055\\163\\145\\162\\166\\151\\143\\145\\055\\162\\145\\147\\151\\163\\164\\145\\162\\055\\157\\153\\012'",
+    "/sbin/rc-update del riscv-mbt-openrc-service default && " +
+    "! /sbin/rc-update show default | grep riscv-mbt-openrc-service && " +
+    "rm -f /etc/init.d/riscv-mbt-openrc-service && " +
+    "printf '\\160\\157\\163\\164\\055\\151\\156\\151\\164\\055\\157\\160\\145\\156\\162\\143\\055\\163\\145\\162\\166\\151\\143\\145\\055\\157\\153\\012'",
+  ]
+}
+
+///|
+fn alpine_post_init_openrc_service_markers() -> Array[String] {
+  [
+    "openrc-service-files-ok", "openrc-service-register-ok", "post-init-openrc-service-ok",
+  ]
+}
+
+///|
 fn alpine_post_init_storage_commands() -> Array[String] {
   // This smoke is about the block-backed rootfs path, not applet breadth:
   // write a file, force writeback, then read and compare it through a second
@@ -912,6 +941,9 @@ async fn main {
   let post_init_openrc_surface_smoke = parse_flag(
     args, "--post-init-openrc-surface-smoke",
   )
+  let post_init_openrc_service_smoke = parse_flag(
+    args, "--post-init-openrc-service-smoke",
+  )
   let post_init_storage_smoke = parse_flag(args, "--post-init-storage-smoke")
   let post_init_persistence_write_smoke = parse_flag(
     args, "--post-init-persistence-write-smoke",
@@ -954,6 +986,7 @@ async fn main {
     post_init_service_persistence_read_smoke ||
     post_init_openrc_install_smoke ||
     post_init_openrc_surface_smoke ||
+    post_init_openrc_service_smoke ||
     post_init_storage_smoke ||
     post_init_persistence_write_smoke ||
     post_init_persistence_read_smoke ||
@@ -1053,6 +1086,8 @@ async fn main {
     Some("post-init-openrc-ok")
   } else if post_init_openrc_surface_smoke {
     Some("post-init-openrc-surface-ok")
+  } else if post_init_openrc_service_smoke {
+    Some("post-init-openrc-service-ok")
   } else if post_init_storage_smoke {
     Some("post-init-storage-ok")
   } else if post_init_persistence_write_smoke {
@@ -1098,6 +1133,8 @@ async fn main {
     alpine_post_init_openrc_install_commands()
   } else if post_init_openrc_surface_smoke {
     alpine_post_init_openrc_surface_commands()
+  } else if post_init_openrc_service_smoke {
+    alpine_post_init_openrc_service_commands()
   } else if post_init_storage_smoke {
     alpine_post_init_storage_commands()
   } else if post_init_persistence_write_smoke {
@@ -1147,6 +1184,8 @@ async fn main {
     alpine_post_init_openrc_install_markers()
   } else if post_init_openrc_surface_smoke {
     alpine_post_init_openrc_surface_markers()
+  } else if post_init_openrc_service_smoke {
+    alpine_post_init_openrc_service_markers()
   } else if post_init_storage_smoke {
     alpine_post_init_storage_markers()
   } else if post_init_persistence_write_smoke {
@@ -1432,6 +1471,10 @@ async fn main {
   println(
     "post_init_openrc_surface_smoke=" +
     post_init_openrc_surface_smoke.to_string(),
+  )
+  println(
+    "post_init_openrc_service_smoke=" +
+    post_init_openrc_service_smoke.to_string(),
   )
   println("post_init_storage_smoke=" + post_init_storage_smoke.to_string())
   println(

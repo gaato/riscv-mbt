@@ -119,6 +119,20 @@ test "openrc surface smoke avoids package reinstall" {
 }
 
 ///|
+test "openrc service smoke exercises rc-update registration" {
+  let commands = alpine_post_init_openrc_service_commands()
+  let markers = alpine_post_init_openrc_service_markers()
+  assert_eq(commands.length(), 3)
+  assert_eq(markers.length(), 3)
+  assert_true(commands[0].contains("#!/sbin/openrc-run"))
+  assert_true(commands[0].contains("/run/openrc/softlevel"))
+  assert_true(commands[1].contains("/sbin/rc-update add"))
+  assert_true(commands[2].contains("/sbin/rc-update del"))
+  assert_eq(markers[1], "openrc-service-register-ok")
+  assert_eq(markers[2], "post-init-openrc-service-ok")
+}
+
+///|
 test "auto-root handoff selects auto-root artifacts by default" {
   let args = ["alpine_probe", "xlong", "--auto-root-handoff"]
   assert_eq(select_dtb_path(args, true, true), auto_root_virtio_dtb_path)

@@ -138,3 +138,19 @@ but it is not the same as a more ordinary Alpine service environment.
   with a post-init virtio delta of 16 read requests / 26,624 bytes. This proves
   the heavy part was package installation, not the OpenRC command surface
   itself.
+- `cmd/alpine_probe --post-init-openrc-service-smoke` now proves OpenRC service
+  registration on the prepared image without making OpenRC PID 1. The probe
+  writes an `openrc-run` service script, creates `/run/openrc/softlevel`, runs
+  `rc-update add riscv-mbt-openrc-service default`, verifies it with
+  `rc-update show default`, deletes it from the runlevel, and removes the
+  script.
+- The first successful OpenRC service-registration proof is:
+  `moon run --target native cmd/alpine_probe xlong --auto-root-handoff --virtio-blk-disk _build/alpine-rootfs-riscv64-openrc-surface.ext4 --post-init-command-step-budget 80000000 --post-init-openrc-service-smoke`.
+  It reaches `outcome=console-command`,
+  `post_init_openrc_service_smoke=true`, `post_init_command_index=3`, and
+  `post-init-openrc-service-ok` at 636,000,000 guest steps. The command trace is
+  `cmd1:start=591000000,marker=607000000,duration=16000000; cmd2:start=607000000,marker=622000000,duration=15000000; cmd3:start=622000000,marker=636000000,duration=14000000`,
+  with no post-init virtio reads or writes. A direct `rc-service ... start`
+  attempt timed out in the second command window, so actual OpenRC-managed
+  start/status/stop remains the next narrower OpenRC blocker rather than a
+  reason to keep rerunning long install probes.
