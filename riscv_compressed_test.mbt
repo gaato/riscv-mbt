@@ -947,6 +947,38 @@ test "rv64 compressed breakpoint traps as breakpoint" {
 }
 
 ///|
+test "rv64 compressed breakpoint does not retire into instret" {
+  let instret = 0xC02
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(
+    mixed_program_bytes([
+      (2, encode_c_li(9, 1).reinterpret_as_uint()),
+      (2, encode_c_add(0, 0).reinterpret_as_uint()),
+    ]),
+    0U,
+  )
+  match runner.step() {
+    Running => ()
+    _ => fail("expected first compressed instruction to retire")
+  }
+  assert_eq(runner.read_csr_u64(instret), 1U.to_uint64())
+  match runner.step() {
+    Trap(info) => {
+      match info.cause {
+        Breakpoint => ()
+        _ => fail("expected c.ebreak breakpoint trap")
+      }
+      assert_eq(info.faulting_pc, 2U.to_uint64())
+      assert_eq(info.trap_value, 0U.to_uint64())
+    }
+    _ => fail("expected c.ebreak trap")
+  }
+  // C.EBREAK is only 16 bits wide, but it is still the same synchronous
+  // breakpoint exception for retirement accounting.
+  assert_eq(runner.read_csr_u64(instret), 1U.to_uint64())
+}
+
+///|
 test "rv64c addiw with x0 destination remains reserved" {
   let raw = encode_c_addiw(0, 1).reinterpret_as_uint()
   expect_compressed_illegal(rv64_machine_config(), raw)
