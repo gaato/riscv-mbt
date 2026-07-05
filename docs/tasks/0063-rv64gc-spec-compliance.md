@@ -190,6 +190,11 @@ official coverage improve.
   nonzero divisors. Legal static non-RNE quotients execute where they change the
   result, NX/OF/UF come from the shared helper, and exact zero quotient signs are
   handled explicitly.
+- The double-precision fused multiply-add family now accepts legal static
+  non-RNE modes and routes finite nonzero exact fused results through the
+  exact-rational-to-double helper. This covers `FMADD.D`, `FMSUB.D`,
+  `FNMSUB.D`, and `FNMADD.D` without using an intermediate rounded product;
+  exact-zero result signs remain a separate follow-up audit.
 - `Zifencei` now has an execute regression for the key same-hart contract:
   fetch and decode an instruction, store a different instruction to the same
   address, execute `FENCE.I`, jump back, and require the replacement instruction
@@ -267,6 +272,9 @@ official coverage improve.
 - Double-precision division now has matching non-RNE coverage. Focused
   regressions cover `1.0 / 3.0`, where RTZ and RUP select adjacent
   double-precision quotients and accrue NX, plus exact zero quotient signs.
+- Double-precision FMA now has matching non-RNE coverage for finite nonzero
+  exact results. Focused regressions cover all four FMA opcodes at `2^53 + 1`,
+  where RTZ and RUP select adjacent double-precision results and accrue NX.
 - The first RV64C reserved/hint correction slice is in place. `EBREAK` and
   `C.EBREAK` now trap as architectural breakpoint exceptions instead of illegal
   instructions, RV64C rejects reserved `C.ADDIW rd=x0`, `C.LUI rd=x0` and

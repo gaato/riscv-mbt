@@ -1107,6 +1107,45 @@ test "rv64fd fused multiply-add double paths execute" {
 }
 
 ///|
+test "rv64fd fused multiply-add double paths honor non-rne rounding modes" {
+  let runner = make_runner(rv64fd_machine_config())
+  let csr_fcsr = 0x003
+  runner.cpu.write_freg(1, 0x4340000000000000UL)
+  runner.cpu.write_freg(2, exec_test_f64_bits(1.0))
+  runner.cpu.write_freg(3, exec_test_f64_bits(-1.0))
+  runner.cpu.write_freg(4, 0xc340000000000000UL)
+  runner.load_program(
+    words_to_bytes([
+      encode_fp_r4(2, 0x1U, 2, 1, 0x1U, 8, 0x43U),
+      encode_fp_r4(2, 0x1U, 2, 1, 0x3U, 9, 0x43U),
+      encode_fp_r4(3, 0x1U, 2, 1, 0x1U, 10, 0x47U),
+      encode_fp_r4(3, 0x1U, 2, 1, 0x3U, 11, 0x47U),
+      encode_fp_r4(2, 0x1U, 2, 4, 0x1U, 12, 0x4bU),
+      encode_fp_r4(2, 0x1U, 2, 4, 0x3U, 13, 0x4bU),
+      encode_fp_r4(3, 0x1U, 2, 4, 0x1U, 14, 0x4fU),
+      encode_fp_r4(3, 0x1U, 2, 4, 0x3U, 15, 0x4fU),
+    ]),
+    0U,
+  )
+  match runner.run(8) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected non-RNE double FMA paths to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_freg_u64(8), 0x4340000000000000UL)
+  assert_eq(runner.read_freg_u64(9), 0x4340000000000001UL)
+  assert_eq(runner.read_freg_u64(10), 0x4340000000000000UL)
+  assert_eq(runner.read_freg_u64(11), 0x4340000000000001UL)
+  assert_eq(runner.read_freg_u64(12), 0x4340000000000000UL)
+  assert_eq(runner.read_freg_u64(13), 0x4340000000000001UL)
+  assert_eq(runner.read_freg_u64(14), 0x4340000000000000UL)
+  assert_eq(runner.read_freg_u64(15), 0x4340000000000001UL)
+  assert_eq(runner.read_csr(csr_fcsr) & 0x1U, 0x1U)
+}
+
+///|
 test "rv64fd add sub mul honor non-rne rounding modes" {
   let runner = make_runner(rv64fd_machine_config())
   let csr_fcsr = 0x003

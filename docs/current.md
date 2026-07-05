@@ -94,9 +94,10 @@
   precision for legal non-RNE modes, including NX/OF/UF result flags. `FCLASS.S`
   /`FCLASS.D` now decode and execute the architectural 10-bit classification
   mask for zero, subnormal, normal, infinity, signaling-NaN, and quiet-NaN
-  values. Double `FSQRT.D` and double FMA still execute under the remaining
-  host-IEEE RNE-only arithmetic boundary. Scalar `F/D` arithmetic now accrues NV
-  for
+  values. Double FMA now uses exact-rational fused products for finite nonzero
+  results under legal non-RNE modes, while exact-zero sign auditing remains
+  open. Double `FSQRT.D` is now the remaining host-IEEE RNE-only arithmetic
+  boundary. Scalar `F/D` arithmetic now accrues NV for
   signaling NaNs and the obvious invalid-operation cases, and FDIV accrues DZ
   for finite nonzero division by zero. This is emulator-body hardening for the
   ordinary C floating-point paths that Alpine userspace can exercise; exact
