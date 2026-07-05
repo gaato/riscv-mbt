@@ -227,6 +227,8 @@
   `C.ADDI`, `C.LI`, and `C.ANDI`.
   `C.ADDI4SPN` now has high unsigned stack-offset coverage for the scattered
   CIW immediate path, in addition to the zero-immediate reserved case.
+  Register-based `C.LW`/`C.SW` now have high zero-extended offset coverage for
+  the scattered CL/CS memory immediate path.
   `C.ADDI16SP` now also has coverage for negative and high positive
   sign-extended stack-pointer adjustments, beyond the zero-immediate reserved
   case.

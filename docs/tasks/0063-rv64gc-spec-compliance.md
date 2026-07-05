@@ -200,6 +200,8 @@ official coverage improve.
   `C.ADDI`, `C.LI`, and `C.ANDI`.
   `C.ADDI4SPN` now has high unsigned stack-offset coverage for the scattered
   CIW immediate path, in addition to the zero-immediate reserved case.
+  Register-based `C.LW`/`C.SW` now have high zero-extended offset coverage for
+  the scattered CL/CS memory immediate path.
   `C.ADDI16SP` now also has coverage for negative and high positive
   sign-extended stack-pointer adjustments, beyond the zero-immediate reserved
   case.
@@ -636,6 +638,9 @@ official coverage improve.
   zero-extension.
 - RV64C `C.ADDI4SPN` coverage now pins the high unsigned `nzuimm=1020`
   stack-offset path through the scattered CIW immediate decoder.
+- RV64C `C.LW`/`C.SW` coverage now pins the high unsigned `uimm=124`
+  register-based memory offset through the scattered CL/CS decoder while
+  preserving the ordinary RV64 `LW` sign-extension result.
 - RV64C `C.ADDI16SP` coverage now pins the scattered signed immediate path for
   both a negative stack adjustment and the high positive `+496` adjustment.
 - RV64C integer stack-load coverage now keeps `C.LWSP rd=x0` and

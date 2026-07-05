@@ -528,6 +528,29 @@ test "compressed load and store reuse the normal memory execute path" {
 }
 
 ///|
+test "rv64c compressed word memory uses high zero-extended offsets" {
+  // C.LW/C.SW offsets are zero-extended and scaled by four, with bits spread
+  // across the CL/CS formats. Use the maximum 124-byte offset so the test is
+  // about compressed offset reconstruction, not just the ordinary memory path.
+  let runner = make_runner(rv64_machine_config())
+  runner.cpu.write_reg(10, 0x100U.to_uint64())
+  runner.cpu.write_reg(9, 0x80000001U.to_uint64())
+  runner.load_program(
+    mixed_program_bytes([
+      (2, encode_c_sw(9, 10, 124).reinterpret_as_uint()),
+      (2, encode_c_lw(11, 10, 124).reinterpret_as_uint()),
+    ]),
+    0U,
+  )
+  match runner.run(2) {
+    Running => ()
+    _ => fail("expected high-offset compressed word memory path to run")
+  }
+  assert_eq(runner.read_reg_u64(11), 0xffffffff80000001UL)
+  assert_eq(runner.pc_u64(), 4U.to_uint64())
+}
+
+///|
 test "rv64c compressed double load and store keep rv32c aliases reserved" {
   let raw_value = (0x11223344U.to_uint64() << 32) | 0x55667788U.to_uint64()
   let runner = make_runner(rv64_machine_config())
