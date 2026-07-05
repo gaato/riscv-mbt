@@ -107,9 +107,34 @@ but it is not the same as a more ordinary Alpine service environment.
   `openrc-user`, and `libcap2`.
 - `cmd/alpine_probe --post-init-openrc-install-smoke` is the first explicit
   OpenRC install/surface probe: it installs `openrc` from the local repository
-  after auto-root handoff, checks that `/sbin/openrc`, `/sbin/rc-status`, and
+  after auto-root handoff, checks that `/sbin/openrc`, `/bin/rc-status`, and
   `/sbin/rc-update` exist, runs `/sbin/openrc --version`, and separately probes
   `rc-update show`. A direct emulator-side `apk add openrc` run is too heavy
   for the routine development loop, so the next OpenRC slice should move toward
   an OpenRC-prepared rootfs image and keep post-init probes focused on runtime
   behavior rather than reinstalling service-manager packages every time.
+- The rootfs builder now has an explicit
+  `ALPINE_EXTRACT_LOCAL_REPO_PACKAGES` option for service-manager experiments.
+  With `ALPINE_OFFLINE_APK_PACKAGES=''`, `ALPINE_SERVICE_PACKAGES=openrc`,
+  `ALPINE_EXTRACT_LOCAL_REPO_PACKAGES=all`, and the Alpine community riscv64
+  repository configured as an extra repo, the builder can create
+  `_build/alpine-rootfs-riscv64-openrc-surface.ext4` with OpenRC payload files
+  already present. This is intentionally a file-surface preparation path, not a
+  claim that Alpine's package database and post-install trigger state match a
+  normal guest-side `apk add`.
+- `cmd/alpine_probe --post-init-openrc-surface-smoke` checks that prepared
+  OpenRC images expose `/sbin/openrc`, `/bin/rc-status`, `/sbin/rc-update`,
+  `/etc/init.d`, and `/etc/rc.conf`, then runs `/sbin/openrc --version` and
+  `rc-update show` without reinstalling packages inside the emulator. This is
+  the preferred OpenRC development-loop probe until an intentional OpenRC boot
+  path is selected.
+- The first successful prepared OpenRC surface proof is:
+  `moon run --target native cmd/alpine_probe xlong --auto-root-handoff --virtio-blk-disk _build/alpine-rootfs-riscv64-openrc-surface.ext4 --post-init-command-step-budget 80000000 --post-init-openrc-surface-smoke`.
+  It reaches `outcome=console-command`,
+  `post_init_openrc_surface_smoke=true`, `post_init_command_index=3`, and
+  `post-init-openrc-surface-ok` at 619,000,000 guest steps. The command trace
+  is
+  `cmd1:start=591000000,marker=596000000,duration=5000000; cmd2:start=596000000,marker=606000000,duration=10000000; cmd3:start=606000000,marker=619000000,duration=13000000`,
+  with a post-init virtio delta of 16 read requests / 26,624 bytes. This proves
+  the heavy part was package installation, not the OpenRC command surface
+  itself.

@@ -97,10 +97,25 @@ test "openrc install smoke keeps package and command checks aligned" {
   assert_true(commands[0].contains("openrc-*.apk"))
   assert_true(commands[1].contains("add openrc"))
   assert_true(commands[2].contains("/sbin/openrc --version"))
-  assert_true(commands[2].contains("/sbin/rc-status"))
+  assert_true(commands[2].contains("/bin/rc-status"))
   assert_true(commands[3].contains("/sbin/rc-update show"))
   assert_eq(markers[2], "openrc-commands-ok")
   assert_eq(markers[3], "post-init-openrc-ok")
+}
+
+///|
+test "openrc surface smoke avoids package reinstall" {
+  let commands = alpine_post_init_openrc_surface_commands()
+  let markers = alpine_post_init_openrc_surface_markers()
+  assert_eq(commands.length(), 3)
+  assert_eq(markers.length(), 3)
+  assert_true(commands[0].contains("/sbin/openrc"))
+  assert_true(commands[0].contains("/bin/rc-status"))
+  assert_true(commands[0].contains("/etc/init.d"))
+  assert_true(commands[1].contains("/sbin/openrc --version"))
+  assert_true(!commands[1].contains("apk"))
+  assert_true(commands[2].contains("/sbin/rc-update show"))
+  assert_eq(markers[2], "post-init-openrc-surface-ok")
 }
 
 ///|

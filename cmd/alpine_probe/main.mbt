@@ -741,7 +741,7 @@ fn alpine_post_init_openrc_install_commands() -> Array[String] {
     "/sbin/apk info -e openrc && " +
     "printf '\\157\\160\\145\\156\\162\\143\\055\\141\\144\\144\\055\\157\\153\\012'",
     "test -x /sbin/openrc && " +
-    "test -x /sbin/rc-status && " +
+    "test -x /bin/rc-status && " +
     "test -x /sbin/rc-update && " +
     "/sbin/openrc --version && " +
     "printf '\\157\\160\\145\\156\\162\\143\\055\\143\\157\\155\\155\\141\\156\\144\\163\\055\\157\\153\\012'",
@@ -754,6 +754,32 @@ fn alpine_post_init_openrc_install_commands() -> Array[String] {
 fn alpine_post_init_openrc_install_markers() -> Array[String] {
   [
     "openrc-files-ok", "openrc-add-ok", "openrc-commands-ok", "post-init-openrc-ok",
+  ]
+}
+
+///|
+fn alpine_post_init_openrc_surface_commands() -> Array[String] {
+  // For images where the OpenRC package payload was prepared by the rootfs
+  // builder. This keeps runtime probes focused on OpenRC usability instead of
+  // spending each run reinstalling service-manager packages.
+  [
+    "test -x /sbin/openrc && " +
+    "test -x /bin/rc-status && " +
+    "test -x /sbin/rc-update && " +
+    "test -d /etc/init.d && " +
+    "test -r /etc/rc.conf && " +
+    "printf '\\157\\160\\145\\156\\162\\143\\055\\163\\165\\162\\146\\141\\143\\145\\055\\146\\151\\154\\145\\163\\055\\157\\153\\012'",
+    "/sbin/openrc --version && " +
+    "printf '\\157\\160\\145\\156\\162\\143\\055\\163\\165\\162\\146\\141\\143\\145\\055\\166\\145\\162\\163\\151\\157\\156\\055\\157\\153\\012'",
+    "/sbin/rc-update show && " +
+    "printf '\\160\\157\\163\\164\\055\\151\\156\\151\\164\\055\\157\\160\\145\\156\\162\\143\\055\\163\\165\\162\\146\\141\\143\\145\\055\\157\\153\\012'",
+  ]
+}
+
+///|
+fn alpine_post_init_openrc_surface_markers() -> Array[String] {
+  [
+    "openrc-surface-files-ok", "openrc-surface-version-ok", "post-init-openrc-surface-ok",
   ]
 }
 
@@ -883,6 +909,9 @@ async fn main {
   let post_init_openrc_install_smoke = parse_flag(
     args, "--post-init-openrc-install-smoke",
   )
+  let post_init_openrc_surface_smoke = parse_flag(
+    args, "--post-init-openrc-surface-smoke",
+  )
   let post_init_storage_smoke = parse_flag(args, "--post-init-storage-smoke")
   let post_init_persistence_write_smoke = parse_flag(
     args, "--post-init-persistence-write-smoke",
@@ -924,6 +953,7 @@ async fn main {
     post_init_service_persistence_write_smoke ||
     post_init_service_persistence_read_smoke ||
     post_init_openrc_install_smoke ||
+    post_init_openrc_surface_smoke ||
     post_init_storage_smoke ||
     post_init_persistence_write_smoke ||
     post_init_persistence_read_smoke ||
@@ -1021,6 +1051,8 @@ async fn main {
     Some("service-persistence-read-ok")
   } else if post_init_openrc_install_smoke {
     Some("post-init-openrc-ok")
+  } else if post_init_openrc_surface_smoke {
+    Some("post-init-openrc-surface-ok")
   } else if post_init_storage_smoke {
     Some("post-init-storage-ok")
   } else if post_init_persistence_write_smoke {
@@ -1064,6 +1096,8 @@ async fn main {
     [alpine_post_init_service_persistence_read_command()]
   } else if post_init_openrc_install_smoke {
     alpine_post_init_openrc_install_commands()
+  } else if post_init_openrc_surface_smoke {
+    alpine_post_init_openrc_surface_commands()
   } else if post_init_storage_smoke {
     alpine_post_init_storage_commands()
   } else if post_init_persistence_write_smoke {
@@ -1111,6 +1145,8 @@ async fn main {
     ["service-persistence-read-ok"]
   } else if post_init_openrc_install_smoke {
     alpine_post_init_openrc_install_markers()
+  } else if post_init_openrc_surface_smoke {
+    alpine_post_init_openrc_surface_markers()
   } else if post_init_storage_smoke {
     alpine_post_init_storage_markers()
   } else if post_init_persistence_write_smoke {
@@ -1392,6 +1428,10 @@ async fn main {
   println(
     "post_init_openrc_install_smoke=" +
     post_init_openrc_install_smoke.to_string(),
+  )
+  println(
+    "post_init_openrc_surface_smoke=" +
+    post_init_openrc_surface_smoke.to_string(),
   )
   println("post_init_storage_smoke=" + post_init_storage_smoke.to_string())
   println(

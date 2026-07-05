@@ -16,6 +16,7 @@ use_apk_static_as_default="${ALPINE_USE_APK_STATIC_AS_DEFAULT:-1}"
 offline_apk_packages="${ALPINE_OFFLINE_APK_PACKAGES:-ddate iputils}"
 service_packages="${ALPINE_SERVICE_PACKAGES:-}"
 local_repo_packages="$offline_apk_packages $service_packages"
+extract_local_repo_packages="${ALPINE_EXTRACT_LOCAL_REPO_PACKAGES:-}"
 rootfs_name="alpine-minirootfs-$version-$arch.tar.gz"
 rootfs_url="$base_url/$rootfs_name"
 sha_url="$rootfs_url.sha256"
@@ -194,6 +195,32 @@ write_local_apkindex() {
   )
 }
 
+should_extract_local_repo_package() {
+  local package_name="$1"
+  case "$extract_local_repo_packages" in
+    1|true|all)
+      return 0
+      ;;
+  esac
+  for extract_package_name in $extract_local_repo_packages; do
+    if [[ "$extract_package_name" == "$package_name" ]]; then
+      return 0
+    fi
+  done
+  return 1
+}
+
+extract_local_repo_package() {
+  local package_apk="$1"
+  tar \
+    --warning=no-unknown-keyword \
+    --exclude='.SIGN*' \
+    --exclude='.PKGINFO' \
+    --exclude='.post-*' \
+    -xzf "$package_apk" \
+    -C "$root_dir"
+}
+
 if [[ ! -f "$build_dir/$rootfs_name" ]]; then
   curl -L -o "$build_dir/$rootfs_name" "$rootfs_url"
 fi
@@ -236,6 +263,9 @@ if [[ -n "${local_repo_packages// }" ]]; then
     cp "$package_apk" "$root_dir/root/riscv-mbt-apks/$arch/$package_name.apk"
     cp "$package_apk" "$root_dir/root/riscv-mbt-apks/$package_apk_name"
     cp "$package_apk" "$root_dir/root/riscv-mbt-apks/$arch/$package_apk_name"
+    if should_extract_local_repo_package "$package_name"; then
+      extract_local_repo_package "$package_apk"
+    fi
   done
 fi
 
