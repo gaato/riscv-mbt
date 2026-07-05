@@ -64,16 +64,20 @@ test "decode mul and div fields" {
 ///|
 test "decode AMO accepts aqrl bits and rejects reserved encodings" {
   // funct7 carries funct5 in bits 6:2 and the aq/rl ordering bits in 1:0.
-  // Decode keeps the architectural operation shape and leaves ordering
-  // semantics to the memory-model audit instead of creating separate variants.
-  match decode(encode_r((0x00U << 2) | 0x3U, 2, 1, 0x2U, 3, 0x2fU)) {
-    AmoW(funct5, rd, rs1, rs2) => {
-      assert_eq(funct5, 0x00U)
-      assert_eq(rd, 3)
-      assert_eq(rs1, 1)
-      assert_eq(rs2, 2)
+  // Decode keeps both the operation and order fields visible instead of
+  // collapsing the four aq/rl forms into the same instruction value.
+  for expected_order in [0U, 1U, 2U, 3U] {
+    match
+      decode(encode_r((0x00U << 2) | expected_order, 2, 1, 0x2U, 3, 0x2fU)) {
+      AmoW(funct5, order, rd, rs1, rs2) => {
+        assert_eq(funct5, 0x00U)
+        assert_eq(order, expected_order)
+        assert_eq(rd, 3)
+        assert_eq(rs1, 1)
+        assert_eq(rs2, 2)
+      }
+      _ => fail("expected amoadd.w with preserved aq/rl order bits")
     }
-    _ => fail("expected amoadd.w.aqrl")
   }
   match decode(encode_r(0x05U << 2, 2, 1, 0x2U, 3, 0x2fU)) {
     Unknown(_) => ()

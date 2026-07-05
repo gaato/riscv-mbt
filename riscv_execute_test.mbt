@@ -9870,6 +9870,31 @@ test "AMO.W sign-extends the loaded word on RV64" {
 }
 
 ///|
+test "AMO.W aq rl encodings execute ordinary atomic operation" {
+  for order in [0U, 1U, 2U, 3U] {
+    let runner = make_runner(virt_machine_config())
+    let addr = runner.cpu.pc + 0x100U.to_uint64()
+    let old_word = 0x20U + order
+    runner.bus.store_u32(addr, old_word.to_uint64())
+    runner.cpu.write_reg(1, addr)
+    runner.cpu.write_reg(2, 5U.to_uint64())
+    // The single-hart interpreter does not yet model cross-hart visibility
+    // differences for aq/rl, but every architectural order encoding must still
+    // decode and execute the underlying atomic read-modify-write operation.
+    runner.bus.store_u32(
+      runner.cpu.pc,
+      encode_amo_ordered(0x00U, order, 2, 1, 0x2U, 3).to_uint64(),
+    )
+    match runner.step() {
+      Running => ()
+      _ => fail("expected ordered AMOADD.W form to run")
+    }
+    assert_eq(runner.read_reg_u64(3), old_word.to_uint64())
+    assert_eq(runner.bus.load_u32(addr), (old_word + 5U).to_uint64())
+  }
+}
+
+///|
 test "AMO.W access fault is reported as store/AMO access fault" {
   let runner = make_runner(default_machine_config())
   let addr = 0x20000U.to_uint64()

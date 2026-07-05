@@ -988,11 +988,12 @@ fn Runner::execute_amo(
   raw : UInt,
 ) -> StepResult {
   // AMO and LR/SC operations share the same physical-address reservation
-  // model as normal stores. This does not yet give `aq`/`rl` a full memory
-  // ordering model, but it does enforce the A-extension rule that another
-  // hart's store to the reservation set can make a later SC fail.
+  // model as normal stores. The decoded order field preserves the architectural
+  // aq/rl annotation for memory-model work; the current single-hart interpreter
+  // still executes guest memory operations in program order and therefore does
+  // not emit a separate host-side ordering barrier here.
   match instruction {
-    AmoW(funct5_val, rd, rs1, rs2) => {
+    AmoW(funct5_val, _order, rd, rs1, rs2) => {
       let addr = self.cpu.read_reg(rs1)
       // LR.W
       if funct5_val == 0x02U {
@@ -1054,7 +1055,7 @@ fn Runner::execute_amo(
       self.cpu.pc = next_pc
       Running
     }
-    AmoD(funct5_val, rd, rs1, rs2) => {
+    AmoD(funct5_val, _order, rd, rs1, rs2) => {
       let addr = self.cpu.read_reg(rs1)
       // LR.D
       if funct5_val == 0x02U {
@@ -2184,8 +2185,10 @@ pub fn Runner::step(self : Runner) -> StepResult {
     SfenceVma(_, _) =>
       self.execute_system(instruction, current_pc, next_pc, raw)
     Wfi => self.execute_wfi(current_pc, next_pc, raw)
-    AmoW(_, _, _, _) => self.execute_amo(instruction, current_pc, next_pc, raw)
-    AmoD(_, _, _, _) => self.execute_amo(instruction, current_pc, next_pc, raw)
+    AmoW(_, _, _, _, _) =>
+      self.execute_amo(instruction, current_pc, next_pc, raw)
+    AmoD(_, _, _, _, _) =>
+      self.execute_amo(instruction, current_pc, next_pc, raw)
     FMAddS(_, _, _, _, _) =>
       self.execute_fp(instruction, current_pc, next_pc, raw)
     FMSubS(_, _, _, _, _) =>

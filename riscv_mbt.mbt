@@ -353,8 +353,8 @@ pub enum Instruction {
   Csrrci(Int, Int, UInt)
   SfenceVma(Int, Int)
   Wfi
-  AmoW(UInt, Int, Int, Int)
-  AmoD(UInt, Int, Int, Int)
+  AmoW(UInt, UInt, Int, Int, Int)
+  AmoD(UInt, UInt, Int, Int, Int)
   Ecall
   Ebreak
   Mret

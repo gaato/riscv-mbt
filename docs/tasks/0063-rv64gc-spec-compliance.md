@@ -156,9 +156,10 @@ official coverage improve.
   current `riscv-tests` surface.
 - `A`: `riscv_decode.mbt` rejects reserved AMO operations and reserved
   `LR.W`/`LR.D` encodings with nonzero `rs2`, gates AMO execution on `MISA.A`,
-  keeps `AMO.D` RV64-only, and accepts `aq`/`rl` encodings for the current
-  single-hart interpreter. Focused white-box regressions pin the reserved
-  AMO/LR encodings, missing-`MISA.A` trap, and RV32 `AMO.D` rejection.
+  keeps `AMO.D` RV64-only, and preserves the two-bit `aq`/`rl` ordering field
+  in decoded AMO instructions. Focused white-box regressions pin the reserved
+  AMO/LR encodings, all four AMO order encodings, missing-`MISA.A` trap, and
+  RV32 `AMO.D` rejection.
   `riscv_execute.mbt` implements LR/SC and AMO W/D behavior with shared
   per-hart physical byte-range reservations, with regressions for
   reservation success/failure, same-hart store invalidation, cross-hart store
@@ -167,9 +168,10 @@ official coverage improve.
   alignment traps for LR/SC/AMO W/D operations. Virtio-blk
   guest-visible DMA/status/used-ring writes now use reservation-aware device
   store helpers. The upstream `rv64ua` AMO/LRSC cases are now part of the
-  gating manifest. The remaining audit is true `aq`/`rl` memory-ordering
-  semantics and broader forward-progress/eventual-success behavior beyond the
-  current interpreter scheduling model.
+  gating manifest. The remaining audit is true `aq`/`rl` visibility ordering
+  semantics beyond the current in-order single-hart execution model, plus
+  broader forward-progress/eventual-success behavior beyond the current
+  interpreter scheduling model.
 - `C`: compressed decode/execute coverage exists in
   `riscv_compressed_test.mbt`, and the upstream `rv64uc-p-rvc` binary is now
   part of the gating manifest. The RV64C reserved/hint audit now covers
@@ -448,10 +450,11 @@ official coverage improve.
   and keeps all nonzero-source write forms (`CSRRW[I]`, `CSRRS[I]`, and
   `CSRRC[I]`) illegal for read-only CSRs.
 - `A` decode now treats reserved AMO `funct5` values and the reserved
-  nonzero-`rs2` LR encoding as illegal, while still accepting the `aq`/`rl`
-  ordering bits. AMO W/D execution is also profile-gated on `MISA.A`, and the
-  AMO.W regressions now pin the RV64 rule that the loaded word placed in `rd`
-  is sign-extended.
+  nonzero-`rs2` LR encoding as illegal, while preserving the `aq`/`rl` ordering
+  bits in the decoded instruction value. AMO W/D execution is also
+  profile-gated on `MISA.A`, and the AMO.W regressions now pin both ordinary
+  execution for all four order encodings and the RV64 rule that the loaded word
+  placed in `rd` is sign-extended.
 - All 19 current upstream `rv64ua-p-*` binaries (`amo{add,and,max,maxu,min,
   minu,or,swap,xor}_{w,d}` plus `lrsc`) pass through `cmd/official_survey` and
   have been promoted to `gating` rows in `tools/riscv-tests-manifest.tsv`.

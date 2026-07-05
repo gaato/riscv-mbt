@@ -66,9 +66,10 @@ fn amo_funct5_is_valid(funct5 : UInt) -> Bool {
 fn decode_amo(raw : UInt) -> Instruction {
   let op = funct5(raw)
   // The acquire/release bits sit below funct5 in the AMO encoding. They are
-  // accepted but not stored in Instruction because the current single-hart
-  // interpreter does not reorder guest memory operations across an executed
-  // instruction; multi-hart ordering remains a separate A-extension audit item.
+  // architectural state, not decoration: later memory-model work needs to know
+  // whether the instruction requested unordered, acquire, release, or
+  // sequentially-consistent ordering.
+  let order = (raw >> 25) & 0x3U
   if !amo_funct5_is_valid(op) {
     Unknown(raw)
   } else if op == 0x02U && rs2(raw) != 0 {
@@ -77,8 +78,8 @@ fn decode_amo(raw : UInt) -> Instruction {
     Unknown(raw)
   } else {
     match funct3(raw) {
-      0x2U => AmoW(op, rd(raw), rs1(raw), rs2(raw))
-      0x3U => AmoD(op, rd(raw), rs1(raw), rs2(raw))
+      0x2U => AmoW(op, order, rd(raw), rs1(raw), rs2(raw))
+      0x3U => AmoD(op, order, rd(raw), rs1(raw), rs2(raw))
       _ => Unknown(raw)
     }
   }
@@ -1098,8 +1099,8 @@ fn instruction_supported_for_current_config(
     Lwu(_, _, _) => xlen == XLEN_64
     Ld(_, _, _) => xlen == XLEN_64
     Sd(_, _, _) => xlen == XLEN_64
-    AmoW(_, _, _, _) => has_a
-    AmoD(_, _, _, _) => has_a && xlen == XLEN_64
+    AmoW(_, _, _, _, _) => has_a
+    AmoD(_, _, _, _, _) => has_a && xlen == XLEN_64
     Flw(_, _, _) => has_f
     Fld(_, _, _) => has_d
     Fsw(_, _, _) => has_f
