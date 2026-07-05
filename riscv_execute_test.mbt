@@ -10506,6 +10506,29 @@ test "SC.W without a live reservation fails and does not store" {
 }
 
 ///|
+test "SC.D without a live reservation fails and does not store" {
+  // RV64GC includes doubleword LR/SC. A failed SC.D reports a nonzero status
+  // in rd and leaves memory unchanged, matching the word-sized failure path.
+  let runner = make_runner(virt_machine_config())
+  let addr = runner.cpu.pc + 0x100U.to_uint64()
+  let original = 0x1122334455667788UL
+  let replacement = 0x8877665544332211UL
+  runner.bus.store_u64(addr, original)
+  runner.cpu.write_reg(1, addr)
+  runner.cpu.write_reg(5, replacement)
+  runner.bus.store_u32(
+    runner.cpu.pc,
+    encode_amo(0x03U, 5, 1, 0x3U, 4).to_uint64(),
+  )
+  match runner.step() {
+    Running => ()
+    _ => fail("expected failed sc.d to retire")
+  }
+  assert_eq(runner.read_reg_u64(4), 1U.to_uint64())
+  assert_eq(runner.bus.load_u64(addr), original)
+}
+
+///|
 test "atomic operations require natural address alignment" {
   fn expect_atomic_misaligned_trap(
     name : String,

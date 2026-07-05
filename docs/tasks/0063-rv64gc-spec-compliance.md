@@ -172,10 +172,11 @@ official coverage improve.
   RV32 `AMO.D` rejection.
   `riscv_execute.mbt` implements LR/SC and AMO W/D behavior with shared
   per-hart physical byte-range reservations, with regressions for
-  reservation success/failure, same-hart store invalidation, cross-hart store
-  invalidation, overlapping LR.D reservation invalidation, device writes to
-  bytes accessed by LR, RV64 AMO.W sign-extension, and natural-address
-  alignment traps for LR/SC/AMO W/D operations. Virtio-blk
+  reservation success/failure for word and doubleword SC, same-hart store
+  invalidation, cross-hart store invalidation, overlapping LR.D reservation
+  invalidation, device writes to bytes accessed by LR, RV64 AMO.W
+  sign-extension, and natural-address alignment traps for LR/SC/AMO W/D
+  operations. Virtio-blk
   guest-visible DMA/status/used-ring writes now use reservation-aware device
   store helpers. The upstream `rv64ua` AMO/LRSC cases are now part of the
   gating manifest. The remaining audit is true `aq`/`rl` visibility ordering
@@ -382,6 +383,8 @@ official coverage improve.
   load-address-misaligned; SC and AMO misalignment raise
   store-address-misaligned. Ordinary non-atomic load/store misalignment remains
   governed by the emulator's existing EEI behavior.
+- A-extension failed-SC coverage now includes both `SC.W` and `SC.D` without a
+  live reservation, proving the nonzero status result and no-store behavior.
 - Sv39 permission checks now keep SUM limited to supervisor data accesses:
   S-mode loads/stores to U pages can proceed when SUM is set, but S-mode
   instruction fetches from U pages raise instruction page faults regardless of
