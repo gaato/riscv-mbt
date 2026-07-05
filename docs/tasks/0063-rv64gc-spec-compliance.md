@@ -86,7 +86,9 @@ official coverage improve.
   regression floor. The remaining local `rv64um` unsigned divide/remainder and
   high-half multiply rows (`divu`, `divuw`, `remu`, `remuw`, `mulh`, `mulhsu`,
   and `mulhu`) also pass and are gated, completing the local official `rv64um`
-  source rows.
+  source rows. As of this pass, every local official source row for the
+  RV64GC-relevant suites (`rv64ui/um/ua/uc/uf/ud`) is in `gating`; remaining
+  local official rows are optional non-baseline extensions such as Zba/Zbb/Zfh.
   Taken branch and jump target alignment now follows the active IALIGN:
   non-C profiles trap halfword-only targets as instruction-address-misaligned,
   while C/RV64GC profiles allow them under IALIGN=16.

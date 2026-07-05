@@ -173,7 +173,10 @@
   local official-test checkout is in the regression floor. The remaining local
   `rv64um` unsigned divide/remainder and high-half multiply rows (`divu`,
   `divuw`, `remu`, `remuw`, `mulh`, `mulhsu`, and `mulhu`) also pass and are
-  gated, completing the local official `rv64um` source rows.
+  gated, completing the local official `rv64um` source rows. As of this pass,
+  every local official source row for the RV64GC-relevant suites
+  (`rv64ui/um/ua/uc/uf/ud`) is in `gating`; remaining local official rows are
+  optional non-baseline extensions such as Zba/Zbb/Zfh.
 
 - The first RV64C reserved/hint correction slice for Task 0063 is in place.
   `EBREAK` and `C.EBREAK` now raise the architectural breakpoint exception,
