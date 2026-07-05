@@ -23,6 +23,10 @@ test "decode shift immediate fields" {
     }
     _ => fail("expected slli")
   }
+  match decode(encode_i(0x400, 4, 0x1U, 5, 0x13U)) {
+    Unknown(_) => ()
+    _ => fail("expected reserved slli high immediate bits to stay unknown")
+  }
 }
 
 ///|

@@ -77,6 +77,9 @@ official coverage improve.
   `lbu`, `lh`, `sb`, and `sh` binaries now build locally and are promoted to
   `gating`. The official non-word integer ALU rows for logical, compare,
   shift, and `sub` operations have also passed survey and moved to `gating`.
+  Base `SLLI` decode now rejects reserved high immediate bits, and RV32 profile
+  legality rejects `SLLI` with `shamt[5]=1` instead of executing it as a
+  six-bit shift.
   The RV64 word-operation rows `addiw`, `addw`, `subw`, `slliw`, `sllw`,
   `srliw`, `srlw`, `sraiw`, and `sraw` have likewise passed survey and are now
   part of the gating manifest. The remaining local `rv64ui` branch and
@@ -455,6 +458,10 @@ official coverage improve.
 - Double-precision sqrt now has matching non-RNE coverage. A focused regression
   covers `FSQRT.D sqrt(2.0)`, where RTZ and RUP select adjacent
   double-precision results and accrue NX.
+- Base shift-immediate decode now treats `SLLI` as a shift-immediate
+  specialization rather than a generic 12-bit immediate. RV64 reserved high
+  immediate bits decode as illegal, and RV32 `SLLI shamt[5]=1` traps through
+  the profile legality gate.
 - The first RV64C reserved/hint correction slice is in place. `EBREAK` and
   `C.EBREAK` now trap as architectural breakpoint exceptions instead of illegal
   instructions, RV64C rejects reserved `C.ADDIW rd=x0`, `C.LUI rd=x0` and

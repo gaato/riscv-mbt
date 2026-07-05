@@ -8029,6 +8029,37 @@ test "rv64 word operations keep 32-bit results sign-extended" {
 }
 
 ///|
+test "base shift-immediate reserved encodings trap" {
+  let rv64_reserved = encode_i(0x400, 1, 0x1U, 2, 0x13U)
+  let rv64_runner = make_runner(rv64_machine_config())
+  rv64_runner.load_program(words_to_bytes([rv64_reserved]), 0U)
+  match rv64_runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected rv64 reserved slli to raise illegal instruction")
+      }
+      assert_eq(info.trap_value, rv64_reserved.to_uint64())
+    }
+    _ => fail("expected rv64 reserved slli to trap")
+  }
+
+  let rv32_reserved = encode_i(0x020, 1, 0x1U, 2, 0x13U)
+  let rv32_runner = make_runner(default_machine_config())
+  rv32_runner.load_program(words_to_bytes([rv32_reserved]), 0U)
+  match rv32_runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected rv32 reserved slli to raise illegal instruction")
+      }
+      assert_eq(info.trap_value, rv32_reserved.to_uint64())
+    }
+    _ => fail("expected rv32 reserved slli to trap")
+  }
+}
+
+///|
 test "rv64m word instructions honor divide edge cases and sign extension" {
   let program = words_to_bytes([
     encode_i(-13, 0, 0x0U, 1, 0x1bU),

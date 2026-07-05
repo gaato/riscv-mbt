@@ -1051,6 +1051,10 @@ fn instruction_supported_for_current_config(
   }
   match instruction {
     Addiw(_, _, _) => xlen == XLEN_64
+    Slli(_, _, shamt) =>
+      // RV32 shift-immediate instructions encode a 5-bit shamt. The decoded
+      // shape is shared with RV64, so reject shamt[5] at the profile boundary.
+      xlen == XLEN_64 || shamt < 32
     Slliw(_, _, _) => xlen == XLEN_64
     Srliw(_, _, _) => xlen == XLEN_64
     Sraiw(_, _, _) => xlen == XLEN_64
@@ -1291,7 +1295,16 @@ pub fn decode(raw : UInt) -> Instruction {
     0x13U =>
       match funct3(raw) {
         0x0U => Addi(rd(raw), rs1(raw), imm_i(raw))
-        0x1U => Slli(rd(raw), rs1(raw), shamt_i(raw))
+        0x1U =>
+          // Base SLLI is a shift-immediate specialization, not a generic
+          // 12-bit immediate. RV64 takes shamt[5:0] from imm[5:0], while the
+          // upper immediate bits must be zero; otherwise the code point is
+          // reserved for other standard/custom encodings.
+          if funct6(raw) == 0x00U {
+            Slli(rd(raw), rs1(raw), shamt_i(raw))
+          } else {
+            Unknown(raw)
+          }
         0x2U => Slti(rd(raw), rs1(raw), imm_i(raw))
         0x3U => Sltiu(rd(raw), rs1(raw), imm_i(raw))
         0x4U => Xori(rd(raw), rs1(raw), imm_i(raw))

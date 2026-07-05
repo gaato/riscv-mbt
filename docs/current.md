@@ -194,7 +194,9 @@
   gated, completing the local official `rv64um` source rows. As of this pass,
   every local official source row for the RV64GC-relevant suites
   (`rv64ui/um/ua/uc/uf/ud`) is in `gating`; remaining local official rows are
-  optional non-baseline extensions such as Zba/Zbb/Zfh.
+  optional non-baseline extensions such as Zba/Zbb/Zfh. Base `SLLI` now
+  rejects reserved high immediate bits, and the RV32 profile gate rejects
+  `SLLI shamt[5]=1` rather than executing it as a six-bit shift.
 
 - The first RV64C reserved/hint correction slice for Task 0063 is in place.
   `EBREAK` and `C.EBREAK` now raise the architectural breakpoint exception,
