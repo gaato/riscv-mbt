@@ -6343,6 +6343,38 @@ test "trap-vector entry does not retire into instret" {
 }
 
 ///|
+test "execute fault trap-vector entry does not retire into instret" {
+  let instret = 0xC02
+  let mtvec = 0x305
+  let handler = 24
+  let program = words_to_bytes([
+    encode_i(handler, 0, 0x0U, 1, 0x13U),
+    encode_csr(mtvec, 1, 0x1U, 0),
+    encode_u(0x50000000U, 5, 0x37U),
+    encode_i(0, 5, 0x2U, 6, 0x03U),
+    encode_i(99, 0, 0x0U, 7, 0x13U),
+    encode_i(99, 0, 0x0U, 8, 0x13U),
+    encode_csr(instret, 0, 0x2U, 3),
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(5) {
+    Running => ()
+    _ => fail("expected load fault to enter mtvec and continue")
+  }
+  // ADDI, CSRRW, and LUI retired. The faulting LW entered the handler but did
+  // not retire, so the handler's CSR read observes 3.
+  assert_eq(runner.read_reg(3), 3U)
+  assert_eq(runner.read_csr(instret), 4U)
+  assert_eq(runner.read_csr(0x341), 12U)
+  assert_eq(runner.read_csr(0x342), 5U)
+  assert_eq(runner.read_csr(0x343), 0x50000000U)
+  assert_eq(runner.read_reg(6), 0U)
+  assert_eq(runner.read_reg(7), 0U)
+  assert_eq(runner.pc(), 28U)
+}
+
+///|
 test "interrupts do not retire into instret" {
   let base = 0x80000000U.to_uint64()
   let instret = 0xC02
