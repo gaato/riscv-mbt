@@ -202,11 +202,14 @@
   MSI/MTI/MEI and SSI/STI/SEI (`0xaaa`), while `mip` readback is masked to the
   same implemented pending-bit surface. CSR writes to `mip` affect only the
   software-writable S-level pending bits; machine-level pending bits come from
-  CLINT/PLIC state. The supervisor external interrupt pending bit now follows
-  the privileged spec's split semantics: stored `mip.SEIP` is the
-  software-writable bit, visible `mip`/`sip` reads OR in the PLIC supervisor
-  external signal, and CSRRS/CSRRC write back only the software bit rather than
-  copying the external signal into it.
+  CLINT/PLIC state. No-`S` profiles now reduce that surface to machine
+  MSI/MTI/MEI only, so writes cannot synthesize absent supervisor pending or
+  enable bits and PLIC supervisor external state is not reflected through
+  `mip`. The supervisor external interrupt pending bit now follows the
+  privileged spec's split semantics: stored `mip.SEIP` is the software-writable
+  bit, visible `mip`/`sip` reads OR in the PLIC supervisor external signal, and
+  CSRRS/CSRRC write back only the software bit rather than copying the external
+  signal into it.
 
 - RV64I byte and halfword load/store regressions now explicitly verify
   sign-extension and zero-extension to XLEN for `LB/LBU/LH/LHU` after `SB/SH`.

@@ -417,6 +417,39 @@ test "supervisor profile resources trap when S extension is not advertised" {
 }
 
 ///|
+test "supervisor interrupt bits are absent when S is not advertised" {
+  let mie_runner = make_runner(wb_rv64_without_s_machine_config())
+  mie_runner.cpu.write_reg(1, bit_not(0U.to_uint64()))
+  mie_runner.load_program(
+    words_to_bytes([
+      wb_encode_csr(CSR_MIE, 1, 0x1U, 0), // write all implemented mie bits
+      wb_encode_csr(CSR_MIE, 0, 0x2U, 2), // read mie
+    ]),
+    0U,
+  )
+  match mie_runner.run(2) {
+    Running => ()
+    _ => fail("expected no-S mie write/read program to run")
+  }
+  assert_eq(mie_runner.read_reg_u64(2), 0x888U.to_uint64())
+
+  let mip_runner = make_runner(wb_rv64_without_s_machine_config())
+  mip_runner.cpu.write_reg(1, bit_not(0U.to_uint64()))
+  mip_runner.load_program(
+    words_to_bytes([
+      wb_encode_csr(CSR_MIP, 1, 0x1U, 0), // S pending bits are absent
+      wb_encode_csr(CSR_MIP, 0, 0x2U, 2),
+    ]),
+    0U,
+  )
+  match mip_runner.run(2) {
+    Running => ()
+    _ => fail("expected no-S mip write/read program to run")
+  }
+  assert_eq(mip_runner.read_reg_u64(2), 0U.to_uint64())
+}
+
+///|
 test "mstatus write cannot expose supervisor return state without S" {
   let runner = make_runner(wb_rv64_without_s_machine_config())
   let mpp_s_and_spp = (1U.to_uint64() << MSTATUS_MPP_SHIFT) |

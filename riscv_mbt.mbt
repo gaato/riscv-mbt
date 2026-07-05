@@ -740,9 +740,6 @@ const CSR_MIE : Int = 0x304
 const MACHINE_INTERRUPT_MASK : UInt64 = 0xaaa
 
 ///|
-const MIP_WRITABLE_MASK : UInt64 = SIP_VISIBLE_MASK
-
-///|
 const CSR_MTVEC : Int = 0x305
 
 ///|

@@ -1208,7 +1208,8 @@ fn Runner::read_csr_visible(self : Runner, csr : Int) -> UInt64 {
     CSR_MENVCFG | CSR_SENVCFG => legalize_envcfg_csr(self.cpu.read_csr(csr))
     CSR_PMPCFG0 | CSR_PMPADDR0 => legalize_pmp_csr(self.cpu.read_csr(csr))
     CSR_MIP => self.read_mip_visible()
-    CSR_MIE => legalize_mie_csr(self.cpu.read_csr(CSR_MIE))
+    CSR_MIE =>
+      legalize_mie_csr(self.cpu.read_csr(CSR_MIE), self.config.extensions)
     CSR_SIP => self.read_mip_visible() & self.delegated_s_interrupt_mask()
     CSR_SIE => self.cpu.read_csr(CSR_MIE) & self.delegated_s_interrupt_mask()
     _ => self.cpu.read_csr(csr)
@@ -1217,11 +1218,16 @@ fn Runner::read_csr_visible(self : Runner, csr : Int) -> UInt64 {
 
 ///|
 fn Runner::read_mip_visible(self : Runner) -> UInt64 {
-  let stored = legalize_mip_csr(self.cpu.read_csr(CSR_MIP))
+  let stored = legalize_mip_csr(
+    self.cpu.read_csr(CSR_MIP),
+    self.config.extensions,
+  )
   // The privileged spec defines mip.SEIP as a visible OR of the
   // software-writable bit B and the external interrupt-controller signal E.
-  // The stored CSR holds only B; platform PLIC state supplies E at read time.
-  if self.supervisor_external_interrupt_pending() {
+  // The stored CSR holds only B; platform PLIC state supplies E at read time,
+  // but only profiles with S-mode have a supervisor external pending bit.
+  if (self.config.extensions & MISA_EXT_S) != 0U.to_uint64() &&
+    self.supervisor_external_interrupt_pending() {
     stored | mip_seip_bit
   } else {
     stored
@@ -1239,7 +1245,7 @@ fn Runner::csr_rmw_write_base(
   // read-modify-write sequence updates only the software bit B. Use the stored
   // CSR value as the write base for mip so E is never copied into B.
   if csr == CSR_MIP {
-    legalize_mip_csr(self.cpu.read_csr(CSR_MIP))
+    legalize_mip_csr(self.cpu.read_csr(CSR_MIP), self.config.extensions)
   } else {
     visible_old
   }
@@ -1249,7 +1255,11 @@ fn Runner::csr_rmw_write_base(
 fn Runner::delegated_s_interrupt_mask(self : Runner) -> UInt64 {
   // sip/sie are restricted views of mip/mie. Supervisor-visible interrupt bits
   // appear only after M-mode delegates the corresponding source through mideleg.
-  legalize_mideleg_csr(self.cpu.read_csr(CSR_MIDELEG)) & SIP_VISIBLE_MASK
+  if (self.config.extensions & MISA_EXT_S) == 0U.to_uint64() {
+    0U.to_uint64()
+  } else {
+    legalize_mideleg_csr(self.cpu.read_csr(CSR_MIDELEG)) & SIP_VISIBLE_MASK
+  }
 }
 
 ///|
@@ -1378,19 +1388,43 @@ fn legalize_satp_csr(value : UInt64, xlen : Xlen) -> UInt64? {
 }
 
 ///|
-fn legalize_mie_csr(value : UInt64) -> UInt64 {
-  // The modeled platform can raise the standard machine and supervisor
-  // software/timer/external interrupts. Other interrupt-enable bits are WARL
-  // read-only zero.
-  value & MACHINE_INTERRUPT_MASK
+fn machine_interrupt_mask_for_extensions(extensions : UInt64) -> UInt64 {
+  // Machine interrupt sources are always part of the modeled privileged
+  // platform. Supervisor sources are architectural only when S-mode exists.
+  let machine_only = MACHINE_INTERRUPT_MASK & bit_not(SIP_VISIBLE_MASK)
+  if (extensions & MISA_EXT_S) != 0U.to_uint64() {
+    machine_only | SIP_VISIBLE_MASK
+  } else {
+    machine_only
+  }
 }
 
 ///|
-fn legalize_mip_csr(value : UInt64) -> UInt64 {
+fn writable_mip_mask_for_extensions(extensions : UInt64) -> UInt64 {
+  // M-mode owns the full machine interrupt-pending CSR, so the modeled
+  // supervisor pending storage bits remain writable there. The supervisor
+  // `sip` view is intentionally narrower and only lets S-mode write SSIP.
+  if (extensions & MISA_EXT_S) != 0U.to_uint64() {
+    SIP_VISIBLE_MASK
+  } else {
+    0U.to_uint64()
+  }
+}
+
+///|
+fn legalize_mie_csr(value : UInt64, extensions : UInt64) -> UInt64 {
+  // The modeled platform can raise the standard machine and supervisor
+  // software/timer/external interrupts. Other interrupt-enable bits are WARL
+  // read-only zero.
+  value & machine_interrupt_mask_for_extensions(extensions)
+}
+
+///|
+fn legalize_mip_csr(value : UInt64, extensions : UInt64) -> UInt64 {
   // Pending bits reflect implemented interrupt sources only. Machine-level
   // pending bits are supplied by CLINT/PLIC state, while S-level pending bits
   // can also be written by M-mode software through mip.
-  value & MACHINE_INTERRUPT_MASK
+  value & machine_interrupt_mask_for_extensions(extensions)
 }
 
 ///|
@@ -1513,13 +1547,12 @@ fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
       self.cpu.write_csr(csr, legalize_envcfg_csr(value))
     CSR_PMPCFG0 | CSR_PMPADDR0 =>
       self.cpu.write_csr(csr, legalize_pmp_csr(value))
-    CSR_MIE => self.cpu.write_csr(csr, legalize_mie_csr(value))
+    CSR_MIE =>
+      self.cpu.write_csr(csr, legalize_mie_csr(value, self.config.extensions))
     CSR_MIP => {
       let mip = self.cpu.read_csr(CSR_MIP)
-      self.cpu.write_csr(
-        csr,
-        (mip & bit_not(MIP_WRITABLE_MASK)) | (value & MIP_WRITABLE_MASK),
-      )
+      let writable = writable_mip_mask_for_extensions(self.config.extensions)
+      self.cpu.write_csr(csr, (mip & bit_not(writable)) | (value & writable))
     }
     CSR_MSTATUS =>
       self.cpu.write_csr(
