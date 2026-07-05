@@ -380,7 +380,10 @@ official coverage improve.
   applies the privileged dependency that `S` depends on `U`, and no-`U`
   profiles clear `mstatus.UXL`, clear `MPRV` because U-mode is absent, clear
   `TW` because there are no modes below M after `S` is also absent, and
-  normalize `MPP=U` back to M-mode.
+  normalize `MPP=U` back to M-mode. Profiles with neither `F` nor `S` now keep
+  `mstatus.FS` read-only zero, so the derived `SD` summary also reads as zero;
+  S-mode integer profiles keep the emulator's existing writable `FS` path for
+  supervisor context-status coverage.
   Supervisor-dependent compatibility CSRs now follow the same profile surface:
   no-`S` profiles reject `satp`, `medeleg`, `mideleg`, `scounteren`, and
   `senvcfg`, while no-`U` profiles reject `mcounteren`. `MRET` now also resets
@@ -907,7 +910,9 @@ official coverage improve.
 - User-mode profile state now participates in the same canonicalization pass:
   clearing `U` from a requested RV64 config also clears `S`, and focused
   coverage pins no-`U` `mstatus` writes so `UXL`, `MPRV`, and `TW` read as
-  zero and `MPP=U` normalizes to the only implemented return target, M-mode.
+  zero, `FS` remains read-only zero when the profile has neither `F` nor `S`,
+  derived `SD` stays zero, and `MPP=U` normalizes to the only implemented
+  return target, M-mode.
 - Compatibility CSR classification is now split by the privilege mode it
   serves. `satp`, `medeleg`, `mideleg`, `scounteren`, and `senvcfg` are absent
   when `S` is absent, while `mcounteren` is absent when `U` is absent.

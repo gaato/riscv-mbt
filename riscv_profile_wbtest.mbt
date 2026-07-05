@@ -453,7 +453,9 @@ test "supervisor interrupt bits are absent when S is not advertised" {
 test "mstatus write cannot expose supervisor return state without S" {
   let runner = make_runner(wb_rv64_without_s_machine_config())
   let mpp_s_and_spp = (1U.to_uint64() << MSTATUS_MPP_SHIFT) |
-    MSTATUS_SPP_BIT.to_uint64()
+    MSTATUS_SPP_BIT.to_uint64() |
+    MSTATUS_FS_DIRTY |
+    MSTATUS_SD_BIT
   runner.cpu.write_reg(1, mpp_s_and_spp)
   runner.load_program(
     words_to_bytes([
@@ -469,6 +471,7 @@ test "mstatus write cannot expose supervisor return state without S" {
   let visible = runner.read_reg_u64(2)
   assert_eq(visible & MSTATUS_MPP_MASK.to_uint64(), 0U.to_uint64())
   assert_eq(visible & MSTATUS_SPP_BIT.to_uint64(), 0U.to_uint64())
+  assert_eq(visible & (MSTATUS_FS_MASK | MSTATUS_SD_BIT), 0U.to_uint64())
 }
 
 ///|
@@ -502,7 +505,14 @@ test "user-mode counter delegation csr traps when U is not advertised" {
 ///|
 test "mstatus write cannot expose user return state without U" {
   let runner = make_runner(wb_rv64_without_u_machine_config())
-  runner.cpu.write_reg(1, MSTATUS_UXL_MASK | MSTATUS_MPRV_BIT | MSTATUS_TW_BIT)
+  runner.cpu.write_reg(
+    1,
+    MSTATUS_UXL_MASK |
+    MSTATUS_MPRV_BIT |
+    MSTATUS_TW_BIT |
+    MSTATUS_FS_DIRTY |
+    MSTATUS_SD_BIT,
+  )
   runner.load_program(
     words_to_bytes([
       wb_encode_csr(CSR_MSTATUS, 1, 0x1U, 0), // CSRRW x0, mstatus, x1
@@ -516,7 +526,13 @@ test "mstatus write cannot expose user return state without U" {
   }
   assert_eq(
     runner.read_reg_u64(2) &
-    (MSTATUS_UXL_MASK | MSTATUS_MPRV_BIT | MSTATUS_TW_BIT),
+    (
+      MSTATUS_UXL_MASK |
+      MSTATUS_MPRV_BIT |
+      MSTATUS_TW_BIT |
+      MSTATUS_FS_MASK |
+      MSTATUS_SD_BIT
+    ),
     0U.to_uint64(),
   )
 

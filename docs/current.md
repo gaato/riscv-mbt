@@ -372,7 +372,10 @@
   reads keep user-mode return state absent by clearing `UXL`, clearing
   `MPRV` because there is no U-mode effective-privilege target, clearing `TW`
   because there are no modes below M after `S` is also absent, and normalizing
-  `MPP=U` back to M-mode.
+  `MPP=U` back to M-mode. Profiles with neither `F` nor `S` now also keep
+  `mstatus.FS` read-only zero, making the derived `SD` summary read as zero;
+  S-mode integer profiles intentionally retain the existing writable `FS`
+  status path for supervisor context-status coverage.
 - Compatibility CSR classification now follows those mode dependencies:
   `satp`, `medeleg`, `mideleg`, `scounteren`, and `senvcfg` are absent without
   `S`, while `mcounteren` is absent without `U`.

@@ -1438,6 +1438,7 @@ fn legalize_mstatus_csr(
   // storage before applying the fields that have profile-specific WARL rules.
   let has_s = (extensions & MISA_EXT_S) != 0U.to_uint64()
   let has_u = (extensions & MISA_EXT_U) != 0U.to_uint64()
+  let has_f = (extensions & MISA_EXT_F) != 0U.to_uint64()
   let without_absent_s = if has_s {
     value
   } else {
@@ -1468,10 +1469,19 @@ fn legalize_mstatus_csr(
     )
   }
   let implemented = without_absent_u & MSTATUS_IMPLEMENTED_MASK
+  // FS is meaningful when the floating-point extension exists, and this
+  // emulator also keeps it writable for S-mode integer profiles so supervisor
+  // software can exercise the context-status path. If neither F nor S exists,
+  // the privileged spec makes FS read-only zero.
+  let without_absent_fs = if has_f || has_s {
+    implemented
+  } else {
+    implemented & bit_not(MSTATUS_FS_MASK)
+  }
   // SD is a read-only summary bit. For the current RV64GC baseline the modeled
   // dirty extension status is FS=Dirty; future VS/XS modeling should join this
   // summary rather than making SD directly writable.
-  let without_sd = implemented & bit_not(MSTATUS_SD_BIT)
+  let without_sd = without_absent_fs & bit_not(MSTATUS_SD_BIT)
   let fs_dirty = (without_sd & MSTATUS_FS_MASK) == MSTATUS_FS_DIRTY
   let summarized = if fs_dirty {
     without_sd | MSTATUS_SD_BIT
