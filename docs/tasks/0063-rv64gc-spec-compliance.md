@@ -196,6 +196,8 @@ official coverage improve.
   now covered, with adjacent stack stores from `x0` kept legal.
   `C.LUI` now has coverage for positive and negative compressed immediates,
   pinning sign extension from bit 17 through XLEN.
+  Shared 6-bit signed compressed immediates now have focused coverage through
+  `C.ADDI`, `C.LI`, and `C.ANDI`.
   `C.ADDI16SP` now also has coverage for negative and high positive
   sign-extended stack-pointer adjustments, beyond the zero-immediate reserved
   case.
@@ -627,6 +629,9 @@ official coverage improve.
   `rd=x0` hint forms as no-ops.
 - RV64C `C.LUI` coverage now pins the positive and negative compressed
   immediate paths, including sign extension from bit 17 through XLEN.
+- Shared RV64C 6-bit signed immediate coverage now pins `C.ADDI`, `C.LI`, and
+  `C.ANDI`, keeping the CI and CB immediate decode paths from regressing into
+  zero-extension.
 - RV64C `C.ADDI16SP` coverage now pins the scattered signed immediate path for
   both a negative stack adjustment and the high positive `+496` adjustment.
 - RV64C integer stack-load coverage now keeps `C.LWSP rd=x0` and

@@ -223,6 +223,8 @@
   `C.LWSP` and `C.LDSP`, while adjacent stack stores from `x0` remain legal.
   `C.LUI` now has coverage for positive and negative compressed immediates,
   pinning sign extension from bit 17 through XLEN.
+  Shared 6-bit signed compressed immediates now have focused coverage through
+  `C.ADDI`, `C.LI`, and `C.ANDI`.
   `C.ADDI16SP` now also has coverage for negative and high positive
   sign-extended stack-pointer adjustments, beyond the zero-immediate reserved
   case.

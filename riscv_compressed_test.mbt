@@ -669,6 +669,32 @@ test "rv64c lui sign extends the compressed immediate" {
 }
 
 ///|
+test "rv64c addi li and andi sign extend compressed immediates" {
+  // These aliases all consume the shared 6-bit signed compressed immediate.
+  // Pin them together so future decoder cleanup cannot accidentally treat one
+  // of the CI/CB immediate paths as zero-extended.
+  let runner = make_runner(rv64_machine_config())
+  runner.cpu.write_reg(8, 0x20U.to_uint64())
+  runner.cpu.write_reg(10, 0xffU.to_uint64())
+  runner.load_program(
+    mixed_program_bytes([
+      (2, encode_c_addi(8, -1).reinterpret_as_uint()),
+      (2, encode_c_li(9, -32).reinterpret_as_uint()),
+      (2, encode_c_andi(10, -16).reinterpret_as_uint()),
+    ]),
+    0U,
+  )
+  match runner.run(3) {
+    Running => ()
+    _ => fail("expected signed compressed immediate forms to run")
+  }
+  assert_eq(runner.read_reg_u64(8), 0x1fU.to_uint64())
+  assert_eq(runner.read_reg_u64(9), 0xffffffffffffffe0UL)
+  assert_eq(runner.read_reg_u64(10), 0xf0U.to_uint64())
+  assert_eq(runner.pc_u64(), 6U.to_uint64())
+}
+
+///|
 test "compressed reusable integer ALU forms expand through existing op helpers" {
   let runner = make_runner(default_machine_config())
   runner.load_program(
