@@ -489,10 +489,12 @@ official coverage improve.
   static non-RNE modes are accepted where they change the result, reserved
   rounding modes still trap, inexact results accrue NX, and exact-zero result
   signs are selected explicitly instead of inheriting host signed-zero behavior.
-- `FDIV.S` and `FSQRT.S` now also accept legal static non-RNE modes and use the
-  same double-to-single result helper, retiring the previous RNE-only trap
-  boundary for the scalar single-precision arithmetic family. Exact quotient
-  and square-root rounding audits remain part of the broader strict FP work.
+- `FDIV.S` and `FSQRT.S` now also accept legal static non-RNE modes, retiring
+  the previous RNE-only trap boundary for the scalar single-precision
+  arithmetic family. `FDIV.S` now rounds finite nonzero-divisor quotients
+  through the emulator-side exact-rational helper and selects exact-zero
+  quotient signs explicitly. Exact square-root rounding audits remain part of
+  the broader strict FP work.
 - The single-precision fused multiply-add family now accepts legal static
   non-RNE modes and rounds finite nonzero fused results through an exact
   rational-to-single helper. This closes the old RNE-only legality boundary for
@@ -629,6 +631,7 @@ official coverage improve.
 - Single-precision div/sqrt now have the same first non-RNE coverage. Focused
   regressions cover `FDIV.S` `1.0 / 3.0` and `FSQRT.S` `sqrt(2.0)` cases where
   directed rounding selects adjacent single-precision results and accrues NX.
+  `FDIV.S` now also has exact-zero quotient sign coverage.
 - Single-precision FMA now has matching non-RNE coverage for finite nonzero
   exact results. Focused regressions cover all four FMA opcodes at `2^24 + 1`,
   where RTZ and RUP select adjacent single-precision results and accrue NX.

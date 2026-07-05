@@ -712,6 +712,15 @@ fn f64_exact_zero_mul_bits(lhs_bits : UInt64, rhs_bits : UInt64) -> UInt64 {
 }
 
 ///|
+fn f32_exact_zero_div_bits(lhs_bits : UInt, rhs_bits : UInt) -> UInt {
+  if f32_sign_bit(lhs_bits) != f32_sign_bit(rhs_bits) {
+    f32_negative_zero_bits()
+  } else {
+    0U
+  }
+}
+
+///|
 fn f64_exact_zero_div_bits(lhs_bits : UInt64, rhs_bits : UInt64) -> UInt64 {
   if f64_sign_bit(lhs_bits) != f64_sign_bit(rhs_bits) {
     f64_negative_zero_bits()
@@ -2264,13 +2273,36 @@ fn Runner::execute_fp(
       if f32_div_by_zero_bits(lhs_bits, rhs_bits) {
         self.set_fflags(fp_fflag_dz)
       }
-      let rounded = fp_round_f64_bits_to_f32_bits(
-        (f32_from_bits(lhs_bits).to_double() /
-        f32_from_bits(rhs_bits).to_double()).reinterpret_as_uint64(),
-        mode,
-      )
-      self.set_fflags(rounded.flags)
-      self.write_freg_single_bits(rd, rounded.bits)
+      let result_bits = match
+        (
+          fp_exact_rational_from_f32_bits(lhs_bits),
+          fp_exact_rational_from_f32_bits(rhs_bits),
+        ) {
+        (Some(lhs), Some(rhs)) =>
+          match fp_exact_rational_div(lhs, rhs) {
+            Some(exact) =>
+              if exact.num.is_zero() {
+                f32_exact_zero_div_bits(lhs_bits, rhs_bits)
+              } else {
+                let rounded = fp_round_rational_to_f32_bits(exact, mode)
+                self.set_fflags(rounded.flags)
+                rounded.bits
+              }
+            None =>
+              fp_round_f64_bits_to_f32_bits(
+                (f32_from_bits(lhs_bits).to_double() /
+                f32_from_bits(rhs_bits).to_double()).reinterpret_as_uint64(),
+                mode,
+              ).bits
+          }
+        _ =>
+          fp_round_f64_bits_to_f32_bits(
+            (f32_from_bits(lhs_bits).to_double() /
+            f32_from_bits(rhs_bits).to_double()).reinterpret_as_uint64(),
+            mode,
+          ).bits
+      }
+      self.write_freg_single_bits(rd, result_bits)
       self.cpu.pc = next_pc
       Running
     }

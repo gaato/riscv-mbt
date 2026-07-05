@@ -752,6 +752,33 @@ test "rv64f div sqrt honor non-rne rounding modes" {
 }
 
 ///|
+test "rv64f div preserves exact zero signs" {
+  let runner = make_runner(rv64f_machine_config())
+  runner.cpu.write_freg(1, exec_test_f32_bits(0.0).to_uint64())
+  runner.cpu.write_freg(2, 0x80000000U.to_uint64())
+  runner.cpu.write_freg(3, exec_test_f32_bits(1.0).to_uint64())
+  runner.cpu.write_freg(4, exec_test_f32_bits(-1.0).to_uint64())
+  runner.load_program(
+    words_to_bytes([
+      encode_fp_r(0x0cU, 3, 2, 0x0U, 5),
+      encode_fp_r(0x0cU, 4, 1, 0x0U, 6),
+      encode_fp_r(0x0cU, 4, 2, 0x0U, 7),
+    ]),
+    0U,
+  )
+  match runner.run(3) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected exact-zero single division to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_freg_u64(5), 0x80000000U.to_uint64())
+  assert_eq(runner.read_freg_u64(6), 0x80000000U.to_uint64())
+  assert_eq(runner.read_freg_u64(7), 0x00000000U.to_uint64())
+}
+
+///|
 test "rv64f min and max handle signed zero and canonical nan fallback" {
   let neg_zero = exec_test_f32_bits(-0.0)
   let pos_zero = exec_test_f32_bits(0.0)
