@@ -5604,6 +5604,44 @@ test "writes to read-only csrs trap as illegal instruction" {
 }
 
 ///|
+test "nonzero set and clear writes to read-only csrs trap" {
+  // CSRRS/CSRRC are legal pure reads only when their source mask is zero.
+  // A nonzero register or immediate mask is still an architectural write
+  // attempt, so read-only CSRs must reject the instruction after the read side
+  // has been proven accessible.
+  let mvendorid = 0xF11
+  let marchid = 0xF12
+  let mimpid = 0xF13
+  let mhartid = 0xF14
+  let mconfigptr = 0xF15
+  let time = 0xC01
+  let read_only_csrs = [mvendorid, marchid, mimpid, mhartid, mconfigptr, time]
+  for csr in read_only_csrs {
+    let raws = [
+      encode_csr(csr, 1, 0x2U, 2), // CSRRS with rs1=x1
+      encode_csr(csr, 1, 0x3U, 2), // CSRRC with rs1=x1
+      encode_csr(csr, 1, 0x6U, 2), // CSRRSI with uimm=1
+      encode_csr(csr, 1, 0x7U, 2), // CSRRCI with uimm=1
+    ]
+    for raw in raws {
+      let runner = make_runner(default_machine_config())
+      runner.cpu.write_reg(1, 1U.to_uint64())
+      runner.load_program(words_to_bytes([raw]), 0U)
+      match runner.step() {
+        Trap(info) => {
+          match info.cause {
+            IllegalInstruction => ()
+            _ => fail("expected illegal instruction cause")
+          }
+          assert_eq(info.trap_value, raw.to_uint64())
+        }
+        _ => fail("expected read-only CSR set/clear write to trap")
+      }
+    }
+  }
+}
+
+///|
 test "fence.i makes same-hart self-modified instruction fetch visible" {
   let replacement = encode_i(7, 0, 0x0U, 5, 0x13U)
   let program = words_to_bytes([
