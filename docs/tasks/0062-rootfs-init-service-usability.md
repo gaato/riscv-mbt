@@ -182,3 +182,11 @@ but it is not the same as a more ordinary Alpine service environment.
   RV64 rejects those high-half aliases. The regression suite covers monotonic
   reads and read-only write traps, and the OpenSBI smoke now reports `zicntr`
   in the boot HART ISA extension list.
+- After the LR/SC and counter CSR hardening, the existing auto-root system
+  smoke still reaches `post-init-system-ok`:
+  `moon run --target native cmd/alpine_probe xlong --auto-root-handoff --post-init-system-smoke --post-init-command-step-budget 120000000`.
+  It reaches `outcome=console-command`, `post_init_system_smoke=true`,
+  `post_init_command_index=3`, and `post-init-system-ok` at 606,000,000 guest
+  steps. The post-init command delta is `0 read-req/0 read-bytes` and
+  `65 write-req/66560 write-bytes`, so this rerun is a regression proof for
+  the existing Linux system path rather than a new OpenRC probe variant.
