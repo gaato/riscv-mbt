@@ -1144,6 +1144,18 @@ fn Runner::csr_privilege_accessible(self : Runner, csr : Int) -> Bool {
 }
 
 ///|
+fn Runner::csr_tvm_accessible(self : Runner, csr : Int) -> Bool {
+  if csr != CSR_SATP {
+    return true
+  }
+  match self.cpu.privilege {
+    Supervisor =>
+      (self.cpu.read_csr(CSR_MSTATUS) & MSTATUS_TVM_BIT) == 0U.to_uint64()
+    _ => true
+  }
+}
+
+///|
 fn Runner::read_csr_checked(self : Runner, csr : Int) -> UInt64? {
   if self.xlen_bits() == XLEN_64 {
     match csr {
@@ -1152,6 +1164,9 @@ fn Runner::read_csr_checked(self : Runner, csr : Int) -> UInt64? {
     }
   }
   if !self.csr_privilege_accessible(csr) {
+    return None
+  }
+  if !self.csr_tvm_accessible(csr) {
     return None
   }
   if !self.counter_csr_accessible(csr) {
@@ -1192,6 +1207,7 @@ fn Runner::execute_csr_read_write_checked(
   }
   if should_write {
     if !self.csr_privilege_accessible(csr) ||
+      !self.csr_tvm_accessible(csr) ||
       !is_supported_rw_csr(csr, self.config.extensions) {
       return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
     }

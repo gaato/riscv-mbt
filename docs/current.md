@@ -137,6 +137,8 @@
   `SRET` traps when `mstatus.TSR` is set.
 - `SFENCE.VMA` now enforces privilege legality before flushing the translation
   cache: U-mode traps, and S-mode traps when `mstatus.TVM` is set.
+- `satp` CSR reads and writes now use the same `TVM` interception rule: S-mode
+  access traps when `mstatus.TVM` is set, while M-mode remains allowed.
 
 ## Known Blockers
 

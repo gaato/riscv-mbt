@@ -2486,6 +2486,63 @@ test "sfence.vma traps as illegal from supervisor mode when tvm is set" {
 }
 
 ///|
+test "satp read traps as illegal from supervisor mode when tvm is set" {
+  let program = words_to_bytes([
+    encode_i(24, 0, 0x0U, 5, 0x13U),
+    encode_csr(0x341, 5, 0x1U, 0),
+    encode_u(0x00101000U, 1, 0x37U),
+    encode_i(-1920, 1, 0x0U, 1, 0x13U),
+    encode_csr(0x300, 1, 0x1U, 0),
+    encode_mret(),
+    encode_csr(0x180, 0, 0x2U, 2),
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(7) {
+    Trap(info) =>
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction for satp read with tvm")
+      }
+    _ => fail("expected satp read with tvm to trap")
+  }
+  assert_eq(runner.pc(), 24U)
+  match runner.privilege_mode() {
+    Machine => ()
+    _ => fail("expected illegal satp read trap to enter machine mode")
+  }
+}
+
+///|
+test "satp write traps as illegal from supervisor mode when tvm is set" {
+  let program = words_to_bytes([
+    encode_i(28, 0, 0x0U, 5, 0x13U),
+    encode_csr(0x341, 5, 0x1U, 0),
+    encode_u(0x00101000U, 1, 0x37U),
+    encode_i(-1920, 1, 0x0U, 1, 0x13U),
+    encode_csr(0x300, 1, 0x1U, 0),
+    encode_i(1, 0, 0x0U, 2, 0x13U),
+    encode_mret(),
+    encode_csr(0x180, 2, 0x1U, 0),
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(8) {
+    Trap(info) =>
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction for satp write with tvm")
+      }
+    _ => fail("expected satp write with tvm to trap")
+  }
+  assert_eq(runner.pc(), 28U)
+  match runner.privilege_mode() {
+    Machine => ()
+    _ => fail("expected illegal satp write trap to enter machine mode")
+  }
+}
+
+///|
 test "store to observed page-table page flushes translation cache" {
   let program = words_to_bytes([
     encode_i(0x100, 0, 0x0U, 1, 0x13U),
