@@ -1041,9 +1041,13 @@ fn instruction_supported_for_current_config(
   // Keep decode permissive and put profile legality here. This lets tests see
   // the exact decoded shape even when the current machine config must reject it.
   let has_a = (extensions & MISA_EXT_A) != 0U.to_uint64()
+  let has_c = (extensions & MISA_EXT_C) != 0U.to_uint64()
   let has_f = (extensions & MISA_EXT_F) != 0U.to_uint64()
   let has_d = (extensions & MISA_EXT_D) != 0U.to_uint64()
   let has_v = (extensions & MISA_EXT_V) != 0U.to_uint64()
+  if length == 2 && !has_c {
+    return false
+  }
   match instruction {
     Addiw(_, _, _) => xlen == XLEN_64
     Slliw(_, _, _) => xlen == XLEN_64

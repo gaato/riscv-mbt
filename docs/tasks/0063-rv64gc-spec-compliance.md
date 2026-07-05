@@ -112,9 +112,11 @@ official coverage improve.
   `C.EBREAK`, `C.ADDIW rd=x0`, `C.LUI rd=x0`, `C.SLLI rd=x0`, 6-bit RV64
   `C.SLLI` shift amounts, `C.FLDSP f0`, and the RV32C custom-extension
   `shamt[5]=1` space for `C.SLLI`, `C.SRLI`, and `C.SRAI`, plus the custom-use
-  `C.ADD rd=x0, rs2=x2..x5` subrange. The remaining audit is broader
-  reserved/hint behavior beyond those focused cases and the official aggregate
-  compressed test.
+  `C.ADD rd=x0, rs2=x2..x5` subrange. Post-decode profile legality now rejects
+  all 16-bit compressed encodings when `MISA.C` is not advertised, preserving
+  the permissive decoder while making execution obey the active ISA profile.
+  The remaining audit is broader reserved/hint behavior beyond those focused
+  cases and the official aggregate compressed test.
 - `Zicsr`: CSR decode, read-side and write-side privilege checks,
   `fcsr`/`fflags` views, and explicit read/write suppression for the standard
   CSR instruction forms are covered by focused execute tests. The write-side
