@@ -422,6 +422,12 @@ official coverage improve.
   helper. The pass preserves the raw-halfword trap metadata checks while
   reducing repeated reserved/profile-gate boilerplate; measure the next
   roughly-3000-line feature-growth window from this checkpoint.
+- Refactor/tuning checkpoint `ea90bac` consolidated retirement-accounting test
+  helpers and the shared `instret` CSR constant in `riscv_execute_test.mbt`.
+  The pass preserves the trap-cause/trap-value assertions while reducing
+  repeated `runner.step()` boilerplate around synchronous exception,
+  fetch-fault, execute-fault, and interrupt non-retirement coverage; measure
+  the next roughly-3000-line feature-growth window from this checkpoint.
 - Control-flow execution now checks taken branch, `JAL`, and `JALR` targets
   against the active profile's IALIGN. Non-C profiles raise
   instruction-address-misaligned on 2-byte-only targets and report the branch or
