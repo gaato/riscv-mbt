@@ -148,6 +148,36 @@ test "sv39 translate faults on reserved high PTE bits" {
 }
 
 ///|
+test "sv39 translate faults on reserved non-leaf D A U bits" {
+  // Valid pointer PTEs have R=W=X=0. On such non-leaf entries, D/A/U are
+  // reserved for future extensions and must fault before the walker descends.
+  let reserved_bits = [
+    test_pte_u, // User accessibility applies only to leaves.
+     test_pte_a, // Accessed state applies only to leaves.
+     test_pte_d, // Dirty state applies only to leaves.
+  ]
+  for bit in reserved_bits {
+    let bus = Bus::new(0U.to_uint64(), 0x10000)
+    let root_ppn = 1U.to_uint64()
+    let l1_ppn = 2U.to_uint64()
+    let satp = test_sv39_satp(root_ppn)
+    bus.store_u64(
+      root_ppn * 4096U.to_uint64(),
+      test_make_pte(l1_ppn, test_pte_v | bit),
+    )
+    match
+      sv39_translate(bus, satp, 0U.to_uint64(), Load, Supervisor, false, false) {
+      TranslateFault(cause) =>
+        match cause {
+          LoadPageFault => ()
+          _ => fail("expected LoadPageFault for reserved non-leaf PTE bit")
+        }
+      TranslatedAddr(_) => fail("expected reserved non-leaf PTE bit to fault")
+    }
+  }
+}
+
+///|
 test "sv39 translate faults when non-leaf at level 0" {
   let bus = Bus::new(0U.to_uint64(), 0x10000)
   let root_ppn = 1U.to_uint64()

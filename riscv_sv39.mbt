@@ -27,6 +27,9 @@ const PTE_D : UInt64 = 0x80
 const PTE_RESERVED_63_54_MASK : UInt64 = 0xffc0000000000000UL
 
 ///|
+const PTE_NON_LEAF_RESERVED_MASK : UInt64 = PTE_D | PTE_A | PTE_U
+
+///|
 const SV39_LEVELS : Int = 3
 
 ///|
@@ -74,6 +77,19 @@ fn pte_reserved_bits_clear(pte : UInt64) -> Bool {
 }
 
 ///|
+fn pte_is_leaf(pte : UInt64) -> Bool {
+  (pte & PTE_R) != 0U.to_uint64() || (pte & PTE_X) != 0U.to_uint64()
+}
+
+///|
+fn pte_non_leaf_reserved_bits_clear(pte : UInt64) -> Bool {
+  // A valid PTE with R=X=0 points to the next page-table level. For those
+  // pointer PTEs, D/A/U are reserved for future standard use and must be zero;
+  // only leaf PTEs use those bits for accessed/dirty/user permissions.
+  pte_is_leaf(pte) || (pte & PTE_NON_LEAF_RESERVED_MASK) == 0U.to_uint64()
+}
+
+///|
 fn pte_ppn_i(pte : UInt64, level : Int) -> UInt64 {
   (pte >> (10 + level * 9)) & 0x1FFU.to_uint64()
 }
@@ -114,8 +130,11 @@ pub fn sv39_translate(
       ((pte & PTE_R) == 0U.to_uint64() && (pte & PTE_W) != 0U.to_uint64()) {
       return TranslateFault(fault)
     }
+    if !pte_non_leaf_reserved_bits_clear(pte) {
+      return TranslateFault(fault)
+    }
     // Leaf PTE: R=1 or X=1
-    if (pte & PTE_R) != 0U.to_uint64() || (pte & PTE_X) != 0U.to_uint64() {
+    if pte_is_leaf(pte) {
       leaf_pte_addr = pte_addr
       break
     }
@@ -298,7 +317,10 @@ fn Runner::record_page_table_walk(
       ((pte & PTE_R) == 0U.to_uint64() && (pte & PTE_W) != 0U.to_uint64()) {
       return
     }
-    if (pte & PTE_R) != 0U.to_uint64() || (pte & PTE_X) != 0U.to_uint64() {
+    if !pte_non_leaf_reserved_bits_clear(pte) {
+      return
+    }
+    if pte_is_leaf(pte) {
       return
     }
     a = pte_ppn(pte) * SV39_PAGESIZE

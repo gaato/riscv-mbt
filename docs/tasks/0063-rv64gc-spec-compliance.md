@@ -279,6 +279,9 @@ official coverage improve.
   baseline does not implement Svnapot, Svpbmt, or future reserved PTE metadata,
   so both the walker and cache-walk bookkeeping reject those bits rather than
   treating them as ignored metadata.
+- Sv39 non-leaf PTEs now raise page faults when D, A, or U is set. Those bits
+  are reserved for pointer PTEs in this baseline and are checked before the
+  walker descends to the next page-table level.
 - `FCLASS.S` and `FCLASS.D` now decode and execute the architectural 10-bit
   classification mask for zero, subnormal, normal, infinity, signaling NaN,
   quiet NaN, and the D-present single-precision NaN-boxing path.
