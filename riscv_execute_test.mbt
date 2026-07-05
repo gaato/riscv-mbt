@@ -104,6 +104,29 @@ fn exec_test_setup_basic_sv39_map(runner : Runner) -> Unit {
 }
 
 ///|
+fn exec_test_supervisor_interrupt_program(interrupt_mask : Int) -> Bytes {
+  // Set up one delegated S-mode interrupt, return to S-mode at a body
+  // instruction, and let the interrupt redirect to the stvec handler before
+  // that body instruction can run.
+  words_to_bytes([
+    encode_i(48, 0, 0x0U, 6, 0x13U),
+    encode_csr(0x105, 6, 0x1U, 0),
+    encode_i(interrupt_mask, 0, 0x0U, 1, 0x13U),
+    encode_csr(0x303, 1, 0x1U, 0),
+    encode_csr(0x104, 1, 0x1U, 0),
+    encode_csr(0x144, 1, 0x1U, 0),
+    encode_i(2, 0, 0x0U, 2, 0x13U),
+    encode_csr(0x100, 2, 0x1U, 0),
+    encode_i(44, 0, 0x0U, 5, 0x13U),
+    encode_csr(0x341, 5, 0x1U, 0),
+    encode_mret(),
+    encode_i(99, 0, 0x0U, 10, 0x13U),
+    encode_csr(0x142, 0, 0x2U, 7),
+    encode_i(1, 0, 0x0U, 8, 0x13U),
+  ])
+}
+
+///|
 test "x0 remains zero when written" {
   let runner = make_runner(default_machine_config())
   runner.load_program(words_to_bytes([encode_i(5, 0, 0x0U, 0, 0x13U)]), 0U)
@@ -1425,6 +1448,48 @@ test "stvec direct target masks low bits during delegated supervisor trap entry"
   match runner.privilege_mode() {
     Supervisor => ()
     _ => fail("expected supervisor mode after delegated trap redirection")
+  }
+}
+
+///|
+test "delegated supervisor timer interrupt traps to stvec from supervisor mode" {
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(exec_test_supervisor_interrupt_program(32), 0U)
+  let expected_scause = (1U.to_uint64() << 63) | 5U.to_uint64()
+  match runner.run(14) {
+    Running => ()
+    _ => fail("expected delegated supervisor timer handler to run")
+  }
+  assert_eq(runner.read_reg_u64(7), expected_scause)
+  assert_eq(runner.read_reg_u64(8), 1U.to_uint64())
+  assert_eq(runner.read_reg_u64(10), 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(0x141), 44U.to_uint64())
+  assert_eq(runner.read_csr_u64(0x142), expected_scause)
+  assert_eq(runner.pc(), 56U)
+  match runner.privilege_mode() {
+    Supervisor => ()
+    _ => fail("expected supervisor mode in delegated timer handler")
+  }
+}
+
+///|
+test "delegated supervisor external interrupt traps to stvec from supervisor mode" {
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(exec_test_supervisor_interrupt_program(512), 0U)
+  let expected_scause = (1U.to_uint64() << 63) | 9U.to_uint64()
+  match runner.run(14) {
+    Running => ()
+    _ => fail("expected delegated supervisor external handler to run")
+  }
+  assert_eq(runner.read_reg_u64(7), expected_scause)
+  assert_eq(runner.read_reg_u64(8), 1U.to_uint64())
+  assert_eq(runner.read_reg_u64(10), 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(0x141), 44U.to_uint64())
+  assert_eq(runner.read_csr_u64(0x142), expected_scause)
+  assert_eq(runner.pc(), 56U)
+  match runner.privilege_mode() {
+    Supervisor => ()
+    _ => fail("expected supervisor mode in delegated external handler")
   }
 }
 

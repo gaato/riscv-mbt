@@ -213,3 +213,11 @@ but it is not the same as a more ordinary Alpine service environment.
   steps. The post-init command delta remains `0 read-req/0 read-bytes` and
   `65 write-req/66560 write-bytes`, so this is a regression gate for stricter
   CSR privilege behavior, not a new OpenRC probe variant.
+- S-mode interrupt delivery now has an explicit RV64 execution regression for
+  the Linux/OpenSBI-facing path. The tests set up `stvec`, `mideleg`, `sie`,
+  `sip`, `sstatus.SIE`, and `mepc`, return with `mret`, and verify that
+  delegated supervisor timer and external interrupts enter the S-mode handler
+  before the interrupted body instruction runs. This did not require an
+  implementation change, but it closes a real test gap around timer/external
+  interrupt delegation before spending another long probe on OpenRC service
+  supervision.
