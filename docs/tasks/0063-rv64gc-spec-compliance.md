@@ -346,6 +346,9 @@ official coverage improve.
   WARL rules. User-interrupt, VS, XS, and other WPRI/reserved bits read back as
   zero, while the implemented interrupt, return, privilege, FP-status,
   memory-access, trap-control, fixed-XLEN, and derived-SD fields remain visible.
+  `sstatus` alias writes now also have focused coverage that only the
+  supervisor-visible subset is replaced: M-only `mstatus` fields such as
+  `MIE`, `MPIE`, `MPP`, and `MPRV` survive writes through the supervisor view.
   `menvcfg` and `senvcfg` now expose no optional environment-feature bits in
   this RV64GC baseline. FIOM, Svpbmt, Svadu, Sstc, cache-block controls,
   pointer masking, landing-pad, shadow-stack, and double-trap controls read

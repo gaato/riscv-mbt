@@ -4752,6 +4752,38 @@ test "sstatus exposes and writes FS bits through the alias mask" {
 }
 
 ///|
+test "sstatus writes preserve machine only mstatus fields" {
+  let mstatus = 0x300
+  let sstatus = 0x100
+  let machine_only = 0x21888U.to_uint64() // MIE | MPIE | MPP=M | MPRV
+  let supervisor_visible = 0xC0122U.to_uint64() // SIE | SPIE | SPP | SUM | MXR
+  let program = words_to_bytes([
+    encode_u(0x00022000U, 1, 0x37U),
+    encode_i(-1912, 1, 0x0U, 1, 0x13U),
+    encode_csr(mstatus, 1, 0x1U, 0),
+    encode_u(0x000C0000U, 2, 0x37U),
+    encode_i(0x122, 2, 0x0U, 2, 0x13U),
+    encode_csr(sstatus, 2, 0x1U, 0),
+    encode_csr(mstatus, 0, 0x2U, 3),
+    encode_csr(sstatus, 0, 0x2U, 4),
+  ])
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(8) {
+    Running => ()
+    _ => fail("expected sstatus machine-field preservation program to run")
+  }
+  // `sstatus` is a filtered alias, not a replacement for the whole backing
+  // `mstatus` CSR. Writes through the supervisor view may update visible
+  // S-mode fields, but must leave M-only interrupt, return, and MPRV state
+  // untouched.
+  assert_eq(runner.read_reg_u64(3) & machine_only, machine_only)
+  assert_eq(runner.read_csr_u64(mstatus) & machine_only, machine_only)
+  assert_eq(runner.read_reg_u64(3) & supervisor_visible, supervisor_visible)
+  assert_eq(runner.read_reg_u64(4) & supervisor_visible, supervisor_visible)
+}
+
+///|
 test "mstatus sd is derived from dirty FS instead of writable storage" {
   let sd_bit = 1U.to_uint64() << 63
   let mstatus_xlen_bits = 0xa00000000UL
