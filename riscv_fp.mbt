@@ -1059,15 +1059,27 @@ fn fp_round_f64_bits_to_f32_bits(
           sign,
           mode,
         )
-        let flags = if rounded.inexact {
-          fp_fflag_uf | fp_fflag_nx
-        } else {
-          0U.to_uint64()
-        }
         if rounded.bits >= 1U.to_uint64() << 23 {
-          { bits: sign_bits | 0x00800000U, flags }
+          // RISC-V follows IEEE tininess-after-rounding. A tiny exact value
+          // that rounds up to the minimum normal single is inexact but no
+          // longer tiny after rounding, so it must not accrue UF.
+          {
+            bits: sign_bits | 0x00800000U,
+            flags: if rounded.inexact {
+              fp_fflag_nx
+            } else {
+              0U.to_uint64()
+            },
+          }
         } else {
-          { bits: sign_bits | rounded.bits.to_uint(), flags }
+          {
+            bits: sign_bits | rounded.bits.to_uint(),
+            flags: if rounded.inexact {
+              fp_fflag_uf | fp_fflag_nx
+            } else {
+              0U.to_uint64()
+            },
+          }
         }
       }
     }

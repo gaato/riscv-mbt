@@ -1330,6 +1330,23 @@ test "rv64fd double to single conversion handles overflow by rounding mode" {
 }
 
 ///|
+test "rv64fd double to single detects tininess after rounding" {
+  let runner = make_runner(rv64fd_machine_config())
+  let csr_fcsr = 0x003
+  runner.cpu.write_freg(1, 0x380fffffe0000000UL)
+  runner.load_program(words_to_bytes([encode_fcvt_s_d(1, 0x0U, 2)]), 0U)
+  match runner.run(1) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected boundary fcvt.s.d to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_freg_u64(2), exec_test_nan_box_single(0x00800000U))
+  assert_eq(runner.read_csr(csr_fcsr) & 0x3U, 0x1U)
+}
+
+///|
 test "rv64fd double to single conversion rejects reserved rounding modes" {
   let runner = make_runner(rv64fd_machine_config())
   let raw = encode_fcvt_s_d(1, 0x5U, 2)
