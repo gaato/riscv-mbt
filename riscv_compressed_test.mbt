@@ -421,6 +421,63 @@ test "rv64c compressed control transfers allow halfword targets" {
 }
 
 ///|
+test "rv64c compressed control transfers sign extend backward offsets" {
+  // The same 2-byte-scaled control immediates are signed. Start execution at
+  // the control instruction so a bad zero-extension would jump forward into
+  // untouched memory instead of back to the marked target.
+  let jump = make_runner(rv64_machine_config())
+  jump.load_program(
+    mixed_program_bytes([
+      (2, encode_c_li(10, 1).reinterpret_as_uint()),
+      (2, encode_c_li(11, 31).reinterpret_as_uint()),
+      (2, encode_c_j(-4).reinterpret_as_uint()),
+    ]),
+    0U,
+  )
+  match jump.run(3) {
+    Running => ()
+    _ => fail("expected backward c.j to run")
+  }
+  assert_eq(jump.read_reg_u64(10), 1U.to_uint64())
+  assert_eq(jump.read_reg_u64(11), 31U.to_uint64())
+  assert_eq(jump.pc_u64(), 0U.to_uint64())
+
+  let branch_eq = make_runner(rv64_machine_config())
+  branch_eq.load_program(
+    mixed_program_bytes([
+      (2, encode_c_li(12, 1).reinterpret_as_uint()),
+      (2, encode_c_li(13, 31).reinterpret_as_uint()),
+      (2, encode_c_beqz(8, -4).reinterpret_as_uint()),
+    ]),
+    0U,
+  )
+  match branch_eq.run(3) {
+    Running => ()
+    _ => fail("expected backward c.beqz to run")
+  }
+  assert_eq(branch_eq.read_reg_u64(12), 1U.to_uint64())
+  assert_eq(branch_eq.read_reg_u64(13), 31U.to_uint64())
+  assert_eq(branch_eq.pc_u64(), 0U.to_uint64())
+
+  let branch_ne = make_runner(rv64_machine_config())
+  branch_ne.load_program(
+    mixed_program_bytes([
+      (2, encode_c_li(8, 1).reinterpret_as_uint()),
+      (2, encode_c_li(15, 31).reinterpret_as_uint()),
+      (2, encode_c_bnez(8, -4).reinterpret_as_uint()),
+    ]),
+    0U,
+  )
+  match branch_ne.run(3) {
+    Running => ()
+    _ => fail("expected backward c.bnez to run")
+  }
+  assert_eq(branch_ne.read_reg_u64(8), 1U.to_uint64())
+  assert_eq(branch_ne.read_reg_u64(15), 31U.to_uint64())
+  assert_eq(branch_ne.pc_u64(), 0U.to_uint64())
+}
+
+///|
 test "compressed load and store reuse the normal memory execute path" {
   let runner = make_runner(default_machine_config())
   runner.load_program(
