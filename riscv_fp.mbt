@@ -167,6 +167,16 @@ fn f64_bits_from_host(value : Double) -> UInt64 {
 }
 
 ///|
+fn f32_finite_inexact_from_double(exact : Double, result_bits : UInt) -> Bool {
+  // Single-precision operands are exactly representable as Double. For the
+  // current RNE-only scope this lets us detect ordinary NX cases by comparing
+  // the rounded Float result against the wider calculation used to produce it.
+  !f32_is_nan_bits(result_bits) &&
+  !f32_is_infinite_bits(result_bits) &&
+  f32_from_bits(result_bits).to_double() != exact
+}
+
+///|
 fn f32_mul_is_invalid_bits(lhs : UInt, rhs : UInt) -> Bool {
   (f32_is_infinite_bits(lhs) && f32_is_zero_bits(rhs)) ||
   (f32_is_zero_bits(lhs) && f32_is_infinite_bits(rhs))
@@ -637,13 +647,21 @@ fn Runner::execute_fp(
       let lhs_bits = self.read_freg_single_value_bits(rs1)
       let rhs_bits = self.read_freg_single_value_bits(rs2)
       let addend_bits = self.read_freg_single_value_bits(rs3)
-      if f32_any_signaling_nan3(lhs_bits, rhs_bits, addend_bits) ||
-        f32_mul_is_invalid_bits(lhs_bits, rhs_bits) {
+      let invalid = f32_any_signaling_nan3(lhs_bits, rhs_bits, addend_bits) ||
+        f32_mul_is_invalid_bits(lhs_bits, rhs_bits)
+      if invalid {
         self.set_fflags(fp_fflag_nv)
       }
       let result = f32_from_bits(lhs_bits) * f32_from_bits(rhs_bits) +
         f32_from_bits(addend_bits)
-      self.write_freg_single_bits(rd, f32_bits_from_host(result))
+      let result_bits = f32_bits_from_host(result)
+      let exact = f32_from_bits(lhs_bits).to_double() *
+        f32_from_bits(rhs_bits).to_double() +
+        f32_from_bits(addend_bits).to_double()
+      if !invalid && f32_finite_inexact_from_double(exact, result_bits) {
+        self.set_fflags(fp_fflag_nx)
+      }
+      self.write_freg_single_bits(rd, result_bits)
       self.cpu.pc = next_pc
       Running
     }
@@ -654,13 +672,21 @@ fn Runner::execute_fp(
       let lhs_bits = self.read_freg_single_value_bits(rs1)
       let rhs_bits = self.read_freg_single_value_bits(rs2)
       let addend_bits = self.read_freg_single_value_bits(rs3)
-      if f32_any_signaling_nan3(lhs_bits, rhs_bits, addend_bits) ||
-        f32_mul_is_invalid_bits(lhs_bits, rhs_bits) {
+      let invalid = f32_any_signaling_nan3(lhs_bits, rhs_bits, addend_bits) ||
+        f32_mul_is_invalid_bits(lhs_bits, rhs_bits)
+      if invalid {
         self.set_fflags(fp_fflag_nv)
       }
       let result = f32_from_bits(lhs_bits) * f32_from_bits(rhs_bits) -
         f32_from_bits(addend_bits)
-      self.write_freg_single_bits(rd, f32_bits_from_host(result))
+      let result_bits = f32_bits_from_host(result)
+      let exact = f32_from_bits(lhs_bits).to_double() *
+        f32_from_bits(rhs_bits).to_double() -
+        f32_from_bits(addend_bits).to_double()
+      if !invalid && f32_finite_inexact_from_double(exact, result_bits) {
+        self.set_fflags(fp_fflag_nx)
+      }
+      self.write_freg_single_bits(rd, result_bits)
       self.cpu.pc = next_pc
       Running
     }
@@ -671,14 +697,22 @@ fn Runner::execute_fp(
       let lhs_bits = self.read_freg_single_value_bits(rs1)
       let rhs_bits = self.read_freg_single_value_bits(rs2)
       let addend_bits = self.read_freg_single_value_bits(rs3)
-      if f32_any_signaling_nan3(lhs_bits, rhs_bits, addend_bits) ||
-        f32_mul_is_invalid_bits(lhs_bits, rhs_bits) {
+      let invalid = f32_any_signaling_nan3(lhs_bits, rhs_bits, addend_bits) ||
+        f32_mul_is_invalid_bits(lhs_bits, rhs_bits)
+      if invalid {
         self.set_fflags(fp_fflag_nv)
       }
       let product = f32_from_bits(lhs_bits) * f32_from_bits(rhs_bits)
       let addend = f32_from_bits(addend_bits)
       let result = addend - product
-      self.write_freg_single_bits(rd, f32_bits_from_host(result))
+      let result_bits = f32_bits_from_host(result)
+      let exact = f32_from_bits(addend_bits).to_double() -
+        f32_from_bits(lhs_bits).to_double() *
+        f32_from_bits(rhs_bits).to_double()
+      if !invalid && f32_finite_inexact_from_double(exact, result_bits) {
+        self.set_fflags(fp_fflag_nx)
+      }
+      self.write_freg_single_bits(rd, result_bits)
       self.cpu.pc = next_pc
       Running
     }
@@ -689,14 +723,23 @@ fn Runner::execute_fp(
       let lhs_bits = self.read_freg_single_value_bits(rs1)
       let rhs_bits = self.read_freg_single_value_bits(rs2)
       let addend_bits = self.read_freg_single_value_bits(rs3)
-      if f32_any_signaling_nan3(lhs_bits, rhs_bits, addend_bits) ||
-        f32_mul_is_invalid_bits(lhs_bits, rhs_bits) {
+      let invalid = f32_any_signaling_nan3(lhs_bits, rhs_bits, addend_bits) ||
+        f32_mul_is_invalid_bits(lhs_bits, rhs_bits)
+      if invalid {
         self.set_fflags(fp_fflag_nv)
       }
       let product = f32_from_bits(lhs_bits) * f32_from_bits(rhs_bits)
       let addend = f32_from_bits(addend_bits)
       let result = Float::from_double(0.0) - product - addend
-      self.write_freg_single_bits(rd, f32_bits_from_host(result))
+      let result_bits = f32_bits_from_host(result)
+      let exact = 0.0 -
+        f32_from_bits(lhs_bits).to_double() *
+        f32_from_bits(rhs_bits).to_double() -
+        f32_from_bits(addend_bits).to_double()
+      if !invalid && f32_finite_inexact_from_double(exact, result_bits) {
+        self.set_fflags(fp_fflag_nx)
+      }
+      self.write_freg_single_bits(rd, result_bits)
       self.cpu.pc = next_pc
       Running
     }
@@ -803,10 +846,15 @@ fn Runner::execute_fp(
         f32_add_is_invalid_bits(lhs_bits, rhs_bits) {
         self.set_fflags(fp_fflag_nv)
       }
-      let result = f32_bits_from_host(
+      let exact = f32_from_bits(lhs_bits).to_double() +
+        f32_from_bits(rhs_bits).to_double()
+      let result_bits = f32_bits_from_host(
         f32_from_bits(lhs_bits) + f32_from_bits(rhs_bits),
       )
-      self.write_freg_single_bits(rd, result)
+      if f32_finite_inexact_from_double(exact, result_bits) {
+        self.set_fflags(fp_fflag_nx)
+      }
+      self.write_freg_single_bits(rd, result_bits)
       self.cpu.pc = next_pc
       Running
     }
@@ -820,10 +868,15 @@ fn Runner::execute_fp(
         f32_add_is_invalid_bits(lhs_bits, rhs_bits ^ 0x80000000U) {
         self.set_fflags(fp_fflag_nv)
       }
-      let result = f32_bits_from_host(
+      let exact = f32_from_bits(lhs_bits).to_double() -
+        f32_from_bits(rhs_bits).to_double()
+      let result_bits = f32_bits_from_host(
         f32_from_bits(lhs_bits) - f32_from_bits(rhs_bits),
       )
-      self.write_freg_single_bits(rd, result)
+      if f32_finite_inexact_from_double(exact, result_bits) {
+        self.set_fflags(fp_fflag_nx)
+      }
+      self.write_freg_single_bits(rd, result_bits)
       self.cpu.pc = next_pc
       Running
     }
@@ -837,10 +890,15 @@ fn Runner::execute_fp(
         f32_mul_is_invalid_bits(lhs_bits, rhs_bits) {
         self.set_fflags(fp_fflag_nv)
       }
-      let result = f32_bits_from_host(
+      let exact = f32_from_bits(lhs_bits).to_double() *
+        f32_from_bits(rhs_bits).to_double()
+      let result_bits = f32_bits_from_host(
         f32_from_bits(lhs_bits) * f32_from_bits(rhs_bits),
       )
-      self.write_freg_single_bits(rd, result)
+      if f32_finite_inexact_from_double(exact, result_bits) {
+        self.set_fflags(fp_fflag_nx)
+      }
+      self.write_freg_single_bits(rd, result_bits)
       self.cpu.pc = next_pc
       Running
     }
@@ -857,10 +915,15 @@ fn Runner::execute_fp(
       if f32_div_by_zero_bits(lhs_bits, rhs_bits) {
         self.set_fflags(fp_fflag_dz)
       }
-      let result = f32_bits_from_host(
+      let exact = f32_from_bits(lhs_bits).to_double() /
+        f32_from_bits(rhs_bits).to_double()
+      let result_bits = f32_bits_from_host(
         f32_from_bits(lhs_bits) / f32_from_bits(rhs_bits),
       )
-      self.write_freg_single_bits(rd, result)
+      if f32_finite_inexact_from_double(exact, result_bits) {
+        self.set_fflags(fp_fflag_nx)
+      }
+      self.write_freg_single_bits(rd, result_bits)
       self.cpu.pc = next_pc
       Running
     }
@@ -873,8 +936,12 @@ fn Runner::execute_fp(
         f32_sqrt_is_invalid_bits(operand_bits) {
         self.set_fflags(fp_fflag_nv)
       }
-      let result = f32_bits_from_host(f32_from_bits(operand_bits).sqrt())
-      self.write_freg_single_bits(rd, result)
+      let exact = f32_from_bits(operand_bits).to_double().sqrt()
+      let result_bits = f32_bits_from_host(f32_from_bits(operand_bits).sqrt())
+      if f32_finite_inexact_from_double(exact, result_bits) {
+        self.set_fflags(fp_fflag_nx)
+      }
+      self.write_freg_single_bits(rd, result_bits)
       self.cpu.pc = next_pc
       Running
     }

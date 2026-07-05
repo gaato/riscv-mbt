@@ -16,11 +16,14 @@ rv32um	div	rv32im	survey
 rv32um	rem	rv32im	survey
 rv32uc	rvc	rv32ic	survey
 rv64uc	rvc	rv64ic	gating
+rv64uf	fadd	rv64imafdc	gating
 rv64uf	fclass	rv64imafdc	gating
 rv64uf	fcmp	rv64imafdc	gating
 rv64uf	fcvt	rv64imafdc	gating
 rv64uf	fcvt_w	rv64imafdc	gating
+rv64uf	fdiv	rv64imafdc	gating
 rv64uf	fmin	rv64imafdc	gating
+rv64uf	fmadd	rv64imafdc	gating
 rv64uf	ldst	rv64imafdc	gating
 rv64uf	move	rv64imafdc	gating
 rv64uf	recoding	rv64imafdc	gating
