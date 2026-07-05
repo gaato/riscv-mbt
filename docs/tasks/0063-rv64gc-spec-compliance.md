@@ -74,3 +74,7 @@ or more OpenRC-specific probing.
   signaling NaNs while preserving their existing result-selection behavior.
   This starts replacing the old "no FP instruction updates fflags" limitation
   with instruction-family-specific flag handling.
+- Fused multiply-add now also accrues NV for the required infinity-times-zero
+  multiplicand case, including the spec-called-out path where the addend is a
+  quiet NaN. The arithmetic result still follows the current host-IEEE boundary
+  and exact fused single-rounding remains open.
