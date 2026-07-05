@@ -194,6 +194,8 @@ official coverage improve.
   reserved traps distinct from the nearby nonzero hint encodings.
   Integer stack-load reserved forms for `C.LWSP rd=x0` and `C.LDSP rd=x0` are
   now covered, with adjacent stack stores from `x0` kept legal.
+  `C.LUI` now has coverage for positive and negative compressed immediates,
+  pinning sign extension from bit 17 through XLEN.
   `C.ADDI16SP` now also has coverage for negative and high positive
   sign-extended stack-pointer adjustments, beyond the zero-immediate reserved
   case.
@@ -623,6 +625,8 @@ official coverage improve.
 - RV64C zero-immediate coverage now keeps the reserved `C.LUI` and
   `C.ADDI16SP` code points illegal while leaving the nearby nonzero
   `rd=x0` hint forms as no-ops.
+- RV64C `C.LUI` coverage now pins the positive and negative compressed
+  immediate paths, including sign extension from bit 17 through XLEN.
 - RV64C `C.ADDI16SP` coverage now pins the scattered signed immediate path for
   both a negative stack adjustment and the high positive `+496` adjustment.
 - RV64C integer stack-load coverage now keeps `C.LWSP rd=x0` and

@@ -221,6 +221,8 @@
   `rd=x0` hint encodings.
   Integer stack loads now also pin their reserved `rd=x0` encodings for
   `C.LWSP` and `C.LDSP`, while adjacent stack stores from `x0` remain legal.
+  `C.LUI` now has coverage for positive and negative compressed immediates,
+  pinning sign extension from bit 17 through XLEN.
   `C.ADDI16SP` now also has coverage for negative and high positive
   sign-extended stack-pointer adjustments, beyond the zero-immediate reserved
   case.

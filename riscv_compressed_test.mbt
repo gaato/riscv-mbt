@@ -648,6 +648,27 @@ test "rv64c addi16sp sign extends scaled stack offsets" {
 }
 
 ///|
+test "rv64c lui sign extends the compressed immediate" {
+  // C.LUI carries a nonzero 6-bit immediate into bits 17:12 and sign-extends
+  // bit 17 through XLEN. Cover both sides of that boundary explicitly.
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(
+    mixed_program_bytes([
+      (2, encode_c_lui(11, 31).reinterpret_as_uint()),
+      (2, encode_c_lui(12, -1).reinterpret_as_uint()),
+    ]),
+    0U,
+  )
+  match runner.run(2) {
+    Running => ()
+    _ => fail("expected signed c.lui immediates to run")
+  }
+  assert_eq(runner.read_reg_u64(11), 0x1f000U.to_uint64())
+  assert_eq(runner.read_reg_u64(12), 0xfffffffffffff000UL)
+  assert_eq(runner.pc_u64(), 4U.to_uint64())
+}
+
+///|
 test "compressed reusable integer ALU forms expand through existing op helpers" {
   let runner = make_runner(default_machine_config())
   runner.load_program(
