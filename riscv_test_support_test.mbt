@@ -78,15 +78,6 @@ fn official_riscv_tests_isa_dir_for_arch(arch : String) -> String {
 }
 
 ///|
-fn official_riscv_tests_xlen_for_arch(arch : String) -> Xlen {
-  if arch.has_prefix("rv64") {
-    xlen64()
-  } else {
-    xlen32()
-  }
-}
-
-///|
 fn encode_i(
   imm : Int,
   rs1 : Int,
@@ -1397,9 +1388,7 @@ async fn run_official_riscv_test_case(
   test_case : OfficialRiscvTestCase,
 ) -> UInt {
   let runner = make_runner(
-    official_riscv_tests_machine_config_for_xlen(
-      official_riscv_tests_xlen_for_arch(test_case.arch),
-    ),
+    official_riscv_tests_machine_config_for_arch(test_case.arch),
   )
   let elf = read_official_test_elf(test_case.path)
   let info = match runner.load_elf(elf) {

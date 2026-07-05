@@ -102,15 +102,6 @@ fn official_riscv_tests_isa_dir_for_arch(arch : String) -> String {
 }
 
 ///|
-fn official_riscv_tests_xlen_for_arch(arch : String) -> @riscv.Xlen {
-  if arch.has_prefix("rv64") {
-    @riscv.xlen64()
-  } else {
-    @riscv.xlen32()
-  }
-}
-
-///|
 fn trap_cause_name(cause : @riscv.TrapCause) -> String {
   match cause {
     @riscv.InstructionAccessFault => "instruction access fault"
@@ -139,9 +130,7 @@ async fn run_official_riscv_test_case(
   // The survey reports what happened instead of asserting. That keeps broad
   // upstream coverage useful while the always-green subset remains deliberate.
   let runner = @riscv.make_runner(
-    @riscv.official_riscv_tests_machine_config_for_xlen(
-      official_riscv_tests_xlen_for_arch(test_case.arch),
-    ),
+    @riscv.official_riscv_tests_machine_config_for_arch(test_case.arch),
   )
   let elf = read_official_test_elf(test_case.path)
   let info = match runner.load_elf(elf) {

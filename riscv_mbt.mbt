@@ -530,6 +530,44 @@ pub fn official_riscv_tests_machine_config_for_xlen(
 }
 
 ///|
+fn official_riscv_tests_extensions_for_arch(arch : String) -> UInt64 {
+  // The manifest arch column names the ISA profile used to build the upstream
+  // ELF. Mirror the relevant MISA bits here so official FP/vector binaries are
+  // not accidentally surveyed under the integer-only base profile.
+  let mut extensions = current_base_extensions()
+  if arch.contains("f") {
+    extensions = extensions | MISA_EXT_F
+  }
+  if arch.contains("d") {
+    extensions = extensions | MISA_EXT_F | MISA_EXT_D
+  }
+  if arch.contains("v") {
+    extensions = extensions | MISA_EXT_V
+  }
+  extensions
+}
+
+///|
+pub fn official_riscv_tests_machine_config_for_arch(
+  arch : String,
+) -> MachineConfig {
+  let xlen = if arch.has_prefix("rv64") { Xlen64 } else { Xlen32 }
+  {
+    xlen,
+    extensions: official_riscv_tests_extensions_for_arch(arch),
+    ram_base: 0x80000000U.to_uint64(),
+    ram_size: 0x20000,
+    entry_point: 0x80000000U.to_uint64(),
+    hart_id: 0U.to_uint64(),
+    uart0_base: 0U.to_uint64(),
+    clint_base: 0U.to_uint64(),
+    plic_base: 0U.to_uint64(),
+    virtio_blk_base: 0U.to_uint64(),
+    dtb_addr: 0U.to_uint64(),
+  }
+}
+
+///|
 pub fn official_riscv_tests_machine_config() -> MachineConfig {
   official_riscv_tests_machine_config_for_xlen(Xlen32)
 }

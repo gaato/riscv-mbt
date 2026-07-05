@@ -67,3 +67,13 @@ test "AMO.W traps when A extension is not advertised" {
     _ => fail("expected AMO.W to trap without A extension")
   }
 }
+
+///|
+test "official riscv-tests arch config advertises FP profile bits" {
+  let runner = make_runner(
+    official_riscv_tests_machine_config_for_arch("rv64imafdc"),
+  )
+  let misa = runner.cpu.read_csr(CSR_MISA)
+  assert_true((misa & MISA_EXT_F) != 0U.to_uint64())
+  assert_true((misa & MISA_EXT_D) != 0U.to_uint64())
+}

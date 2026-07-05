@@ -72,10 +72,11 @@ official coverage improve.
   instruction family.
 - `F/D`: `riscv_fp.mbt` now covers instruction availability, NaN-boxing,
   comparisons, min/max, FMA availability, conversion clipping, and the first
-  NV/DZ arithmetic flags. The remaining strict-spec gaps are exact non-RNE
-  arithmetic, OF/UF/NX for rounded arithmetic results, exact fused
-  single-rounding for FMA, and broader official `rv64uf`/`rv64ud` style
-  coverage.
+  NV/DZ arithmetic flags. The corrected official-test harness now advertises
+  manifest arch FP bits, and the passing `rv64uf`/`rv64ud` classification,
+  compare, conversion, min/max, load/store, move, recoding, and structural rows
+  are gated. The remaining strict-spec gaps are exact arithmetic result/flag
+  behavior for `fadd`/`fdiv`/`fmadd` and the remaining `rv64ud` move failure.
 - `A`: `riscv_decode.mbt` rejects reserved AMO operations and reserved
   `LR.W`/`LR.D` encodings with nonzero `rs2`, gates AMO execution on `MISA.A`,
   and accepts `aq`/`rl` encodings for the current single-hart interpreter.
@@ -162,3 +163,8 @@ official coverage improve.
   have been promoted to `gating` rows in `tools/riscv-tests-manifest.tsv`.
 - The upstream `rv64uc-p-rvc` binary passes through `cmd/official_survey` and
   has been promoted to the `gating` manifest as the first official RV64C floor.
+- Official riscv-tests profile selection now derives `misa` extension bits from
+  the manifest arch string instead of only selecting XLEN. With `rv64imafdc`
+  advertised, 16 of 23 current upstream `rv64uf`/`rv64ud` binaries pass and are
+  promoted to `gating`; the remaining failures are `rv64uf`/`rv64ud`
+  `fadd`, `fdiv`, `fmadd`, plus `rv64ud` `move`.

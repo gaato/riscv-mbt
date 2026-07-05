@@ -20,6 +20,8 @@ pub fn make_smp_runners(MachineConfig, Int) -> Array[Runner]
 
 pub fn official_riscv_tests_machine_config() -> MachineConfig
 
+pub fn official_riscv_tests_machine_config_for_arch(String) -> MachineConfig
+
 pub fn official_riscv_tests_machine_config_for_xlen(Xlen) -> MachineConfig
 
 pub fn rv64_machine_config() -> MachineConfig
