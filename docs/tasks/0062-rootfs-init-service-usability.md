@@ -245,3 +245,10 @@ but it is not the same as a more ordinary Alpine service environment.
   interrupt reaches the S-mode handler before the interrupted body instruction
   executes. This complements the synthetic `SIP.SEIP` regression and covers the
   device/PLIC reflection that the full-rootfs virtio-blk path depends on.
+- PLIC external pending reflection now distinguishes context 0 and context 1:
+  context 0 claimability sets `MIP.MEIP`, while context 1 claimability sets
+  `MIP.SEIP`. The virtio-blk PLIC regression was strengthened by enabling both
+  `MIE.MEIE` and `MIE.SEIE` while only enabling PLIC source 1 for the S-mode
+  context; it still enters the S-mode external handler. This avoids routing an
+  S-mode-only virtio-blk interrupt through M-mode merely because another
+  interrupt-enable bit is set.

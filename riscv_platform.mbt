@@ -316,10 +316,12 @@ fn Runner::plic_any_uart_claimable(self : Runner) -> Bool {
 }
 
 ///|
-fn Runner::plic_any_external_claimable(self : Runner) -> Bool {
-  self.plic_any_uart_claimable() ||
-  self.plic_virtio_blk_claimable_for_context(0) ||
-  self.plic_virtio_blk_claimable_for_context(1)
+fn Runner::plic_external_claimable_for_context(
+  self : Runner,
+  context : Int,
+) -> Bool {
+  self.plic_uart_claimable_for_context(context) ||
+  self.plic_virtio_blk_claimable_for_context(context)
 }
 
 ///|
@@ -856,9 +858,6 @@ let mip_mtip_clear_mask : UInt64 = bit_not(mip_mtip_bit)
 let mip_msip_clear_mask : UInt64 = bit_not(mip_msip_bit)
 
 ///|
-let mip_external_clear_mask : UInt64 = bit_not(mip_meip_bit | mip_seip_bit)
-
-///|
 fn Runner::update_timer(self : Runner) -> Unit {
   if self.config.clint_base == 0U.to_uint64() {
     return
@@ -878,15 +877,22 @@ fn Runner::update_timer(self : Runner) -> Unit {
   } else {
     new_mip & mip_msip_clear_mask
   }
-  let external_pending = self.config.plic_base != 0U.to_uint64() &&
-    self.plic_any_external_claimable()
-  let new_mip3 = if external_pending {
-    new_mip2 | mip_meip_bit | mip_seip_bit
+  let machine_external_pending = self.config.plic_base != 0U.to_uint64() &&
+    self.plic_external_claimable_for_context(0)
+  let supervisor_external_pending = self.config.plic_base != 0U.to_uint64() &&
+    self.plic_external_claimable_for_context(1)
+  let new_mip3 = if machine_external_pending {
+    new_mip2 | mip_meip_bit
   } else {
-    new_mip2 & mip_external_clear_mask
+    new_mip2 & bit_not(mip_meip_bit)
   }
-  if new_mip3 != mip {
-    self.cpu.write_csr(CSR_MIP, new_mip3)
+  let new_mip4 = if supervisor_external_pending {
+    new_mip3 | mip_seip_bit
+  } else {
+    new_mip3 & bit_not(mip_seip_bit)
+  }
+  if new_mip4 != mip {
+    self.cpu.write_csr(CSR_MIP, new_mip4)
   }
 }
 
