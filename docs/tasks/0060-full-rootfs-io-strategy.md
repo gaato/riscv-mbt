@@ -741,3 +741,19 @@ implemented.
   `post-init-apk-install-ok`. This proves local `.apk`
   installation, rootfs mutation, trigger execution, package DB lookup, and a
   newly installed userspace binary through the normal `apk` command name.
+- Current auto-root standard-command dependency proof:
+  `moon run --target native cmd/alpine_probe xlong --auto-root-handoff --post-init-apk-local-deps-smoke --post-init-command-step-budget 160000000`
+  reaches `outcome=console-command`, `shell_expect_seen=true`,
+  `auto_root_handoff=true`, `shell_command_sent=false`,
+  `post_init_apk_local_deps_smoke=true`, `post_init_command_index=3`, and
+  `post-init-apk-local-deps-ok` at 797,000,000 guest steps. The run reports
+  1,511 virtio-blk read requests, 16 write requests, 6,050,816 read bytes,
+  185,344 write bytes, and `virtio_blk_read_cache=1370 hits/141 misses`. The
+  final verification command adds only `post_init_command_virtio_delta=2
+  read-req/2048 read-bytes 0 write-req/0 write-bytes`. The UART tail shows
+  `riscv-mbt Alpine auto-root ready`, rootfs-side `post-init-ready`, standard
+  `/sbin/apk ... add iputils`, installation of `libcap2`, `iputils-arping`,
+  `iputils-clockdiff`, `iputils-ping`, `iputils-tracepath`, and `iputils`,
+  then `/sbin/apk info` checks, `bin/ping`, `/bin/ping -V`, and
+  `post-init-apk-local-deps-ok`. This moves the dependency-resolving
+  package-manager proof off the serial-command-driven root handoff path.
