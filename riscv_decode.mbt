@@ -2034,11 +2034,10 @@ fn decode_c_q2_cr(raw : UInt) -> Instruction {
     } else {
       Jalr(1, rd, 0)
     }
-  } else if rd == 0 && rs2 >= 2 && rs2 <= 5 {
-    // These four C.ADD code points are explicitly assigned to custom use,
-    // unlike the neighboring rd=x0 encodings that remain standard hints.
-    Unknown(raw)
   } else {
+    // C.ADD with rd=x0 is architecturally a hint.  The rs2=x2..x5 subrange is
+    // the compressed spelling of the Zihintntl non-temporal locality hints, so
+    // expanding through ADD keeps them as no-ops on the integer register file.
     Add(rd, rd, rs2)
   }
 }

@@ -156,8 +156,8 @@
   RV64 shift amount, and `C.FLDSP` can target valid FP register `f0`. RV32C
   now rejects `C.SLLI`, `C.SRLI`, and `C.SRAI` forms with `shamt[5]=1` because
   those code points are reserved for custom extensions in the 32-bit profile.
-  `C.ADD rd=x0, rs2=x2..x5` is also rejected as custom-use encoding, while the
-  neighboring `rd=x0` add forms remain standard ignored hints.
+  `C.ADD rd=x0, rs2!=x0` forms now execute as ignored hints, including the
+  `rs2=x2..x5` compressed Zihintntl non-temporal locality hint subrange.
   Focused regressions cover the decode and execute behavior. Post-decode
   profile legality now also rejects all 16-bit compressed encodings when
   `MISA.C` is not advertised, keeping the permissive decoder while making the
