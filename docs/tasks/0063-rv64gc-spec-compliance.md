@@ -167,6 +167,10 @@ official coverage improve.
   covered arithmetic paths set NV for signaling NaN inputs, and `FDIV` sets DZ
   for finite nonzero division by zero. Exact non-RNE arithmetic, OF/UF/NX for
   rounded arithmetic results, and exact fused single-rounding remain open.
+- `FADD.S`, `FSUB.S`, and `FMUL.S` now round their exact single-precision
+  operand results through the emulator-side double-to-single helper. Legal
+  static non-RNE modes are accepted where they change the result, reserved
+  rounding modes still trap, and inexact results accrue NX.
 - `Zifencei` now has an execute regression for the key same-hart contract:
   fetch and decode an instruction, store a different instruction to the same
   address, execute `FENCE.I`, jump back, and require the replacement instruction
@@ -226,6 +230,10 @@ official coverage improve.
   precision boundary, dynamic `frm=RMM`, overflow result selection for RNE vs
   RTZ, OF/NX accrual, tininess-after-rounding at the minimum normal boundary,
   and reserved rounding-mode traps.
+- Single-precision add/sub/mul now support legal non-RNE arithmetic rounding.
+  Focused regressions cover positive inexact `FADD.S`, `FSUB.S`, and `FMUL.S`
+  cases where RTZ and RUP select adjacent single-precision results, plus
+  reserved arithmetic rounding-mode traps.
 - The first RV64C reserved/hint correction slice is in place. `EBREAK` and
   `C.EBREAK` now trap as architectural breakpoint exceptions instead of illegal
   instructions, RV64C rejects reserved `C.ADDIW rd=x0`, `C.LUI rd=x0` and

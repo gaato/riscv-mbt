@@ -615,6 +615,41 @@ test "rv64f basic scalar arithmetic executes with host ieee defaults" {
 }
 
 ///|
+test "rv64f add sub mul honor non-rne rounding modes" {
+  let runner = make_runner(rv64f_machine_config())
+  let csr_fcsr = 0x003
+  runner.cpu.write_freg(1, 0x4b800000U.to_uint64())
+  runner.cpu.write_freg(2, exec_test_f32_bits(1.0).to_uint64())
+  runner.cpu.write_freg(3, exec_test_f32_bits(-1.0).to_uint64())
+  runner.cpu.write_freg(4, 0x3f800001U.to_uint64())
+  runner.load_program(
+    words_to_bytes([
+      encode_fp_r(0x00U, 2, 1, 0x1U, 5),
+      encode_fp_r(0x00U, 2, 1, 0x3U, 6),
+      encode_fp_r(0x04U, 3, 1, 0x1U, 7),
+      encode_fp_r(0x04U, 3, 1, 0x3U, 8),
+      encode_fp_r(0x08U, 4, 4, 0x1U, 9),
+      encode_fp_r(0x08U, 4, 4, 0x3U, 10),
+    ]),
+    0U,
+  )
+  match runner.run(6) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected non-RNE rv64f add/sub/mul to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_freg_u64(5), 0x4b800000U.to_uint64())
+  assert_eq(runner.read_freg_u64(6), 0x4b800001U.to_uint64())
+  assert_eq(runner.read_freg_u64(7), 0x4b800000U.to_uint64())
+  assert_eq(runner.read_freg_u64(8), 0x4b800001U.to_uint64())
+  assert_eq(runner.read_freg_u64(9), 0x3f800002U.to_uint64())
+  assert_eq(runner.read_freg_u64(10), 0x3f800003U.to_uint64())
+  assert_eq(runner.read_csr(csr_fcsr) & 0x1U, 0x1U)
+}
+
+///|
 test "rv64f min and max handle signed zero and canonical nan fallback" {
   let neg_zero = exec_test_f32_bits(-0.0)
   let pos_zero = exec_test_f32_bits(0.0)
@@ -849,14 +884,14 @@ test "rv64f fcsr frm and fflags views share one visible register" {
 }
 
 ///|
-test "rv64f traps on unsupported dynamic rounding mode" {
+test "rv64f traps on reserved arithmetic rounding mode" {
   let two = exec_test_f32_bits(2.0)
   let program = words_to_bytes([
     encode_flw(0x100, 0, 2),
     encode_flw(0x104, 0, 3),
-    encode_fp_r(0x00U, 3, 2, 0x1U, 4),
+    encode_fp_r(0x00U, 3, 2, 0x5U, 4),
   ])
-  let raw = encode_fp_r(0x00U, 3, 2, 0x1U, 4)
+  let raw = encode_fp_r(0x00U, 3, 2, 0x5U, 4)
   let runner = make_runner(rv64f_machine_config())
   runner.load_program(words_to_bytes([two, two]), 0x100U)
   runner.load_program(program, 0U)
@@ -868,7 +903,7 @@ test "rv64f traps on unsupported dynamic rounding mode" {
       }
       assert_eq(info.trap_value, raw.to_uint64())
     }
-    _ => fail("expected unsupported rounding mode to trap")
+    _ => fail("expected reserved rounding mode to trap")
   }
 }
 
