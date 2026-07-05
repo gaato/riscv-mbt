@@ -152,6 +152,8 @@
   RV64 shift amount, and `C.FLDSP` can target valid FP register `f0`. RV32C
   now rejects `C.SLLI`, `C.SRLI`, and `C.SRAI` forms with `shamt[5]=1` because
   those code points are reserved for custom extensions in the 32-bit profile.
+  `C.ADD rd=x0, rs2=x2..x5` is also rejected as custom-use encoding, while the
+  neighboring `rd=x0` add forms remain standard ignored hints.
   Focused regressions cover the decode and execute behavior.
 
 - Zicsr write-side privilege checks now run even when a CSR instruction

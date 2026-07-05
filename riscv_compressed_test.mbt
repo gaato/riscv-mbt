@@ -546,6 +546,40 @@ test "rv32c compressed shifts reserve high shamt bit" {
 }
 
 ///|
+test "compressed add distinguishes standard hints from custom code points" {
+  let hint_runner = make_runner(rv64_machine_config())
+  hint_runner.load_program(
+    mixed_program_bytes([(2, encode_c_add(0, 6).reinterpret_as_uint())]),
+    0U,
+  )
+  match hint_runner.step() {
+    Running => ()
+    _ => fail("expected c.add hint to run as a no-op")
+  }
+  assert_eq(hint_runner.pc_u64(), 2U.to_uint64())
+  assert_eq(hint_runner.read_reg_u64(0), 0U.to_uint64())
+
+  for rs2 in 2..<=5 {
+    let raw = encode_c_add(0, rs2)
+    let custom_runner = make_runner(rv64_machine_config())
+    custom_runner.load_program(
+      mixed_program_bytes([(2, raw.reinterpret_as_uint())]),
+      0U,
+    )
+    match custom_runner.step() {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected illegal instruction trap")
+        }
+        assert_eq(info.trap_value, raw.reinterpret_as_uint().to_uint64())
+      }
+      _ => fail("expected custom c.add code point to trap")
+    }
+  }
+}
+
+///|
 test "compressed jump-register forms use jalr semantics with a 2-byte link address" {
   let runner = make_runner(default_machine_config())
   runner.load_program(

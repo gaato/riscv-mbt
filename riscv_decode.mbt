@@ -2024,6 +2024,10 @@ fn decode_c_q2_cr(raw : UInt) -> Instruction {
     } else {
       Jalr(1, rd, 0)
     }
+  } else if rd == 0 && rs2 >= 2 && rs2 <= 5 {
+    // These four C.ADD code points are explicitly assigned to custom use,
+    // unlike the neighboring rd=x0 encodings that remain standard hints.
+    Unknown(raw)
   } else {
     Add(rd, rd, rs2)
   }
