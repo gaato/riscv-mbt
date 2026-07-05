@@ -781,6 +781,46 @@ test "rv64f integer and single conversion paths preserve expected values" {
 }
 
 ///|
+test "rv64f int to single conversion honors non-rne rounding modes" {
+  let runner = make_runner(rv64f_machine_config())
+  let csr_fcsr = 0x003
+  runner.cpu.write_reg(1, 0x01000001U.to_uint64())
+  runner.load_program(
+    words_to_bytes([encode_fcvt_s_w(1, 0x1U, 2), encode_fcvt_s_wu(1, 0x3U, 3)]),
+    0U,
+  )
+  match runner.run(2) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected non-RNE fcvt.s.w paths to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_freg_u64(2), 0x4b800000U.to_uint64())
+  assert_eq(runner.read_freg_u64(3), 0x4b800001U.to_uint64())
+  assert_eq(runner.read_csr(csr_fcsr) & 0x1U, 0x1U)
+}
+
+///|
+test "rv64f int to single conversion honors dynamic frm" {
+  let runner = make_runner(rv64f_machine_config())
+  let csr_fcsr = 0x003
+  let fcsr_frm_shift = 5
+  runner.cpu.write_reg(1, 0x01000001U.to_uint64())
+  runner.cpu.write_csr(csr_fcsr, 0x4U.to_uint64() << fcsr_frm_shift)
+  runner.load_program(words_to_bytes([encode_fcvt_s_w(1, 0x7U, 2)]), 0U)
+  match runner.run(1) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected dynamic-RMM fcvt.s.w to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_freg_u64(2), 0x4b800001U.to_uint64())
+  assert_eq(runner.read_csr(csr_fcsr) & 0x1U, 0x1U)
+}
+
+///|
 test "rv64f fcsr frm and fflags views share one visible register" {
   let csr_fflags = 0x001
   let csr_frm = 0x002
@@ -1337,6 +1377,27 @@ test "rv64fd fcvt.d.w exact conversions reject reserved rounding modes" {
     }
     _ => fail("expected reserved dynamic rounding mode to trap")
   }
+}
+
+///|
+test "rv64fd long to double conversion honors non-rne rounding modes" {
+  let runner = make_runner(rv64fd_machine_config())
+  let csr_fcsr = 0x003
+  runner.cpu.write_reg(1, 0x0020000000000001UL)
+  runner.load_program(
+    words_to_bytes([encode_fcvt_d_l(1, 0x1U, 2), encode_fcvt_d_lu(1, 0x3U, 3)]),
+    0U,
+  )
+  match runner.run(2) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected non-RNE fcvt.d.l paths to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_freg_u64(2), 0x4340000000000000UL)
+  assert_eq(runner.read_freg_u64(3), 0x4340000000000001UL)
+  assert_eq(runner.read_csr(csr_fcsr) & 0x1U, 0x1U)
 }
 
 ///|

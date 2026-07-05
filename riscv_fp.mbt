@@ -183,6 +183,18 @@ priv struct FpExactRational {
 }
 
 ///|
+priv struct FpIntMagnitude {
+  sign : Bool
+  magnitude : UInt64
+}
+
+///|
+priv struct FpRoundedIntegerBits {
+  bits : UInt64
+  inexact : Bool
+}
+
+///|
 fn fp_bigint_one() -> BigInt {
   BigInt::from_int(1)
 }
@@ -797,6 +809,131 @@ fn Runner::fp_rounding_mode_legal(self : Runner, rm : UInt) -> Bool {
     Some(_) => true
     None => false
   }
+}
+
+///|
+fn fp_signed_integer_magnitude(value : UInt64) -> FpIntMagnitude {
+  let sign = value >> 63 != 0U.to_uint64()
+  if sign {
+    { sign, magnitude: bit_not(value) + 1U.to_uint64() }
+  } else {
+    { sign, magnitude: value }
+  }
+}
+
+///|
+fn fp_u64_msb_index(value : UInt64) -> Int {
+  let mut rest = value
+  let mut index = 0
+  while rest >> 1 != 0U.to_uint64() {
+    rest = rest >> 1
+    index += 1
+  }
+  index
+}
+
+///|
+fn fp_round_integer_should_increment(
+  sign : Bool,
+  retained : UInt64,
+  remainder : UInt64,
+  half : UInt64,
+  mode : UInt,
+) -> Bool {
+  match mode {
+    0U =>
+      remainder > half ||
+      (remainder == half && (retained & 1U.to_uint64()) != 0U.to_uint64())
+    1U => false
+    2U => sign && remainder != 0U.to_uint64()
+    3U => !sign && remainder != 0U.to_uint64()
+    4U => remainder >= half
+    _ => false
+  }
+}
+
+///|
+fn fp_round_u64_to_ieee_bits(
+  magnitude : UInt64,
+  sign : Bool,
+  mode : UInt,
+  fraction_bits : Int,
+  exponent_bias : Int,
+  sign_shift : Int,
+) -> FpRoundedIntegerBits {
+  if magnitude == 0U.to_uint64() {
+    let sign_bits = if sign {
+      1U.to_uint64() << sign_shift
+    } else {
+      0U.to_uint64()
+    }
+    { bits: sign_bits, inexact: false }
+  } else {
+    let precision = fraction_bits + 1
+    let msb = fp_u64_msb_index(magnitude)
+    let mut exponent = msb + exponent_bias
+    let mut significand = 0U.to_uint64()
+    let mut inexact = false
+    if msb < precision {
+      significand = magnitude << (precision - 1 - msb)
+    } else {
+      let shift = msb - (precision - 1)
+      let retained = magnitude >> shift
+      let remainder_mask = (1U.to_uint64() << shift) - 1U.to_uint64()
+      let remainder = magnitude & remainder_mask
+      let half = 1U.to_uint64() << (shift - 1)
+      inexact = remainder != 0U.to_uint64()
+      significand = retained
+      if fp_round_integer_should_increment(
+          sign, retained, remainder, half, mode,
+        ) {
+        significand += 1U.to_uint64()
+        if significand == 1U.to_uint64() << precision {
+          significand = significand >> 1
+          exponent += 1
+        }
+      }
+    }
+    let sign_bits = if sign {
+      1U.to_uint64() << sign_shift
+    } else {
+      0U.to_uint64()
+    }
+    let exponent_bits = exponent.reinterpret_as_uint().to_uint64() <<
+      fraction_bits
+    let fraction_mask = (1U.to_uint64() << fraction_bits) - 1U.to_uint64()
+    { bits: sign_bits | exponent_bits | (significand & fraction_mask), inexact }
+  }
+}
+
+///|
+fn Runner::write_fcvt_single_from_integer(
+  self : Runner,
+  rd : Int,
+  sign : Bool,
+  magnitude : UInt64,
+  mode : UInt,
+) -> Unit {
+  let rounded = fp_round_u64_to_ieee_bits(magnitude, sign, mode, 23, 127, 31)
+  if rounded.inexact {
+    self.set_fflags(fp_fflag_nx)
+  }
+  self.write_freg_single_bits(rd, rounded.bits.to_uint())
+}
+
+///|
+fn Runner::write_fcvt_double_from_integer(
+  self : Runner,
+  rd : Int,
+  sign : Bool,
+  magnitude : UInt64,
+  mode : UInt,
+) -> Unit {
+  let rounded = fp_round_u64_to_ieee_bits(magnitude, sign, mode, 52, 1023, 63)
+  if rounded.inexact {
+    self.set_fflags(fp_fflag_nx)
+  }
+  self.write_freg_double_bits(rd, rounded.bits)
 }
 
 ///|
@@ -1629,50 +1766,77 @@ fn Runner::execute_fp(
       Running
     }
     FCvtSW(rd, rs1, rm) => {
-      if !self.fp_rounding_mode_supported(rm) {
-        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      let mode = match self.fp_effective_rounding_mode(rm) {
+        Some(mode) => mode
+        None =>
+          return self.raise_trap(
+            IllegalInstruction,
+            current_pc,
+            raw.to_uint64(),
+          )
       }
-      let signed = sign_extend_64(self.cpu.read_reg(rs1), 32).reinterpret_as_int64()
-      self.write_freg_single_bits(
+      let signed = fp_signed_integer_magnitude(
+        sign_extend_64(self.cpu.read_reg(rs1), 32),
+      )
+      self.write_fcvt_single_from_integer(
         rd,
-        f32_bits_from_host(Float::from_double(signed.to_double())),
+        signed.sign,
+        signed.magnitude,
+        mode,
       )
       self.cpu.pc = next_pc
       Running
     }
     FCvtSWU(rd, rs1, rm) => {
-      if !self.fp_rounding_mode_supported(rm) {
-        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      let mode = match self.fp_effective_rounding_mode(rm) {
+        Some(mode) => mode
+        None =>
+          return self.raise_trap(
+            IllegalInstruction,
+            current_pc,
+            raw.to_uint64(),
+          )
       }
       let unsigned = self.cpu.read_reg(rs1) & 0xffffffffU.to_uint64()
-      self.write_freg_single_bits(
-        rd,
-        f32_bits_from_host(Float::from_double(unsigned.to_double())),
-      )
+      self.write_fcvt_single_from_integer(rd, false, unsigned, mode)
       self.cpu.pc = next_pc
       Running
     }
     FCvtSL(rd, rs1, rm) => {
-      if !self.fp_rounding_mode_supported(rm) {
-        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      let mode = match self.fp_effective_rounding_mode(rm) {
+        Some(mode) => mode
+        None =>
+          return self.raise_trap(
+            IllegalInstruction,
+            current_pc,
+            raw.to_uint64(),
+          )
       }
-      let signed = self.cpu.read_reg(rs1).reinterpret_as_int64()
-      self.write_freg_single_bits(
+      let signed = fp_signed_integer_magnitude(self.cpu.read_reg(rs1))
+      self.write_fcvt_single_from_integer(
         rd,
-        f32_bits_from_host(Float::from_double(signed.to_double())),
+        signed.sign,
+        signed.magnitude,
+        mode,
       )
       self.cpu.pc = next_pc
       Running
     }
     FCvtSLU(rd, rs1, rm) => {
-      if !self.fp_rounding_mode_supported(rm) {
-        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      let mode = match self.fp_effective_rounding_mode(rm) {
+        Some(mode) => mode
+        None =>
+          return self.raise_trap(
+            IllegalInstruction,
+            current_pc,
+            raw.to_uint64(),
+          )
       }
-      self.write_freg_single_bits(
+      self.write_fcvt_single_from_integer(
         rd,
-        f32_bits_from_host(
-          Float::from_double(self.cpu.read_reg(rs1).to_double()),
-        ),
+        false,
+        self.cpu.read_reg(rs1),
+        mode,
       )
       self.cpu.pc = next_pc
       Running
@@ -1703,21 +1867,40 @@ fn Runner::execute_fp(
       Running
     }
     FCvtDL(rd, rs1, rm) => {
-      if !self.fp_rounding_mode_supported(rm) {
-        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      let mode = match self.fp_effective_rounding_mode(rm) {
+        Some(mode) => mode
+        None =>
+          return self.raise_trap(
+            IllegalInstruction,
+            current_pc,
+            raw.to_uint64(),
+          )
       }
-      let signed = self.cpu.read_reg(rs1).reinterpret_as_int64()
-      self.write_freg_double_bits(rd, f64_bits_from_host(signed.to_double()))
+      let signed = fp_signed_integer_magnitude(self.cpu.read_reg(rs1))
+      self.write_fcvt_double_from_integer(
+        rd,
+        signed.sign,
+        signed.magnitude,
+        mode,
+      )
       self.cpu.pc = next_pc
       Running
     }
     FCvtDLU(rd, rs1, rm) => {
-      if !self.fp_rounding_mode_supported(rm) {
-        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      let mode = match self.fp_effective_rounding_mode(rm) {
+        Some(mode) => mode
+        None =>
+          return self.raise_trap(
+            IllegalInstruction,
+            current_pc,
+            raw.to_uint64(),
+          )
       }
-      self.write_freg_double_bits(
+      self.write_fcvt_double_from_integer(
         rd,
-        f64_bits_from_host(Double::convert_uint64(self.cpu.read_reg(rs1))),
+        false,
+        self.cpu.read_reg(rs1),
+        mode,
       )
       self.cpu.pc = next_pc
       Running

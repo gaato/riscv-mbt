@@ -71,8 +71,9 @@ official coverage improve.
   remaining unlisted corner cases, not a known missing Linux-critical
   instruction family.
 - `F/D`: `riscv_fp.mbt` now covers instruction availability, NaN-boxing,
-  comparisons, min/max, FMA availability, conversion clipping, and the first
-  NV/DZ arithmetic flags. Exact widening `FCVT.D.S` and exact
+  comparisons, min/max, FMA availability, conversion clipping, integer-to-float
+  rounding modes, and the first NV/DZ arithmetic flags. Exact widening
+  `FCVT.D.S` and exact
   RV32-width-to-double `FCVT.D.W[U]` now treat the otherwise unaffected `rm`
   field as architecturally significant for legal/reserved static and dynamic
   encodings. The corrected official-test harness now advertises manifest arch FP
@@ -149,6 +150,11 @@ official coverage improve.
   invalid signed results to `INT64_MIN`/`INT64_MAX`, invalid unsigned results to
   zero/`UINT64_MAX`, sets NV for invalid conversions, and sets NX for valid
   inexact conversions.
+- `FCVT.S.W`, `FCVT.S.WU`, `FCVT.S.L`, `FCVT.S.LU`, `FCVT.D.L`, and
+  `FCVT.D.LU` now construct IEEE result bits through a shared integer-magnitude
+  rounding helper instead of relying on host-default conversion. The helper
+  supports RNE, RTZ, RDN, RUP, RMM, valid dynamic `frm`, and NX accrual when
+  discarded integer bits make the conversion inexact.
 - Scalar `F/D` arithmetic now accrues the first spec-shaped exception flags:
   `FADD`/`FSUB` set NV for opposite-signed infinity addition, `FMUL` and FMA set
   NV for infinity-times-zero, `FDIV` sets NV for zero-over-zero and
@@ -206,6 +212,10 @@ official coverage improve.
   unsigned 32-bit integer inputs are exactly representable in double precision,
   so legal non-RNE encodings execute while reserved static or dynamic rounding
   modes still trap.
+- Integer-to-float conversions now support legal non-RNE rounding where the mode
+  changes the result: focused regressions cover single-precision rounding at
+  `2^24+1`, double-precision rounding at `2^53+1`, dynamic `frm=RMM`, and NX
+  accrual for inexact integer inputs.
 - The first RV64C reserved/hint correction slice is in place. `EBREAK` and
   `C.EBREAK` now trap as architectural breakpoint exceptions instead of illegal
   instructions, RV64C rejects reserved `C.ADDIW rd=x0`, `C.LUI rd=x0` and
