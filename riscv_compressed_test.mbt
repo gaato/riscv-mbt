@@ -478,6 +478,27 @@ test "rv64c compressed control transfers sign extend backward offsets" {
 }
 
 ///|
+test "rv64c rejects rv32-only compressed jal" {
+  // Quadrant-1 funct3=001 is C.JAL only for RV32C. RV64C reuses the same major
+  // slot for C.ADDIW, so a 16-bit JAL x1 expansion must not slip through the
+  // shared JAL execute path.
+  let raw = encode_c_jal(2).reinterpret_as_uint()
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(mixed_program_bytes([(2, raw)]), 0U)
+  match runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction trap")
+      }
+      assert_eq(info.faulting_pc, 0U.to_uint64())
+      assert_eq(info.trap_value, raw.to_uint64())
+    }
+    _ => fail("expected rv64c c.jal code point to trap")
+  }
+}
+
+///|
 test "compressed load and store reuse the normal memory execute path" {
   let runner = make_runner(default_machine_config())
   runner.load_program(

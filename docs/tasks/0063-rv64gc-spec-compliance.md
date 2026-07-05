@@ -215,7 +215,8 @@ official coverage improve.
   RV64C coverage for taken targets at halfword-only addresses, preserving the
   C extension's IALIGN=16 contract rather than treating those targets as
   misaligned. The same coverage now also pins sign-extended backward
-  compressed control offsets.
+  compressed control offsets, and RV64C now has focused coverage rejecting the
+  RV32C-only `C.JAL` code point.
   `C.ADD rd=x0, rs2!=x0` forms now execute as
   ignored hints, including the `rs2=x2..x5` compressed Zihintntl non-temporal
   locality hint subrange. CR-format coverage now also pins `C.MV rd=x0,
@@ -340,11 +341,12 @@ official coverage improve.
   instruction-address-misaligned on 2-byte-only targets and report the branch or
   jump as the faulting PC; RV64GC with C keeps those targets legal, including
   taken compressed `C.J`, `C.BEQZ`, and `C.BNEZ` halfword targets and
-  sign-extended backward compressed control offsets. Jump-link writeback is
-  ordered after that target check, preserving the non-retirement side-effect
-  rule for misaligned `JAL`/`JALR` traps. `JALR` now also has focused coverage
-  that the computed `rs1 + imm` target clears bit 0 before alignment validation
-  and link-register writeback.
+  sign-extended backward compressed control offsets. RV64C also rejects the
+  RV32C-only `C.JAL` code point instead of letting the shared `JAL x1`
+  expansion execute. Jump-link writeback is ordered after that target check,
+  preserving the non-retirement side-effect rule for misaligned `JAL`/`JALR`
+  traps. `JALR` now also has focused coverage that the computed `rs1 + imm`
+  target clears bit 0 before alignment validation and link-register writeback.
 - A-extension LR/SC and AMO W/D execution now enforces natural address
   alignment before translation or memory side effects. LR misalignment raises
   load-address-misaligned; SC and AMO misalignment raise
