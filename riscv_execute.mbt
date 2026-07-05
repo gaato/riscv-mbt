@@ -1132,6 +1132,9 @@ fn Runner::execute_jump(
       self.jump_and_link_to_instruction_target(target, current_pc, rd, next_pc)
     }
     Jalr(rd, rs1, imm) => {
+      // JALR alone uses an unscaled I-immediate and then clears target bit 0.
+      // Do this before IALIGN validation so tagged function pointers land on
+      // the architectural even address rather than trapping on the tag bit.
       let target = (self.cpu.read_reg(rs1) + int_to_uint64_bits(imm)) &
         bit_not(1U.to_uint64())
       self.jump_and_link_to_instruction_target(target, current_pc, rd, next_pc)

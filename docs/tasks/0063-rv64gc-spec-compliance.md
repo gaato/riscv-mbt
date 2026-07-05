@@ -97,6 +97,9 @@ official coverage improve.
   while C/RV64GC profiles allow them under IALIGN=16. `JAL` and `JALR` also
   check that target alignment before writing the link register, so a
   misaligned jump trap leaves the architectural destination register unchanged.
+  Base `JALR` now has focused coverage for clearing target bit 0 before that
+  alignment check, matching the tagged-function-pointer rule in the
+  unprivileged ISA.
 - `F/D`: `riscv_fp.mbt` now covers instruction availability, NaN-boxing,
   comparisons, min/max, FMA availability, conversion clipping, integer-to-float
   rounding modes, and the first NV/DZ arithmetic flags. The conversion
@@ -326,7 +329,9 @@ official coverage improve.
   instruction-address-misaligned on 2-byte-only targets and report the branch or
   jump as the faulting PC; RV64GC with C keeps those targets legal. Jump-link
   writeback is ordered after that target check, preserving the non-retirement
-  side-effect rule for misaligned `JAL`/`JALR` traps.
+  side-effect rule for misaligned `JAL`/`JALR` traps. `JALR` now also has
+  focused coverage that the computed `rs1 + imm` target clears bit 0 before
+  alignment validation and link-register writeback.
 - A-extension LR/SC and AMO W/D execution now enforces natural address
   alignment before translation or memory side effects. LR misalignment raises
   load-address-misaligned; SC and AMO misalignment raise

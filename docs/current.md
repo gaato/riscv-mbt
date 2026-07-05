@@ -247,7 +247,9 @@
   instruction-address-misaligned, while RV64GC/C profiles use IALIGN=16 and
   allow those halfword targets. Misaligned `JAL` and `JALR` traps now validate
   the target before link-register writeback, so they leave `rd` unchanged when
-  the jump does not retire.
+  the jump does not retire. Base `JALR` now also has focused coverage for
+  clearing target bit 0 before alignment validation, preserving the
+  unprivileged ISA's tagged-function-pointer behavior.
 
 - Zicsr write-side privilege checks now run even when a CSR instruction
   suppresses the read side. The regression covers `CSRRW rd=x0` from supervisor

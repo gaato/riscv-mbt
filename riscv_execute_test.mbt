@@ -298,6 +298,29 @@ test "bootstrap subset runs a small program" {
 }
 
 ///|
+test "jalr clears target bit zero before alignment checks" {
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(
+    words_to_bytes([
+      encode_i(9, 0, 0x0U, 1, 0x13U),
+      encode_i(0, 1, 0x0U, 5, 0x67U),
+      encode_i(1, 0, 0x0U, 6, 0x13U),
+    ]),
+    0U,
+  )
+  match runner.run(3) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected jalr tag-bit clearing to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_reg_u64(5), 8U.to_uint64())
+  assert_eq(runner.read_reg_u64(6), 1U.to_uint64())
+  assert_eq(runner.pc_u64(), 12U.to_uint64())
+}
+
+///|
 test "unsupported instruction traps" {
   let runner = make_runner(default_machine_config())
   runner.load_program(words_to_bytes([0xffffffffU]), 0U)
