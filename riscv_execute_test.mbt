@@ -1562,6 +1562,40 @@ test "rv64fd scalar arithmetic accrues invalid and divide by zero flags" {
 }
 
 ///|
+test "rv64fd invalid scalar arithmetic returns canonical nan results" {
+  let csr_fcsr = 0x003
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, exec_test_nan_box_single(0x7f800000U))
+  runner.cpu.write_freg(2, exec_test_nan_box_single(0xff800000U))
+  runner.cpu.write_freg(3, 0x7ff0000000000000UL)
+  runner.cpu.write_freg(4, 0x0000000000000000UL)
+  runner.cpu.write_freg(5, 0x8000000000000000UL)
+  runner.load_program(
+    words_to_bytes([
+      encode_fp_r(0x00U, 2, 1, 0x0U, 10),
+      encode_csr(csr_fcsr, 0, 0x2U, 11),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x09U, 4, 3, 0x0U, 12),
+      encode_csr(csr_fcsr, 0, 0x2U, 13),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x0dU, 5, 4, 0x0U, 14),
+      encode_csr(csr_fcsr, 0, 0x2U, 15),
+    ]),
+    0U,
+  )
+  match runner.run(8) {
+    Running => ()
+    _ => fail("expected invalid scalar arithmetic to run and accrue flags")
+  }
+  assert_eq(runner.read_freg_u64(10), exec_test_nan_box_single(0x7fc00000U))
+  assert_eq(runner.read_reg_u64(11) & 0x10U.to_uint64(), 0x10U.to_uint64())
+  assert_eq(runner.read_freg_u64(12), exec_test_f64_canonical_nan_bits())
+  assert_eq(runner.read_reg_u64(13) & 0x10U.to_uint64(), 0x10U.to_uint64())
+  assert_eq(runner.read_freg_u64(14), exec_test_f64_canonical_nan_bits())
+  assert_eq(runner.read_reg_u64(15) & 0x10U.to_uint64(), 0x10U.to_uint64())
+}
+
+///|
 test "rv64fd sqrt does not accrue invalid for quiet nan" {
   let csr_fcsr = 0x003
   let runner = make_runner(rv64fd_machine_config())

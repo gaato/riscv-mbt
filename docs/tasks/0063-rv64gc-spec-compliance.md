@@ -79,7 +79,9 @@ official coverage improve.
   rounding modes, and the first NV/DZ arithmetic flags. The conversion
   regressions now include exact RNE invalid boundaries for `FCVT.L.D` at
   `+2^63`, `FCVT.LU.D` at `+2^64`, and RNE NaN/infinity clipping before any
-  host integer cast. Exact widening `FCVT.D.S` and exact
+  host integer cast. Invalid scalar arithmetic coverage now checks both NV and
+  canonical-NaN results for representative add, multiply, and divide cases.
+  Exact widening `FCVT.D.S` and exact
   RV32-width-to-double `FCVT.D.W[U]` now treat the otherwise unaffected `rm`
   field as architecturally significant for legal/reserved static and dynamic
   encodings. `mstatus.FS` is now part of the execution contract: FP-capable

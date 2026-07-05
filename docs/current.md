@@ -113,6 +113,8 @@
   Float-to-integer conversion regressions now also pin exact RNE invalid
   boundaries for `FCVT.L.D` at `+2^63`, `FCVT.LU.D` at `+2^64`, and RNE
   NaN/infinity clipping before any host integer cast.
+  Invalid scalar arithmetic coverage now checks both NV and canonical-NaN
+  results for representative add, multiply, and divide cases.
   FP-capable runner profiles now start with `mstatus.FS=Initial`, and scalar
   F/D load/store plus arithmetic execution now traps as illegal when software
   sets `mstatus.FS=Off`. FP register and `fcsr` writes now mark FS Dirty, so
