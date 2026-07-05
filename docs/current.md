@@ -145,6 +145,8 @@
   `+2^32 - 0.5` stays valid/inexact under RTZ but rounds out of range and sets
   NV under RNE/RUP, plus the lower S/D `-0.5` edge where RNE/RTZ produce valid
   inexact zero but RDN rounds invalid.
+  `FCVT.LU.S/D` now has matching unsigned-long lower-edge coverage for `-0.5`,
+  proving the same rounded-result validity rule on the RV64-width output path.
   Integer-to-double conversion coverage now also pins dynamic-`frm`
   long-to-double rounding at the binary64 precision boundary, including signed
   negative RDN and unsigned positive RMM halfway cases with NX. Rounded

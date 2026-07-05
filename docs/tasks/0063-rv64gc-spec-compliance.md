@@ -117,6 +117,9 @@ official coverage improve.
   edge is also pinned for both `FCVT.WU.S` and `FCVT.WU.D`: RNE/RTZ produce
   valid inexact zero, while RDN rounds to `-1` and takes the
   invalid-conversion path.
+  `FCVT.LU.S/D` now has the same lower-edge rounded-result coverage: RNE/RTZ
+  produce valid inexact zero for `-0.5`, while RDN rounds to `-1` and takes the
+  unsigned-long invalid-conversion path.
   Invalid scalar arithmetic coverage now checks both NV and canonical-NaN
   results for representative add, multiply, and divide cases.
   Invalid fused multiply-add coverage now also checks canonical-NaN results for
@@ -560,7 +563,9 @@ official coverage improve.
   result and the last representable values below `+2^63`/`+2^64` remain valid
   flag-clean results. The shared RNE round-to-integer helper now returns exact
   integral doubles before tie-breaking, avoiding any host `Int64` evenness cast
-  for large exact boundary values such as `2^64`.
+  for large exact boundary values such as `2^64`. The unsigned-long lower edge
+  now also checks validity after rounding for both S and D sources, proving
+  that `-0.5` is valid with NX under RNE/RTZ but invalid with NV under RDN.
 - `FCVT.S.W`, `FCVT.S.WU`, `FCVT.S.L`, `FCVT.S.LU`, `FCVT.D.L`, and
   `FCVT.D.LU` now construct IEEE result bits through a shared integer-magnitude
   rounding helper instead of relying on host-default conversion. The helper
