@@ -715,6 +715,7 @@ fn trap_cause_code(cause : TrapCause) -> UInt64 {
   match cause {
     InstructionAccessFault => 1U.to_uint64()
     IllegalInstruction => 2U.to_uint64()
+    Breakpoint => 3U.to_uint64()
     LoadAccessFault => 5U.to_uint64()
     StoreAccessFault => 7U.to_uint64()
     InstructionPageFault => 12U.to_uint64()
@@ -1688,11 +1689,12 @@ pub fn decode(raw : UInt) -> Instruction {
           if funct7(raw) == 0x09U && rd(raw) == 0 {
             SfenceVma(rs1(raw), rs2(raw))
           } else {
-            match csr_addr(raw) {
-              0x000 => Ecall
-              0x302 => Mret
-              0x102 => Sret
-              0x105 => Wfi
+            match raw {
+              0x00000073U => Ecall
+              0x00100073U => Ebreak
+              0x30200073U => Mret
+              0x10200073U => Sret
+              0x10500073U => Wfi
               _ => Unknown(raw)
             }
           }
@@ -1920,7 +1922,12 @@ fn decode_c_q1(raw : UInt, xlen : Int) -> Instruction {
     0x0U => Addi(c_rd_rs1(raw), c_rd_rs1(raw), c_imm_ci(raw))
     0x1U =>
       if xlen == XLEN_64 {
-        Addiw(c_rd_rs1(raw), c_rd_rs1(raw), c_imm_ci(raw))
+        let rd = c_rd_rs1(raw)
+        if rd == 0 {
+          Unknown(raw)
+        } else {
+          Addiw(rd, rd, c_imm_ci(raw))
+        }
       } else {
         Jal(1, c_imm_cj(raw))
       }
@@ -1936,7 +1943,9 @@ fn decode_c_q1(raw : UInt, xlen : Int) -> Instruction {
         }
       } else {
         let imm = c_imm_ci(raw)
-        if rd == 0 || imm == 0 {
+        if rd == 0 && imm != 0 {
+          Addi(0, 0, 0)
+        } else if imm == 0 {
           Unknown(raw)
         } else {
           Lui(rd, c_lui_imm(raw))
@@ -1967,7 +1976,7 @@ fn decode_c_q2_cr(raw : UInt) -> Instruction {
     }
   } else if rs2 == 0 {
     if rd == 0 {
-      Unknown(raw)
+      Ebreak
     } else {
       Jalr(1, rd, 0)
     }
@@ -1983,19 +1992,12 @@ fn decode_c_q2(raw : UInt, xlen : Int) -> Instruction {
     0x0U => {
       let rd = c_rd_rs1(raw)
       if rd == 0 {
-        Unknown(raw)
+        Addi(0, 0, 0)
       } else {
-        Slli(rd, rd, c_imm_ci(raw))
+        Slli(rd, rd, c_shamt6(raw))
       }
     }
-    0x1U => {
-      let rd = c_rd_rs1(raw)
-      if rd == 0 {
-        Unknown(raw)
-      } else {
-        Fld(rd, 2, c_uimm_ldsp(raw))
-      }
-    }
+    0x1U => Fld(c_rd_rs1(raw), 2, c_uimm_ldsp(raw))
     0x2U => {
       let rd = c_rd_rs1(raw)
       if rd == 0 {

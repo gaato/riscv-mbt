@@ -376,6 +376,7 @@ pub enum Instruction {
   AmoW(UInt, Int, Int, Int)
   AmoD(UInt, Int, Int, Int)
   Ecall
+  Ebreak
   Mret
   Sret
   Unknown(UInt)
@@ -527,6 +528,7 @@ pub(all) enum TranslateResult {
 pub enum TrapCause {
   InstructionAccessFault
   IllegalInstruction
+  Breakpoint
   LoadAccessFault
   StoreAccessFault
   InstructionPageFault

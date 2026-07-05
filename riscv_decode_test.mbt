@@ -99,6 +99,14 @@ test "decode sret distinctly from mret and ecall" {
     Ecall => ()
     _ => fail("expected ecall")
   }
+  match decode(encode_ebreak()) {
+    Ebreak => ()
+    _ => fail("expected ebreak")
+  }
+  match decode(encode_ebreak() | (1U << 7)) {
+    Unknown(_) => ()
+    _ => fail("expected nonzero-rd ebreak encoding to remain unknown")
+  }
   match decode(encode_mret()) {
     Mret => ()
     _ => fail("expected mret")

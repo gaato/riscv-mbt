@@ -195,6 +195,11 @@ fn encode_ecall() -> UInt {
 }
 
 ///|
+fn encode_ebreak() -> UInt {
+  0x00100073U
+}
+
+///|
 fn encode_mret() -> UInt {
   0x30200073U
 }
@@ -1366,6 +1371,7 @@ fn trap_cause_name(cause : TrapCause) -> String {
   match cause {
     InstructionAccessFault => "instruction access fault"
     IllegalInstruction => "illegal instruction"
+    Breakpoint => "breakpoint"
     LoadAccessFault => "load access fault"
     StoreAccessFault => "store access fault"
     InstructionPageFault => "instruction page fault"

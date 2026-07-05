@@ -1293,6 +1293,7 @@ fn Runner::execute_system(
       }
       self.raise_trap(cause, current_pc, 0U.to_uint64())
     }
+    Ebreak => self.raise_trap(Breakpoint, current_pc, 0U.to_uint64())
     Mret => self.execute_mret()
     Sret => self.execute_sret()
     Unknown(_) =>
@@ -1978,6 +1979,7 @@ pub fn Runner::step(self : Runner) -> StepResult {
         instruction, current_pc, next_pc, raw,
       )
     Ecall => self.execute_system(instruction, current_pc, next_pc, raw)
+    Ebreak => self.execute_system(instruction, current_pc, next_pc, raw)
     Mret => self.execute_system(instruction, current_pc, next_pc, raw)
     Sret => self.execute_system(instruction, current_pc, next_pc, raw)
     Unknown(_) => self.execute_system(instruction, current_pc, next_pc, raw)

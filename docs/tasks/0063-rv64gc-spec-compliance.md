@@ -91,8 +91,11 @@ official coverage improve.
   `aq`/`rl` memory-ordering semantics and multi-hart reservation interference.
 - `C`: compressed decode/execute coverage exists in
   `riscv_compressed_test.mbt`, and the upstream `rv64uc-p-rvc` binary is now
-  part of the gating manifest. The remaining audit is RV64C-specific
-  reserved/hint behavior beyond the official aggregate compressed test.
+  part of the gating manifest. The RV64C reserved/hint audit now covers
+  `C.EBREAK`, `C.ADDIW rd=x0`, `C.LUI rd=x0`, `C.SLLI rd=x0`, 6-bit RV64
+  `C.SLLI` shift amounts, and `C.FLDSP f0`. The remaining audit is broader
+  reserved/hint behavior beyond those focused cases and the official aggregate
+  compressed test.
 - `Zicsr`: CSR decode, privilege checks, `fcsr`/`fflags` views, and explicit
   read/write suppression for the standard CSR instruction forms are covered by
   focused execute tests. The remaining audit is a spec pass over WARL behavior,
@@ -187,3 +190,9 @@ official coverage improve.
   and rounded results as exact `BigInt` rationals and comparing the exact
   add/sub/mul/div/sqrt/FMA rational against the rounded result bits. This
   promotes official `rv64ud/fadd`, `rv64ud/fdiv`, and `rv64ud/fmadd` to gating.
+- The first RV64C reserved/hint correction slice is in place. `EBREAK` and
+  `C.EBREAK` now trap as architectural breakpoint exceptions instead of illegal
+  instructions, RV64C rejects reserved `C.ADDIW rd=x0`, `C.LUI rd=x0` and
+  `C.SLLI rd=x0` execute as ignored hints, `C.SLLI` uses the unsigned 6-bit
+  RV64 shift amount, and `C.FLDSP` can target valid floating-point register
+  `f0`. Focused decode/execute regressions cover each case.

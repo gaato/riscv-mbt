@@ -470,6 +470,24 @@ test "user ecall traps to mtvec with mcause set" {
 }
 
 ///|
+test "ebreak traps as breakpoint" {
+  let runner = make_runner(default_machine_config())
+  runner.load_program(words_to_bytes([encode_ebreak()]), 0U)
+  match runner.step() {
+    Trap(info) => {
+      match info.cause {
+        Breakpoint => ()
+        _ => fail("expected breakpoint trap")
+      }
+      assert_eq(info.faulting_pc, 0U.to_uint64())
+      assert_eq(info.trap_value, 0U.to_uint64())
+      assert_eq(runner.read_csr(0x342), 3U)
+    }
+    _ => fail("expected breakpoint trap")
+  }
+}
+
+///|
 test "reset invariants are explicit for modeled machine state" {
   let runner = make_runner(default_machine_config())
   assert_eq(runner.pc(), 0U)

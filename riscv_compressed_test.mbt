@@ -7,6 +7,11 @@ fn encode_c_addi(rd : Int, imm : Int) -> Int {
 }
 
 ///|
+fn encode_c_addiw(rd : Int, imm : Int) -> Int {
+  0x2001 | (((imm >> 5) & 0x1) << 12) | (rd << 7) | ((imm & 0x1f) << 2)
+}
+
+///|
 fn encode_c_li(rd : Int, imm : Int) -> Int {
   0x4001 | (((imm >> 5) & 0x1) << 12) | (rd << 7) | ((imm & 0x1f) << 2)
 }
@@ -333,17 +338,20 @@ test "rv64dc compressed floating load and store reuse double memory path" {
       (2, encode_c_fld(9, 10, 112).reinterpret_as_uint()),
       (2, encode_c_fsdsp(9, 120).reinterpret_as_uint()),
       (2, encode_c_fldsp(10, 120).reinterpret_as_uint()),
+      (2, encode_c_fsdsp(8, 112).reinterpret_as_uint()),
+      (2, encode_c_fldsp(0, 112).reinterpret_as_uint()),
     ]),
     0U,
   )
-  match runner.run(5) {
+  match runner.run(7) {
     Running => ()
     _ => fail("expected compressed floating load/store round trip")
   }
   assert_eq(encode_c_fsd(8, 10, 112), 0xb920)
   assert_eq(runner.read_freg_u64(9), raw)
   assert_eq(runner.read_freg_u64(10), raw)
-  assert_eq(runner.pc_u64(), 12U.to_uint64())
+  assert_eq(runner.read_freg_u64(0), raw)
+  assert_eq(runner.pc_u64(), 16U.to_uint64())
 }
 
 ///|
@@ -444,6 +452,78 @@ test "c.addi4spn with zero immediate remains illegal" {
 }
 
 ///|
+test "rv64 compressed breakpoint traps as breakpoint" {
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(
+    mixed_program_bytes([(2, encode_c_add(0, 0).reinterpret_as_uint())]),
+    0U,
+  )
+  match runner.step() {
+    Trap(info) => {
+      match info.cause {
+        Breakpoint => ()
+        _ => fail("expected breakpoint trap")
+      }
+      assert_eq(info.faulting_pc, 0U.to_uint64())
+      assert_eq(info.trap_value, 0U.to_uint64())
+    }
+    _ => fail("expected breakpoint trap")
+  }
+}
+
+///|
+test "rv64c addiw with x0 destination remains reserved" {
+  let raw = encode_c_addiw(0, 1).reinterpret_as_uint()
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(mixed_program_bytes([(2, raw)]), 0U)
+  match runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction trap")
+      }
+      assert_eq(info.trap_value, raw.to_uint64())
+    }
+    _ => fail("expected illegal instruction trap")
+  }
+}
+
+///|
+test "rv64c architectural hints execute as no-ops" {
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(
+    mixed_program_bytes([
+      (2, encode_c_lui(0, 1).reinterpret_as_uint()),
+      (2, encode_c_slli(0, 1).reinterpret_as_uint()),
+    ]),
+    0U,
+  )
+  match runner.run(2) {
+    Running => ()
+    _ => fail("expected compressed hints to execute as no-ops")
+  }
+  assert_eq(runner.pc_u64(), 4U.to_uint64())
+  assert_eq(runner.read_reg_u64(0), 0U.to_uint64())
+}
+
+///|
+test "rv64c slli uses six bit unsigned shift amount" {
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(
+    mixed_program_bytes([
+      (4, encode_i(1, 0, 0x0U, 9, 0x13U)),
+      (2, encode_c_slli(9, 40).reinterpret_as_uint()),
+    ]),
+    0U,
+  )
+  match runner.run(2) {
+    Running => ()
+    _ => fail("expected rv64 c.slli with shamt 40 to run")
+  }
+  assert_eq(runner.read_reg_u64(9), 1U.to_uint64() << 40)
+}
+
+///|
 test "compressed jump-register forms use jalr semantics with a 2-byte link address" {
   let runner = make_runner(default_machine_config())
   runner.load_program(
@@ -530,12 +610,13 @@ test "rv64 carries forward the supported compressed subset through the mixed-wid
 }
 
 ///|
-test "c.jal encoding becomes c.addiw on rv64" {
-  let raw = encode_c_jal(2).reinterpret_as_uint()
+test "rv64c addiw executes where rv32c uses the c.jal opcode quadrant" {
+  let raw = encode_c_addiw(9, 2).reinterpret_as_uint()
   let runner = make_runner(rv64_machine_config())
   runner.load_program(mixed_program_bytes([(2, raw)]), 0U)
   match runner.step() {
     Running => ()
-    _ => fail("expected running: c.jal encoding is c.addiw on rv64")
+    _ => fail("expected valid rv64 c.addiw encoding to run")
   }
+  assert_eq(runner.read_reg_u64(9), 2U.to_uint64())
 }

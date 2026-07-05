@@ -106,6 +106,7 @@ fn trap_cause_name(cause : @riscv.TrapCause) -> String {
   match cause {
     @riscv.InstructionAccessFault => "instruction access fault"
     @riscv.IllegalInstruction => "illegal instruction"
+    @riscv.Breakpoint => "breakpoint"
     @riscv.LoadAccessFault => "load access fault"
     @riscv.StoreAccessFault => "store access fault"
     @riscv.InstructionPageFault => "instruction page fault"

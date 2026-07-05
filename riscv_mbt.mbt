@@ -356,6 +356,7 @@ pub enum Instruction {
   AmoW(UInt, Int, Int, Int)
   AmoD(UInt, Int, Int, Int)
   Ecall
+  Ebreak
   Mret
   Sret
   Unknown(UInt)
@@ -368,6 +369,7 @@ pub enum TrapCause {
   // which privilege mode receives the same underlying event.
   InstructionAccessFault
   IllegalInstruction
+  Breakpoint
   LoadAccessFault
   StoreAccessFault
   InstructionPageFault

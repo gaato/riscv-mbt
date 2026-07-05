@@ -92,7 +92,17 @@
   for finite nonzero division by zero. This is emulator-body hardening for the
   ordinary C floating-point paths that Alpine userspace can exercise; exact
   non-RNE arithmetic, OF/UF/NX for rounded arithmetic, and exact fused
-  single-rounding remain later spec-compliance work.
+  single-rounding remain later spec-compliance work. The subsequent
+  arithmetic flag pass added RNE NX accrual for the current single/double
+  arithmetic and FMA paths; broader non-RNE arithmetic, OF/UF, and deeper
+  fused-rounding audits remain open.
+
+- The first RV64C reserved/hint correction slice for Task 0063 is in place.
+  `EBREAK` and `C.EBREAK` now raise the architectural breakpoint exception,
+  `C.ADDIW rd=x0` is rejected as reserved on RV64C, `C.LUI rd=x0` and
+  `C.SLLI rd=x0` execute as ignored hints, `C.SLLI` uses the unsigned 6-bit
+  RV64 shift amount, and `C.FLDSP` can target valid FP register `f0`. Focused
+  regressions cover the decode and execute behavior.
 
 ## Known Blockers
 
