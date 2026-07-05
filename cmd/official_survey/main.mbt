@@ -104,24 +104,24 @@ fn official_riscv_tests_isa_dir_for_arch(arch : String) -> String {
 ///|
 fn trap_cause_name(cause : @riscv.TrapCause) -> String {
   match cause {
-    @riscv.InstructionAddressMisaligned => "instruction address misaligned"
-    @riscv.InstructionAccessFault => "instruction access fault"
-    @riscv.IllegalInstruction => "illegal instruction"
-    @riscv.Breakpoint => "breakpoint"
-    @riscv.LoadAccessFault => "load access fault"
-    @riscv.StoreAccessFault => "store access fault"
-    @riscv.InstructionPageFault => "instruction page fault"
-    @riscv.LoadPageFault => "load page fault"
-    @riscv.StorePageFault => "store page fault"
-    @riscv.EnvironmentCallFromUMode => "ecall from u-mode"
-    @riscv.EnvironmentCallFromSMode => "ecall from s-mode"
-    @riscv.EnvironmentCallFromMMode => "ecall from m-mode"
-    @riscv.SupervisorSoftwareInterrupt => "supervisor software interrupt"
-    @riscv.MachineSoftwareInterrupt => "machine software interrupt"
-    @riscv.SupervisorTimerInterrupt => "supervisor timer interrupt"
-    @riscv.MachineTimerInterrupt => "machine timer interrupt"
-    @riscv.SupervisorExternalInterrupt => "supervisor external interrupt"
-    @riscv.MachineExternalInterrupt => "machine external interrupt"
+    InstructionAddressMisaligned => "instruction address misaligned"
+    InstructionAccessFault => "instruction access fault"
+    IllegalInstruction => "illegal instruction"
+    Breakpoint => "breakpoint"
+    LoadAccessFault => "load access fault"
+    StoreAccessFault => "store access fault"
+    InstructionPageFault => "instruction page fault"
+    LoadPageFault => "load page fault"
+    StorePageFault => "store page fault"
+    EnvironmentCallFromUMode => "ecall from u-mode"
+    EnvironmentCallFromSMode => "ecall from s-mode"
+    EnvironmentCallFromMMode => "ecall from m-mode"
+    SupervisorSoftwareInterrupt => "supervisor software interrupt"
+    MachineSoftwareInterrupt => "machine software interrupt"
+    SupervisorTimerInterrupt => "supervisor timer interrupt"
+    MachineTimerInterrupt => "machine timer interrupt"
+    SupervisorExternalInterrupt => "supervisor external interrupt"
+    MachineExternalInterrupt => "machine external interrupt"
   }
 }
 
@@ -136,8 +136,8 @@ async fn run_official_riscv_test_case(
   )
   let elf = read_official_test_elf(test_case.path)
   let info = match runner.load_elf(elf) {
-    @riscv.Loaded(info) => info
-    @riscv.LoadError(message) => return LoadError(message)
+    Loaded(info) => info
+    LoadError(message) => return LoadError(message)
   }
   let tohost = match info.tohost_addr {
     Some(value) => value
@@ -154,8 +154,8 @@ async fn run_official_riscv_test_case(
       }
     }
     match runner.step() {
-      @riscv.Running => steps = steps + 1
-      @riscv.Trap(info) => return Trap(info)
+      Running => steps = steps + 1
+      Trap(info) => return Trap(info)
     }
   }
   Timeout

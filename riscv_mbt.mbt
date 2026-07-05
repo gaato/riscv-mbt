@@ -1426,7 +1426,7 @@ pub fn make_runner(config : MachineConfig) -> Runner {
     bus: Bus::new(config.ram_base, config.ram_size),
     config,
     uart_output: [],
-    uart_input: @queue.Queue([]),
+    uart_input: Queue([]),
     uart_ier: [0U.to_byte()],
     uart_lcr: [0U.to_byte()],
     mtime: [0U.to_uint64()],
@@ -1522,7 +1522,7 @@ pub fn make_smp_runners(
   }
   let shared_bus = Bus::new(config.ram_base, config.ram_size)
   let shared_uart : Array[Byte] = []
-  let shared_uart_input : @queue.Queue[Byte] = @queue.Queue([])
+  let shared_uart_input : @queue.Queue[Byte] = Queue([])
   let shared_uart_ier : Array[Byte] = [0U.to_byte()]
   let shared_uart_lcr : Array[Byte] = [0U.to_byte()]
   let shared_plic : Array[Byte] = if config.plic_base != 0U.to_uint64() {

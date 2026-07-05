@@ -36,13 +36,13 @@ async fn main {
   let runner = @riscv.make_runner(@riscv.official_riscv_tests_machine_config())
 
   match runner.load_elf(elf) {
-    @riscv.LoadError(message) => abort("failed to load sample ELF: " + message)
-    @riscv.Loaded(info) => ignore(info)
+    LoadError(message) => abort("failed to load sample ELF: " + message)
+    Loaded(info) => ignore(info)
   }
 
   match runner.run(sample_step_budget) {
-    @riscv.Running => ()
-    @riscv.Trap(_) => abort("sample trapped before completing")
+    Running => ()
+    Trap(_) => abort("sample trapped before completing")
   }
 
   let result = runner.load_u32(sample_result_addr)
