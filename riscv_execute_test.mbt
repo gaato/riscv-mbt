@@ -2828,6 +2828,40 @@ test "sstatus exposes and writes FS bits through the alias mask" {
 }
 
 ///|
+test "mstatus sd is derived from dirty FS instead of writable storage" {
+  let sd_bit = 1U.to_uint64() << 63
+  let write_mstatus_then_read_views = words_to_bytes([
+    encode_csr(0x300, 1, 0x1U, 0),
+    encode_csr(0x300, 0, 0x2U, 2),
+    encode_csr(0x100, 0, 0x2U, 3),
+  ])
+
+  let sd_only = make_runner(rv64_machine_config())
+  sd_only.cpu.write_reg(1, sd_bit)
+  sd_only.load_program(write_mstatus_then_read_views, 0U)
+  match sd_only.run(3) {
+    Running => ()
+    _ => fail("expected mstatus SD-only write test to run")
+  }
+  assert_eq(sd_only.read_reg_u64(2), 0U.to_uint64())
+  assert_eq(sd_only.read_reg_u64(3), 0U.to_uint64())
+  assert_eq(sd_only.read_csr_u64(0x300), 0U.to_uint64())
+  assert_eq(sd_only.read_csr_u64(0x100), 0U.to_uint64())
+
+  let fs_dirty = make_runner(rv64_machine_config())
+  fs_dirty.cpu.write_reg(1, 0x6000U.to_uint64())
+  fs_dirty.load_program(write_mstatus_then_read_views, 0U)
+  match fs_dirty.run(3) {
+    Running => ()
+    _ => fail("expected mstatus dirty-FS write test to run")
+  }
+  assert_eq(fs_dirty.read_reg_u64(2), sd_bit | 0x6000U.to_uint64())
+  assert_eq(fs_dirty.read_reg_u64(3), sd_bit | 0x6000U.to_uint64())
+  assert_eq(fs_dirty.read_csr_u64(0x300), sd_bit | 0x6000U.to_uint64())
+  assert_eq(fs_dirty.read_csr_u64(0x100), sd_bit | 0x6000U.to_uint64())
+}
+
+///|
 test "delegated user ecall traps to stvec with supervisor trap state" {
   let program = words_to_bytes([
     encode_i(33, 0, 0x0U, 6, 0x13U),

@@ -335,3 +335,6 @@ official coverage improve.
 - `sstatus` now exposes and writes the shared `mstatus.FS` field. This keeps
   the RV64GC F/D context-status control path visible through the supervisor
   status CSR instead of only through machine `mstatus`.
+- `mstatus.SD` / `sstatus.SD` now behave as visible summary bits for the
+  modeled extension status rather than writable storage: direct SD writes are
+  ignored, and FS=Dirty derives SD=1 on the RV64 status views.

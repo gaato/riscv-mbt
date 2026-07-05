@@ -985,8 +985,10 @@ fn Runner::read_csr_visible(self : Runner, csr : Int) -> UInt64 {
     CSR_VXRM => (self.read_vcsr() & VCSR_VXRM_MASK) >> VCSR_VXRM_SHIFT
     CSR_VCSR => self.read_vcsr()
     CSR_VLENB => VLEN_BYTES.to_uint64()
+    CSR_MSTATUS => legalize_mstatus_csr(self.cpu.read_csr(CSR_MSTATUS))
     CSR_SSTATUS =>
-      self.cpu.read_csr(CSR_MSTATUS) & SSTATUS_VISIBLE_MASK.to_uint64()
+      legalize_mstatus_csr(self.cpu.read_csr(CSR_MSTATUS)) &
+      SSTATUS_VISIBLE_MASK
     CSR_SIP => self.cpu.read_csr(CSR_MIP) & SIP_VISIBLE_MASK
     CSR_SIE => self.cpu.read_csr(CSR_MIE) & SIP_VISIBLE_MASK
     _ => self.cpu.read_csr(csr)
@@ -1017,13 +1019,23 @@ fn legalize_epc_csr(value : UInt64) -> UInt64 {
 
 ///|
 fn legalize_mstatus_csr(value : UInt64) -> UInt64 {
+  // SD is a read-only summary bit. For the current RV64GC baseline the modeled
+  // dirty extension status is FS=Dirty; future VS/XS modeling should join this
+  // summary rather than making SD directly writable.
+  let without_sd = value & bit_not(MSTATUS_SD_BIT)
+  let fs_dirty = (without_sd & MSTATUS_FS_MASK) >> 13 == 3U.to_uint64()
+  let summarized = if fs_dirty {
+    without_sd | MSTATUS_SD_BIT
+  } else {
+    without_sd
+  }
   // MPP is WARL and may hold only implemented privilege modes. This single-hart
   // profile implements U, S, and M, so the reserved encoding 2 normalizes to U.
-  let mpp = (value & MSTATUS_MPP_MASK.to_uint64()) >> MSTATUS_MPP_SHIFT
+  let mpp = (summarized & MSTATUS_MPP_MASK.to_uint64()) >> MSTATUS_MPP_SHIFT
   if mpp == 2U.to_uint64() {
-    set_mstatus_mpp(value, User)
+    set_mstatus_mpp(summarized, User)
   } else {
-    value
+    summarized
   }
 }
 
@@ -1063,8 +1075,8 @@ fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
     CSR_VCSR => self.write_vcsr(value)
     CSR_SSTATUS => {
       let mstatus = self.cpu.read_csr(CSR_MSTATUS)
-      let next_mstatus = (mstatus & bit_not(SSTATUS_VISIBLE_MASK.to_uint64())) |
-        (value & SSTATUS_VISIBLE_MASK.to_uint64())
+      let next_mstatus = (mstatus & bit_not(SSTATUS_VISIBLE_MASK)) |
+        (value & SSTATUS_VISIBLE_MASK)
       self.cpu.write_csr(CSR_MSTATUS, legalize_mstatus_csr(next_mstatus))
     }
     CSR_SIP => {
