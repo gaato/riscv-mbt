@@ -904,7 +904,10 @@ official coverage improve.
   Legal WFI keeps the existing timer fast-forward behavior.
 - `SRET` now has focused `mstatus.TSR` coverage. A regression enters S-mode via
   `MRET`, attempts `SRET` with TSR set, and verifies an illegal-instruction trap
-  to M-mode with the raw SRET instruction recorded in `mtval`.
+  to M-mode with the raw SRET instruction recorded in `mtval`. `SRET` status
+  restoration now also has focused zero-`SPIE` coverage, pinning
+  `SIE <- SPIE`, `SPIE <- 1`, and `SPP` reset to the least-privileged
+  implemented mode independently of the ordinary S-mode return target.
 - Supervisor profile resources now obey `MISA.S` instead of only the current
   Linux-oriented default configs. White-box profile coverage removes `S` from
   the RV64 config and pins supervisor CSR reads/writes, `SRET`, and

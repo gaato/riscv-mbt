@@ -5245,6 +5245,40 @@ test "sret restores supervisor mode when sstatus.spp is set" {
 }
 
 ///|
+test "sret clears sie from spie zero and resets spie and spp" {
+  let program = words_to_bytes([
+    encode_i(0x100, 0, 0x0U, 1, 0x13U),
+    encode_csr(0x100, 1, 0x1U, 0), // sstatus.SPP=1, SPIE=0, SIE=0
+    encode_i(52, 0, 0x0U, 2, 0x13U),
+    encode_csr(0x141, 2, 0x1U, 0), // sepc after SRET
+    encode_i(44, 0, 0x0U, 5, 0x13U),
+    encode_csr(0x341, 5, 0x1U, 0), // mepc at SRET
+    encode_u(0x00001000U, 3, 0x37U),
+    encode_i(-1792, 3, 0x0U, 3, 0x13U),
+    encode_csr(0x300, 3, 0x1U, 0), // enter S-mode through MRET
+    encode_mret(),
+    encode_i(0, 0, 0x0U, 0, 0x13U),
+    encode_sret(),
+    encode_i(0, 0, 0x0U, 0, 0x13U),
+    encode_i(1, 0, 0x0U, 15, 0x13U),
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(12) {
+    Running => ()
+    _ => fail("expected sret zero-SPIE supervisor return path to run")
+  }
+  assert_eq(runner.read_reg(15), 1U)
+  assert_eq(runner.read_csr(0x100), 0x20U)
+  assert_eq(runner.read_csr(0x141), 52U)
+  assert_eq(runner.pc(), 56U)
+  match runner.privilege_mode() {
+    Supervisor => ()
+    _ => fail("expected supervisor mode after sret with spp=1")
+  }
+}
+
+///|
 test "mstatus tsr traps supervisor sret as illegal instruction" {
   let mstatus = 0x300
   let mepc = 0x341
