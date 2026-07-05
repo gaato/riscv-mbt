@@ -3074,6 +3074,8 @@ test "rv64fd long conversions clip exact upper rne boundaries" {
   let runner = make_runner(rv64fd_machine_config())
   runner.cpu.write_freg(1, 0x43e0000000000000UL) // +2^63, first invalid signed-long result.
   runner.cpu.write_freg(2, 0x43f0000000000000UL) // +2^64, first invalid unsigned-long result.
+  runner.cpu.write_freg(3, exec_test_nan_box_single(0x5f000000U)) // single +2^63.
+  runner.cpu.write_freg(4, exec_test_nan_box_single(0x5f800000U)) // single +2^64.
   runner.load_program(
     words_to_bytes([
       encode_fcvt_l_d(1, 0x0U, 10),
@@ -3081,10 +3083,16 @@ test "rv64fd long conversions clip exact upper rne boundaries" {
       encode_csr(csr_fcsr, 0, 0x1U, 0),
       encode_fcvt_lu_d(2, 0x0U, 12),
       encode_csr(csr_fcsr, 0, 0x2U, 13),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_l_s(3, 0x0U, 14),
+      encode_csr(csr_fcsr, 0, 0x2U, 15),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_lu_s(4, 0x0U, 16),
+      encode_csr(csr_fcsr, 0, 0x2U, 17),
     ]),
     0U,
   )
-  match runner.run(5) {
+  match runner.run(11) {
     Running => ()
     _ => fail("expected exact upper-bound fcvt long path to run")
   }
@@ -3092,6 +3100,10 @@ test "rv64fd long conversions clip exact upper rne boundaries" {
   assert_eq(runner.read_reg_u64(11) & 0x10U.to_uint64(), 0x10U.to_uint64())
   assert_eq(runner.read_reg_u64(12), 0xffffffffffffffffUL)
   assert_eq(runner.read_reg_u64(13) & 0x10U.to_uint64(), 0x10U.to_uint64())
+  assert_eq(runner.read_reg_u64(14), 0x7fffffffffffffffUL)
+  assert_eq(runner.read_reg_u64(15) & 0x10U.to_uint64(), 0x10U.to_uint64())
+  assert_eq(runner.read_reg_u64(16), 0xffffffffffffffffUL)
+  assert_eq(runner.read_reg_u64(17) & 0x10U.to_uint64(), 0x10U.to_uint64())
 }
 
 ///|
