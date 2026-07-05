@@ -1799,6 +1799,41 @@ test "rv64fd mul accrues underflow and inexact for tiny products" {
 }
 
 ///|
+test "rv64fd fused multiply-add accrues underflow and inexact for tiny products" {
+  let runner = make_runner(rv64fd_machine_config())
+  let csr_fcsr = 0x003
+  runner.cpu.write_freg(1, exec_test_nan_box_single(0x00800000U))
+  runner.cpu.write_freg(2, exec_test_nan_box_single(0x3eaaaaabU))
+  runner.cpu.write_freg(3, exec_test_nan_box_single(0x00000000U))
+  runner.cpu.write_freg(4, 0x0010000000000000UL)
+  runner.cpu.write_freg(5, 0x3fd5555555555555UL)
+  runner.cpu.write_freg(6, 0x0000000000000000UL)
+  runner.load_program(
+    words_to_bytes([
+      encode_fp_r4(3, 0x0U, 2, 1, 0x0U, 7, 0x43U),
+      encode_csr(csr_fcsr, 0, 0x2U, 8),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(6, 0x1U, 5, 4, 0x0U, 9, 0x43U),
+      encode_csr(csr_fcsr, 0, 0x2U, 10),
+    ]),
+    0U,
+  )
+  match runner.run(5) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected tiny product fused multiply-add paths to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  // The addend is exact +0, so these cases isolate the FMA single-rounding
+  // path while still requiring the same UF|NX sticky flags as plain multiply.
+  assert_eq(runner.read_freg_u64(7), exec_test_nan_box_single(0x002aaaabU))
+  assert_eq(runner.read_reg_u64(8) & 0x3U.to_uint64(), 0x3U.to_uint64())
+  assert_eq(runner.read_freg_u64(9), 0x0005555555555555UL)
+  assert_eq(runner.read_reg_u64(10) & 0x3U.to_uint64(), 0x3U.to_uint64())
+}
+
+///|
 test "rv64fd sqrt honors non-rne rounding modes" {
   let runner = make_runner(rv64fd_machine_config())
   let csr_fcsr = 0x003

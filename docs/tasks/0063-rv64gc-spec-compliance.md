@@ -529,6 +529,9 @@ official coverage improve.
 - Scalar `FMUL.S/D` now has matching underflow flag coverage: minimum-normal
   operands multiplied by the nearest encoded one-third round to subnormal
   products and accrue both UF and NX under tininess-after-rounding.
+- Fused `FMADD.S/D` now has matching underflow flag coverage with an exact
+  +0 addend: the tests isolate the fused single-rounding path while requiring
+  the same subnormal tiny-product UF and NX sticky flags.
 - The double-precision fused multiply-add family now accepts legal static
   non-RNE modes and routes finite nonzero exact fused results through the
   exact-rational-to-double helper. This covers `FMADD.D`, `FMSUB.D`,
