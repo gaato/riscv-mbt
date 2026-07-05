@@ -320,3 +320,7 @@ official coverage improve.
   `MRET` raises illegal instruction outside M-mode, `SRET` raises illegal
   instruction from U-mode, and S-mode `SRET` raises illegal instruction when
   `mstatus.TSR` is set. Focused regressions cover all three cases.
+- `SFENCE.VMA` now enforces the privileged legality checks before flushing the
+  emulator translation cache: U-mode raises illegal instruction, and S-mode
+  raises illegal instruction when `mstatus.TVM` is set. M-mode execution keeps
+  the existing translation-cache flush behavior.

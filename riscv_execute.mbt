@@ -1321,6 +1321,27 @@ fn Runner::execute_system(
       )
     }
     SfenceVma(_, _) => {
+      match self.cpu.privilege {
+        Machine => ()
+        Supervisor =>
+          if (self.cpu.read_csr(CSR_MSTATUS) & MSTATUS_TVM_BIT) !=
+            0U.to_uint64() {
+            return self.raise_trap(
+              IllegalInstruction,
+              current_pc,
+              raw.to_uint64(),
+            )
+          }
+        User =>
+          return self.raise_trap(
+            IllegalInstruction,
+            current_pc,
+            raw.to_uint64(),
+          )
+      }
+      // SFENCE.VMA is a privileged instruction with a visible emulator-side
+      // effect: stale Sv39 translations must not survive once the instruction
+      // has passed its privilege and TVM checks.
       self.flush_translate_cache()
       self.cpu.pc = next_pc
       Running

@@ -135,6 +135,8 @@
 - Return-instruction legality is now enforced for the modeled privileged
   surface: `MRET` traps outside M-mode, `SRET` traps from U-mode, and S-mode
   `SRET` traps when `mstatus.TSR` is set.
+- `SFENCE.VMA` now enforces privilege legality before flushing the translation
+  cache: U-mode traps, and S-mode traps when `mstatus.TVM` is set.
 
 ## Known Blockers
 
