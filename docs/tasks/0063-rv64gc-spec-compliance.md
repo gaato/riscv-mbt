@@ -372,7 +372,10 @@ official coverage improve.
   profiles clear `mstatus.UXL` and normalize `MPP=U` back to M-mode.
   Supervisor-dependent compatibility CSRs now follow the same profile surface:
   no-`S` profiles reject `satp`, `medeleg`, `mideleg`, `scounteren`, and
-  `senvcfg`, while no-`U` profiles reject `mcounteren`.
+  `senvcfg`, while no-`U` profiles reject `mcounteren`. `MRET` now also resets
+  the stored `MPP` stack-bottom field to the least implemented privilege mode
+  for the active profile, so M-only profiles no longer leave a raw `MPP=U`
+  encoding behind after returning to M-mode.
   The remaining audit is a spec pass over remaining WARL behavior,
   read-only/write-ignored fields, and privilege-visible side effects for every
   CSR currently exposed by `riscv_decode.mbt`.
@@ -896,6 +899,10 @@ official coverage improve.
 - Compatibility CSR classification is now split by the privilege mode it
   serves. `satp`, `medeleg`, `mideleg`, `scounteren`, and `senvcfg` are absent
   when `S` is absent, while `mcounteren` is absent when `U` is absent.
+- `MRET` now resets the saved previous-privilege field to the least
+  implemented mode for the active profile. This keeps the raw `mstatus.MPP`
+  storage at M after no-`U` MRET-to-M, instead of depending on visible CSR
+  WARL normalization to hide an unimplemented U encoding.
 - `sstatus` now exposes and writes the shared `mstatus.FS` field. This keeps
   the RV64GC F/D context-status control path visible through the supervisor
   status CSR instead of only through machine `mstatus`.

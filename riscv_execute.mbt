@@ -1925,7 +1925,10 @@ fn Runner::execute_mret(
   // does not require it. Keep reservations live here; software that needs to
   // force-clear a reservation must use the architectural dummy-SC pattern.
   let mstatus = self.cpu.read_csr(CSR_MSTATUS)
-  self.cpu.write_csr(CSR_MSTATUS, mstatus_after_mret(mstatus))
+  self.cpu.write_csr(
+    CSR_MSTATUS,
+    mstatus_after_mret(mstatus, self.config.extensions),
+  )
   self.cpu.privilege = mstatus_mpp(mstatus)
   self.cpu.pc = visible_epc_csr(
     self.cpu.read_csr(CSR_MEPC),
@@ -1954,7 +1957,10 @@ fn Runner::execute_sret(
   if sret_from_supervisor && (mstatus & MSTATUS_TSR_BIT) != 0U.to_uint64() {
     return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
   }
-  self.cpu.write_csr(CSR_MSTATUS, mstatus_after_sret(mstatus))
+  self.cpu.write_csr(
+    CSR_MSTATUS,
+    mstatus_after_sret(mstatus, self.config.extensions),
+  )
   self.cpu.privilege = mstatus_spp(mstatus)
   self.cpu.pc = visible_epc_csr(
     self.cpu.read_csr(CSR_SEPC),

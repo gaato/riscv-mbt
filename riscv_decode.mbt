@@ -870,11 +870,24 @@ fn mstatus_after_xret_mprv(value : UInt64, target : PrivilegeMode) -> UInt64 {
 }
 
 ///|
-fn mstatus_after_mret(mstatus : UInt64) -> UInt64 {
+fn least_privileged_supported_mode(extensions : UInt64) -> PrivilegeMode {
+  // xRET pushes the bottom of the privilege stack to the least implemented
+  // mode. U is the normal RV64GC case; M-only profiles must use M because
+  // encoding U would describe an unimplemented return target.
+  if (extensions & MISA_EXT_U) != 0U.to_uint64() {
+    User
+  } else {
+    Machine
+  }
+}
+
+///|
+fn mstatus_after_mret(mstatus : UInt64, extensions : UInt64) -> UInt64 {
   let target = mstatus_mpp(mstatus)
+  let bottom = least_privileged_supported_mode(extensions)
   mstatus_after_xret_mprv(
     set_mstatus_mpie(
-      set_mstatus_mie(set_mstatus_mpp(mstatus, User), mstatus_mpie(mstatus)),
+      set_mstatus_mie(set_mstatus_mpp(mstatus, bottom), mstatus_mpie(mstatus)),
       true,
     ),
     target,
@@ -882,12 +895,13 @@ fn mstatus_after_mret(mstatus : UInt64) -> UInt64 {
 }
 
 ///|
-fn mstatus_after_sret(mstatus : UInt64) -> UInt64 {
+fn mstatus_after_sret(mstatus : UInt64, extensions : UInt64) -> UInt64 {
   let target = mstatus_spp(mstatus)
+  let bottom = least_privileged_supported_mode(extensions)
   mstatus_after_xret_mprv(
     set_mstatus_spp(
       set_mstatus_spie(set_mstatus_sie(mstatus, mstatus_spie(mstatus)), true),
-      User,
+      bottom,
     ),
     target,
   )

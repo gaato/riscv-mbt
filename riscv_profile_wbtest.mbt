@@ -503,6 +503,27 @@ test "mstatus write cannot expose user return state without U" {
 }
 
 ///|
+test "mret resets MPP to least implemented mode without U" {
+  let runner = make_runner(wb_rv64_without_u_machine_config())
+  runner.cpu.write_csr(CSR_MSTATUS, MSTATUS_MPP_MASK.to_uint64())
+  runner.cpu.write_csr(CSR_MEPC, 4U.to_uint64())
+  runner.load_program(wb_word_program(wb_encode_mret()), 0U)
+  match runner.step() {
+    Running => ()
+    _ => fail("expected no-U MRET-to-M program to run")
+  }
+  match runner.privilege_mode() {
+    Machine => ()
+    _ => fail("expected no-U MRET to remain in machine mode")
+  }
+  assert_eq(runner.pc_u64(), 4U.to_uint64())
+  assert_eq(
+    runner.cpu.read_csr(CSR_MSTATUS) & MSTATUS_MPP_MASK.to_uint64(),
+    MSTATUS_MPP_MASK.to_uint64(),
+  )
+}
+
+///|
 test "requesting D-only profile canonicalizes to include F" {
   let runner = make_runner(wb_rv64_d_only_requested_machine_config())
   let misa = runner.cpu.read_csr(CSR_MISA)

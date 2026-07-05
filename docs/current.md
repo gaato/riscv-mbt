@@ -371,6 +371,9 @@
 - Compatibility CSR classification now follows those mode dependencies:
   `satp`, `medeleg`, `mideleg`, `scounteren`, and `senvcfg` are absent without
   `S`, while `mcounteren` is absent without `U`.
+- `MRET` now resets raw `mstatus.MPP` to the least implemented privilege mode
+  for the active profile, so no-`U` MRET-to-M keeps the stored stack-bottom
+  field at M instead of relying on read-time WARL normalization.
 - `satp` CSR reads and writes now use the same `TVM` interception rule: S-mode
   access traps when `mstatus.TVM` is set, while M-mode remains allowed.
 - `satp` writes with unsupported MODE values now follow the privileged WARL
