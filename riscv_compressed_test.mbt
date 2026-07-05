@@ -489,6 +489,30 @@ test "rv64c addiw with x0 destination remains reserved" {
 }
 
 ///|
+test "rv64c lui and addi16sp zero immediates remain reserved" {
+  let reserved = [
+    encode_c_lui(0, 0), // rd=x0 is a hint only for nonzero nzimm.
+    encode_c_lui(3, 0), // C.LUI requires a nonzero nzimm.
+    encode_c_addi16sp(0), // C.ADDI16SP also reserves nzimm=0.
+  ]
+  for raw_int in reserved {
+    let raw = raw_int.reinterpret_as_uint()
+    let runner = make_runner(rv64_machine_config())
+    runner.load_program(mixed_program_bytes([(2, raw)]), 0U)
+    match runner.step() {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected illegal instruction trap")
+        }
+        assert_eq(info.trap_value, raw.to_uint64())
+      }
+      _ => fail("expected reserved compressed immediate form to trap")
+    }
+  }
+}
+
+///|
 test "rv64c architectural hints execute as no-ops" {
   let runner = make_runner(rv64_machine_config())
   runner.load_program(

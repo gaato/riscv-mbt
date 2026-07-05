@@ -193,6 +193,9 @@
   now rejects `C.SLLI`, `C.SRLI`, and `C.SRAI` forms with `shamt[5]=1`,
   including `C.SLLI rd=x0`, because those code points are reserved for custom
   extensions in the 32-bit profile.
+  RV64C coverage now also pins the zero-immediate reserved space for
+  `C.LUI` and `C.ADDI16SP`, keeping those traps distinct from the nonzero
+  `rd=x0` hint encodings.
   `C.ADD rd=x0, rs2!=x0` forms now execute as ignored hints, including the
   `rs2=x2..x5` compressed Zihintntl non-temporal locality hint subrange.
   CR-format coverage now also pins `C.MV rd=x0, rs2!=x0` as an ignored hint,

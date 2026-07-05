@@ -140,7 +140,10 @@ official coverage improve.
   `C.EBREAK`, `C.ADDIW rd=x0`, `C.LUI rd=x0`, `C.SLLI rd=x0`, 6-bit RV64
   `C.SLLI` shift amounts, `C.FLDSP f0`, and the RV32C custom-extension
   `shamt[5]=1` space for `C.SLLI`, `C.SRLI`, and `C.SRAI`, including the
-  `C.SLLI rd=x0` hint-looking form. `C.ADD rd=x0, rs2!=x0` forms now execute as
+  `C.SLLI rd=x0` hint-looking form. The zero-immediate reserved space for
+  `C.LUI` and `C.ADDI16SP` is now pinned by focused RV64C regressions, keeping
+  reserved traps distinct from the nearby nonzero hint encodings.
+  `C.ADD rd=x0, rs2!=x0` forms now execute as
   ignored hints, including the `rs2=x2..x5` compressed Zihintntl non-temporal
   locality hint subrange. CR-format coverage now also pins `C.MV rd=x0,
   rs2!=x0` as an ignored hint, `C.JR rs1=x0` as reserved, and the
@@ -434,6 +437,9 @@ official coverage improve.
 - RV32C compressed shift decode now rejects the standard-reserved/custom
   `shamt[5]=1` code points for `C.SLLI`, `C.SRLI`, and `C.SRAI`, while
   preserving the existing RV64C 6-bit shift behavior.
+- RV64C zero-immediate coverage now keeps the reserved `C.LUI` and
+  `C.ADDI16SP` code points illegal while leaving the nearby nonzero
+  `rd=x0` hint forms as no-ops.
 - Compressed `C.ADD rd=x0, rs2!=x0` now executes as an architectural hint
   across the whole nonzero source range. The `rs2=x2..x5` encodings are the
   compressed Zihintntl locality hints, so they remain no-ops in this RV64GC
