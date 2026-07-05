@@ -76,7 +76,7 @@ official coverage improve.
   manifest arch FP bits, and the passing `rv64uf`/`rv64ud` classification,
   compare, conversion, min/max, load/store, move, recoding, and structural rows
   are gated. The remaining strict-spec gaps are exact arithmetic result/flag
-  behavior for `fadd`/`fdiv`/`fmadd` and the remaining `rv64ud` move failure.
+  behavior for `fadd`/`fdiv`/`fmadd`.
 - `A`: `riscv_decode.mbt` rejects reserved AMO operations and reserved
   `LR.W`/`LR.D` encodings with nonzero `rs2`, gates AMO execution on `MISA.A`,
   and accepts `aq`/`rl` encodings for the current single-hart interpreter.
@@ -165,6 +165,12 @@ official coverage improve.
   has been promoted to the `gating` manifest as the first official RV64C floor.
 - Official riscv-tests profile selection now derives `misa` extension bits from
   the manifest arch string instead of only selecting XLEN. With `rv64imafdc`
-  advertised, 16 of 23 current upstream `rv64uf`/`rv64ud` binaries pass and are
+  advertised, 17 of 23 current upstream `rv64uf`/`rv64ud` binaries pass and are
   promoted to `gating`; the remaining failures are `rv64uf`/`rv64ud`
-  `fadd`, `fdiv`, `fmadd`, plus `rv64ud` `move`.
+  `fadd`, `fdiv`, and `fmadd`.
+- `FSGNJ.S`, `FSGNJN.S`, and `FSGNJX.S` now use arithmetic single-precision
+  operand reads instead of FMV-style transfer reads. This makes D-present
+  malformed single NaN boxes become canonical NaNs before sign injection, while
+  still writing a boxed single result. The focused execute regression and the
+  official `rv64ud-p-move` binary both cover this path, so `rv64ud/move` is now
+  part of the gating manifest.

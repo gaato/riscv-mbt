@@ -686,6 +686,38 @@ test "rv64f single sign injection preserves magnitude bits" {
 }
 
 ///|
+test "rv64fd single sign injection validates nan boxing" {
+  let runner = make_runner(rv64fd_machine_config())
+  // These registers mimic raw double-width payloads written by FMV.D.X. Single
+  // FP operations must reject them as malformed NaN boxes instead of treating
+  // their low 32 bits like FMV.X.W would.
+  runner.cpu.write_freg(1, 0x0000000012345678UL)
+  runner.cpu.write_freg(2, 0x0000000080000000UL)
+  runner.cpu.write_freg(3, exec_test_nan_box_single(exec_test_f32_bits(1.5)))
+  runner.cpu.write_freg(4, exec_test_nan_box_single(exec_test_f32_bits(-2.0)))
+  runner.load_program(
+    words_to_bytes([
+      encode_fsgnj_s(1, 2, 5),
+      encode_fsgnjn_s(1, 2, 6),
+      encode_fsgnjx_s(1, 2, 7),
+      encode_fsgnj_s(3, 4, 8),
+    ]),
+    0U,
+  )
+  match runner.run(4) {
+    Running => ()
+    _ => fail("expected rv64fd single sign injection path to run")
+  }
+  assert_eq(runner.read_freg_u64(5), exec_test_nan_box_single(0x7fc00000U))
+  assert_eq(runner.read_freg_u64(6), exec_test_nan_box_single(0xffc00000U))
+  assert_eq(runner.read_freg_u64(7), exec_test_nan_box_single(0x7fc00000U))
+  assert_eq(
+    runner.read_freg_u64(8),
+    exec_test_nan_box_single(exec_test_f32_bits(-1.5)),
+  )
+}
+
+///|
 test "rv64f integer and single conversion paths preserve expected values" {
   let runner = make_runner(rv64f_machine_config())
   runner.cpu.write_reg(1, 42U.to_uint64())

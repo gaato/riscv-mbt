@@ -902,26 +902,27 @@ fn Runner::execute_fp(
     }
     FSgnjS(rd, rs1, rs2) => {
       let sign_mask = 0x80000000U
-      let magnitude = self.read_freg_single_transfer_bits(rs1) &
-        sign_mask.lnot()
-      let sign = self.read_freg_single_transfer_bits(rs2) & sign_mask
+      // FSGNJ.S is a floating-point operation, not an FMV transfer. With D
+      // present it must validate NaN-boxing on both single-precision operands
+      // before selecting magnitude/sign bits, and write a boxed single result.
+      let magnitude = self.read_freg_single_value_bits(rs1) & sign_mask.lnot()
+      let sign = self.read_freg_single_value_bits(rs2) & sign_mask
       self.write_freg_single_bits(rd, magnitude | sign)
       self.cpu.pc = next_pc
       Running
     }
     FSgnjnS(rd, rs1, rs2) => {
       let sign_mask = 0x80000000U
-      let magnitude = self.read_freg_single_transfer_bits(rs1) &
-        sign_mask.lnot()
-      let sign = self.read_freg_single_transfer_bits(rs2).lnot() & sign_mask
+      let magnitude = self.read_freg_single_value_bits(rs1) & sign_mask.lnot()
+      let sign = self.read_freg_single_value_bits(rs2).lnot() & sign_mask
       self.write_freg_single_bits(rd, magnitude | sign)
       self.cpu.pc = next_pc
       Running
     }
     FSgnjxS(rd, rs1, rs2) => {
       let sign_mask = 0x80000000U
-      let lhs = self.read_freg_single_transfer_bits(rs1)
-      let rhs = self.read_freg_single_transfer_bits(rs2)
+      let lhs = self.read_freg_single_value_bits(rs1)
+      let rhs = self.read_freg_single_value_bits(rs2)
       self.write_freg_single_bits(
         rd,
         (lhs & sign_mask.lnot()) | ((lhs ^ rhs) & sign_mask),

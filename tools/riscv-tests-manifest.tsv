@@ -30,6 +30,7 @@ rv64ud	fcvt	rv64imafdc	gating
 rv64ud	fcvt_w	rv64imafdc	gating
 rv64ud	fmin	rv64imafdc	gating
 rv64ud	ldst	rv64imafdc	gating
+rv64ud	move	rv64imafdc	gating
 rv64ud	recoding	rv64imafdc	gating
 rv64ud	structural	rv64imafdc	gating
 rv64ui	addi	rv64i	gating
