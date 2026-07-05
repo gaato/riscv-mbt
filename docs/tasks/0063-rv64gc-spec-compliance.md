@@ -64,7 +64,8 @@ This list tracks the known distance from "runs useful Linux" to strict
 `RV64IMAFDC_Zicsr_Zifencei` confidence. It should shrink as implementation and
 official coverage improve.
 
-- `RV64I/M`: curated official `rv64ui`, `rv64um`, and `rv64ua` rows in
+- `RV64I/M/C`: curated official `rv64ui`, `rv64um`, `rv64ua`, and `rv64uc`
+  rows in
   `tools/riscv-tests-manifest.tsv` are gating through
   `rv32ui_gating_test.mbt`. The gap is broader official-suite coverage and any
   remaining unlisted corner cases, not a known missing Linux-critical
@@ -84,10 +85,9 @@ official coverage improve.
   cases are now part of the gating manifest. The remaining audit is true
   `aq`/`rl` memory-ordering semantics and multi-hart reservation interference.
 - `C`: compressed decode/execute coverage exists in
-  `riscv_compressed_test.mbt`, while official compressed coverage is still not
-  part of the RV64GC gating floor. The remaining audit is RV64C-specific
-  reserved/hint behavior and official `rv64uc` promotion once the decoded shape
-  is fully reviewed.
+  `riscv_compressed_test.mbt`, and the upstream `rv64uc-p-rvc` binary is now
+  part of the gating manifest. The remaining audit is RV64C-specific
+  reserved/hint behavior beyond the official aggregate compressed test.
 - `Zicsr`: CSR decode, privilege checks, `fcsr`/`fflags` views, and explicit
   read/write suppression for the standard CSR instruction forms are covered by
   focused execute tests. The remaining audit is a spec pass over WARL behavior,
@@ -120,10 +120,11 @@ official coverage improve.
   multiplicand case, including the spec-called-out path where the addend is a
   quiet NaN. The arithmetic result still follows the current host-IEEE boundary
   and exact fused single-rounding remains open.
-- The existing official `rv64ui`, `rv64um`, and `rv64ua` manifest rows have
-  been promoted from `survey` to `gating`, alongside the older RV32 gating
-  rows. This makes the already-integrated upstream `riscv-tests` path part of
-  the always-green regression floor for the RV64I/M/A portion of RV64GC.
+- The existing official `rv64ui`, `rv64um`, `rv64ua`, and `rv64uc` manifest
+  rows have been promoted from `survey` to `gating`, alongside the older RV32
+  gating rows. This makes the already-integrated upstream `riscv-tests` path
+  part of the always-green regression floor for the RV64I/M/A/C portion of
+  RV64GC.
 - `FCVT.W.S`, `FCVT.WU.S`, `FCVT.W.D`, and `FCVT.WU.D` now use a shared
   spec-shaped result helper for NaN/out-of-range clipping and accrued flags.
   The helper sets NV for invalid conversions, sets NX when the rounded valid
@@ -159,3 +160,5 @@ official coverage improve.
 - All 19 current upstream `rv64ua-p-*` binaries (`amo{add,and,max,maxu,min,
   minu,or,swap,xor}_{w,d}` plus `lrsc`) pass through `cmd/official_survey` and
   have been promoted to `gating` rows in `tools/riscv-tests-manifest.tsv`.
+- The upstream `rv64uc-p-rvc` binary passes through `cmd/official_survey` and
+  has been promoted to the `gating` manifest as the first official RV64C floor.

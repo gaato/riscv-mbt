@@ -15,6 +15,7 @@ rv32um	mul	rv32im	survey
 rv32um	div	rv32im	survey
 rv32um	rem	rv32im	survey
 rv32uc	rvc	rv32ic	survey
+rv64uc	rvc	rv64ic	gating
 rv64ui	addi	rv64i	gating
 rv64ui	add	rv64i	gating
 rv64ui	beq	rv64i	gating
