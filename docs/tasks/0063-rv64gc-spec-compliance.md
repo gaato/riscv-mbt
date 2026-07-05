@@ -107,9 +107,11 @@ official coverage improve.
   modes cannot write higher-privilege CSRs by avoiding the read. `mtvec` and
   `stvec` writes now normalize to the modeled WARL surface: 4-byte-aligned BASE
   plus Direct or Vectored MODE only, with vectored supervisor-timer dispatch
-  covered by a focused regression. The remaining audit is a spec pass over WARL
-  behavior, read-only/write-ignored fields, and privilege-visible side effects
-  for every CSR currently exposed by `riscv_decode.mbt`.
+  covered by a focused regression. `mepc` and `sepc` now clear bit 0 on visible
+  writes and trap returns, preserving the RV64GC/IALIGN=16 ability to hold bit 1.
+  The remaining audit is a spec pass over WARL behavior,
+  read-only/write-ignored fields, and privilege-visible side effects for every
+  CSR currently exposed by `riscv_decode.mbt`.
 - `Zifencei`: `FENCE.I` decodes, flushes the emulator decode cache, official
   `fence_i` rows are in the gating subset, and
   `riscv_execute_test.mbt` now covers same-hart self-modified instruction
@@ -302,3 +304,7 @@ official coverage improve.
   for Vectored, maps Direct and reserved MODE values to MODE=0, and keeps
   vectored interrupt dispatch covered with a delegated supervisor-timer
   regression.
+- EPC CSR writes now normalize `mepc[0]` and `sepc[0]` to zero, and `MRET`/`SRET`
+  also mask bit 0 when consuming internally prepared EPC values. Focused
+  regressions cover visible CSR writes plus return paths while leaving bit 1
+  representable for the compressed-instruction baseline.

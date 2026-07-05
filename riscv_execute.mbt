@@ -1008,6 +1008,14 @@ fn legalize_trap_vector_csr(value : UInt64) -> UInt64 {
 }
 
 ///|
+fn legalize_epc_csr(value : UInt64) -> UInt64 {
+  // mepc[0] and sepc[0] are architecturally hardwired to zero. Bit 1 remains
+  // representable for this RV64GC baseline because compressed instructions make
+  // IALIGN=16.
+  value & bit_not(1U.to_uint64())
+}
+
+///|
 fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
   // Writes mirror read_csr_visible: aliases update their backing CSR and WARL
   // fields normalize at the write boundary. Avoid duplicating these rules in
@@ -1015,6 +1023,7 @@ fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
   match csr {
     CSR_MTVEC | CSR_STVEC =>
       self.cpu.write_csr(csr, legalize_trap_vector_csr(value))
+    CSR_MEPC | CSR_SEPC => self.cpu.write_csr(csr, legalize_epc_csr(value))
     CSR_FFLAGS => {
       let fcsr = self.read_fcsr()
       self.write_fcsr(
@@ -1328,7 +1337,7 @@ fn Runner::execute_mret(self : Runner) -> StepResult {
   let mstatus = self.cpu.read_csr(CSR_MSTATUS)
   self.cpu.write_csr(CSR_MSTATUS, mstatus_after_mret(mstatus))
   self.cpu.privilege = mstatus_mpp(mstatus)
-  self.cpu.pc = self.cpu.read_csr(CSR_MEPC)
+  self.cpu.pc = legalize_epc_csr(self.cpu.read_csr(CSR_MEPC))
   Running
 }
 
@@ -1339,7 +1348,7 @@ fn Runner::execute_sret(self : Runner) -> StepResult {
   let mstatus = self.cpu.read_csr(CSR_MSTATUS)
   self.cpu.write_csr(CSR_MSTATUS, mstatus_after_sret(mstatus))
   self.cpu.privilege = mstatus_spp(mstatus)
-  self.cpu.pc = self.cpu.read_csr(CSR_SEPC)
+  self.cpu.pc = legalize_epc_csr(self.cpu.read_csr(CSR_SEPC))
   Running
 }
 

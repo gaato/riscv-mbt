@@ -125,6 +125,9 @@
   surface: aligned BASE plus Direct or Vectored MODE only. A delegated
   supervisor-timer regression covers Vectored `stvec` dispatch to
   `BASE + 4*cause`.
+- EPC CSR writes now clear hardwired bit 0 for `mepc` and `sepc`, and `MRET` /
+  `SRET` mask the same bit when consuming EPC values prepared internally. Bit 1
+  remains representable for the RV64GC compressed-instruction baseline.
 
 ## Known Blockers
 

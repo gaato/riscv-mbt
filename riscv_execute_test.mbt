@@ -2613,7 +2613,7 @@ test "supervisor csr surface is writable and sstatus aliases the modeled mstatus
   assert_eq(runner.read_csr(0x300), 0x122U)
   assert_eq(runner.read_csr(0x105), 0x15U)
   assert_eq(runner.read_csr(0x140), 9U)
-  assert_eq(runner.read_csr(0x141), 13U)
+  assert_eq(runner.read_csr(0x141), 12U)
   assert_eq(runner.read_csr(0x142), 8U)
   assert_eq(runner.read_csr(0x143), 7U)
 }
@@ -3133,6 +3133,60 @@ test "trap vector csrs legalize base alignment and reserved modes" {
   assert_eq(runner.read_reg(5), 4U)
   assert_eq(runner.read_csr(0x305), 4U)
   assert_eq(runner.read_csr(0x105), 4U)
+}
+
+///|
+test "epc csrs clear bit zero on write and trap return" {
+  let program = words_to_bytes([
+    encode_i(13, 0, 0x0U, 1, 0x13U),
+    encode_csr(0x341, 1, 0x1U, 0),
+    encode_csr(0x341, 0, 0x2U, 2),
+    encode_csr(0x141, 1, 0x1U, 0),
+    encode_csr(0x141, 0, 0x2U, 3),
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(5) {
+    Running => ()
+    _ => fail("expected epc csr write/read program to run")
+  }
+  assert_eq(runner.read_reg(2), 12U)
+  assert_eq(runner.read_reg(3), 12U)
+  assert_eq(runner.read_csr(0x341), 12U)
+  assert_eq(runner.read_csr(0x141), 12U)
+
+  let mret_runner = make_runner(default_machine_config())
+  mret_runner.cpu.write_csr(0x341, 13U.to_uint64())
+  mret_runner.load_program(words_to_bytes([encode_mret()]), 0U)
+  match mret_runner.step() {
+    Running => ()
+    _ => fail("expected mret with odd internal mepc to run")
+  }
+  assert_eq(mret_runner.pc_u64(), 12U.to_uint64())
+
+  let sret_program = words_to_bytes([
+    encode_i(41, 0, 0x0U, 1, 0x13U),
+    encode_csr(0x141, 1, 0x1U, 0),
+    encode_i(36, 0, 0x0U, 5, 0x13U),
+    encode_csr(0x341, 5, 0x1U, 0),
+    encode_i(1, 0, 0x0U, 6, 0x13U),
+    encode_i(11, 6, 0x1U, 6, 0x13U),
+    encode_csr(0x300, 6, 0x1U, 0),
+    encode_mret(),
+    encode_i(99, 0, 0x0U, 7, 0x13U),
+    encode_sret(),
+    encode_i(1, 0, 0x0U, 8, 0x13U),
+  ])
+  let sret_runner = make_runner(default_machine_config())
+  sret_runner.load_program(sret_program, 0U)
+  match sret_runner.run(10) {
+    Running => ()
+    _ => fail("expected sret with odd written sepc to run")
+  }
+  assert_eq(sret_runner.read_reg(7), 0U)
+  assert_eq(sret_runner.read_reg(8), 1U)
+  assert_eq(sret_runner.read_csr(0x141), 40U)
+  assert_eq(sret_runner.pc_u64(), 44U.to_uint64())
 }
 
 ///|
