@@ -224,6 +224,8 @@ official coverage improve.
   compressed aliases, including low-32-bit sign extension, rejection of the
   same code points under RV32C, and illegal traps for the adjacent reserved
   RV64C CA funct2 slots.
+  `C.ADDIW` now has nonzero signed-immediate coverage around the low-32-bit
+  sign boundary, in addition to the existing `imm=0` word sign-extension case.
   The permanently illegal all-ones halfword is now treated as a 16-bit illegal
   sentinel instead of being widened into an ordinary 32-bit fetch.
   Compressed `C.J`, `C.BEQZ`, and `C.BNEZ` control transfers now have focused
@@ -673,6 +675,9 @@ official coverage improve.
   through the existing RV64 word-operation helpers and proves the same code
   points remain illegal in RV32C. The adjacent RV64C CA word-ALU slots with no
   standard compressed operation now trap as reserved encodings.
+- RV64C `C.ADDIW` coverage now includes nonzero signed immediates that cross
+  the low-32-bit sign boundary, proving both CI immediate sign extension and
+  ADDIW-style word-result sign extension.
 - Fetch/decode now treats the all-ones halfword as the C extension's
   permanently illegal sentinel. The regression keeps trap value `0xffff`
   visible and prevents the fetch path from widening that sentinel into an

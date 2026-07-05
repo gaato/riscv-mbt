@@ -1236,3 +1236,27 @@ test "rv64c addiw executes where rv32c uses the c.jal opcode quadrant" {
   assert_eq(runner.read_reg_u64(9), 2U.to_uint64())
   assert_eq(runner.read_reg_u64(10), 0xffffffffffffffffUL)
 }
+
+///|
+test "rv64c addiw sign extends immediate and word result" {
+  // C.ADDIW is not just a narrow C.ADDI spelling: it adds the signed CI
+  // immediate in the RV64 ADDIW path, truncates to 32 bits, then sign-extends
+  // the word result back to XLEN.
+  let runner = make_runner(rv64_machine_config())
+  runner.cpu.write_reg(9, 0x0000000080000000UL)
+  runner.cpu.write_reg(10, 0x000000007fffffffUL)
+  runner.load_program(
+    mixed_program_bytes([
+      (2, encode_c_addiw(9, -1).reinterpret_as_uint()),
+      (2, encode_c_addiw(10, 1).reinterpret_as_uint()),
+    ]),
+    0U,
+  )
+  match runner.run(2) {
+    Running => ()
+    _ => fail("expected signed rv64 c.addiw sequence to run")
+  }
+  assert_eq(runner.read_reg_u64(9), 0x000000007fffffffUL)
+  assert_eq(runner.read_reg_u64(10), 0xffffffff80000000UL)
+  assert_eq(runner.pc_u64(), 4U.to_uint64())
+}

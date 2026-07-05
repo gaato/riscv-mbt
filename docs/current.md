@@ -251,6 +251,8 @@
   compressed aliases, including low-32-bit sign extension, rejection of the
   same code points under RV32C, and illegal traps for the adjacent reserved
   RV64C CA funct2 slots.
+  `C.ADDIW` now has nonzero signed-immediate coverage around the low-32-bit
+  sign boundary, in addition to the existing `imm=0` word sign-extension case.
   The permanently illegal all-ones halfword is now treated as a 16-bit illegal
   sentinel instead of being widened into an ordinary 32-bit fetch.
   Compressed `C.J`, `C.BEQZ`, and `C.BNEZ` control transfers now have focused
