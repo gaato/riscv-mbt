@@ -68,3 +68,9 @@ or more OpenRC-specific probing.
   the missing FMA instruction family at the instruction-availability level.
   Exact IEEE fused single-rounding and full `fflags` behavior remain open
   spec-compliance work.
+- Scalar `F/D` comparisons and min/max now accrue the invalid-operation flag
+  for the NaN cases required by the F specification: `FLT`/`FLE` set NV for any
+  NaN input, `FEQ` sets NV only for signaling NaNs, and `FMIN`/`FMAX` set NV for
+  signaling NaNs while preserving their existing result-selection behavior.
+  This starts replacing the old "no FP instruction updates fflags" limitation
+  with instruction-family-specific flag handling.

@@ -1013,6 +1013,92 @@ test "rv64fd double comparisons write integer results" {
 }
 
 ///|
+test "rv64fd floating comparisons accrue invalid flags for nan inputs" {
+  let csr_fcsr = 0x003
+  let qnan_s = exec_test_nan_box_single(0x7fc00000U)
+  let snan_s = exec_test_nan_box_single(0x7f800001U)
+  let qnan_d = 0x7ff8000000000000UL
+  let snan_d = 0x7ff0000000000001UL
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, qnan_s)
+  runner.cpu.write_freg(2, snan_s)
+  runner.cpu.write_freg(3, exec_test_nan_box_single(exec_test_f32_bits(1.0)))
+  runner.cpu.write_freg(4, qnan_d)
+  runner.cpu.write_freg(5, snan_d)
+  runner.cpu.write_freg(6, exec_test_f64_bits(1.0))
+  runner.load_program(
+    words_to_bytes([
+      encode_feq_s(1, 3, 10),
+      encode_csr(csr_fcsr, 0, 0x2U, 11),
+      encode_flt_s(1, 3, 12),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_feq_s(2, 3, 13),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_feq_d(4, 6, 14),
+      encode_csr(csr_fcsr, 0, 0x2U, 15),
+      encode_fle_d(4, 6, 16),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_feq_d(5, 6, 17),
+    ]),
+    0U,
+  )
+  match runner.run(11) {
+    Running => ()
+    _ => fail("expected nan comparison flag path to run")
+  }
+  assert_eq(runner.read_reg_u64(10), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(11), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(12), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(13), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(14), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(15), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(16), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(17), 0U.to_uint64())
+  assert_eq(runner.read_csr(csr_fcsr) & 0x10U, 0x10U)
+}
+
+///|
+test "rv64fd min max accrue invalid for signaling nan only" {
+  let csr_fcsr = 0x003
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, exec_test_nan_box_single(0x7fc00000U))
+  runner.cpu.write_freg(2, exec_test_nan_box_single(0x7f800001U))
+  runner.cpu.write_freg(3, exec_test_nan_box_single(exec_test_f32_bits(1.0)))
+  runner.cpu.write_freg(4, 0x7ff8000000000000UL)
+  runner.cpu.write_freg(5, 0x7ff0000000000001UL)
+  runner.cpu.write_freg(6, exec_test_f64_bits(1.0))
+  runner.load_program(
+    words_to_bytes([
+      encode_fp_r(0x14U, 3, 1, 0x0U, 10),
+      encode_csr(csr_fcsr, 0, 0x2U, 11),
+      encode_fp_r(0x14U, 3, 2, 0x0U, 12),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x15U, 6, 4, 0x1U, 13),
+      encode_csr(csr_fcsr, 0, 0x2U, 14),
+      encode_fp_r(0x15U, 6, 5, 0x1U, 15),
+    ]),
+    0U,
+  )
+  match runner.run(7) {
+    Running => ()
+    _ => fail("expected nan min/max flag path to run")
+  }
+  assert_eq(
+    runner.read_freg_u64(10),
+    exec_test_nan_box_single(exec_test_f32_bits(1.0)),
+  )
+  assert_eq(runner.read_reg_u64(11), 0U.to_uint64())
+  assert_eq(
+    runner.read_freg_u64(12),
+    exec_test_nan_box_single(exec_test_f32_bits(1.0)),
+  )
+  assert_eq(runner.read_freg_u64(13), exec_test_f64_bits(1.0))
+  assert_eq(runner.read_reg_u64(14), 0U.to_uint64())
+  assert_eq(runner.read_freg_u64(15), exec_test_f64_bits(1.0))
+  assert_eq(runner.read_csr(csr_fcsr) & 0x10U, 0x10U)
+}
+
+///|
 test "rv64fd double sign injection preserves magnitude bits" {
   let runner = make_runner(rv64fd_machine_config())
   runner.cpu.write_freg(1, exec_test_f64_bits(1.5))

@@ -3,6 +3,9 @@
 // visible in tests.
 
 ///|
+let fp_fflag_nv : UInt64 = 0x10U.to_uint64()
+
+///|
 fn Runner::fp_has_d(self : Runner) -> Bool {
   (self.config.extensions & MISA_EXT_D) != 0U.to_uint64()
 }
@@ -60,6 +63,14 @@ fn f32_is_nan_bits(bits : UInt) -> Bool {
 }
 
 ///|
+fn f32_is_signaling_nan_bits(bits : UInt) -> Bool {
+  // IEEE single-precision NaNs use the top fraction bit as the quiet bit.
+  // RISC-V comparisons and min/max only raise NV for signaling NaNs in the
+  // quiet-comparison/minNumber cases, so keep the bit test explicit.
+  f32_is_nan_bits(bits) && (bits & 0x00400000U) == 0U
+}
+
+///|
 fn f32_is_zero_bits(bits : UInt) -> Bool {
   (bits & 0x7fffffffU) == 0U
 }
@@ -97,6 +108,11 @@ fn f64_is_nan_bits(bits : UInt64) -> Bool {
   let fraction_mask = (1U.to_uint64() << 52) - 1U.to_uint64()
   (bits & exponent_mask) == exponent_mask &&
   (bits & fraction_mask) != 0U.to_uint64()
+}
+
+///|
+fn f64_is_signaling_nan_bits(bits : UInt64) -> Bool {
+  f64_is_nan_bits(bits) && (bits & (1U.to_uint64() << 51)) == 0U.to_uint64()
 }
 
 ///|
@@ -300,6 +316,14 @@ fn Runner::read_fcsr(self : Runner) -> UInt64 {
 ///|
 fn Runner::write_fcsr(self : Runner, value : UInt64) -> Unit {
   self.cpu.write_csr(CSR_FCSR, value & FCSR_VISIBLE_MASK)
+}
+
+///|
+fn Runner::set_fflags(self : Runner, flags : UInt64) -> Unit {
+  // Floating-point exception flags are accrued: instructions OR newly observed
+  // conditions into fflags and software clears them explicitly through CSR
+  // writes. The base F extension never traps merely because a flag is set.
+  self.write_fcsr(self.read_fcsr() | (flags & FCSR_FFLAGS_MASK))
 }
 
 ///|
@@ -582,24 +606,24 @@ fn Runner::execute_fp(
       Running
     }
     FMinS(rd, rs1, rs2) => {
-      self.write_freg_single_bits(
-        rd,
-        f32_min_bits(
-          self.read_freg_single_value_bits(rs1),
-          self.read_freg_single_value_bits(rs2),
-        ),
-      )
+      let lhs_bits = self.read_freg_single_value_bits(rs1)
+      let rhs_bits = self.read_freg_single_value_bits(rs2)
+      if f32_is_signaling_nan_bits(lhs_bits) ||
+        f32_is_signaling_nan_bits(rhs_bits) {
+        self.set_fflags(fp_fflag_nv)
+      }
+      self.write_freg_single_bits(rd, f32_min_bits(lhs_bits, rhs_bits))
       self.cpu.pc = next_pc
       Running
     }
     FMaxS(rd, rs1, rs2) => {
-      self.write_freg_single_bits(
-        rd,
-        f32_max_bits(
-          self.read_freg_single_value_bits(rs1),
-          self.read_freg_single_value_bits(rs2),
-        ),
-      )
+      let lhs_bits = self.read_freg_single_value_bits(rs1)
+      let rhs_bits = self.read_freg_single_value_bits(rs2)
+      if f32_is_signaling_nan_bits(lhs_bits) ||
+        f32_is_signaling_nan_bits(rhs_bits) {
+        self.set_fflags(fp_fflag_nv)
+      }
+      self.write_freg_single_bits(rd, f32_max_bits(lhs_bits, rhs_bits))
       self.cpu.pc = next_pc
       Running
     }
@@ -635,6 +659,9 @@ fn Runner::execute_fp(
     FLeS(rd, rs1, rs2) => {
       let lhs_bits = self.read_freg_single_value_bits(rs1)
       let rhs_bits = self.read_freg_single_value_bits(rs2)
+      if f32_is_nan_bits(lhs_bits) || f32_is_nan_bits(rhs_bits) {
+        self.set_fflags(fp_fflag_nv)
+      }
       let result = if f32_is_nan_bits(lhs_bits) || f32_is_nan_bits(rhs_bits) {
         0U.to_uint64()
       } else if f32_from_bits(lhs_bits) <= f32_from_bits(rhs_bits) {
@@ -649,6 +676,9 @@ fn Runner::execute_fp(
     FLtS(rd, rs1, rs2) => {
       let lhs_bits = self.read_freg_single_value_bits(rs1)
       let rhs_bits = self.read_freg_single_value_bits(rs2)
+      if f32_is_nan_bits(lhs_bits) || f32_is_nan_bits(rhs_bits) {
+        self.set_fflags(fp_fflag_nv)
+      }
       let result = if f32_is_nan_bits(lhs_bits) || f32_is_nan_bits(rhs_bits) {
         0U.to_uint64()
       } else if f32_from_bits(lhs_bits) < f32_from_bits(rhs_bits) {
@@ -663,6 +693,10 @@ fn Runner::execute_fp(
     FEqS(rd, rs1, rs2) => {
       let lhs_bits = self.read_freg_single_value_bits(rs1)
       let rhs_bits = self.read_freg_single_value_bits(rs2)
+      if f32_is_signaling_nan_bits(lhs_bits) ||
+        f32_is_signaling_nan_bits(rhs_bits) {
+        self.set_fflags(fp_fflag_nv)
+      }
       let result = if f32_is_nan_bits(lhs_bits) || f32_is_nan_bits(rhs_bits) {
         0U.to_uint64()
       } else if f32_from_bits(lhs_bits) == f32_from_bits(rhs_bits) {
@@ -769,30 +803,33 @@ fn Runner::execute_fp(
       Running
     }
     FMinD(rd, rs1, rs2) => {
-      self.write_freg_double_bits(
-        rd,
-        f64_min_bits(
-          self.read_freg_double_bits(rs1),
-          self.read_freg_double_bits(rs2),
-        ),
-      )
+      let lhs_bits = self.read_freg_double_bits(rs1)
+      let rhs_bits = self.read_freg_double_bits(rs2)
+      if f64_is_signaling_nan_bits(lhs_bits) ||
+        f64_is_signaling_nan_bits(rhs_bits) {
+        self.set_fflags(fp_fflag_nv)
+      }
+      self.write_freg_double_bits(rd, f64_min_bits(lhs_bits, rhs_bits))
       self.cpu.pc = next_pc
       Running
     }
     FMaxD(rd, rs1, rs2) => {
-      self.write_freg_double_bits(
-        rd,
-        f64_max_bits(
-          self.read_freg_double_bits(rs1),
-          self.read_freg_double_bits(rs2),
-        ),
-      )
+      let lhs_bits = self.read_freg_double_bits(rs1)
+      let rhs_bits = self.read_freg_double_bits(rs2)
+      if f64_is_signaling_nan_bits(lhs_bits) ||
+        f64_is_signaling_nan_bits(rhs_bits) {
+        self.set_fflags(fp_fflag_nv)
+      }
+      self.write_freg_double_bits(rd, f64_max_bits(lhs_bits, rhs_bits))
       self.cpu.pc = next_pc
       Running
     }
     FLeD(rd, rs1, rs2) => {
       let lhs_bits = self.read_freg_double_bits(rs1)
       let rhs_bits = self.read_freg_double_bits(rs2)
+      if f64_is_nan_bits(lhs_bits) || f64_is_nan_bits(rhs_bits) {
+        self.set_fflags(fp_fflag_nv)
+      }
       let result = if f64_is_nan_bits(lhs_bits) || f64_is_nan_bits(rhs_bits) {
         0U.to_uint64()
       } else if f64_from_bits(lhs_bits) <= f64_from_bits(rhs_bits) {
@@ -807,6 +844,9 @@ fn Runner::execute_fp(
     FLtD(rd, rs1, rs2) => {
       let lhs_bits = self.read_freg_double_bits(rs1)
       let rhs_bits = self.read_freg_double_bits(rs2)
+      if f64_is_nan_bits(lhs_bits) || f64_is_nan_bits(rhs_bits) {
+        self.set_fflags(fp_fflag_nv)
+      }
       let result = if f64_is_nan_bits(lhs_bits) || f64_is_nan_bits(rhs_bits) {
         0U.to_uint64()
       } else if f64_from_bits(lhs_bits) < f64_from_bits(rhs_bits) {
@@ -821,6 +861,10 @@ fn Runner::execute_fp(
     FEqD(rd, rs1, rs2) => {
       let lhs_bits = self.read_freg_double_bits(rs1)
       let rhs_bits = self.read_freg_double_bits(rs2)
+      if f64_is_signaling_nan_bits(lhs_bits) ||
+        f64_is_signaling_nan_bits(rhs_bits) {
+        self.set_fflags(fp_fflag_nv)
+      }
       let result = if f64_is_nan_bits(lhs_bits) || f64_is_nan_bits(rhs_bits) {
         0U.to_uint64()
       } else if f64_from_bits(lhs_bits) == f64_from_bits(rhs_bits) {
