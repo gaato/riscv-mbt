@@ -1030,14 +1030,17 @@ fn legalize_mstatus_csr(value : UInt64, xlen : Xlen) -> UInt64 {
   } else {
     without_sd
   }
+  // The current memory system is little-endian only. Model MBE/SBE/UBE as
+  // read-only zero WARL fields until an endian-switching load/store path exists.
+  let little_endian_status = summarized & bit_not(MSTATUS_ENDIAN_MASK)
   // This emulator models fixed-width lower privilege modes. On RV64, expose
   // SXLEN=UXLEN=64 as read-only WARL values; on RV32 these fields do not exist.
   let with_xlen = match xlen {
     Xlen64 =>
-      (summarized & bit_not(MSTATUS_SXL_MASK | MSTATUS_UXL_MASK)) |
+      (little_endian_status & bit_not(MSTATUS_SXL_MASK | MSTATUS_UXL_MASK)) |
       MSTATUS_SXL_64 |
       MSTATUS_UXL_64
-    Xlen32 => summarized
+    Xlen32 => little_endian_status
   }
   // MPP is WARL and may hold only implemented privilege modes. This single-hart
   // profile implements U, S, and M, so the reserved encoding 2 normalizes to U.

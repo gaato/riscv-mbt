@@ -3000,6 +3000,57 @@ test "rv64 status exposes fixed lower privilege xlen fields" {
 }
 
 ///|
+test "status endian control fields are read only zero" {
+  let mstatus = 0x300
+  let sstatus = 0x100
+  let ube = 0x40U.to_uint64()
+  let sbe = 0x1000000000UL
+  let mbe = 0x2000000000UL
+  let endian_bits = ube | sbe | mbe
+  let runner = make_runner(rv64_machine_config())
+
+  let mstatus_program = words_to_bytes([
+    encode_i(1, 0, 0x0U, 1, 0x13U),
+    encode_i(6, 1, 0x1U, 1, 0x13U),
+    encode_u(0x30000000U, 2, 0x37U),
+    encode_i(1, 2, 0x0U, 2, 0x13U),
+    encode_i(36, 2, 0x1U, 2, 0x13U),
+    encode_i(1, 2, 0x0U, 2, 0x13U),
+    encode_i(37, 2, 0x1U, 2, 0x13U),
+    encode_r(0x00U, 2, 1, 0x6U, 3, 0x33U),
+    encode_csr(mstatus, 3, 0x1U, 0),
+    encode_csr(mstatus, 0, 0x2U, 4),
+    encode_csr(sstatus, 0, 0x2U, 5),
+  ])
+  runner.load_program(mstatus_program, 0U)
+  match runner.run(11) {
+    Running => ()
+    _ => fail("expected endian-control mstatus program to run")
+  }
+  assert_eq(runner.read_reg_u64(4) & endian_bits, 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(5) & ube, 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(mstatus) & endian_bits, 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(sstatus) & ube, 0U.to_uint64())
+
+  let sstatus_runner = make_runner(rv64_machine_config())
+  sstatus_runner.load_program(
+    words_to_bytes([
+      encode_i(1, 0, 0x0U, 1, 0x13U),
+      encode_i(6, 1, 0x1U, 1, 0x13U),
+      encode_csr(sstatus, 1, 0x1U, 0),
+      encode_csr(sstatus, 0, 0x2U, 2),
+    ]),
+    0U,
+  )
+  match sstatus_runner.run(4) {
+    Running => ()
+    _ => fail("expected endian-control sstatus program to run")
+  }
+  assert_eq(sstatus_runner.read_reg_u64(2) & ube, 0U.to_uint64())
+  assert_eq(sstatus_runner.read_csr_u64(sstatus) & ube, 0U.to_uint64())
+}
+
+///|
 test "delegated user ecall traps to stvec with supervisor trap state" {
   let program = words_to_bytes([
     encode_i(33, 0, 0x0U, 6, 0x13U),

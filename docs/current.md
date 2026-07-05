@@ -118,6 +118,10 @@
 - RV64 `mstatus.SXL`/`mstatus.UXL` and `sstatus.UXL` are now visible as fixed
   64-bit lower-privilege XLEN fields. Writes that try to clear or change them
   are normalized back to the modeled SXLEN=UXLEN=64 profile.
+- The status endian-control fields now match the emulator's little-endian-only
+  memory system: `mstatus.MBE`, `mstatus.SBE`, and `mstatus.UBE`, plus
+  `sstatus.UBE`, are visible where appropriate but normalize to read-only zero
+  on writes.
 
 - The first RV64C reserved/hint correction slice for Task 0063 is in place.
   `EBREAK` and `C.EBREAK` now raise the architectural breakpoint exception,

@@ -119,6 +119,9 @@ official coverage improve.
   writes and trap returns, preserving the RV64GC/IALIGN=16 ability to hold bit 1.
   RV64 `mstatus.SXL`/`mstatus.UXL` and `sstatus.UXL` now expose the fixed
   SXLEN=UXLEN=64 profile and normalize writes back to that value.
+  The endian-control fields now match the emulator's little-endian-only memory
+  system: `mstatus.MBE`, `mstatus.SBE`, and `mstatus.UBE`, plus `sstatus.UBE`,
+  are visible where architecturally exposed but normalize to read-only zero.
   `mstatus.MPP` now rejects the reserved privilege encoding 2 at the CSR write
   boundary. The remaining audit is a spec pass over remaining WARL behavior,
   read-only/write-ignored fields, and privilege-visible side effects for every
@@ -340,6 +343,9 @@ official coverage improve.
   lower-mode XLEN fields for this emulator profile. Focused regressions cover
   reset visibility and write normalization through both `mstatus` and
   `sstatus`, while RV32 status behavior remains unchanged.
+- `mstatus.MBE`/`SBE`/`UBE` and `sstatus.UBE` now behave as read-only-zero WARL
+  fields for the current little-endian-only profile. A focused CSR regression
+  covers writes through both `mstatus` and `sstatus`.
 - `MRET` and `SRET` now apply the privileged-spec `MPRV` return rule: when the
   return target is below M-mode, `mstatus.MPRV` is cleared so later data
   accesses cannot continue using the old MPP override. Focused regressions cover
