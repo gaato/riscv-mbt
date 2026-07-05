@@ -89,10 +89,12 @@ official coverage improve.
   by focused execute tests. The remaining audit is a spec pass over
   read/write suppression, read-only/write-ignored fields, and privilege-visible
   side effects for every CSR currently exposed by `riscv_decode.mbt`.
-- `Zifencei`: `FENCE.I` decodes and flushes the emulator decode cache, and
-  official `fence_i` rows are in the gating subset. The remaining audit is a
-  self-modifying-code regression that proves instruction-cache/decode-cache
-  visibility through the same architectural rule.
+- `Zifencei`: `FENCE.I` decodes, flushes the emulator decode cache, official
+  `fence_i` rows are in the gating subset, and
+  `riscv_execute_test.mbt` now covers same-hart self-modified instruction
+  visibility after an old instruction at the same address was fetched once. The
+  remaining audit is broader official coverage and any future instruction-cache
+  model beyond the current fetch/decode-cache shape.
 
 ## Progress Notes
 
@@ -135,3 +137,8 @@ official coverage improve.
   covered arithmetic paths set NV for signaling NaN inputs, and `FDIV` sets DZ
   for finite nonzero division by zero. Exact non-RNE arithmetic, OF/UF/NX for
   rounded arithmetic results, and exact fused single-rounding remain open.
+- `Zifencei` now has an execute regression for the key same-hart contract:
+  fetch and decode an instruction, store a different instruction to the same
+  address, execute `FENCE.I`, jump back, and require the replacement instruction
+  to execute. The test also asserts that the emulator-side decode cache was
+  flushed by `FENCE.I`.

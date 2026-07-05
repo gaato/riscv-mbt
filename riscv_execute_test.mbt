@@ -2632,29 +2632,40 @@ test "writes to read-only csrs trap as illegal instruction" {
 }
 
 ///|
-test "fence.i is explicit and remains compatible with the current coherent fetch model" {
-  let target = encode_i(7, 0, 0x0U, 5, 0x13U)
+test "fence.i makes same-hart self-modified instruction fetch visible" {
+  let replacement = encode_i(7, 0, 0x0U, 5, 0x13U)
   let program = words_to_bytes([
-    encode_i(28, 0, 0x0U, 1, 0x13U),
-    encode_u(0x00700000U, 2, 0x37U),
-    encode_i(0x293, 2, 0x0U, 2, 0x13U),
-    encode_s(0, 2, 1, 0x2U, 0x23U),
+    encode_j(0x34, 1, 0x6fU),
+    encode_u(0x00700000U, 3, 0x37U),
+    encode_i(0x293, 3, 0x0U, 3, 0x13U),
+    encode_s(0x34, 3, 0, 0x2U, 0x23U),
     encode_fence_i(),
-    encode_j(8, 0, 0x6fU),
-    encode_i(99, 0, 0x0U, 6, 0x13U),
+    encode_j(0x20, 0, 0x6fU),
     encode_i(0, 0, 0x0U, 0, 0x13U),
-    encode_i(1, 0, 0x0U, 7, 0x13U),
+    encode_i(0, 0, 0x0U, 0, 0x13U),
+    encode_i(0, 0, 0x0U, 0, 0x13U),
+    encode_i(0, 0, 0x0U, 0, 0x13U),
+    encode_i(0, 0, 0x0U, 0, 0x13U),
+    encode_i(0, 0, 0x0U, 0, 0x13U),
+    encode_i(0, 0, 0x0U, 0, 0x13U),
+    encode_i(1, 0, 0x0U, 5, 0x13U),
+    encode_i(0, 1, 0x0U, 0, 0x67U),
+    encode_i(0, 0, 0x0U, 0, 0x13U),
   ])
   let runner = make_runner(default_machine_config())
   runner.load_program(program, 0U)
-  match runner.run(8) {
+  let flushes_after_load = runner.decode_cache_flush_count()
+  match runner.run(9) {
     Running => ()
     _ => fail("expected running")
   }
+  assert_eq(runner.read_reg(1), 4U)
   assert_eq(runner.read_reg(5), 7U)
-  assert_eq(runner.read_reg(6), 0U)
-  assert_eq(runner.read_reg(7), 1U)
-  assert_eq(runner.load_u32(28U), target)
+  assert_eq(runner.load_u32(0x34U), replacement)
+  assert_eq(
+    runner.decode_cache_flush_count(),
+    flushes_after_load + 1U.to_uint64(),
+  )
 }
 
 ///|

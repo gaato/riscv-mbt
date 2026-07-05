@@ -124,6 +124,10 @@ Use the upstream Linux RISC-V architecture index as the entry point for Linux-sp
 
 - Treat upstream `riscv-tests` sources as authoritative for ISA regression.
 - Keep handwritten MoonBit tests focused on fast local diagnosis: decode, single-step execute behavior, and small integration programs.
+- Do not replace official conformance with a growing handwritten corpus. Keep a
+  handwritten test when it pins a sharper corner than the current official
+  gating rows, proves an emulator-internal contract such as cache invalidation
+  or device behavior, or gives much better failure localization for a real bug.
 - Prefer official GNU-toolchain and `env/p` execution paths over custom adapters.
 - Prefer file-based official ELF loading over embedding large generated blobs into MoonBit source.
 - For native async tests, read official ELF files through `moonbitlang/async/fs` and pin the native C compiler explicitly when the platform default linker is unreliable.
