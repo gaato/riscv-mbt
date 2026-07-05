@@ -90,7 +90,10 @@ official coverage improve.
   and structural rows are gated. The
   `rv64uf` arithmetic rows are also gated after adding single-precision NX
   accrual, and the `rv64ud` arithmetic rows are gated after adding
-  exact-rational double-precision NX checks. The remaining strict-spec gaps are
+  exact-rational double-precision NX checks. Machine profiles now canonicalize
+  the architectural dependency that `D` implies `F`, so white-box configs cannot
+  expose or execute an impossible `misa.D`-without-`misa.F` profile. The
+  remaining strict-spec gaps are
   broader than the current official rows: non-RNE arithmetic, deeper
   fused-rounding audits, and exception-flag corner cases beyond the current
   `riscv-tests` surface.

@@ -38,6 +38,24 @@ fn wb_rv64_without_m_machine_config() -> MachineConfig {
 }
 
 ///|
+fn wb_rv64_d_only_requested_machine_config() -> MachineConfig {
+  let config = rv64_machine_config()
+  {
+    xlen: config.xlen,
+    extensions: (config.extensions & bit_not(MISA_EXT_F)) | MISA_EXT_D,
+    ram_base: config.ram_base,
+    ram_size: config.ram_size,
+    entry_point: config.entry_point,
+    hart_id: config.hart_id,
+    uart0_base: config.uart0_base,
+    clint_base: config.clint_base,
+    plic_base: config.plic_base,
+    virtio_blk_base: config.virtio_blk_base,
+    dtb_addr: config.dtb_addr,
+  }
+}
+
+///|
 fn wb_halfword_program(raw : UInt) -> Bytes {
   Bytes::from_array([raw.to_byte(), (raw >> 8).to_byte()])
 }
@@ -85,5 +103,24 @@ test "multiply instruction traps when M extension is not advertised" {
       assert_eq(info.trap_value, raw.to_uint64())
     }
     _ => fail("expected M instruction trap without MISA.M")
+  }
+}
+
+///|
+test "requesting D-only profile canonicalizes to include F" {
+  let runner = make_runner(wb_rv64_d_only_requested_machine_config())
+  let misa = runner.cpu.read_csr(CSR_MISA)
+  assert_true((misa & MISA_EXT_D) != 0U.to_uint64())
+  assert_true((misa & MISA_EXT_F) != 0U.to_uint64())
+  assert_true((runner.config.extensions & MISA_EXT_F) != 0U.to_uint64())
+
+  let raw = wb_encode_r(0x00U, 2, 1, 0x0U, 3, 0x53U) // fadd.s f3, f1, f2
+  runner.load_program(wb_word_program(raw), 0U)
+  match runner.step() {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected D-implies-F profile to accept fadd.s, got trap value=\{info.trap_value}",
+      )
   }
 }

@@ -1061,7 +1061,20 @@ fn current_base_extensions() -> UInt64 {
 }
 
 ///|
+fn canonical_machine_extensions(extensions : UInt64) -> UInt64 {
+  // Extension dependencies are part of the architectural profile, not just
+  // human-readable ISA strings. The ratified naming rules make D imply F, so
+  // normalize internal test configs before exposing misa or executing gates.
+  if (extensions & MISA_EXT_D) != 0U.to_uint64() {
+    extensions | MISA_EXT_F
+  } else {
+    extensions
+  }
+}
+
+///|
 fn misa_value(xlen : Xlen, extensions : UInt64) -> UInt64 {
+  let extensions = canonical_machine_extensions(extensions)
   match xlen {
     Xlen32 => (1U.to_uint64() << 30) | extensions
     Xlen64 => (2U.to_uint64() << 62) | extensions
@@ -1389,6 +1402,19 @@ fn Bus::fetch_u16(self : Bus, addr : UInt64) -> UInt {
 
 ///|
 pub fn make_runner(config : MachineConfig) -> Runner {
+  let config = {
+    xlen: config.xlen,
+    extensions: canonical_machine_extensions(config.extensions),
+    ram_base: config.ram_base,
+    ram_size: config.ram_size,
+    entry_point: config.entry_point,
+    hart_id: config.hart_id,
+    uart0_base: config.uart0_base,
+    clint_base: config.clint_base,
+    plic_base: config.plic_base,
+    virtio_blk_base: config.virtio_blk_base,
+    dtb_addr: config.dtb_addr,
+  }
   let runner = {
     cpu: CpuState::new(
       config.entry_point,
@@ -1480,6 +1506,19 @@ pub fn make_smp_runners(
   config : MachineConfig,
   num_harts : Int,
 ) -> Array[Runner] {
+  let config = {
+    xlen: config.xlen,
+    extensions: canonical_machine_extensions(config.extensions),
+    ram_base: config.ram_base,
+    ram_size: config.ram_size,
+    entry_point: config.entry_point,
+    hart_id: config.hart_id,
+    uart0_base: config.uart0_base,
+    clint_base: config.clint_base,
+    plic_base: config.plic_base,
+    virtio_blk_base: config.virtio_blk_base,
+    dtb_addr: config.dtb_addr,
+  }
   let shared_bus = Bus::new(config.ram_base, config.ram_size)
   let shared_uart : Array[Byte] = []
   let shared_uart_input : @queue.Queue[Byte] = @queue.Queue([])
