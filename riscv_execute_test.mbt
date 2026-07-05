@@ -1076,7 +1076,12 @@ test "rv64 without f rejects scalar f instructions as illegal" {
 
 ///|
 test "rv64f traps floating-point instructions when mstatus fs is off" {
-  let fp_words = [encode_flw(0x100, 0, 1), encode_fp_r(0x00U, 2, 1, 0x0U, 3)]
+  let fp_words = [
+    encode_flw(0x100, 0, 1),
+    encode_fp_r(0x00U, 2, 1, 0x0U, 3),
+    encode_fclass_s(1, 2),
+    encode_fmv_x_w(1, 2),
+  ]
   for raw in fp_words {
     let runner = make_runner(rv64f_machine_config())
     runner.cpu.write_csr(0x300, 0U.to_uint64())

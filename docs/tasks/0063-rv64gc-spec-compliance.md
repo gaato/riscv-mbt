@@ -139,9 +139,10 @@ official coverage improve.
   separately: quiet NaNs canonicalize without flags, while signaling NaNs
   canonicalize and accrue NV. `mstatus.FS`
   is now part of the execution contract: FP-capable reset profiles start with
-  FS enabled, but scalar F/D load/store and arithmetic instructions trap as
-  illegal when software sets FS=Off. FP register and `fcsr` writes also mark FS
-  Dirty, making the visible `SD` summary track modeled FP state changes. The
+  FS enabled, but scalar F/D load/store, arithmetic, classify, and raw transfer
+  instructions trap as illegal when software sets FS=Off. FP register and
+  `fcsr` writes also mark FS Dirty, making the visible `SD` summary track
+  modeled FP state changes. The
   `fflags`, `frm`, and `fcsr` CSR aliases are now governed by the same FS state,
   so both read and write attempts trap when FS=Off. Writes to absent `fcsr` bits
   31:8 are covered as
