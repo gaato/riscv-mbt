@@ -346,3 +346,12 @@ but it is not the same as a more ordinary Alpine service environment.
   normal, positive infinity, signaling NaN, quiet NaN, and the D-present
   single-precision NaN-boxing path. No Alpine probe was rerun for this slice;
   this is a direct RV64GC emulator-body closure.
+- The next RV64GC F/D closure slice added the fused multiply-add instruction
+  family: `FMADD.S/D`, `FMSUB.S/D`, `FNMSUB.S/D`, and `FNMADD.S/D`. Decode now
+  handles the R4 OP-FP encodings at opcodes `0x43`, `0x47`, `0x4b`, and `0x4f`
+  for `fmt=S/D`, and execute covers the ordinary host-IEEE arithmetic result
+  under the same RNE-only boundary used by existing scalar F/D arithmetic.
+  Focused tests cover both single-precision NaN-boxed writeback and
+  double-precision results. Exact IEEE fused single-rounding and `fflags`
+  precision remain explicit later spec-compliance work rather than being
+  silently claimed by this slice.

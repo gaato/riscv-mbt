@@ -18,6 +18,11 @@ fn rs2(raw : UInt) -> Int {
 }
 
 ///|
+fn rs3(raw : UInt) -> Int {
+  ((raw >> 27) & 0x1fU).reinterpret_as_int()
+}
+
+///|
 fn funct3(raw : UInt) -> UInt {
   (raw >> 12) & 0x7U
 }
@@ -25,6 +30,11 @@ fn funct3(raw : UInt) -> UInt {
 ///|
 fn funct7(raw : UInt) -> UInt {
   (raw >> 25) & 0x7fU
+}
+
+///|
+fn fp_fmt(raw : UInt) -> UInt {
+  (raw >> 25) & 0x3U
 }
 
 ///|
@@ -979,6 +989,14 @@ fn instruction_supported_for_current_config(
     Fld(_, _, _) => has_d
     Fsw(_, _, _) => has_f
     Fsd(_, _, _) => has_d
+    FMAddS(_, _, _, _, _) => has_f
+    FMSubS(_, _, _, _, _) => has_f
+    FNMSubS(_, _, _, _, _) => has_f
+    FNMAddS(_, _, _, _, _) => has_f
+    FMAddD(_, _, _, _, _) => has_d
+    FMSubD(_, _, _, _, _) => has_d
+    FNMSubD(_, _, _, _, _) => has_d
+    FNMAddD(_, _, _, _, _) => has_d
     FAddS(_, _, _, _) => has_f
     FSubS(_, _, _, _) => has_f
     FMulS(_, _, _, _) => has_f
@@ -1594,6 +1612,30 @@ pub fn decode(raw : UInt) -> Instruction {
     0x67U =>
       match funct3(raw) {
         0x0U => Jalr(rd(raw), rs1(raw), imm_i(raw))
+        _ => Unknown(raw)
+      }
+    0x43U =>
+      match fp_fmt(raw) {
+        0x0U => FMAddS(rd(raw), rs1(raw), rs2(raw), rs3(raw), funct3(raw))
+        0x1U => FMAddD(rd(raw), rs1(raw), rs2(raw), rs3(raw), funct3(raw))
+        _ => Unknown(raw)
+      }
+    0x47U =>
+      match fp_fmt(raw) {
+        0x0U => FMSubS(rd(raw), rs1(raw), rs2(raw), rs3(raw), funct3(raw))
+        0x1U => FMSubD(rd(raw), rs1(raw), rs2(raw), rs3(raw), funct3(raw))
+        _ => Unknown(raw)
+      }
+    0x4bU =>
+      match fp_fmt(raw) {
+        0x0U => FNMSubS(rd(raw), rs1(raw), rs2(raw), rs3(raw), funct3(raw))
+        0x1U => FNMSubD(rd(raw), rs1(raw), rs2(raw), rs3(raw), funct3(raw))
+        _ => Unknown(raw)
+      }
+    0x4fU =>
+      match fp_fmt(raw) {
+        0x0U => FNMAddS(rd(raw), rs1(raw), rs2(raw), rs3(raw), funct3(raw))
+        0x1U => FNMAddD(rd(raw), rs1(raw), rs2(raw), rs3(raw), funct3(raw))
         _ => Unknown(raw)
       }
     0x73U =>

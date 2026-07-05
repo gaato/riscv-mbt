@@ -122,6 +122,46 @@ test "decode rv64-specific word and load instructions" {
 
 ///|
 test "decode scalar f instructions" {
+  match decode(encode_fp_r4(4, 0x0U, 3, 2, 0x0U, 1, 0x43U)) {
+    FMAddS(rd, rs1, rs2, rs3, rm) => {
+      assert_eq(rd, 1)
+      assert_eq(rs1, 2)
+      assert_eq(rs2, 3)
+      assert_eq(rs3, 4)
+      assert_eq(rm, 0U)
+    }
+    _ => fail("expected fmadd.s")
+  }
+  match decode(encode_fp_r4(4, 0x0U, 3, 2, 0x0U, 1, 0x47U)) {
+    FMSubS(rd, rs1, rs2, rs3, rm) => {
+      assert_eq(rd, 1)
+      assert_eq(rs1, 2)
+      assert_eq(rs2, 3)
+      assert_eq(rs3, 4)
+      assert_eq(rm, 0U)
+    }
+    _ => fail("expected fmsub.s")
+  }
+  match decode(encode_fp_r4(4, 0x0U, 3, 2, 0x0U, 1, 0x4bU)) {
+    FNMSubS(rd, rs1, rs2, rs3, rm) => {
+      assert_eq(rd, 1)
+      assert_eq(rs1, 2)
+      assert_eq(rs2, 3)
+      assert_eq(rs3, 4)
+      assert_eq(rm, 0U)
+    }
+    _ => fail("expected fnmsub.s")
+  }
+  match decode(encode_fp_r4(4, 0x0U, 3, 2, 0x0U, 1, 0x4fU)) {
+    FNMAddS(rd, rs1, rs2, rs3, rm) => {
+      assert_eq(rd, 1)
+      assert_eq(rs1, 2)
+      assert_eq(rs2, 3)
+      assert_eq(rs3, 4)
+      assert_eq(rm, 0U)
+    }
+    _ => fail("expected fnmadd.s")
+  }
   match decode(encode_flw(16, 2, 1)) {
     Flw(rd, rs1, imm) => {
       assert_eq(rd, 1)
@@ -292,6 +332,46 @@ test "decode scalar f instructions" {
 
 ///|
 test "decode scalar d instructions" {
+  match decode(encode_fp_r4(4, 0x1U, 3, 2, 0x0U, 1, 0x43U)) {
+    FMAddD(rd, rs1, rs2, rs3, rm) => {
+      assert_eq(rd, 1)
+      assert_eq(rs1, 2)
+      assert_eq(rs2, 3)
+      assert_eq(rs3, 4)
+      assert_eq(rm, 0U)
+    }
+    _ => fail("expected fmadd.d")
+  }
+  match decode(encode_fp_r4(4, 0x1U, 3, 2, 0x0U, 1, 0x47U)) {
+    FMSubD(rd, rs1, rs2, rs3, rm) => {
+      assert_eq(rd, 1)
+      assert_eq(rs1, 2)
+      assert_eq(rs2, 3)
+      assert_eq(rs3, 4)
+      assert_eq(rm, 0U)
+    }
+    _ => fail("expected fmsub.d")
+  }
+  match decode(encode_fp_r4(4, 0x1U, 3, 2, 0x0U, 1, 0x4bU)) {
+    FNMSubD(rd, rs1, rs2, rs3, rm) => {
+      assert_eq(rd, 1)
+      assert_eq(rs1, 2)
+      assert_eq(rs2, 3)
+      assert_eq(rs3, 4)
+      assert_eq(rm, 0U)
+    }
+    _ => fail("expected fnmsub.d")
+  }
+  match decode(encode_fp_r4(4, 0x1U, 3, 2, 0x0U, 1, 0x4fU)) {
+    FNMAddD(rd, rs1, rs2, rs3, rm) => {
+      assert_eq(rd, 1)
+      assert_eq(rs1, 2)
+      assert_eq(rs2, 3)
+      assert_eq(rs3, 4)
+      assert_eq(rm, 0U)
+    }
+    _ => fail("expected fnmadd.d")
+  }
   match decode(encode_fld(24, 2, 1)) {
     Fld(rd, rs1, imm) => {
       assert_eq(rd, 1)

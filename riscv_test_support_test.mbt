@@ -119,6 +119,25 @@ fn encode_r(
 }
 
 ///|
+fn encode_fp_r4(
+  rs3 : Int,
+  fmt : UInt,
+  rs2 : Int,
+  rs1 : Int,
+  rm : UInt,
+  rd : Int,
+  opcode : UInt,
+) -> UInt {
+  ((rs3.reinterpret_as_uint() & 0x1fU) << 27) |
+  ((fmt & 0x3U) << 25) |
+  ((rs2.reinterpret_as_uint() & 0x1fU) << 20) |
+  ((rs1.reinterpret_as_uint() & 0x1fU) << 15) |
+  ((rm & 0x7U) << 12) |
+  ((rd.reinterpret_as_uint() & 0x1fU) << 7) |
+  opcode
+}
+
+///|
 fn encode_s(
   imm : Int,
   rs2 : Int,

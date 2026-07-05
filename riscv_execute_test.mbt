@@ -846,6 +846,68 @@ test "rv64fd fld and fsd preserve raw payload bits" {
 }
 
 ///|
+test "rv64fd fused multiply-add single paths execute" {
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, exec_test_nan_box_single(exec_test_f32_bits(2.0)))
+  runner.cpu.write_freg(2, exec_test_nan_box_single(exec_test_f32_bits(3.0)))
+  runner.cpu.write_freg(3, exec_test_nan_box_single(exec_test_f32_bits(4.0)))
+  runner.load_program(
+    words_to_bytes([
+      encode_fp_r4(3, 0x0U, 2, 1, 0x0U, 4, 0x43U),
+      encode_fp_r4(3, 0x0U, 2, 1, 0x0U, 5, 0x47U),
+      encode_fp_r4(3, 0x0U, 2, 1, 0x0U, 6, 0x4bU),
+      encode_fp_r4(3, 0x0U, 2, 1, 0x0U, 7, 0x4fU),
+    ]),
+    0U,
+  )
+  match runner.run(4) {
+    Running => ()
+    _ => fail("expected rv64fd single fma paths to run")
+  }
+  assert_eq(
+    runner.read_freg_u64(4),
+    exec_test_nan_box_single(exec_test_f32_bits(10.0)),
+  )
+  assert_eq(
+    runner.read_freg_u64(5),
+    exec_test_nan_box_single(exec_test_f32_bits(2.0)),
+  )
+  assert_eq(
+    runner.read_freg_u64(6),
+    exec_test_nan_box_single(exec_test_f32_bits(-2.0)),
+  )
+  assert_eq(
+    runner.read_freg_u64(7),
+    exec_test_nan_box_single(exec_test_f32_bits(-10.0)),
+  )
+}
+
+///|
+test "rv64fd fused multiply-add double paths execute" {
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, exec_test_f64_bits(2.0))
+  runner.cpu.write_freg(2, exec_test_f64_bits(3.0))
+  runner.cpu.write_freg(3, exec_test_f64_bits(4.0))
+  runner.load_program(
+    words_to_bytes([
+      encode_fp_r4(3, 0x1U, 2, 1, 0x0U, 4, 0x43U),
+      encode_fp_r4(3, 0x1U, 2, 1, 0x0U, 5, 0x47U),
+      encode_fp_r4(3, 0x1U, 2, 1, 0x0U, 6, 0x4bU),
+      encode_fp_r4(3, 0x1U, 2, 1, 0x0U, 7, 0x4fU),
+    ]),
+    0U,
+  )
+  match runner.run(4) {
+    Running => ()
+    _ => fail("expected rv64fd double fma paths to run")
+  }
+  assert_eq(runner.read_freg_u64(4), exec_test_f64_bits(10.0))
+  assert_eq(runner.read_freg_u64(5), exec_test_f64_bits(2.0))
+  assert_eq(runner.read_freg_u64(6), exec_test_f64_bits(-2.0))
+  assert_eq(runner.read_freg_u64(7), exec_test_f64_bits(-10.0))
+}
+
+///|
 test "rv64fd basic scalar arithmetic executes with host ieee defaults" {
   let four = exec_test_f64_bits(4.0)
   let two = exec_test_f64_bits(2.0)

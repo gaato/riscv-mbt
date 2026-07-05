@@ -1583,6 +1583,22 @@ pub fn Runner::step(self : Runner) -> StepResult {
     }
     AmoW(_, _, _, _) => self.execute_amo(instruction, current_pc, next_pc, raw)
     AmoD(_, _, _, _) => self.execute_amo(instruction, current_pc, next_pc, raw)
+    FMAddS(_, _, _, _, _) =>
+      self.execute_fp(instruction, current_pc, next_pc, raw)
+    FMSubS(_, _, _, _, _) =>
+      self.execute_fp(instruction, current_pc, next_pc, raw)
+    FNMSubS(_, _, _, _, _) =>
+      self.execute_fp(instruction, current_pc, next_pc, raw)
+    FNMAddS(_, _, _, _, _) =>
+      self.execute_fp(instruction, current_pc, next_pc, raw)
+    FMAddD(_, _, _, _, _) =>
+      self.execute_fp(instruction, current_pc, next_pc, raw)
+    FMSubD(_, _, _, _, _) =>
+      self.execute_fp(instruction, current_pc, next_pc, raw)
+    FNMSubD(_, _, _, _, _) =>
+      self.execute_fp(instruction, current_pc, next_pc, raw)
+    FNMAddD(_, _, _, _, _) =>
+      self.execute_fp(instruction, current_pc, next_pc, raw)
     FAddS(_, _, _, _) => self.execute_fp(instruction, current_pc, next_pc, raw)
     FSubS(_, _, _, _) => self.execute_fp(instruction, current_pc, next_pc, raw)
     FMulS(_, _, _, _) => self.execute_fp(instruction, current_pc, next_pc, raw)

@@ -407,6 +407,98 @@ fn Runner::execute_fp(
   raw : UInt,
 ) -> StepResult {
   match instruction {
+    FMAddS(rd, rs1, rs2, rs3, rm) => {
+      if !self.fp_rounding_mode_supported(rm) {
+        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      }
+      let result = f32_from_bits(self.read_freg_single_value_bits(rs1)) *
+        f32_from_bits(self.read_freg_single_value_bits(rs2)) +
+        f32_from_bits(self.read_freg_single_value_bits(rs3))
+      self.write_freg_single_bits(rd, f32_bits_from_host(result))
+      self.cpu.pc = next_pc
+      Running
+    }
+    FMSubS(rd, rs1, rs2, rs3, rm) => {
+      if !self.fp_rounding_mode_supported(rm) {
+        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      }
+      let result = f32_from_bits(self.read_freg_single_value_bits(rs1)) *
+        f32_from_bits(self.read_freg_single_value_bits(rs2)) -
+        f32_from_bits(self.read_freg_single_value_bits(rs3))
+      self.write_freg_single_bits(rd, f32_bits_from_host(result))
+      self.cpu.pc = next_pc
+      Running
+    }
+    FNMSubS(rd, rs1, rs2, rs3, rm) => {
+      if !self.fp_rounding_mode_supported(rm) {
+        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      }
+      let product = f32_from_bits(self.read_freg_single_value_bits(rs1)) *
+        f32_from_bits(self.read_freg_single_value_bits(rs2))
+      let addend = f32_from_bits(self.read_freg_single_value_bits(rs3))
+      let result = addend - product
+      self.write_freg_single_bits(rd, f32_bits_from_host(result))
+      self.cpu.pc = next_pc
+      Running
+    }
+    FNMAddS(rd, rs1, rs2, rs3, rm) => {
+      if !self.fp_rounding_mode_supported(rm) {
+        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      }
+      let product = f32_from_bits(self.read_freg_single_value_bits(rs1)) *
+        f32_from_bits(self.read_freg_single_value_bits(rs2))
+      let addend = f32_from_bits(self.read_freg_single_value_bits(rs3))
+      let result = Float::from_double(0.0) - product - addend
+      self.write_freg_single_bits(rd, f32_bits_from_host(result))
+      self.cpu.pc = next_pc
+      Running
+    }
+    FMAddD(rd, rs1, rs2, rs3, rm) => {
+      if !self.fp_rounding_mode_supported(rm) {
+        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      }
+      let result = f64_from_bits(self.read_freg_double_bits(rs1)) *
+        f64_from_bits(self.read_freg_double_bits(rs2)) +
+        f64_from_bits(self.read_freg_double_bits(rs3))
+      self.write_freg_double_bits(rd, f64_bits_from_host(result))
+      self.cpu.pc = next_pc
+      Running
+    }
+    FMSubD(rd, rs1, rs2, rs3, rm) => {
+      if !self.fp_rounding_mode_supported(rm) {
+        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      }
+      let result = f64_from_bits(self.read_freg_double_bits(rs1)) *
+        f64_from_bits(self.read_freg_double_bits(rs2)) -
+        f64_from_bits(self.read_freg_double_bits(rs3))
+      self.write_freg_double_bits(rd, f64_bits_from_host(result))
+      self.cpu.pc = next_pc
+      Running
+    }
+    FNMSubD(rd, rs1, rs2, rs3, rm) => {
+      if !self.fp_rounding_mode_supported(rm) {
+        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      }
+      let result = 0.0 -
+        f64_from_bits(self.read_freg_double_bits(rs1)) *
+        f64_from_bits(self.read_freg_double_bits(rs2)) +
+        f64_from_bits(self.read_freg_double_bits(rs3))
+      self.write_freg_double_bits(rd, f64_bits_from_host(result))
+      self.cpu.pc = next_pc
+      Running
+    }
+    FNMAddD(rd, rs1, rs2, rs3, rm) => {
+      if !self.fp_rounding_mode_supported(rm) {
+        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      }
+      let result = 0.0 -
+        f64_from_bits(self.read_freg_double_bits(rs1)) *
+        f64_from_bits(self.read_freg_double_bits(rs2)) -
+        f64_from_bits(self.read_freg_double_bits(rs3))
+      self.write_freg_double_bits(rd, f64_bits_from_host(result))
+      self.cpu.pc = next_pc
+      Running
+    }
     FmvXW(rd, rs1) => {
       self.write_xlen_reg(
         rd,

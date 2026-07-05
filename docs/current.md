@@ -81,10 +81,13 @@
   Float-to-integer conversions now honor RNE, RTZ, RDN, RUP, RMM, and valid
   dynamic `frm` for `fcvt.{w,wu,l,lu}.{s,d}`, and `FCLASS.S`/`FCLASS.D` now
   decode and execute the architectural 10-bit classification mask for zero,
-  subnormal, normal, infinity, signaling-NaN, and quiet-NaN values. This is
-  emulator-body hardening for the ordinary C floating-point paths that Alpine
-  userspace can exercise; `fflags` and exact invalid/overflow flag behavior
-  remain later spec-compliance work.
+  subnormal, normal, infinity, signaling-NaN, and quiet-NaN values. The F/D
+  fused multiply-add family (`FMADD`, `FMSUB`, `FNMSUB`, `FNMADD`) now decodes
+  and executes for both single and double precision under the current host-IEEE
+  RNE-only arithmetic boundary. This is emulator-body hardening for the
+  ordinary C floating-point paths that Alpine userspace can exercise; `fflags`,
+  exact invalid/overflow flag behavior, and exact fused single-rounding remain
+  later spec-compliance work.
 
 ## Known Blockers
 
