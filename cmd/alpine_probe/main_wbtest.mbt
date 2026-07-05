@@ -61,6 +61,19 @@ test "apk persistence read smoke runs installed ping after reboot" {
 }
 
 ///|
+test "service smoke keeps init.d-style start and stop aligned" {
+  let commands = alpine_post_init_service_commands()
+  let markers = alpine_post_init_service_markers()
+  assert_eq(commands.length(), 3)
+  assert_eq(markers.length(), 3)
+  assert_true(commands[0].contains("/etc/init.d/riscv-mbt-service"))
+  assert_true(commands[1].contains("riscv-mbt-service start"))
+  assert_true(commands[1].contains("riscv-mbt-service status"))
+  assert_true(commands[2].contains("riscv-mbt-service stop"))
+  assert_eq(markers[2], "post-init-service-ok")
+}
+
+///|
 test "auto-root handoff selects auto-root artifacts by default" {
   let args = ["alpine_probe", "xlong", "--auto-root-handoff"]
   assert_eq(select_dtb_path(args, true, true), auto_root_virtio_dtb_path)

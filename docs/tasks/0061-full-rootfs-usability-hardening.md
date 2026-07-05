@@ -51,7 +51,7 @@ shows it is needed.
 
 ## Status
 
-- `doing`
+- `done`
 
 ## Progress Notes
 
