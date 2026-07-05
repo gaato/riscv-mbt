@@ -48,6 +48,21 @@ fn wb_rv64_without_a_machine_config() -> MachineConfig {
 }
 
 ///|
+fn wb_expect_illegal_atomic(raw : UInt, runner : Runner) -> Unit raise {
+  runner.bus.store_u32(runner.cpu.pc, raw.to_uint64())
+  match runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected atomic encoding to raise illegal instruction")
+      }
+      assert_eq(info.trap_value, raw.to_uint64())
+    }
+    _ => fail("expected atomic encoding to trap")
+  }
+}
+
+///|
 test "AMO.W traps when A extension is not advertised" {
   let runner = make_runner(wb_rv64_without_a_machine_config())
   let addr = runner.cpu.pc + 0x100U.to_uint64()
@@ -55,17 +70,29 @@ test "AMO.W traps when A extension is not advertised" {
   runner.cpu.write_reg(1, addr)
   runner.cpu.write_reg(2, 1U.to_uint64())
   let raw = wb_encode_amo(0x00U, 2, 1, 0x2U, 3)
-  runner.bus.store_u32(runner.cpu.pc, raw.to_uint64())
-  match runner.step() {
-    Trap(info) => {
-      match info.cause {
-        IllegalInstruction => ()
-        _ => fail("expected IllegalInstruction when MISA.A is clear")
-      }
-      assert_eq(info.trap_value, raw.to_uint64())
-    }
-    _ => fail("expected AMO.W to trap without A extension")
-  }
+  wb_expect_illegal_atomic(raw, runner)
+}
+
+///|
+test "A extension rejects reserved AMO encodings before execution" {
+  let reserved_op = wb_encode_amo(0x05U, 2, 1, 0x2U, 3)
+  wb_expect_illegal_atomic(reserved_op, make_runner(rv64_machine_config()))
+
+  // LR.W/LR.D reserve rs2 as zero. Keeping this at decode/profile-legality
+  // time avoids constructing an LR instruction with an impossible source.
+  let malformed_lr = wb_encode_amo(0x02U, 4, 1, 0x2U, 3)
+  wb_expect_illegal_atomic(malformed_lr, make_runner(rv64_machine_config()))
+}
+
+///|
+test "AMO.D traps in the 32-bit A profile" {
+  let runner = make_runner(default_machine_config())
+  let addr = runner.cpu.pc + 0x100U.to_uint64()
+  runner.bus.store_u64(addr, 42U.to_uint64())
+  runner.cpu.write_reg(1, addr)
+  runner.cpu.write_reg(2, 1U.to_uint64())
+  let raw = wb_encode_amo(0x00U, 2, 1, 0x3U, 3)
+  wb_expect_illegal_atomic(raw, runner)
 }
 
 ///|

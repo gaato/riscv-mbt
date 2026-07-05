@@ -138,7 +138,9 @@ official coverage improve.
   current `riscv-tests` surface.
 - `A`: `riscv_decode.mbt` rejects reserved AMO operations and reserved
   `LR.W`/`LR.D` encodings with nonzero `rs2`, gates AMO execution on `MISA.A`,
-  and accepts `aq`/`rl` encodings for the current single-hart interpreter.
+  keeps `AMO.D` RV64-only, and accepts `aq`/`rl` encodings for the current
+  single-hart interpreter. Focused white-box regressions pin the reserved
+  AMO/LR encodings, missing-`MISA.A` trap, and RV32 `AMO.D` rejection.
   `riscv_execute.mbt` implements LR/SC and AMO W/D behavior with shared
   per-hart physical byte-range reservations, with regressions for
   reservation success/failure, same-hart store invalidation, cross-hart store
