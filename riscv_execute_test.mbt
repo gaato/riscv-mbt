@@ -1665,6 +1665,33 @@ test "PLIC claim clears pending until completion" {
 }
 
 ///|
+test "PLIC UART claim stays claimed while receiver drains input" {
+  let claim_read_complete_claim = words_to_bytes([
+    encode_u(0x0c201000U, 1, 0x37U),
+    encode_u(0x10000000U, 5, 0x37U),
+    encode_i(4, 1, 0x2U, 2, 0x03U),
+    encode_i(0, 5, 0x0U, 6, 0x03U),
+    encode_i(4, 1, 0x2U, 3, 0x03U),
+    encode_s(4, 2, 1, 0x2U, 0x23U),
+    encode_i(4, 1, 0x2U, 4, 0x03U),
+  ])
+  let runner = make_runner(virt_machine_config())
+  runner.plic_regs[40] = 1U.to_byte()
+  runner.plic_regs[0x2081] = 4U.to_byte()
+  runner.uart_ier[0] = 1U.to_byte()
+  runner.uart_push_input("U")
+  runner.load_program_u64(claim_read_complete_claim, 0x80000000U.to_uint64())
+  match runner.run(7) {
+    Running => ()
+    _ => fail("expected running after UART claim/read/complete sequence")
+  }
+  assert_eq(runner.read_reg_u64(2), 10U.to_uint64())
+  assert_eq(runner.read_reg_u64(6), 85U.to_uint64())
+  assert_eq(runner.read_reg_u64(3), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(4), 0U.to_uint64())
+}
+
+///|
 test "sret restores user mode from delegated supervisor trap and resumes at sepc" {
   let program = words_to_bytes([
     encode_i(33, 0, 0x0U, 6, 0x13U),

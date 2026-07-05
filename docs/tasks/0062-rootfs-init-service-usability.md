@@ -301,3 +301,9 @@ but it is not the same as a more ordinary Alpine service environment.
   `cmd1:start=558000000,marker=576000000,duration=18000000; cmd2:start=576000000,marker=585000000,duration=9000000; cmd3:start=585000000,marker=601000000,duration=16000000`,
   and the post-init virtio delta remains
   `0 read-req/0 read-bytes 65 write-req/66560 write-bytes`.
+- UART console input now has a focused PLIC claim/complete regression too. The
+  test claims UART source 10 from the S-mode context, reads the pending byte
+  from RBR, verifies that a second claim still returns zero while the source is
+  claimed, completes the original source, and verifies that no new claim appears
+  once the receive buffer has been drained. This keeps the console command
+  injection path tied to the same PLIC IP-clear model as virtio-blk.
