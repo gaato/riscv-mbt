@@ -435,7 +435,10 @@
   attempts at the same address are covered as deterministic failures under that
   model. The xRET policy is explicit and covered for `MRET`: trap returns do
   not implicitly clear live reservations, which is permitted by the privileged
-  spec. Signed AMO min/max coverage now includes both
+  spec. Compressed integer instructions between `LR.W` and `SC.W` are now
+  covered as preserving the single-hart reservation when no store or device
+  write intervenes, pinning the C/A constrained-sequence boundary. Signed AMO
+  min/max coverage now includes both
   `AMOMIN.W` and full-width `AMOMIN.D`/`AMOMAX.D`
   comparisons across the sign boundary, and unsigned AMO.D min/max coverage
   now pins `AMOMINU.D`/`AMOMAXU.D` on the same bit patterns. The remaining

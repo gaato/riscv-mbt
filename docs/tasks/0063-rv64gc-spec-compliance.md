@@ -189,7 +189,10 @@ official coverage improve.
   same address now have focused regression coverage for deterministic failure.
   The xRET policy is also explicit: `MRET`/`SRET` do not clear live
   reservations, which is permitted by the privileged spec, and `MRET`
-  preserving a live LR reservation for a following SC is covered.
+  preserving a live LR reservation for a following SC is covered. The A/C
+  boundary is now covered as well: a constrained LR/SC-style sequence with
+  compressed integer instructions between `LR.W` and `SC.W` preserves the
+  single-hart reservation when no store or device write intervenes.
   Virtio-blk
   guest-visible DMA/status/used-ring writes now use reservation-aware device
   store helpers. The upstream `rv64ua` AMO/LRSC cases are now part of the
@@ -265,6 +268,9 @@ official coverage improve.
   not link. Post-decode profile legality now rejects all 16-bit compressed
   encodings when `MISA.C` is not advertised, preserving the permissive decoder
   while making execution obey the active ISA profile.
+  Compressed integer instructions are also covered inside an LR/SC-style
+  sequence, pinning the C extension rule that compressed forms of the allowed
+  I instructions can appear there without breaking the reservation.
   The compressed floating double load/store aliases are now also pinned as
   RV64DC forms rather than integer-only RV64C forms: `C.FLD`, `C.FSD`,
   `C.FLDSP`, and `C.FSDSP` trap without `MISA.D`, including under

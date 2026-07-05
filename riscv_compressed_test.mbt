@@ -347,6 +347,38 @@ test "compressed arithmetic instructions expand into the existing execute path" 
 }
 
 ///|
+test "compressed integer instructions are valid inside lr sc sequences" {
+  // The C extension explicitly permits compressed forms of the I instructions
+  // that are otherwise allowed in constrained LR/SC loops. They must not be
+  // treated as reservation-breaking side effects between the LR and matching
+  // SC on this single-hart execution path.
+  let runner = make_runner(virt_machine_config())
+  let addr = runner.cpu.pc + 0x100U.to_uint64()
+  runner.bus.store_u32(addr, 77U.to_uint64())
+  runner.cpu.write_reg(1, addr)
+  runner.cpu.write_reg(5, 88U.to_uint64())
+  runner.cpu.write_reg(6, 10U.to_uint64())
+  runner.load_program_u64(
+    mixed_program_bytes([
+      (4, encode_amo(0x02U, 0, 1, 0x2U, 3)), // lr.w x3, (x1)
+      (2, encode_c_addi(6, 0).reinterpret_as_uint()), // compressed hint
+      (2, encode_c_addi(6, 1).reinterpret_as_uint()), // compressed I op
+      (4, encode_amo(0x03U, 5, 1, 0x2U, 4)), // sc.w x4, x5, (x1)
+    ]),
+    runner.cpu.pc,
+  )
+  match runner.run(4) {
+    Running => ()
+    _ => fail("expected lr/sc sequence with compressed body to run")
+  }
+  assert_eq(runner.read_reg_u64(3), 77U.to_uint64())
+  assert_eq(runner.read_reg_u64(4), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(6), 11U.to_uint64())
+  assert_eq(runner.bus.load_u32(addr), 88U.to_uint64())
+  assert_eq(runner.pc_u64(), addr - 0x100U.to_uint64() + 12U.to_uint64())
+}
+
+///|
 test "compressed jumps and branches cross mixed-width boundaries correctly" {
   let runner = make_runner(default_machine_config())
   runner.load_program(
