@@ -272,6 +272,10 @@ official coverage improve.
   S-mode loads/stores to U pages can proceed when SUM is set, but S-mode
   instruction fetches from U pages raise instruction page faults regardless of
   SUM.
+- Sv39 PTE bits 63:54 now raise page faults when set. The current RV64GC
+  baseline does not implement Svnapot, Svpbmt, or future reserved PTE metadata,
+  so both the walker and cache-walk bookkeeping reject those bits rather than
+  treating them as ignored metadata.
 - `FCLASS.S` and `FCLASS.D` now decode and execute the architectural 10-bit
   classification mask for zero, subnormal, normal, infinity, signaling NaN,
   quiet NaN, and the D-present single-precision NaN-boxing path.

@@ -24,6 +24,9 @@ const PTE_A : UInt64 = 0x40
 const PTE_D : UInt64 = 0x80
 
 ///|
+const PTE_RESERVED_63_54_MASK : UInt64 = 0xffc0000000000000UL
+
+///|
 const SV39_LEVELS : Int = 3
 
 ///|
@@ -62,6 +65,15 @@ fn pte_ppn(pte : UInt64) -> UInt64 {
 }
 
 ///|
+fn pte_reserved_bits_clear(pte : UInt64) -> Bool {
+  // Sv39 PTE bits 63:54 are outside this RV64GC baseline. Bit 63 belongs to
+  // Svnapot, bits 62:61 to Svpbmt, and bits 60:54 remain future-reserved; with
+  // those extensions absent, the privileged spec requires a page fault rather
+  // than silently treating them as extra PPN bits or metadata.
+  (pte & PTE_RESERVED_63_54_MASK) == 0U.to_uint64()
+}
+
+///|
 fn pte_ppn_i(pte : UInt64, level : Int) -> UInt64 {
   (pte >> (10 + level * 9)) & 0x1FFU.to_uint64()
 }
@@ -94,6 +106,9 @@ pub fn sv39_translate(
       return TranslateFault(fault)
     }
     pte = bus.load_u64(pte_addr)
+    if !pte_reserved_bits_clear(pte) {
+      return TranslateFault(fault)
+    }
     // Invalid PTE: V=0 or (W=1 and R=0)
     if (pte & PTE_V) == 0U.to_uint64() ||
       ((pte & PTE_R) == 0U.to_uint64() && (pte & PTE_W) != 0U.to_uint64()) {
@@ -276,6 +291,9 @@ fn Runner::record_page_table_walk(
     }
     self.remember_page_table_page(pte_addr)
     let pte = self.bus.load_u64(pte_addr)
+    if !pte_reserved_bits_clear(pte) {
+      return
+    }
     if (pte & PTE_V) == 0U.to_uint64() ||
       ((pte & PTE_R) == 0U.to_uint64() && (pte & PTE_W) != 0U.to_uint64()) {
       return

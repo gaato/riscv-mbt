@@ -263,6 +263,9 @@
 - Sv39 now keeps SUM data-only: supervisor loads/stores may access U pages when
   SUM is set, but supervisor instruction fetches from U pages fault regardless
   of SUM.
+- Sv39 PTE bits 63:54 now fault when set. The RV64GC baseline does not
+  implement Svnapot, Svpbmt, or future reserved PTE metadata, so the walker
+  rejects those bits instead of silently ignoring them.
 - Return-instruction legality is now enforced for the modeled privileged
   surface: `MRET` traps outside M-mode, `SRET` traps from U-mode, and S-mode
   `SRET` traps when `mstatus.TSR` is set.

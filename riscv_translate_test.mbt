@@ -113,6 +113,41 @@ test "sv39 translate faults on reserved W without R" {
 }
 
 ///|
+test "sv39 translate faults on reserved high PTE bits" {
+  // The baseline does not implement Svnapot, Svpbmt, or future uses of bits
+  // 60:54. Each class must fault before the walker treats the PTE as a valid
+  // non-leaf pointer or leaf mapping.
+  let reserved_bits = [
+    1UL << 63, // Svnapot N bit is reserved when Svnapot is absent.
+    1UL << 61, // Svpbmt PBMT bits are reserved when Svpbmt is absent.
+    1UL << 54, // Future-reserved PTE bit.
+  ]
+  for bit in reserved_bits {
+    let bus = Bus::new(0U.to_uint64(), 0x10000)
+    let satp = test_setup_identity_map(
+      bus,
+      test_pte_v |
+      test_pte_r |
+      test_pte_w |
+      test_pte_x |
+      test_pte_a |
+      test_pte_d,
+    )
+    let leaf = bus.load_u64(0x3000U.to_uint64())
+    bus.store_u64(0x3000U.to_uint64(), leaf | bit)
+    match
+      sv39_translate(bus, satp, 0U.to_uint64(), Load, Supervisor, false, false) {
+      TranslateFault(cause) =>
+        match cause {
+          LoadPageFault => ()
+          _ => fail("expected LoadPageFault for reserved high PTE bit")
+        }
+      TranslatedAddr(_) => fail("expected reserved high PTE bit to fault")
+    }
+  }
+}
+
+///|
 test "sv39 translate faults when non-leaf at level 0" {
   let bus = Bus::new(0U.to_uint64(), 0x10000)
   let root_ppn = 1U.to_uint64()
