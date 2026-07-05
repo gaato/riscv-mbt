@@ -31,6 +31,15 @@ test "argument value parser keeps flag-specific routing simple" {
 }
 
 ///|
+test "post-init command trace reports per-command durations" {
+  assert_eq(
+    format_post_init_command_trace([10, 25], [20]),
+    "cmd1:start=10,marker=20,duration=10; cmd2:start=25,marker=?,duration=?",
+  )
+  assert_eq(format_post_init_command_trace([], []), "")
+}
+
+///|
 test "auto-root handoff selects auto-root artifacts by default" {
   let args = ["alpine_probe", "xlong", "--auto-root-handoff"]
   assert_eq(select_dtb_path(args, true, true), auto_root_virtio_dtb_path)

@@ -81,3 +81,7 @@ shows it is needed.
   `/sbin/apk info -e libcap2`, `bin/ping`, and
   `apk-persistence-read-ok`, proving installed package DB state and package
   file listings survive a host-saved virtio-blk image reboot.
+- To avoid turning future long probes into blind waiting, `cmd/alpine_probe`
+  now reports `post_init_command_trace` with each post-init command's injection
+  step, marker-observed step, and duration. This keeps the next long run tied
+  to a concrete question about which rootfs command phase is slow or stuck.

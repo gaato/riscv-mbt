@@ -199,6 +199,38 @@ fn parse_flag(args : Array[String], flag : String) -> Bool {
 }
 
 ///|
+fn format_post_init_command_trace(
+  start_steps : Array[Int],
+  marker_steps : Array[Int],
+) -> String {
+  if start_steps.length() == 0 {
+    return ""
+  }
+  let mut trace = ""
+  for index in 0..<start_steps.length() {
+    if index > 0 {
+      trace = trace + "; "
+    }
+    trace = trace +
+      "cmd" +
+      (index + 1).to_string() +
+      ":start=" +
+      start_steps[index].to_string()
+    if index < marker_steps.length() {
+      let marker_step = marker_steps[index]
+      trace = trace +
+        ",marker=" +
+        marker_step.to_string() +
+        ",duration=" +
+        (marker_step - start_steps[index]).to_string()
+    } else {
+      trace = trace + ",marker=?,duration=?"
+    }
+  }
+  trace
+}
+
+///|
 fn select_dtb_path(
   args : Array[String],
   uses_auto_root_artifacts : Bool,
@@ -958,6 +990,8 @@ async fn main {
   let mut post_init_command_sent = false
   let mut post_init_command_index = 0
   let mut post_init_command_steps = -1
+  let post_init_command_start_steps : Array[Int] = []
+  let post_init_command_marker_steps : Array[Int] = []
   let mut post_init_command_start_read_requests = 0U.to_uint64()
   let mut post_init_command_start_read_bytes = 0U.to_uint64()
   let mut post_init_command_start_write_requests = 0U.to_uint64()
@@ -1000,6 +1034,11 @@ async fn main {
                   output.contains(marker) {
                   shell_expect_seen = true
                   outcome = "console-command"
+                  if post_init_command_sent &&
+                    post_init_command_marker_steps.length() <
+                    post_init_command_index {
+                    post_init_command_marker_steps.push(steps)
+                  }
                   break
                 }
               None => if outcome == "alpine-shell-prompt" { break }
@@ -1024,6 +1063,7 @@ async fn main {
               post_init_command_sent = true
               post_init_command_index = 1
               post_init_command_steps = steps
+              post_init_command_start_steps.push(steps)
               post_init_command_start_read_requests = runner.virtio_blk_read_request_count()
               post_init_command_start_read_bytes = runner.virtio_blk_read_byte_count()
               post_init_command_start_write_requests = runner.virtio_blk_write_request_count()
@@ -1036,11 +1076,13 @@ async fn main {
               output.contains(post_init_markers[post_init_command_index - 1]) {
               // Multi-command proofs advance by marker, not by prompt count:
               // command echo and shell prompts are noisy under serial console.
+              post_init_command_marker_steps.push(steps)
               runner.uart_push_input(
                 post_init_commands[post_init_command_index] + "\r\n",
               )
               post_init_command_index += 1
               post_init_command_steps = steps
+              post_init_command_start_steps.push(steps)
               post_init_command_start_read_requests = runner.virtio_blk_read_request_count()
               post_init_command_start_read_bytes = runner.virtio_blk_read_byte_count()
               post_init_command_start_write_requests = runner.virtio_blk_write_request_count()
@@ -1097,6 +1139,10 @@ async fn main {
         // periodic drain, especially near the step budget boundary.
         shell_expect_seen = true
         outcome = "console-command"
+        if post_init_command_sent &&
+          post_init_command_marker_steps.length() < post_init_command_index {
+          post_init_command_marker_steps.push(steps)
+        }
       }
       if auto_root_smoke && output.contains(marker) {
         shell_expect_seen = true
@@ -1176,6 +1222,12 @@ async fn main {
   )
   println("post_init_command_index=" + post_init_command_index.to_string())
   println("post_init_command_steps=" + post_init_command_steps.to_string())
+  println(
+    "post_init_command_trace=" +
+    format_post_init_command_trace(
+      post_init_command_start_steps, post_init_command_marker_steps,
+    ),
+  )
   println(
     "post_init_command_step_budget=" + post_init_command_step_budget.to_string(),
   )
