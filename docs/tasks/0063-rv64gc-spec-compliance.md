@@ -75,11 +75,14 @@ official coverage improve.
   arithmetic, OF/UF/NX for rounded arithmetic results, exact fused
   single-rounding for FMA, and broader official `rv64uf`/`rv64ud` style
   coverage.
-- `A`: `riscv_execute.mbt` implements LR/SC and AMO W/D behavior for the
-  practical one-hart path, with regressions for reservation success/failure and
-  store invalidation. The remaining audit is `aq`/`rl` ordering semantics,
-  multi-hart reservation interference, and promotion of relevant official
-  `rv64ua` coverage.
+- `A`: `riscv_decode.mbt` rejects reserved AMO operations and reserved
+  `LR.W`/`LR.D` encodings with nonzero `rs2`, gates AMO execution on `MISA.A`,
+  and accepts `aq`/`rl` encodings for the current single-hart interpreter.
+  `riscv_execute.mbt` implements LR/SC and AMO W/D behavior for the practical
+  one-hart path, with regressions for reservation success/failure, store
+  invalidation, and RV64 AMO.W sign-extension. The remaining audit is true
+  `aq`/`rl` memory-ordering semantics, multi-hart reservation interference, and
+  promotion of relevant official `rv64ua` coverage.
 - `C`: compressed decode/execute coverage exists in
   `riscv_compressed_test.mbt`, while official compressed coverage is still not
   part of the RV64GC gating floor. The remaining audit is RV64C-specific
@@ -148,3 +151,8 @@ official coverage improve.
   `CSRRS/CSRRC[I]` with a zero register or immediate mask skips the CSR write
   path. Regression coverage keeps zero-mask set/clear legal for read-only CSRs
   and keeps actual write forms illegal for read-only CSRs.
+- `A` decode now treats reserved AMO `funct5` values and the reserved
+  nonzero-`rs2` LR encoding as illegal, while still accepting the `aq`/`rl`
+  ordering bits. AMO W/D execution is also profile-gated on `MISA.A`, and the
+  AMO.W regressions now pin the RV64 rule that the loaded word placed in `rd`
+  is sign-extended.

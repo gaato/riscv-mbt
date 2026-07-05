@@ -43,6 +43,48 @@ fn funct5(raw : UInt) -> UInt {
 }
 
 ///|
+fn amo_funct5_is_valid(funct5 : UInt) -> Bool {
+  // The AMO opcode reserves most funct5 values. Reject them during decode so
+  // execution does not silently turn an unknown atomic RMW into a no-op store.
+  match funct5 {
+    0x00U => true // AMOADD
+    0x01U => true // AMOSWAP
+    0x02U => true // LR
+    0x03U => true // SC
+    0x04U => true // AMOXOR
+    0x08U => true // AMOOR
+    0x0cU => true // AMOAND
+    0x10U => true // AMOMIN
+    0x14U => true // AMOMAX
+    0x18U => true // AMOMINU
+    0x1cU => true // AMOMAXU
+    _ => false
+  }
+}
+
+///|
+fn decode_amo(raw : UInt) -> Instruction {
+  let op = funct5(raw)
+  // The acquire/release bits sit below funct5 in the AMO encoding. They are
+  // accepted but not stored in Instruction because the current single-hart
+  // interpreter does not reorder guest memory operations across an executed
+  // instruction; multi-hart ordering remains a separate A-extension audit item.
+  if !amo_funct5_is_valid(op) {
+    Unknown(raw)
+  } else if op == 0x02U && rs2(raw) != 0 {
+    // LR.W/LR.D reserve the rs2 field as zero. Treat nonzero encodings as
+    // illegal instead of constructing a semantically impossible LR variant.
+    Unknown(raw)
+  } else {
+    match funct3(raw) {
+      0x2U => AmoW(op, rd(raw), rs1(raw), rs2(raw))
+      0x3U => AmoD(op, rd(raw), rs1(raw), rs2(raw))
+      _ => Unknown(raw)
+    }
+  }
+}
+
+///|
 fn funct6(raw : UInt) -> UInt {
   (raw >> 26) & 0x3fU
 }
@@ -963,6 +1005,7 @@ fn instruction_supported_for_current_config(
 ) -> Bool {
   // Keep decode permissive and put profile legality here. This lets tests see
   // the exact decoded shape even when the current machine config must reject it.
+  let has_a = (extensions & MISA_EXT_A) != 0U.to_uint64()
   let has_f = (extensions & MISA_EXT_F) != 0U.to_uint64()
   let has_d = (extensions & MISA_EXT_D) != 0U.to_uint64()
   let has_v = (extensions & MISA_EXT_V) != 0U.to_uint64()
@@ -984,7 +1027,8 @@ fn instruction_supported_for_current_config(
     Lwu(_, _, _) => xlen == XLEN_64
     Ld(_, _, _) => xlen == XLEN_64
     Sd(_, _, _) => xlen == XLEN_64
-    AmoD(_, _, _, _) => xlen == XLEN_64
+    AmoW(_, _, _, _) => has_a
+    AmoD(_, _, _, _) => has_a && xlen == XLEN_64
     Flw(_, _, _) => has_f
     Fld(_, _, _) => has_d
     Fsw(_, _, _) => has_f
@@ -1660,12 +1704,7 @@ pub fn decode(raw : UInt) -> Instruction {
         0x7U => Csrrci(rd(raw), csr_addr(raw), csr_uimm(raw))
         _ => Unknown(raw)
       }
-    0x2fU =>
-      match funct3(raw) {
-        0x2U => AmoW(funct5(raw), rd(raw), rs1(raw), rs2(raw))
-        0x3U => AmoD(funct5(raw), rd(raw), rs1(raw), rs2(raw))
-        _ => Unknown(raw)
-      }
+    0x2fU => decode_amo(raw)
     0x53U =>
       match funct7(raw) {
         0x00U => FAddS(rd(raw), rs1(raw), rs2(raw), funct3(raw))

@@ -6928,6 +6928,18 @@ fn encode_amo(
 }
 
 ///|
+fn encode_amo_ordered(
+  funct5 : UInt,
+  order : UInt,
+  rs2 : Int,
+  rs1 : Int,
+  funct3 : UInt,
+  rd : Int,
+) -> UInt {
+  encode_r((funct5 << 2) | (order & 0x3U), rs2, rs1, funct3, rd, 0x2fU)
+}
+
+///|
 test "AMOSWAP.W loads old value into rd and stores rs2 at address" {
   let runner = make_runner(virt_machine_config())
   let addr = runner.cpu.pc + 0x100U.to_uint64()
@@ -6967,6 +6979,25 @@ test "AMOADD.D loads old value and stores sum" {
   }
   assert_eq(runner.read_reg_u64(3), 100U.to_uint64())
   assert_eq(runner.bus.load_u64(addr), 150U.to_uint64())
+}
+
+///|
+test "AMO.W sign-extends the loaded word on RV64" {
+  let runner = make_runner(virt_machine_config())
+  let addr = runner.cpu.pc + 0x100U.to_uint64()
+  runner.bus.store_u32(addr, 0xffffffffU.to_uint64())
+  runner.cpu.write_reg(1, addr)
+  runner.cpu.write_reg(2, 2U.to_uint64())
+  runner.bus.store_u32(
+    runner.cpu.pc,
+    encode_amo_ordered(0x00U, 0x3U, 2, 1, 0x2U, 3).to_uint64(),
+  )
+  match runner.step() {
+    Running => ()
+    _ => fail("expected running")
+  }
+  assert_eq(runner.read_reg_u64(3), 0xffffffffffffffffUL)
+  assert_eq(runner.bus.load_u32(addr), 1U.to_uint64())
 }
 
 ///|
