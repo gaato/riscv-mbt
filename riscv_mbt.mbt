@@ -1066,13 +1066,21 @@ fn current_base_extensions() -> UInt64 {
 ///|
 fn canonical_machine_extensions(extensions : UInt64) -> UInt64 {
   // Extension dependencies are part of the architectural profile, not just
-  // human-readable ISA strings. The ratified naming rules make D imply F, so
-  // normalize internal test configs before exposing misa or executing gates.
-  if (extensions & MISA_EXT_D) != 0U.to_uint64() {
-    extensions | MISA_EXT_F
-  } else {
-    extensions
+  // human-readable ISA strings. Normalize internal test configs before
+  // exposing misa or executing gates so impossible profiles cannot leak into
+  // later profile checks.
+  let mut normalized = extensions
+  if (normalized & MISA_EXT_D) != 0U.to_uint64() {
+    // D depends on F: double-precision instructions reuse the scalar FP state
+    // and instruction families from the single-precision extension.
+    normalized = normalized | MISA_EXT_F
   }
+  if (normalized & MISA_EXT_U) == 0U.to_uint64() {
+    // The privileged spec treats S-without-U as an unsupported dependency
+    // combination. Clearing U therefore clears S as well.
+    normalized = normalized & bit_not(MISA_EXT_S)
+  }
+  normalized
 }
 
 ///|

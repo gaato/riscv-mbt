@@ -56,6 +56,24 @@ fn wb_rv64_without_s_machine_config() -> MachineConfig {
 }
 
 ///|
+fn wb_rv64_without_u_machine_config() -> MachineConfig {
+  let config = rv64_machine_config()
+  {
+    xlen: config.xlen,
+    extensions: config.extensions & bit_not(MISA_EXT_U),
+    ram_base: config.ram_base,
+    ram_size: config.ram_size,
+    entry_point: config.entry_point,
+    hart_id: config.hart_id,
+    uart0_base: config.uart0_base,
+    clint_base: config.clint_base,
+    plic_base: config.plic_base,
+    virtio_blk_base: config.virtio_blk_base,
+    dtb_addr: config.dtb_addr,
+  }
+}
+
+///|
 fn wb_rv64_d_only_requested_machine_config() -> MachineConfig {
   let config = rv64_machine_config()
   {
@@ -413,6 +431,52 @@ test "mstatus write cannot expose supervisor return state without S" {
   let visible = runner.read_reg_u64(2)
   assert_eq(visible & MSTATUS_MPP_MASK.to_uint64(), 0U.to_uint64())
   assert_eq(visible & MSTATUS_SPP_BIT.to_uint64(), 0U.to_uint64())
+}
+
+///|
+test "requesting no-U profile canonicalizes away S as well" {
+  let runner = make_runner(wb_rv64_without_u_machine_config())
+  let misa = runner.cpu.read_csr(CSR_MISA)
+  assert_eq(misa & MISA_EXT_U, 0U.to_uint64())
+  assert_eq(misa & MISA_EXT_S, 0U.to_uint64())
+  assert_eq(runner.config.extensions & MISA_EXT_U, 0U.to_uint64())
+  assert_eq(runner.config.extensions & MISA_EXT_S, 0U.to_uint64())
+}
+
+///|
+test "mstatus write cannot expose user return state without U" {
+  let runner = make_runner(wb_rv64_without_u_machine_config())
+  runner.cpu.write_reg(1, MSTATUS_UXL_MASK)
+  runner.load_program(
+    words_to_bytes([
+      wb_encode_csr(CSR_MSTATUS, 1, 0x1U, 0), // CSRRW x0, mstatus, x1
+      wb_encode_csr(CSR_MSTATUS, 0, 0x2U, 2), // CSRRS x2, mstatus, x0
+    ]),
+    0U,
+  )
+  match runner.run(2) {
+    Running => ()
+    _ => fail("expected no-U mstatus UXL WARL program to run")
+  }
+  assert_eq(runner.read_reg_u64(2) & MSTATUS_UXL_MASK, 0U.to_uint64())
+
+  let mpp_u = make_runner(wb_rv64_without_u_machine_config())
+  mpp_u.cpu.write_reg(1, 0U.to_uint64())
+  mpp_u.load_program(
+    words_to_bytes([
+      wb_encode_csr(CSR_MSTATUS, 1, 0x1U, 0), // write MPP=U encoding
+      wb_encode_csr(CSR_MSTATUS, 0, 0x2U, 2),
+    ]),
+    0U,
+  )
+  match mpp_u.run(2) {
+    Running => ()
+    _ => fail("expected no-U mstatus MPP WARL program to run")
+  }
+  assert_eq(
+    mpp_u.read_reg_u64(2) & MSTATUS_MPP_MASK.to_uint64(),
+    MSTATUS_MPP_MASK.to_uint64(),
+  )
 }
 
 ///|

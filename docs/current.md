@@ -364,6 +364,10 @@
   Linux default configs: no-`S` RV64 profiles reject supervisor CSRs, `SRET`,
   and `SFENCE.VMA`, and `mstatus` WARL normalization clears supervisor return
   state such as `MPP=S` and `SPP=1`.
+- The profile normalizer now also applies the privileged dependency that
+  `S` depends on `U`. Requested no-`U` configs clear both bits, and `mstatus`
+  reads keep user-mode return state absent by clearing `UXL` and normalizing
+  `MPP=U` back to M-mode.
 - `satp` CSR reads and writes now use the same `TVM` interception rule: S-mode
   access traps when `mstatus.TVM` is set, while M-mode remains allowed.
 - `satp` writes with unsupported MODE values now follow the privileged WARL

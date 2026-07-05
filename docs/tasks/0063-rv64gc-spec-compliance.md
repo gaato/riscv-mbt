@@ -367,7 +367,9 @@ official coverage improve.
   Profile legality now also makes supervisor state conditional on `MISA.S`:
   no-`S` profiles reject supervisor CSRs, `SRET`, and `SFENCE.VMA`, and
   `mstatus` WARL normalization clears supervisor return state instead of
-  accepting `MPP=S` or `SPP=1`.
+  accepting `MPP=S` or `SPP=1`. `misa` profile canonicalization now also
+  applies the privileged dependency that `S` depends on `U`, and no-`U`
+  profiles clear `mstatus.UXL` and normalize `MPP=U` back to M-mode.
   The remaining audit is a spec pass over remaining WARL behavior,
   read-only/write-ignored fields, and privilege-visible side effects for every
   CSR currently exposed by `riscv_decode.mbt`.
@@ -884,6 +886,10 @@ official coverage improve.
   the RV64 config and pins supervisor CSR reads/writes, `SRET`, and
   `SFENCE.VMA` as illegal, while `mstatus` writes normalize away supervisor
   return state in that profile.
+- User-mode profile state now participates in the same canonicalization pass:
+  clearing `U` from a requested RV64 config also clears `S`, and focused
+  coverage pins no-`U` `mstatus` writes so `UXL` reads as zero and `MPP=U`
+  normalizes to the only implemented return target, M-mode.
 - `sstatus` now exposes and writes the shared `mstatus.FS` field. This keeps
   the RV64GC F/D context-status control path visible through the supervisor
   status CSR instead of only through machine `mstatus`.
