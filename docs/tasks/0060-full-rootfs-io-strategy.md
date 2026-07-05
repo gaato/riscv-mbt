@@ -723,3 +723,21 @@ implemented.
   "call `/sbin/apk.static` explicitly" to "the standard `apk` command works",
   while keeping `/sbin/apk.dynamic` available for future loader-performance
   work.
+- Updated the package-install, local-repository, dependency-resolution, and
+  package-persistence probes to use the standard `/sbin/apk` command for
+  add/info operations. The static smoke still checks `/sbin/apk.static`
+  explicitly so the mapped command source remains visible, and the dynamic
+  smoke still targets `/sbin/apk.dynamic`.
+- Current standard-command offline install proof:
+  `moon run --target native cmd/alpine_probe xlong --post-init-command-step-budget 120000000 --post-init-apk-install-smoke`
+  reaches `outcome=console-command`, `shell_expect_seen=true`,
+  `post_init_apk_install_smoke=true`, `post_init_command_index=3`, and
+  `post-init-apk-install-ok` at 725,000,000 guest steps. The run reports
+  `virtio_blk=1488 read-req/5967872 read-bytes 8 write-req/21504 write-bytes`
+  and `virtio_blk_read_cache=1352 hits/136 misses`. The UART tail shows a
+  standard `/sbin/apk ... add /root/riscv-mbt-apks/ddate.apk` command,
+  `Installing ddate (0.2.2-r6)`, `apk-install-add-ok`,
+  `/sbin/apk info -e ddate`, `ddate`, the expected ddate output, and
+  `post-init-apk-install-ok`. This proves local `.apk`
+  installation, rootfs mutation, trigger execution, package DB lookup, and a
+  newly installed userspace binary through the normal `apk` command name.

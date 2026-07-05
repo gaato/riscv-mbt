@@ -440,13 +440,13 @@ fn alpine_post_init_apk_install_commands() -> Array[String] {
   // under `/root/riscv-mbt-apks`; installing that local file avoids depending
   // on virtio-net while still exercising apk's add path and rootfs mutation.
   [
-    "test -x /sbin/apk.static && " +
+    "test -x /sbin/apk && " +
     "test -r /root/riscv-mbt-apks/ddate.apk && " +
     "! test -x /usr/bin/ddate && " +
     "printf '\\141\\160\\153\\055\\151\\156\\163\\164\\141\\154\\154\\055\\146\\151\\154\\145\\163\\055\\157\\153\\012'",
-    "/sbin/apk.static --no-network --allow-untrusted --force-non-repository add /root/riscv-mbt-apks/ddate.apk && " +
+    "/sbin/apk --no-network --allow-untrusted --force-non-repository add /root/riscv-mbt-apks/ddate.apk && " +
     "printf '\\141\\160\\153\\055\\151\\156\\163\\164\\141\\154\\154\\055\\141\\144\\144\\055\\157\\153\\012'",
-    "/sbin/apk.static info -e ddate && " +
+    "/sbin/apk info -e ddate && " +
     "test -x /usr/bin/ddate && " +
     "ddate > /root/riscv-mbt-ddate && " +
     "test -s /root/riscv-mbt-ddate && " +
@@ -466,14 +466,14 @@ fn alpine_post_init_apk_local_repo_commands() -> Array[String] {
   // path smoke: apk resolves `ddate` through the rootfs-side APKINDEX while
   // staying offline and using the package file copied into the same directory.
   [
-    "test -x /sbin/apk.static && " +
+    "test -x /sbin/apk && " +
     "test -r /root/riscv-mbt-apks/APKINDEX.tar.gz && " +
     "test -r /root/riscv-mbt-apks/ddate.apk && " +
     "! test -x /usr/bin/ddate && " +
     "printf '\\141\\160\\153\\055\\154\\157\\143\\141\\154\\055\\162\\145\\160\\157\\055\\146\\151\\154\\145\\163\\055\\157\\153\\012'",
-    "/sbin/apk.static --no-network --allow-untrusted --repository /root/riscv-mbt-apks add ddate && " +
+    "/sbin/apk --no-network --allow-untrusted --repository /root/riscv-mbt-apks add ddate && " +
     "printf '\\141\\160\\153\\055\\154\\157\\143\\141\\154\\055\\162\\145\\160\\157\\055\\141\\144\\144\\055\\157\\153\\012'",
-    "/sbin/apk.static info -e ddate && " +
+    "/sbin/apk info -e ddate && " +
     "test -x /usr/bin/ddate && " +
     "ddate > /root/riscv-mbt-local-repo-ddate && " +
     "test -s /root/riscv-mbt-local-repo-ddate && " +
@@ -495,20 +495,20 @@ fn alpine_post_init_apk_local_deps_commands() -> Array[String] {
   // the packages that satisfy its APKINDEX dependencies, so apk must resolve a
   // normal package name and install subpackages/libraries from the local repo.
   [
-    "test -x /sbin/apk.static && " +
+    "test -x /sbin/apk && " +
     "test -r /root/riscv-mbt-apks/APKINDEX.tar.gz && " +
     "ls /root/riscv-mbt-apks/iputils-*.apk && " +
     "ls /root/riscv-mbt-apks/iputils-ping-*.apk && " +
     "ls /root/riscv-mbt-apks/libcap2-*.apk && " +
-    "! /sbin/apk.static info -e iputils && " +
-    "! /sbin/apk.static info -e iputils-ping && " +
+    "! /sbin/apk info -e iputils && " +
+    "! /sbin/apk info -e iputils-ping && " +
     "printf '\\141\\160\\153\\055\\154\\157\\143\\141\\154\\055\\144\\145\\160\\163\\055\\146\\151\\154\\145\\163\\055\\157\\153\\012'",
-    "/sbin/apk.static --no-network --allow-untrusted --repository /root/riscv-mbt-apks add iputils && " +
+    "/sbin/apk --no-network --allow-untrusted --repository /root/riscv-mbt-apks add iputils && " +
     "printf '\\141\\160\\153\\055\\154\\157\\143\\141\\154\\055\\144\\145\\160\\163\\055\\141\\144\\144\\055\\157\\153\\012'",
-    "/sbin/apk.static info -e iputils && " +
-    "/sbin/apk.static info -e iputils-ping && " +
-    "/sbin/apk.static info -e libcap2 && " +
-    "/sbin/apk.static info -L iputils-ping | grep '^bin/ping$' && " +
+    "/sbin/apk info -e iputils && " +
+    "/sbin/apk info -e iputils-ping && " +
+    "/sbin/apk info -e libcap2 && " +
+    "/sbin/apk info -L iputils-ping | grep '^bin/ping$' && " +
     "/bin/ping -V && " +
     "printf '\\160\\157\\163\\164\\055\\151\\156\\151\\164\\055\\141\\160\\153\\055\\154\\157\\143\\141\\154\\055\\144\\145\\160\\163\\055\\157\\153\\012'",
   ]
@@ -646,12 +646,12 @@ fn alpine_post_init_apk_persistence_write_commands() -> Array[String] {
   // First half of the package persistence proof: install a dependency-bearing
   // package set, sync it, and let the host write back the mutated disk image.
   [
-    "test -x /sbin/apk.static && " +
+    "test -x /sbin/apk && " +
     "test -r /root/riscv-mbt-apks/APKINDEX.tar.gz && " +
-    "! /sbin/apk.static info -e iputils && " +
-    "! /sbin/apk.static info -e iputils-ping && " +
+    "! /sbin/apk info -e iputils && " +
+    "! /sbin/apk info -e iputils-ping && " +
     "printf '\\141\\160\\153\\055\\160\\145\\162\\163\\151\\163\\164\\145\\156\\143\\145\\055\\146\\151\\154\\145\\163\\055\\157\\153\\012'",
-    "/sbin/apk.static --no-network --allow-untrusted --repository /root/riscv-mbt-apks add iputils && " +
+    "/sbin/apk --no-network --allow-untrusted --repository /root/riscv-mbt-apks add iputils && " +
     "sync && " +
     "printf '\\141\\160\\153\\055\\160\\145\\162\\163\\151\\163\\164\\145\\156\\143\\145\\055\\167\\162\\151\\164\\145\\055\\157\\153\\012'",
   ]
@@ -666,10 +666,10 @@ fn alpine_post_init_apk_persistence_write_markers() -> Array[String] {
 fn alpine_post_init_apk_persistence_read_command() -> String {
   // Second half: boot from the host-saved image and prove the installed
   // packages are still present without running `apk add` again.
-  "/sbin/apk.static info -e iputils && " +
-  "/sbin/apk.static info -e iputils-ping && " +
-  "/sbin/apk.static info -e libcap2 && " +
-  "/sbin/apk.static info -L iputils-ping | grep '^bin/ping$' && " +
+  "/sbin/apk info -e iputils && " +
+  "/sbin/apk info -e iputils-ping && " +
+  "/sbin/apk info -e libcap2 && " +
+  "/sbin/apk info -L iputils-ping | grep '^bin/ping$' && " +
   "printf '\\141\\160\\153\\055\\160\\145\\162\\163\\151\\163\\164\\145\\156\\143\\145\\055\\162\\145\\141\\144\\055\\157\\153\\012'"
 }
 
