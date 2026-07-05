@@ -118,6 +118,10 @@
 - RV64 `mstatus.SXL`/`mstatus.UXL` and `sstatus.UXL` are now visible as fixed
   64-bit lower-privilege XLEN fields. Writes that try to clear or change them
   are normalized back to the modeled SXLEN=UXLEN=64 profile.
+- Post-decode profile legality now rejects extension instructions when the
+  active machine profile does not advertise the matching base extension bit.
+  The current focused coverage includes 16-bit compressed encodings without
+  `MISA.C` and multiply/divide/remainder instructions without `MISA.M`.
 - The status endian-control fields now match the emulator's little-endian-only
   memory system: `mstatus.MBE`, `mstatus.SBE`, and `mstatus.UBE`, plus
   `sstatus.UBE`, are visible where appropriate but normalize to read-only zero

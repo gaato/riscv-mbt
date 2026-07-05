@@ -1044,6 +1044,7 @@ fn instruction_supported_for_current_config(
   let has_c = (extensions & MISA_EXT_C) != 0U.to_uint64()
   let has_f = (extensions & MISA_EXT_F) != 0U.to_uint64()
   let has_d = (extensions & MISA_EXT_D) != 0U.to_uint64()
+  let has_m = (extensions & MISA_EXT_M) != 0U.to_uint64()
   let has_v = (extensions & MISA_EXT_V) != 0U.to_uint64()
   if length == 2 && !has_c {
     return false
@@ -1055,11 +1056,16 @@ fn instruction_supported_for_current_config(
     Sraiw(_, _, _) => xlen == XLEN_64
     Addw(_, _, _) => xlen == XLEN_64
     Subw(_, _, _) => xlen == XLEN_64
-    Mulw(_, _, _) => xlen == XLEN_64
-    Divw(_, _, _) => xlen == XLEN_64
-    Divuw(_, _, _) => xlen == XLEN_64
-    Remw(_, _, _) => xlen == XLEN_64
-    Remuw(_, _, _) => xlen == XLEN_64
+    Mul(_, _, _) => has_m
+    Div(_, _, _) => has_m
+    Divu(_, _, _) => has_m
+    Rem(_, _, _) => has_m
+    Remu(_, _, _) => has_m
+    Mulw(_, _, _) => has_m && xlen == XLEN_64
+    Divw(_, _, _) => has_m && xlen == XLEN_64
+    Divuw(_, _, _) => has_m && xlen == XLEN_64
+    Remw(_, _, _) => has_m && xlen == XLEN_64
+    Remuw(_, _, _) => has_m && xlen == XLEN_64
     Sllw(_, _, _) => xlen == XLEN_64
     Srlw(_, _, _) => xlen == XLEN_64
     Sraw(_, _, _) => xlen == XLEN_64

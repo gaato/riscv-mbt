@@ -69,7 +69,8 @@ official coverage improve.
   `tools/riscv-tests-manifest.tsv` are gating through
   `rv32ui_gating_test.mbt`. The gap is broader official-suite coverage and any
   remaining unlisted corner cases, not a known missing Linux-critical
-  instruction family.
+  instruction family. Post-decode profile legality now also rejects M-extension
+  multiply/divide/remainder instructions when `MISA.M` is not advertised.
 - `F/D`: `riscv_fp.mbt` now covers instruction availability, NaN-boxing,
   comparisons, min/max, FMA availability, conversion clipping, integer-to-float
   rounding modes, and the first NV/DZ arithmetic flags. Exact widening
