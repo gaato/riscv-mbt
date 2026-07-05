@@ -221,3 +221,11 @@ but it is not the same as a more ordinary Alpine service environment.
   implementation change, but it closes a real test gap around timer/external
   interrupt delegation before spending another long probe on OpenRC service
   supervision.
+- WFI now has a small Linux-idle-oriented timer fast-forward path. When CLINT
+  is present, no interrupt is already pending in `mip & mie`, and the current
+  hart has a real `mtimecmp` value, executing WFI advances `mtime` to one tick
+  before that compare point. The next normal step raises MTIP and enters the
+  existing interrupt delivery path, so timer waits no longer have to burn one
+  guest instruction per tick. The regression tests cover the fast-forwarded
+  timer-interrupt case and the unset-`mtimecmp` case, keeping the optimization
+  bounded to timer waits rather than skipping external I/O events.

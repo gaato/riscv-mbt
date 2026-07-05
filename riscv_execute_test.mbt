@@ -6176,6 +6176,53 @@ test "WFI advances PC without side effects" {
 }
 
 ///|
+test "WFI fast-forwards to the next CLINT timer event" {
+  let runner = make_runner(virt_machine_config())
+  let pc = runner.cpu.pc
+  runner.cpu.write_csr(0x300, 0x8U.to_uint64())
+  runner.cpu.write_csr(0x304, 0x80U.to_uint64())
+  runner.cpu.write_csr(0x305, pc + 8U.to_uint64())
+  runner.all_mtimecmp[0] = 100U.to_uint64()
+  runner.bus.store_u32(pc, 0x10500073U.to_uint64())
+  runner.bus.store_u32(
+    pc + 4U.to_uint64(),
+    encode_i(1, 0, 0x0U, 1, 0x13U).to_uint64(),
+  )
+  runner.bus.store_u32(
+    pc + 8U.to_uint64(),
+    encode_i(2, 0, 0x0U, 2, 0x13U).to_uint64(),
+  )
+  match runner.step() {
+    Running => ()
+    _ => fail("expected WFI to run")
+  }
+  assert_eq(runner.cpu.pc, pc + 4U.to_uint64())
+  assert_eq(runner.clint_mtime(), 99U.to_uint64())
+  assert_eq(runner.cpu.read_csr(0x344) & 0x80U.to_uint64(), 0U.to_uint64())
+  match runner.step() {
+    Running => ()
+    _ => fail("expected timer interrupt delivery after WFI")
+  }
+  assert_eq(runner.clint_mtime(), 100U.to_uint64())
+  assert_eq(runner.cpu.read_csr(0x342), (1U.to_uint64() << 63) | 7U.to_uint64())
+  assert_eq(runner.read_reg_u64(1), 0U.to_uint64())
+  assert_eq(runner.cpu.pc, pc + 8U.to_uint64())
+}
+
+///|
+test "WFI does not fast-forward when CLINT timer compare is unset" {
+  let runner = make_runner(virt_machine_config())
+  let pc = runner.cpu.pc
+  runner.bus.store_u32(pc, 0x10500073U.to_uint64())
+  match runner.step() {
+    Running => ()
+    _ => fail("expected WFI to run")
+  }
+  assert_eq(runner.cpu.pc, pc + 4U.to_uint64())
+  assert_eq(runner.clint_mtime(), 1U.to_uint64())
+}
+
+///|
 fn encode_amo(
   funct5 : UInt,
   rs2 : Int,

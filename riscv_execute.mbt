@@ -1308,6 +1308,27 @@ fn Runner::execute_sret(self : Runner) -> StepResult {
 }
 
 ///|
+fn Runner::wfi_resume_interrupt_pending(self : Runner) -> Bool {
+  (self.cpu.read_csr(CSR_MIP) & self.cpu.read_csr(CSR_MIE)) != 0U.to_uint64()
+}
+
+///|
+fn Runner::fast_forward_wfi_timer(self : Runner) -> Unit {
+  if self.config.clint_base == 0U.to_uint64() ||
+    self.wfi_resume_interrupt_pending() {
+    return
+  }
+  let hart_id = self.config.hart_id.to_int()
+  let target = self.all_mtimecmp[hart_id]
+  let unset = bit_not(0U.to_uint64())
+  if target != unset && target > self.mtime[0] {
+    // Stop one tick before the compare point. The next step's normal timer
+    // update raises MTIP and lets the existing interrupt path choose M/S-mode.
+    self.mtime[0] = target - 1U.to_uint64()
+  }
+}
+
+///|
 // Interrupt priority order (high to low): MEI, MSI, MTI, SEI, SSI, STI
 fn interrupt_cause_from_mip_bit(bit : Int) -> TrapCause {
   match bit {
@@ -1556,6 +1577,7 @@ pub fn Runner::step(self : Runner) -> StepResult {
     SfenceVma(_, _) =>
       self.execute_system(instruction, current_pc, next_pc, raw)
     Wfi => {
+      self.fast_forward_wfi_timer()
       self.cpu.pc = next_pc
       Running
     }
