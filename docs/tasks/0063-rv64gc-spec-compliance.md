@@ -378,6 +378,12 @@ official coverage improve.
   CSR writes and reads: the interrupt flag and low five exception-code bits are
   retained, while unsupported high platform/custom cause-code storage is masked
   away.
+  The plain trap-handling storage CSRs now have focused coverage at the visible
+  instruction boundary: `mscratch`/`mtval` preserve full RV64 XLEN values in
+  M-mode, and `sscratch`/`stval` preserve full RV64 XLEN values after an
+  `MRET` transition into S-mode. This keeps the scratch/trap-value path
+  separate from the WARL-filtered status, vector, counter, delegation, and
+  trap-vector CSRs.
   `satp` writes with unsupported MODE values now preserve the previous CSR
   value, matching the privileged WARL rule that the whole write has no effect.
   RV64 Bare-mode `satp` writes now also canonicalize bits 59:0 to zero, so the

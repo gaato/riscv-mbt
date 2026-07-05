@@ -1636,7 +1636,12 @@ fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
         }
         None => ()
       }
-    _ => self.cpu.write_csr(csr, value)
+    _ =>
+      // Scratch and trap-value CSRs are intentionally plain XLEN storage in
+      // this profile. They still pass through the shared CSR privilege and
+      // support checks before this point, but have no WARL filtering of their
+      // own.
+      self.cpu.write_csr(csr, value)
   }
 }
 

@@ -6978,6 +6978,76 @@ test "mconfigptr is mandatory read only zero" {
 }
 
 ///|
+test "scratch and trap value csrs preserve full xlen storage" {
+  let mscratch = 0x340
+  let mtval = 0x343
+  let sscratch = 0x140
+  let stval = 0x143
+  let machine_scratch_value = 0xfedcba9876543210UL
+  let machine_tval_value = 0x0123456789abcdefUL
+  let supervisor_scratch_value = 0x8877665544332211UL
+  let supervisor_tval_value = 0x1122334455667788UL
+
+  let machine = make_runner(rv64_machine_config())
+  machine.cpu.write_reg(1, machine_scratch_value)
+  machine.cpu.write_reg(3, machine_tval_value)
+  machine.load_program(
+    words_to_bytes([
+      encode_csr(mscratch, 1, 0x1U, 2),
+      encode_csr(mtval, 3, 0x1U, 4),
+      encode_csr(mscratch, 0, 0x2U, 5),
+      encode_csr(mtval, 0, 0x2U, 6),
+    ]),
+    0U,
+  )
+  match machine.run(4) {
+    Running => ()
+    _ => fail("expected machine scratch/tval CSR program to run")
+  }
+  assert_eq(machine.read_reg_u64(2), 0U.to_uint64())
+  assert_eq(machine.read_reg_u64(4), 0U.to_uint64())
+  assert_eq(machine.read_reg_u64(5), machine_scratch_value)
+  assert_eq(machine.read_reg_u64(6), machine_tval_value)
+  assert_eq(machine.read_csr_u64(mscratch), machine_scratch_value)
+  assert_eq(machine.read_csr_u64(mtval), machine_tval_value)
+
+  let supervisor = make_runner(rv64_machine_config())
+  supervisor.cpu.write_reg(1, supervisor_scratch_value)
+  supervisor.cpu.write_reg(3, supervisor_tval_value)
+  supervisor.load_program(
+    words_to_bytes([
+      encode_i(32, 0, 0x0U, 5, 0x13U),
+      encode_csr(0x341, 5, 0x1U, 0),
+      encode_u(0x00001000U, 7, 0x37U),
+      encode_i(-2048, 7, 0x0U, 7, 0x13U),
+      encode_csr(0x300, 7, 0x1U, 0),
+      encode_mret(),
+      encode_i(0, 0, 0x0U, 0, 0x13U),
+      encode_i(0, 0, 0x0U, 0, 0x13U),
+      encode_csr(sscratch, 1, 0x1U, 2),
+      encode_csr(stval, 3, 0x1U, 4),
+      encode_csr(sscratch, 0, 0x2U, 5),
+      encode_csr(stval, 0, 0x2U, 6),
+    ]),
+    0U,
+  )
+  match supervisor.run(10) {
+    Running => ()
+    _ => fail("expected supervisor scratch/stval CSR program to run")
+  }
+  match supervisor.privilege_mode() {
+    Supervisor => ()
+    _ => fail("expected scratch/stval program to remain in supervisor mode")
+  }
+  assert_eq(supervisor.read_reg_u64(2), 0U.to_uint64())
+  assert_eq(supervisor.read_reg_u64(4), 0U.to_uint64())
+  assert_eq(supervisor.read_reg_u64(5), supervisor_scratch_value)
+  assert_eq(supervisor.read_reg_u64(6), supervisor_tval_value)
+  assert_eq(supervisor.read_csr_u64(sscratch), supervisor_scratch_value)
+  assert_eq(supervisor.read_csr_u64(stval), supervisor_tval_value)
+}
+
+///|
 test "machine information csrs expose stable read only identifiers" {
   let mvendorid = 0xF11
   let marchid = 0xF12
