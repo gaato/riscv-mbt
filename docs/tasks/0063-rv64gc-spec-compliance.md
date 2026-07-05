@@ -212,7 +212,9 @@ official coverage improve.
   encoding.
   Register-based RV64C integer double load/store coverage now pins
   `C.LD`/`C.SD` as legal RV64C aliases and rejects those integer double aliases
-  in the RV32C profile.
+  in the RV32C profile. The same integer double aliases now also have high
+  zero-extended offset coverage for the scattered doubleword CL/CS immediate
+  path.
   RV32C now rejects the quadrant-2 integer double stack forms
   `C.LDSP`/`C.SDSP`, preserving those encodings as RV64C-only load/store
   aliases instead of widening the 32-bit compressed profile.
@@ -653,7 +655,8 @@ official coverage improve.
   overlapping `C.SLLI rd=x0, shamt=0` hint spelling.
 - RV64C register-based integer double memory coverage now round-trips
   `C.SD`/`C.LD`, while the same integer double aliases trap in the RV32C
-  profile.
+  profile. High-offset coverage now pins the unsigned `uimm=248` path through
+  the scattered doubleword CL/CS decoder.
 - RV64C compressed floating double memory coverage now keeps `C.FLD`,
   `C.FSD`, `C.FLDSP`, and `C.FSDSP` tied to the D extension. The decoder still
   expands them to their ordinary F/D operations, but the execute profile gate

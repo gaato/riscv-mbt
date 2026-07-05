@@ -582,6 +582,30 @@ test "rv64c compressed double load and store keep rv32c aliases reserved" {
 }
 
 ///|
+test "rv64c compressed double memory uses high zero-extended offsets" {
+  // C.LD/C.SD share the doubleword CL/CS offset layout with C.FLD/C.FSD. Cover
+  // the maximum 248-byte unsigned offset so integer double memory has the same
+  // high-immediate protection as word and floating-double memory forms.
+  let raw_value = 0x8877665544332211UL
+  let runner = make_runner(rv64_machine_config())
+  runner.cpu.write_reg(10, 0x200U.to_uint64())
+  runner.cpu.write_reg(9, raw_value)
+  runner.load_program(
+    mixed_program_bytes([
+      (2, encode_c_sd(9, 10, 248).reinterpret_as_uint()),
+      (2, encode_c_ld(11, 10, 248).reinterpret_as_uint()),
+    ]),
+    0U,
+  )
+  match runner.run(2) {
+    Running => ()
+    _ => fail("expected high-offset compressed double memory path to run")
+  }
+  assert_eq(runner.read_reg_u64(11), raw_value)
+  assert_eq(runner.pc_u64(), 4U.to_uint64())
+}
+
+///|
 test "rv64dc compressed floating load and store reuse double memory path" {
   let raw = 0x12345678U.to_uint64()
   let runner = make_runner(rv64fd_machine_config())
