@@ -1016,7 +1016,9 @@ fn Runner::execute_amo(
         self.cpu.pc = next_pc
         return Running
       }
-      // SC.W succeeds only against a live matching reservation.
+      // SC.W succeeds only against a live matching reservation. Even a failed
+      // SC is still an executed SC and must clear this hart's reservation, so
+      // the failure path below falls through to clear_lr_sc_reservation().
       if funct5_val == 0x03U {
         match self.atomic_alignment_check(addr, 4, false) {
           Some(result) => return result
@@ -1077,7 +1079,9 @@ fn Runner::execute_amo(
         self.cpu.pc = next_pc
         return Running
       }
-      // SC.D succeeds only against a live matching reservation.
+      // SC.D follows the same reservation lifetime as SC.W: success writes the
+      // doubleword, failure leaves memory alone, and both outcomes consume the
+      // hart's current reservation.
       if funct5_val == 0x03U {
         match self.atomic_alignment_check(addr, 8, false) {
           Some(result) => return result

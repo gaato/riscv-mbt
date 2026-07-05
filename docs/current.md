@@ -406,9 +406,11 @@
   fail. Virtio-blk guest-visible DMA/status/used-ring writes now use the same
   reservation-aware device-store path, so device writes to bytes accessed by LR
   also make the later SC fail. Successful `LR.W`/`SC.W` and `LR.D`/`SC.D`
-  pairs are covered, and failed `SC.W`/`SC.D` without a live reservation are
-  both covered as nonzero-status, no-store operations. Signed AMO min/max
-  coverage now includes both `AMOMIN.W` and full-width `AMOMIN.D`/`AMOMAX.D`
+  pairs are covered, failed `SC.W`/`SC.D` without a live reservation are
+  both covered as nonzero-status, no-store operations, and a failed mismatched
+  `SC.W` is now covered as consuming the hart reservation before any later
+  matching `SC.W` can succeed. Signed AMO min/max coverage now includes both
+  `AMOMIN.W` and full-width `AMOMIN.D`/`AMOMAX.D`
   comparisons across the sign boundary, and unsigned AMO.D min/max coverage
   now pins `AMOMINU.D`/`AMOMAXU.D` on the same bit patterns. The remaining
   A-extension audit is true `aq`/`rl` ordering behavior and
