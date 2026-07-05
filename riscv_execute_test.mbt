@@ -1229,6 +1229,62 @@ test "rv64fd f and d conversion paths preserve expected values" {
 }
 
 ///|
+test "rv64fd fcvt.d.s accepts legal unaffected rounding modes" {
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, exec_test_nan_box_single(exec_test_f32_bits(1.5)))
+  runner.load_program(words_to_bytes([encode_fcvt_d_s(1, 0x1U, 2)]), 0U)
+  match runner.run(1) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected legal RTZ fcvt.d.s to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_freg_u64(2), exec_test_f64_bits(1.5))
+}
+
+///|
+test "rv64fd fcvt.d.s rejects reserved static rounding modes" {
+  let runner = make_runner(rv64fd_machine_config())
+  let raw = encode_fcvt_d_s(1, 0x5U, 2)
+  runner.cpu.write_freg(1, exec_test_nan_box_single(exec_test_f32_bits(1.5)))
+  runner.load_program(words_to_bytes([raw]), 0U)
+  match runner.run(1) {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+      assert_eq(info.faulting_pc, 0U.to_uint64())
+      assert_eq(info.trap_value, raw.to_uint64())
+    }
+    _ => fail("expected illegal instruction trap")
+  }
+}
+
+///|
+test "rv64fd fcvt.d.s rejects reserved dynamic rounding mode" {
+  let runner = make_runner(rv64fd_machine_config())
+  let csr_fcsr = 0x003
+  let fcsr_frm_shift = 5
+  let raw = encode_fcvt_d_s(1, 0x7U, 2)
+  runner.cpu.write_freg(1, exec_test_nan_box_single(exec_test_f32_bits(1.5)))
+  runner.cpu.write_csr(csr_fcsr, 0x7U.to_uint64() << fcsr_frm_shift)
+  runner.load_program(words_to_bytes([raw]), 0U)
+  match runner.run(1) {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+      assert_eq(info.faulting_pc, 0U.to_uint64())
+      assert_eq(info.trap_value, raw.to_uint64())
+    }
+    _ => fail("expected illegal instruction trap")
+  }
+}
+
+///|
 test "rv64fd double comparisons write integer results" {
   let runner = make_runner(rv64fd_machine_config())
   runner.cpu.write_freg(1, exec_test_f64_bits(1.0))

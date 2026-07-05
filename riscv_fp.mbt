@@ -1609,7 +1609,18 @@ fn Runner::execute_fp(
       self.cpu.pc = next_pc
       Running
     }
-    FCvtDS(rd, rs1, _) => {
+    FCvtDS(rd, rs1, rm) => {
+      // FCVT.D.S widens exactly and never rounds, but the F/D specs still
+      // require normal rm legality checks for static and dynamic encodings.
+      match self.fp_effective_rounding_mode(rm) {
+        Some(_) => ()
+        None =>
+          return self.raise_trap(
+            IllegalInstruction,
+            current_pc,
+            raw.to_uint64(),
+          )
+      }
       let result = f32_from_bits(self.read_freg_single_value_bits(rs1)).to_double()
       self.write_freg_double_bits(rd, f64_bits_from_host(result))
       self.cpu.pc = next_pc
