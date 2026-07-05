@@ -168,3 +168,11 @@ but it is not the same as a more ordinary Alpine service environment.
   The remaining OpenRC gap is narrower than before: `rc-service` can dispatch
   actions, but daemon-style start/status/stop using a persistent background
   process still needs a separate service-supervision slice.
+- After the daemon-style OpenRC timeout, probe growth was deliberately paused
+  in favor of emulator-side hardening. The first body-side fix in that pass
+  tracks LR/SC reservations in physical-address space: LR.W/LR.D establish a
+  reservation, SC.W/SC.D only succeed against a live matching reservation,
+  store/AMO operations clear the reservation, and regression tests cover SC.W
+  failure without LR plus invalidation by an intervening store. This improves
+  the lock/futex-like A-extension surface used by ordinary Linux process
+  coordination before rerunning another long OpenRC probe.
