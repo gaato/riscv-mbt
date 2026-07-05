@@ -462,6 +462,15 @@ fn f64_exact_zero_mul_bits(lhs_bits : UInt64, rhs_bits : UInt64) -> UInt64 {
 }
 
 ///|
+fn f64_exact_zero_div_bits(lhs_bits : UInt64, rhs_bits : UInt64) -> UInt64 {
+  if f64_sign_bit(lhs_bits) != f64_sign_bit(rhs_bits) {
+    f64_negative_zero_bits()
+  } else {
+    0U.to_uint64()
+  }
+}
+
+///|
 fn fp_round_rational_to_f64_bits(
   exact : FpExactRational,
   mode : UInt,
@@ -571,26 +580,6 @@ fn f64_sqrt_finite_inexact_from_result(
       let squared = fp_exact_rational_mul(result, result)
       !fp_exact_rational_equal(operand, squared)
     }
-    _ => false
-  }
-}
-
-///|
-fn f64_div_inexact_bits(
-  lhs_bits : UInt64,
-  rhs_bits : UInt64,
-  result_bits : UInt64,
-) -> Bool {
-  match
-    (
-      fp_exact_rational_from_f64_bits(lhs_bits),
-      fp_exact_rational_from_f64_bits(rhs_bits),
-    ) {
-    (Some(lhs), Some(rhs)) =>
-      match fp_exact_rational_div(lhs, rhs) {
-        Some(exact) => f64_finite_inexact_from_rational(exact, result_bits)
-        None => false
-      }
     _ => false
   }
 }
@@ -2052,8 +2041,14 @@ fn Runner::execute_fp(
       Running
     }
     FDivD(rd, rs1, rs2, rm) => {
-      if !self.fp_rounding_mode_supported(rm) {
-        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      let mode = match self.fp_effective_rounding_mode(rm) {
+        Some(mode) => mode
+        None =>
+          return self.raise_trap(
+            IllegalInstruction,
+            current_pc,
+            raw.to_uint64(),
+          )
       }
       let lhs_bits = self.read_freg_double_bits(rs1)
       let rhs_bits = self.read_freg_double_bits(rs2)
@@ -2064,11 +2059,28 @@ fn Runner::execute_fp(
       if f64_div_by_zero_bits(lhs_bits, rhs_bits) {
         self.set_fflags(fp_fflag_dz)
       }
-      let result_bits = f64_bits_from_host(
-        f64_from_bits(lhs_bits) / f64_from_bits(rhs_bits),
-      )
-      if f64_div_inexact_bits(lhs_bits, rhs_bits, result_bits) {
-        self.set_fflags(fp_fflag_nx)
+      let result_bits = match
+        (
+          fp_exact_rational_from_f64_bits(lhs_bits),
+          fp_exact_rational_from_f64_bits(rhs_bits),
+        ) {
+        (Some(lhs), Some(rhs)) =>
+          match fp_exact_rational_div(lhs, rhs) {
+            Some(exact) =>
+              if exact.num.is_zero() {
+                f64_exact_zero_div_bits(lhs_bits, rhs_bits)
+              } else {
+                let rounded = fp_round_rational_to_f64_bits(exact, mode)
+                self.set_fflags(rounded.flags)
+                rounded.bits
+              }
+            None =>
+              f64_bits_from_host(
+                f64_from_bits(lhs_bits) / f64_from_bits(rhs_bits),
+              )
+          }
+        _ =>
+          f64_bits_from_host(f64_from_bits(lhs_bits) / f64_from_bits(rhs_bits))
       }
       self.write_freg_double_bits(rd, result_bits)
       self.cpu.pc = next_pc

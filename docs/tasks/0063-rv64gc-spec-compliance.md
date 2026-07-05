@@ -186,6 +186,10 @@ official coverage improve.
   tininess-after-rounding underflow flags for rounded finite results. Exact
   zero signs are handled explicitly for add/sub cancellation and multiplication
   by zero.
+- `FDIV.D` now uses the same exact-rational-to-double rounding path for finite
+  nonzero divisors. Legal static non-RNE quotients execute where they change the
+  result, NX/OF/UF come from the shared helper, and exact zero quotient signs are
+  handled explicitly.
 - `Zifencei` now has an execute regression for the key same-hart contract:
   fetch and decode an instruction, store a different instruction to the same
   address, execute `FENCE.I`, jump back, and require the replacement instruction
@@ -260,6 +264,9 @@ official coverage improve.
   where RTZ and RUP select adjacent double-precision results and accrue NX.
   A separate regression pins exact-zero signs for `FADD.D`, `FSUB.D`, and
   `FMUL.D`, including the round-down cancellation case.
+- Double-precision division now has matching non-RNE coverage. Focused
+  regressions cover `1.0 / 3.0`, where RTZ and RUP select adjacent
+  double-precision quotients and accrue NX, plus exact zero quotient signs.
 - The first RV64C reserved/hint correction slice is in place. `EBREAK` and
   `C.EBREAK` now trap as architectural breakpoint exceptions instead of illegal
   instructions, RV64C rejects reserved `C.ADDIW rd=x0`, `C.LUI rd=x0` and

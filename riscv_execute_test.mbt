@@ -1172,6 +1172,58 @@ test "rv64fd add sub mul preserve exact zero signs" {
 }
 
 ///|
+test "rv64fd div honors non-rne rounding modes" {
+  let runner = make_runner(rv64fd_machine_config())
+  let csr_fcsr = 0x003
+  runner.cpu.write_freg(1, exec_test_f64_bits(1.0))
+  runner.cpu.write_freg(2, exec_test_f64_bits(3.0))
+  runner.load_program(
+    words_to_bytes([
+      encode_fp_r(0x0dU, 2, 1, 0x1U, 3),
+      encode_fp_r(0x0dU, 2, 1, 0x3U, 4),
+    ]),
+    0U,
+  )
+  match runner.run(2) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected non-RNE rv64fd div to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_freg_u64(3), 0x3fd5555555555555UL)
+  assert_eq(runner.read_freg_u64(4), 0x3fd5555555555556UL)
+  assert_eq(runner.read_csr(csr_fcsr) & 0x1U, 0x1U)
+}
+
+///|
+test "rv64fd div preserves exact zero signs" {
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, exec_test_f64_bits(0.0))
+  runner.cpu.write_freg(2, 0x8000000000000000UL)
+  runner.cpu.write_freg(3, exec_test_f64_bits(1.0))
+  runner.cpu.write_freg(4, exec_test_f64_bits(-1.0))
+  runner.load_program(
+    words_to_bytes([
+      encode_fp_r(0x0dU, 3, 2, 0x0U, 5),
+      encode_fp_r(0x0dU, 4, 1, 0x0U, 6),
+      encode_fp_r(0x0dU, 4, 2, 0x0U, 7),
+    ]),
+    0U,
+  )
+  match runner.run(3) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected exact-zero double division to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_freg_u64(5), 0x8000000000000000UL)
+  assert_eq(runner.read_freg_u64(6), 0x8000000000000000UL)
+  assert_eq(runner.read_freg_u64(7), 0x0000000000000000UL)
+}
+
+///|
 test "rv64fd fused multiply-add accrues invalid for infinity times zero" {
   let csr_fcsr = 0x003
   let runner = make_runner(rv64fd_machine_config())
