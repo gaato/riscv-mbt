@@ -250,6 +250,8 @@ official coverage improve.
   RV64DC forms rather than integer-only RV64C forms: `C.FLD`, `C.FSD`,
   `C.FLDSP`, and `C.FSDSP` trap without `MISA.D` and execute under the FD
   profile.
+  The same RV64DC aliases now also have high zero-extended offset coverage for
+  both register-based and stack-pointer compressed memory layouts.
   The remaining audit is broader reserved/hint behavior beyond those focused
   cases and the official aggregate compressed test.
 - `Zicsr`: CSR decode, read-side and write-side privilege checks,
@@ -670,6 +672,9 @@ official coverage improve.
   `C.FSD`, `C.FLDSP`, and `C.FSDSP` tied to the D extension. The decoder still
   expands them to their ordinary F/D operations, but the execute profile gate
   rejects them under integer-only RV64C and allows them under RV64FD.
+- RV64DC compressed floating double memory coverage now also pins the high
+  unsigned `C.FLD`/`C.FSD` `uimm=248` path and the high unsigned
+  `C.FLDSP`/`C.FSDSP` `uimm=504` path through the floating aliases.
 - RV32C quadrant-2 integer double stack coverage now keeps `C.LDSP` and
   `C.SDSP` reserved in the 32-bit profile while preserving their RV64C
   expansion path.

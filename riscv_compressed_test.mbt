@@ -634,6 +634,34 @@ test "rv64dc compressed floating load and store reuse double memory path" {
 }
 
 ///|
+test "rv64dc compressed floating double memory uses high zero-extended offsets" {
+  // The floating double aliases share the C extension's scattered load/store
+  // offset layouts with the integer double forms, but their legality is tied
+  // to MISA.D. Pin the highest register-based and stack-pointer offsets.
+  let raw = 0x8877665544332211UL
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_reg(2, 0x500U.to_uint64())
+  runner.cpu.write_reg(10, 0x400U.to_uint64())
+  runner.cpu.write_freg(8, raw)
+  runner.load_program(
+    mixed_program_bytes([
+      (2, encode_c_fsd(8, 10, 248).reinterpret_as_uint()),
+      (2, encode_c_fld(9, 10, 248).reinterpret_as_uint()),
+      (2, encode_c_fsdsp(9, 504).reinterpret_as_uint()),
+      (2, encode_c_fldsp(10, 504).reinterpret_as_uint()),
+    ]),
+    0U,
+  )
+  match runner.run(4) {
+    Running => ()
+    _ => fail("expected high-offset compressed floating load/store sequence")
+  }
+  assert_eq(runner.read_freg_u64(9), raw)
+  assert_eq(runner.read_freg_u64(10), raw)
+  assert_eq(runner.pc_u64(), 8U.to_uint64())
+}
+
+///|
 test "rv64c compressed floating double forms require d extension" {
   // The C spec provides compressed double load/store aliases for RV64DC, but
   // they are not integer-only RV64C instructions. Pin this at the execute
