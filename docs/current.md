@@ -108,6 +108,9 @@
   RV32-width-to-double `FCVT.D.W[U]` now validate the otherwise unaffected `rm`
   field for legal/reserved static and dynamic encodings, so legal non-RNE forms
   execute and reserved forms trap instead of being silently accepted.
+  FP-capable runner profiles now start with `mstatus.FS=Initial`, and scalar
+  F/D load/store plus arithmetic execution now traps as illegal when software
+  sets `mstatus.FS=Off`.
 
 - The first RV64C reserved/hint correction slice for Task 0063 is in place.
   `EBREAK` and `C.EBREAK` now raise the architectural breakpoint exception,

@@ -866,6 +866,12 @@ const MSTATUS_MPP_MASK : UInt = 0x1800U
 const MSTATUS_FS_MASK : UInt64 = 0x6000
 
 ///|
+const MSTATUS_FS_INITIAL : UInt64 = 0x2000
+
+///|
+const MSTATUS_FS_DIRTY : UInt64 = 0x6000
+
+///|
 const MSTATUS_SD_BIT : UInt64 = 0x8000000000000000UL
 
 ///|
@@ -1291,7 +1297,7 @@ fn Bus::fetch_u16(self : Bus, addr : UInt64) -> UInt {
 
 ///|
 pub fn make_runner(config : MachineConfig) -> Runner {
-  {
+  let runner = {
     cpu: CpuState::new(
       config.entry_point,
       config.hart_id,
@@ -1362,6 +1368,14 @@ pub fn make_runner(config : MachineConfig) -> Runner {
     translate_cache_fills: 0U.to_uint64(),
     translate_cache_flushes: 0U.to_uint64(),
   }
+  if (config.extensions & MISA_EXT_F) != 0U.to_uint64() {
+    // Reset values for many status fields are platform-defined. For the
+    // emulator's FP-capable test and Linux profiles, start with a legal
+    // enabled-but-clean FP context; software can still set FS=Off and get the
+    // architectural illegal-instruction behavior.
+    runner.cpu.write_csr(CSR_MSTATUS, MSTATUS_FS_INITIAL)
+  }
+  runner
 }
 
 ///|
@@ -1409,7 +1423,7 @@ pub fn make_smp_runners(
       virtio_blk_base: config.virtio_blk_base,
       dtb_addr: config.dtb_addr,
     }
-    harts.push({
+    let runner = {
       cpu: CpuState::new(
         config.entry_point,
         i.to_uint64(),
@@ -1476,7 +1490,13 @@ pub fn make_smp_runners(
       translate_cache_misses: 0U.to_uint64(),
       translate_cache_fills: 0U.to_uint64(),
       translate_cache_flushes: 0U.to_uint64(),
-    })
+    }
+    if (config.extensions & MISA_EXT_F) != 0U.to_uint64() {
+      // Keep SMP hart reset policy aligned with make_runner: FP-capable harts
+      // begin with FS enabled, while explicit FS=Off still traps in execute.
+      runner.cpu.write_csr(CSR_MSTATUS, MSTATUS_FS_INITIAL)
+    }
+    harts.push(runner)
   }
   harts
 }

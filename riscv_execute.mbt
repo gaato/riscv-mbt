@@ -1023,7 +1023,7 @@ fn legalize_mstatus_csr(value : UInt64) -> UInt64 {
   // dirty extension status is FS=Dirty; future VS/XS modeling should join this
   // summary rather than making SD directly writable.
   let without_sd = value & bit_not(MSTATUS_SD_BIT)
-  let fs_dirty = (without_sd & MSTATUS_FS_MASK) >> 13 == 3U.to_uint64()
+  let fs_dirty = (without_sd & MSTATUS_FS_MASK) == MSTATUS_FS_DIRTY
   let summarized = if fs_dirty {
     without_sd | MSTATUS_SD_BIT
   } else {
@@ -1707,14 +1707,18 @@ pub fn Runner::step(self : Runner) -> StepResult {
     Ld(_, _, _) => self.execute_load(instruction, next_pc)
     Lbu(_, _, _) => self.execute_load(instruction, next_pc)
     Lhu(_, _, _) => self.execute_load(instruction, next_pc)
-    Flw(_, _, _) => self.execute_fp_load_store(instruction, next_pc)
-    Fld(_, _, _) => self.execute_fp_load_store(instruction, next_pc)
+    Flw(_, _, _) =>
+      self.execute_fp_load_store(instruction, current_pc, next_pc, raw)
+    Fld(_, _, _) =>
+      self.execute_fp_load_store(instruction, current_pc, next_pc, raw)
     Sb(_, _, _) => self.execute_store(instruction, next_pc)
     Sh(_, _, _) => self.execute_store(instruction, next_pc)
     Sw(_, _, _) => self.execute_store(instruction, next_pc)
     Sd(_, _, _) => self.execute_store(instruction, next_pc)
-    Fsw(_, _, _) => self.execute_fp_load_store(instruction, next_pc)
-    Fsd(_, _, _) => self.execute_fp_load_store(instruction, next_pc)
+    Fsw(_, _, _) =>
+      self.execute_fp_load_store(instruction, current_pc, next_pc, raw)
+    Fsd(_, _, _) =>
+      self.execute_fp_load_store(instruction, current_pc, next_pc, raw)
     Jal(_, _) => self.execute_jump(instruction, next_pc)
     Jalr(_, _, _) => self.execute_jump(instruction, next_pc)
     Csrrw(_, _, _) => self.execute_system(instruction, current_pc, next_pc, raw)

@@ -23,6 +23,14 @@ fn Runner::fp_has_d(self : Runner) -> Bool {
 }
 
 ///|
+fn Runner::fp_context_enabled(self : Runner) -> Bool {
+  // The privileged spec uses mstatus.FS=Off as a context-management trap
+  // point. MISA.F/D only says the instructions exist; FS decides whether the
+  // current software context may execute them.
+  (self.cpu.read_csr(CSR_MSTATUS) & MSTATUS_FS_MASK) != 0U.to_uint64()
+}
+
+///|
 fn Runner::write_freg_single_bits(
   self : Runner,
   rd : Int,
@@ -1578,8 +1586,13 @@ fn Runner::write_fcvt_long_result(
 fn Runner::execute_fp_load_store(
   self : Runner,
   instruction : Instruction,
+  current_pc : UInt64,
   next_pc : UInt64,
+  raw : UInt,
 ) -> StepResult {
+  if !self.fp_context_enabled() {
+    return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+  }
   match instruction {
     Flw(rd, rs1, imm) =>
       self.load_and_write(rs1, imm, 4, next_pc, fn(pa) {
@@ -1612,6 +1625,9 @@ fn Runner::execute_fp(
   next_pc : UInt64,
   raw : UInt,
 ) -> StepResult {
+  if !self.fp_context_enabled() {
+    return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+  }
   match instruction {
     FMAddS(rd, rs1, rs2, rs3, rm) => {
       let mode = match self.fp_effective_rounding_mode(rm) {

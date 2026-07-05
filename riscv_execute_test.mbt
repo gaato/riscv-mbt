@@ -960,6 +960,26 @@ test "rv64 without f rejects scalar f instructions as illegal" {
 }
 
 ///|
+test "rv64f traps floating-point instructions when mstatus fs is off" {
+  let fp_words = [encode_flw(0x100, 0, 1), encode_fp_r(0x00U, 2, 1, 0x0U, 3)]
+  for raw in fp_words {
+    let runner = make_runner(rv64f_machine_config())
+    runner.cpu.write_csr(0x300, 0U.to_uint64())
+    runner.load_program(words_to_bytes([raw]), 0U)
+    match runner.step() {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected illegal instruction cause")
+        }
+        assert_eq(info.trap_value, raw.to_uint64())
+      }
+      _ => fail("expected scalar f instruction to trap when FS=Off")
+    }
+  }
+}
+
+///|
 test "rv64fd move path preserves raw double-precision bits" {
   let raw = exec_test_f64_bits(1.5)
   let runner = make_runner(rv64fd_machine_config())
