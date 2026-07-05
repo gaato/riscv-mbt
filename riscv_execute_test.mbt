@@ -3156,6 +3156,89 @@ test "sret clears mprv when returning below machine mode" {
 }
 
 ///|
+test "mret traps as illegal below machine mode" {
+  let program = words_to_bytes([
+    encode_i(24, 0, 0x0U, 5, 0x13U),
+    encode_csr(0x341, 5, 0x1U, 0),
+    encode_u(0x00001000U, 1, 0x37U),
+    encode_i(-1920, 1, 0x0U, 1, 0x13U),
+    encode_csr(0x300, 1, 0x1U, 0),
+    encode_mret(),
+    encode_mret(),
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(7) {
+    Trap(info) =>
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction for mret below machine mode")
+      }
+    _ => fail("expected mret below machine mode to trap")
+  }
+  assert_eq(runner.pc(), 24U)
+  match runner.privilege_mode() {
+    Machine => ()
+    _ => fail("expected illegal mret trap to enter machine mode")
+  }
+}
+
+///|
+test "sret traps as illegal from user mode" {
+  let program = words_to_bytes([
+    encode_i(20, 0, 0x0U, 5, 0x13U),
+    encode_csr(0x341, 5, 0x1U, 0),
+    encode_i(128, 0, 0x0U, 1, 0x13U),
+    encode_csr(0x300, 1, 0x1U, 0),
+    encode_mret(),
+    encode_sret(),
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(6) {
+    Trap(info) =>
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction for sret from user mode")
+      }
+    _ => fail("expected sret from user mode to trap")
+  }
+  assert_eq(runner.pc(), 20U)
+  match runner.privilege_mode() {
+    Machine => ()
+    _ => fail("expected illegal sret trap to enter machine mode")
+  }
+}
+
+///|
+test "sret traps as illegal from supervisor mode when tsr is set" {
+  let program = words_to_bytes([
+    encode_i(24, 0, 0x0U, 5, 0x13U),
+    encode_csr(0x341, 5, 0x1U, 0),
+    encode_u(0x00401000U, 1, 0x37U),
+    encode_i(-1920, 1, 0x0U, 1, 0x13U),
+    encode_csr(0x300, 1, 0x1U, 0),
+    encode_mret(),
+    encode_sret(),
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(7) {
+    Trap(info) =>
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction for sret with tsr")
+      }
+    _ => fail("expected sret with tsr to trap")
+  }
+  assert_eq(runner.pc(), 24U)
+  match runner.privilege_mode() {
+    Machine => ()
+    _ => fail("expected illegal sret trap to enter machine mode")
+  }
+}
+
+///|
 test "csr instruction families enforce the supported surface and no-write semantics" {
   let program = words_to_bytes([
     encode_i(5, 0, 0x0U, 1, 0x13U),

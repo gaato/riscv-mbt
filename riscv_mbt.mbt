@@ -879,6 +879,9 @@ const MSTATUS_SUM_BIT : UInt64 = 0x40000 // bit 18
 const MSTATUS_MXR_BIT : UInt64 = 0x80000 // bit 19
 
 ///|
+const MSTATUS_TSR_BIT : UInt64 = 0x400000 // bit 22
+
+///|
 const FCSR_FFLAGS_MASK : UInt64 = 0x1f
 
 ///|

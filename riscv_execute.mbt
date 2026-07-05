@@ -1334,8 +1334,8 @@ fn Runner::execute_system(
       self.raise_trap(cause, current_pc, 0U.to_uint64())
     }
     Ebreak => self.raise_trap(Breakpoint, current_pc, 0U.to_uint64())
-    Mret => self.execute_mret()
-    Sret => self.execute_sret()
+    Mret => self.execute_mret(current_pc, raw)
+    Sret => self.execute_sret(current_pc, raw)
     Unknown(_) =>
       self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
     _ => abort("unexpected system dispatch")
@@ -1343,7 +1343,15 @@ fn Runner::execute_system(
 }
 
 ///|
-fn Runner::execute_mret(self : Runner) -> StepResult {
+fn Runner::execute_mret(
+  self : Runner,
+  current_pc : UInt64,
+  raw : UInt,
+) -> StepResult {
+  match self.cpu.privilege {
+    Machine => ()
+    _ => return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+  }
   // Return instructions restore privilege and interrupt-enable state from
   // mstatus before jumping to the saved EPC. The helper functions encode the
   // bit shuffling so this path stays readable.
@@ -1355,10 +1363,23 @@ fn Runner::execute_mret(self : Runner) -> StepResult {
 }
 
 ///|
-fn Runner::execute_sret(self : Runner) -> StepResult {
+fn Runner::execute_sret(
+  self : Runner,
+  current_pc : UInt64,
+  raw : UInt,
+) -> StepResult {
+  let sret_from_supervisor = match self.cpu.privilege {
+    Machine => false
+    Supervisor => true
+    User =>
+      return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+  }
   // SRET is the same shape as MRET but uses SPP/SPIE and sepc. Linux relies on
   // this during every user/kernel boundary after userspace is alive.
   let mstatus = self.cpu.read_csr(CSR_MSTATUS)
+  if sret_from_supervisor && (mstatus & MSTATUS_TSR_BIT) != 0U.to_uint64() {
+    return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+  }
   self.cpu.write_csr(CSR_MSTATUS, mstatus_after_sret(mstatus))
   self.cpu.privilege = mstatus_spp(mstatus)
   self.cpu.pc = legalize_epc_csr(self.cpu.read_csr(CSR_SEPC))

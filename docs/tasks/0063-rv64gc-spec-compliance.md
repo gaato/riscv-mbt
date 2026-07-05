@@ -316,3 +316,7 @@ official coverage improve.
   return target is below M-mode, `mstatus.MPRV` is cleared so later data
   accesses cannot continue using the old MPP override. Focused regressions cover
   MRET-to-U, SRET-to-S, and the MRET-to-M preservation case.
+- Return-instruction privilege checks now match the modeled privileged surface:
+  `MRET` raises illegal instruction outside M-mode, `SRET` raises illegal
+  instruction from U-mode, and S-mode `SRET` raises illegal instruction when
+  `mstatus.TSR` is set. Focused regressions cover all three cases.
