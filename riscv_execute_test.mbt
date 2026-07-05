@@ -5890,12 +5890,13 @@ test "zero-mask set and clear forms read address-read-only csrs" {
       encode_csr(mhartid, 0, 0x3U, 3),
       encode_csr(mconfigptr, 0, 0x6U, 4),
       encode_csr(mconfigptr, 0, 0x7U, 5),
-      encode_csr(time, 0, 0x2U, 6),
-      encode_csr(time, 0, 0x7U, 7),
+      encode_csr(0xC00, 0, 0x2U, 6), // CSRRS x6, cycle, x0
+      encode_csr(time, 0, 0x7U, 7), // CSRRCI x7, time, 0
+      encode_csr(0xC02, 0, 0x3U, 8), // CSRRC x8, instret, x0
     ]),
     0x80000000U.to_uint64(),
   )
-  match runner.run(6) {
+  match runner.run(7) {
     Running => ()
     _ => fail("expected zero-mask read-only CSR forms to run")
   }
@@ -5905,6 +5906,7 @@ test "zero-mask set and clear forms read address-read-only csrs" {
   assert_eq(runner.read_reg_u64(5), 0U.to_uint64())
   assert_true(runner.read_reg_u64(6) > 0U.to_uint64())
   assert_true(runner.read_reg_u64(7) >= runner.read_reg_u64(6))
+  assert_true(runner.read_reg_u64(8) >= runner.read_reg_u64(6))
 }
 
 ///|
