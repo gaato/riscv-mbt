@@ -3079,6 +3079,83 @@ test "mret restores user mode when mpp is user and promotes mie from mpie" {
 }
 
 ///|
+test "mret clears mprv when returning below machine mode" {
+  let program = words_to_bytes([
+    encode_u(0U, 5, 0x17U),
+    encode_i(28, 5, 0x0U, 5, 0x13U),
+    encode_csr(0x341, 5, 0x1U, 0),
+    encode_u(0x00020000U, 1, 0x37U),
+    encode_i(128, 1, 0x0U, 1, 0x13U),
+    encode_csr(0x300, 1, 0x1U, 0),
+    encode_mret(),
+    encode_i(1, 0, 0x0U, 2, 0x13U),
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(8) {
+    Running => ()
+    _ => fail("expected mret to user mode to run")
+  }
+  assert_eq(runner.read_reg(2), 1U)
+  match runner.privilege_mode() {
+    User => ()
+    _ => fail("expected user privilege restored from mpp")
+  }
+  assert_eq(runner.read_csr(0x300), 0x88U)
+}
+
+///|
+test "mret preserves mprv when returning to machine mode" {
+  let program = words_to_bytes([
+    encode_u(0U, 5, 0x17U),
+    encode_i(28, 5, 0x0U, 5, 0x13U),
+    encode_csr(0x341, 5, 0x1U, 0),
+    encode_u(0x00022000U, 1, 0x37U),
+    encode_i(-1920, 1, 0x0U, 1, 0x13U),
+    encode_csr(0x300, 1, 0x1U, 0),
+    encode_mret(),
+    encode_i(1, 0, 0x0U, 2, 0x13U),
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(8) {
+    Running => ()
+    _ => fail("expected mret to machine mode to run")
+  }
+  assert_eq(runner.read_reg(2), 1U)
+  match runner.privilege_mode() {
+    Machine => ()
+    _ => fail("expected machine privilege restored from mpp")
+  }
+  assert_eq(runner.read_csr(0x300), 0x20088U)
+}
+
+///|
+test "sret clears mprv when returning below machine mode" {
+  let program = words_to_bytes([
+    encode_i(24, 0, 0x0U, 5, 0x13U),
+    encode_csr(0x141, 5, 0x1U, 0),
+    encode_u(0x00020000U, 1, 0x37U),
+    encode_i(288, 1, 0x0U, 1, 0x13U),
+    encode_csr(0x300, 1, 0x1U, 0),
+    encode_sret(),
+    encode_i(1, 0, 0x0U, 2, 0x13U),
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(7) {
+    Running => ()
+    _ => fail("expected sret to supervisor mode to run")
+  }
+  assert_eq(runner.read_reg(2), 1U)
+  match runner.privilege_mode() {
+    Supervisor => ()
+    _ => fail("expected supervisor privilege restored from spp")
+  }
+  assert_eq(runner.read_csr(0x300), 0x22U)
+}
+
+///|
 test "csr instruction families enforce the supported surface and no-write semantics" {
   let program = words_to_bytes([
     encode_i(5, 0, 0x0U, 1, 0x13U),

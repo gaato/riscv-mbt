@@ -130,6 +130,8 @@
   remains representable for the RV64GC compressed-instruction baseline.
 - `mstatus.MPP` now normalizes the reserved privilege encoding 2 to U-mode on
   visible CSR writes, while preserving legal U/S/M return-mode encodings.
+- `MRET` and `SRET` now clear `mstatus.MPRV` when returning to a privilege mode
+  below M, while preserving `MPRV` for `MRET` returns that stay in M-mode.
 
 ## Known Blockers
 

@@ -842,18 +842,46 @@ fn set_mstatus_mpp(value : UInt64, mode : PrivilegeMode) -> UInt64 {
 }
 
 ///|
+fn set_mstatus_mprv(value : UInt64, enabled : Bool) -> UInt64 {
+  if enabled {
+    value | MSTATUS_MPRV_BIT
+  } else {
+    value & bit_not(MSTATUS_MPRV_BIT)
+  }
+}
+
+///|
+fn mstatus_after_xret_mprv(value : UInt64, target : PrivilegeMode) -> UInt64 {
+  // The privileged spec keeps MPRV active only across returns that stay in
+  // machine mode. A return to S/U cannot leave later data accesses using the
+  // old MPP override, so clear the bit in the shared xRET status helper.
+  match target {
+    Machine => value
+    _ => set_mstatus_mprv(value, false)
+  }
+}
+
+///|
 fn mstatus_after_mret(mstatus : UInt64) -> UInt64 {
-  set_mstatus_mpie(
-    set_mstatus_mie(set_mstatus_mpp(mstatus, User), mstatus_mpie(mstatus)),
-    true,
+  let target = mstatus_mpp(mstatus)
+  mstatus_after_xret_mprv(
+    set_mstatus_mpie(
+      set_mstatus_mie(set_mstatus_mpp(mstatus, User), mstatus_mpie(mstatus)),
+      true,
+    ),
+    target,
   )
 }
 
 ///|
 fn mstatus_after_sret(mstatus : UInt64) -> UInt64 {
-  set_mstatus_spp(
-    set_mstatus_spie(set_mstatus_sie(mstatus, mstatus_spie(mstatus)), true),
-    User,
+  let target = mstatus_spp(mstatus)
+  mstatus_after_xret_mprv(
+    set_mstatus_spp(
+      set_mstatus_spie(set_mstatus_sie(mstatus, mstatus_spie(mstatus)), true),
+      User,
+    ),
+    target,
   )
 }
 

@@ -312,3 +312,7 @@ official coverage improve.
 - `mstatus.MPP` now treats reserved privilege encoding 2 as a WARL value and
   normalizes it to U-mode on visible `mstatus`/`sstatus` writes. A focused CSR
   regression covers readback of the normalized field.
+- `MRET` and `SRET` now apply the privileged-spec `MPRV` return rule: when the
+  return target is below M-mode, `mstatus.MPRV` is cleared so later data
+  accesses cannot continue using the old MPP override. Focused regressions cover
+  MRET-to-U, SRET-to-S, and the MRET-to-M preservation case.
