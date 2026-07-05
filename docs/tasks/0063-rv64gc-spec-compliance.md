@@ -182,9 +182,10 @@ official coverage improve.
   `riscv_compressed_test.mbt`, and the upstream `rv64uc-p-rvc` binary is now
   part of the gating manifest. The RV64C reserved/hint audit now covers
   `C.EBREAK`, `C.ADDIW rd=x0`, `C.LUI rd=x0`, `C.SLLI rd=x0`, 6-bit RV64
-  `C.SLLI` shift amounts, `C.FLDSP f0`, and the RV32C custom-extension
-  `shamt[5]=1` space for `C.SLLI`, `C.SRLI`, and `C.SRAI`, including the
-  `C.SLLI rd=x0` hint-looking form. The zero-immediate reserved space for
+  `C.SLLI` shift amounts, legal `C.ADDIW imm=0` sign-extension behavior,
+  `C.FLDSP f0`, and the RV32C custom-extension `shamt[5]=1` space for
+  `C.SLLI`, `C.SRLI`, and `C.SRAI`, including the `C.SLLI rd=x0` hint-looking
+  form. The zero-immediate reserved space for
   `C.LUI` and `C.ADDI16SP` is now pinned by focused RV64C regressions, keeping
   reserved traps distinct from the nearby nonzero hint encodings.
   Integer stack-load reserved forms for `C.LWSP rd=x0` and `C.LDSP rd=x0` are
@@ -562,9 +563,10 @@ official coverage improve.
 - The first RV64C reserved/hint correction slice is in place. `EBREAK` and
   `C.EBREAK` now trap as architectural breakpoint exceptions instead of illegal
   instructions, RV64C rejects reserved `C.ADDIW rd=x0`, `C.LUI rd=x0` and
-  `C.SLLI rd=x0` execute as ignored hints, `C.SLLI` uses the unsigned 6-bit
-  RV64 shift amount, and `C.FLDSP` can target valid floating-point register
-  `f0`. Focused decode/execute regressions cover each case.
+  `C.SLLI rd=x0` execute as ignored hints, legal `C.ADDIW imm=0` executes as
+  `sext.w rd`, `C.SLLI` uses the unsigned 6-bit RV64 shift amount, and
+  `C.FLDSP` can target valid floating-point register `f0`. Focused
+  decode/execute regressions cover each case.
 - RV32C compressed shift decode now rejects the standard-reserved/custom
   `shamt[5]=1` code points for `C.SLLI`, `C.SRLI`, and `C.SRAI`, while
   preserving the existing RV64C 6-bit shift behavior.

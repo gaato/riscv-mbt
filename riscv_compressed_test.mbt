@@ -943,12 +943,19 @@ test "rv64 carries forward the supported compressed subset through the mixed-wid
 
 ///|
 test "rv64c addiw executes where rv32c uses the c.jal opcode quadrant" {
-  let raw = encode_c_addiw(9, 2).reinterpret_as_uint()
   let runner = make_runner(rv64_machine_config())
-  runner.load_program(mixed_program_bytes([(2, raw)]), 0U)
-  match runner.step() {
+  runner.cpu.write_reg(10, 0x00000000ffffffffUL)
+  runner.load_program(
+    mixed_program_bytes([
+      (2, encode_c_addiw(9, 2).reinterpret_as_uint()),
+      (2, encode_c_addiw(10, 0).reinterpret_as_uint()),
+    ]),
+    0U,
+  )
+  match runner.run(2) {
     Running => ()
     _ => fail("expected valid rv64 c.addiw encoding to run")
   }
   assert_eq(runner.read_reg_u64(9), 2U.to_uint64())
+  assert_eq(runner.read_reg_u64(10), 0xffffffffffffffffUL)
 }
