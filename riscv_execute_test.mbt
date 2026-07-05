@@ -3842,7 +3842,7 @@ test "csr contract distinguishes modeled, compatibility-only, and unsupported cs
     _ => fail("expected modeled and compatibility-only writes to run")
   }
   assert_eq(runner.read_csr(0x344), 5U)
-  assert_eq(runner.read_csr(0x302), 5U)
+  assert_eq(runner.read_csr(0x302), 4U)
   let unsupported = encode_csr(0x7A0, 1, 0x1U, 0)
   let trap_runner = make_runner(default_machine_config())
   trap_runner.load_program(words_to_bytes([unsupported]), 0U)
@@ -3856,6 +3856,29 @@ test "csr contract distinguishes modeled, compatibility-only, and unsupported cs
     }
     _ => fail("expected unsupported csr trap")
   }
+}
+
+///|
+test "delegation csrs expose only supported writable bits" {
+  let medeleg = 0x302
+  let mideleg = 0x303
+  let program = words_to_bytes([
+    encode_i(-1, 0, 0x0U, 1, 0x13U),
+    encode_csr(medeleg, 1, 0x1U, 0),
+    encode_csr(mideleg, 1, 0x1U, 0),
+    encode_csr(medeleg, 0, 0x2U, 2),
+    encode_csr(mideleg, 0, 0x2U, 3),
+  ])
+  let runner = make_runner(virt_machine_config())
+  runner.load_program_u64(program, 0x80000000U.to_uint64())
+  match runner.run(5) {
+    Running => ()
+    _ => fail("expected delegation WARL program to run")
+  }
+  assert_eq(runner.read_reg_u64(2), 0xb3aeU.to_uint64())
+  assert_eq(runner.read_reg_u64(3), 0x222U.to_uint64())
+  assert_eq(runner.read_csr_u64(medeleg), 0xb3aeU.to_uint64())
+  assert_eq(runner.read_csr_u64(mideleg), 0x222U.to_uint64())
 }
 
 ///|

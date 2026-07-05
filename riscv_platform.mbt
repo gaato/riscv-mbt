@@ -1081,7 +1081,7 @@ fn Runner::delegated_interrupt_target(
   cause : TrapCause,
   prior_privilege : PrivilegeMode,
 ) -> PrivilegeMode {
-  let mideleg = self.cpu.read_csr(CSR_MIDELEG)
+  let mideleg = self.read_csr_visible(CSR_MIDELEG)
   let code = trap_cause_code(cause) & bit_not(1U.to_uint64() << 63)
   let bit = 1U.to_uint64() << code.to_int()
   // Cannot delegate to a privilege higher than or equal to the trapping privilege
@@ -1111,7 +1111,7 @@ fn Runner::delegated_exception_target(
   }
   let cause_code = trap_cause_code(cause)
   let cause_shift = cause_code.reinterpret_as_int64().to_int()
-  let medeleg = self.cpu.read_csr(CSR_MEDELEG)
+  let medeleg = self.read_csr_visible(CSR_MEDELEG)
   let delegated = (medeleg & (1U.to_uint64() << cause_shift)) != 0U.to_uint64()
   if delegated {
     Supervisor

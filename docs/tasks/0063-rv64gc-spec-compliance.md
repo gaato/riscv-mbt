@@ -126,6 +126,9 @@ official coverage improve.
   `mideleg`; `sie` writes update only those delegated enable bits, and `sip`
   writes update only delegated SSIP while STIP/SEIP remain pending bits supplied
   by the machine/platform path.
+  `medeleg` and `mideleg` now apply WARL masks on read, write, and internal
+  trap-routing paths. `medeleg` exposes the modeled delegatable exception
+  causes (`0xb3ae`), while `mideleg` exposes only SSI/STI/SEI (`0x222`).
   `mstatus.MPP` now rejects the reserved privilege encoding 2 at the CSR write
   boundary. The remaining audit is a spec pass over remaining WARL behavior,
   read-only/write-ignored fields, and privilege-visible side effects for every
@@ -353,6 +356,9 @@ official coverage improve.
 - `sip`/`sie` are now delegated views of `mip`/`mie` instead of unconditional
   aliases for SSI/STI/SEI. Focused regressions cover non-delegated readback,
   delegated `sie` writes, and `sip` writes that affect only SSIP.
+- `medeleg`/`mideleg` no longer store arbitrary compatibility bits. Focused
+  coverage writes all ones and verifies the supported delegatable exception and
+  interrupt bit surfaces are the only values that read back or affect routing.
 - `MRET` and `SRET` now apply the privileged-spec `MPRV` return rule: when the
   return target is below M-mode, `mstatus.MPRV` is cleared so later data
   accesses cannot continue using the old MPP override. Focused regressions cover

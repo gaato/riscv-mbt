@@ -990,6 +990,8 @@ fn Runner::read_csr_visible(self : Runner, csr : Int) -> UInt64 {
     CSR_SSTATUS =>
       legalize_mstatus_csr(self.cpu.read_csr(CSR_MSTATUS), self.config.xlen) &
       SSTATUS_VISIBLE_MASK
+    CSR_MEDELEG => legalize_medeleg_csr(self.cpu.read_csr(CSR_MEDELEG))
+    CSR_MIDELEG => legalize_mideleg_csr(self.cpu.read_csr(CSR_MIDELEG))
     CSR_SIP => self.cpu.read_csr(CSR_MIP) & self.delegated_s_interrupt_mask()
     CSR_SIE => self.cpu.read_csr(CSR_MIE) & self.delegated_s_interrupt_mask()
     _ => self.cpu.read_csr(csr)
@@ -1000,7 +1002,7 @@ fn Runner::read_csr_visible(self : Runner, csr : Int) -> UInt64 {
 fn Runner::delegated_s_interrupt_mask(self : Runner) -> UInt64 {
   // sip/sie are restricted views of mip/mie. Supervisor-visible interrupt bits
   // appear only after M-mode delegates the corresponding source through mideleg.
-  self.cpu.read_csr(CSR_MIDELEG) & SIP_VISIBLE_MASK
+  legalize_mideleg_csr(self.cpu.read_csr(CSR_MIDELEG)) & SIP_VISIBLE_MASK
 }
 
 ///|
@@ -1030,6 +1032,21 @@ fn legalize_epc_csr(value : UInt64) -> UInt64 {
   // representable for this RV64GC baseline because compressed instructions make
   // IALIGN=16.
   value & bit_not(1U.to_uint64())
+}
+
+///|
+fn legalize_medeleg_csr(value : UInt64) -> UInt64 {
+  // This RV64GC profile delegates only exception causes the emulator can raise
+  // from U/S-mode. Machine-only causes such as M-mode ecall remain read-only
+  // zero as required by the privileged architecture.
+  value & MEDELEG_WRITABLE_MASK
+}
+
+///|
+fn legalize_mideleg_csr(value : UInt64) -> UInt64 {
+  // S-level software, timer, and external interrupts are the only delegated
+  // interrupt sources modeled for the current QEMU-virt-like single-hart path.
+  value & MIDELEG_WRITABLE_MASK
 }
 
 ///|
@@ -1075,6 +1092,8 @@ fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
     CSR_MTVEC | CSR_STVEC =>
       self.cpu.write_csr(csr, legalize_trap_vector_csr(value))
     CSR_MEPC | CSR_SEPC => self.cpu.write_csr(csr, legalize_epc_csr(value))
+    CSR_MEDELEG => self.cpu.write_csr(csr, legalize_medeleg_csr(value))
+    CSR_MIDELEG => self.cpu.write_csr(csr, legalize_mideleg_csr(value))
     CSR_MSTATUS =>
       self.cpu.write_csr(csr, legalize_mstatus_csr(value, self.config.xlen))
     CSR_FFLAGS => {
@@ -1567,7 +1586,7 @@ fn Runner::take_pending_interrupt(self : Runner) -> StepResult? {
     return None
   }
   let mstatus = self.cpu.read_csr(CSR_MSTATUS)
-  let mideleg = self.cpu.read_csr(CSR_MIDELEG)
+  let mideleg = self.read_csr_visible(CSR_MIDELEG)
   // Machine-level interrupts: bits NOT in mideleg
   let m_pending = pending & bit_not(mideleg)
   let m_enabled = match self.cpu.privilege {

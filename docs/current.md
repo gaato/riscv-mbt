@@ -127,6 +127,10 @@
   CSRs, `sie` writes affect only delegated SSI/STI/SEI enable bits, and `sip`
   writes affect only delegated SSIP; STIP/SEIP pending state is supplied through
   the machine/platform path.
+- `medeleg` and `mideleg` now apply WARL masks on read, write, and trap routing.
+  The modeled delegatable exception surface is `0xb3ae`, and delegated
+  interrupts are limited to SSI/STI/SEI (`0x222`); machine-only causes remain
+  read-only zero.
 
 - The first RV64C reserved/hint correction slice for Task 0063 is in place.
   `EBREAK` and `C.EBREAK` now raise the architectural breakpoint exception,
