@@ -1085,12 +1085,34 @@ fn Runner::counter_csr_accessible(self : Runner, csr : Int) -> Bool {
 }
 
 ///|
+fn privilege_rank(mode : PrivilegeMode) -> Int {
+  match mode {
+    User => 0
+    Supervisor => 1
+    Machine => 3
+  }
+}
+
+///|
+fn csr_min_privilege_rank(csr : Int) -> Int {
+  (csr >> 8) & 0x3
+}
+
+///|
+fn Runner::csr_privilege_accessible(self : Runner, csr : Int) -> Bool {
+  privilege_rank(self.cpu.privilege) >= csr_min_privilege_rank(csr)
+}
+
+///|
 fn Runner::read_csr_checked(self : Runner, csr : Int) -> UInt64? {
   if self.xlen_bits() == XLEN_64 {
     match csr {
       CSR_CYCLEH | CSR_TIMEH | CSR_INSTRETH => return None
       _ => ()
     }
+  }
+  if !self.csr_privilege_accessible(csr) {
+    return None
   }
   if !self.counter_csr_accessible(csr) {
     return None

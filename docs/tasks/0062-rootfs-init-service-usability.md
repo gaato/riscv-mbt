@@ -199,3 +199,9 @@ but it is not the same as a more ordinary Alpine service environment.
   gating change still reaches `post-init-system-ok` at 606,000,000 guest steps
   with the same command trace shape, confirming that the stricter counter CSR
   access rules do not break the current full-rootfs system path.
+- CSR access now also honors the CSR address privilege field before the
+  supported-CSR table and `counteren` checks. S-mode access to M-mode CSRs and
+  U-mode access to S-mode CSRs trap as illegal instructions, while S-mode access
+  to S-mode CSRs still works. The regression test again uses real `mret`
+  transitions, keeping this as emulator-side privilege hardening rather than
+  another OpenRC-specific probe variant.

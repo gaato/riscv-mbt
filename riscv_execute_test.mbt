@@ -1777,6 +1777,79 @@ test "counter csr reads obey mcounteren and scounteren privilege gates" {
 }
 
 ///|
+test "csr address privilege bits gate supervisor and machine csrs" {
+  let read_mstatus = encode_csr(0x300, 0, 0x2U, 1)
+  let supervisor_machine_denied = make_runner(rv64_machine_config())
+  supervisor_machine_denied.load_program(
+    words_to_bytes([
+      encode_i(24, 0, 0x0U, 5, 0x13U),
+      encode_csr(0x341, 5, 0x1U, 0),
+      encode_u(0x00001000U, 3, 0x37U),
+      encode_i(-2048, 3, 0x0U, 3, 0x13U),
+      encode_csr(0x300, 3, 0x1U, 0),
+      encode_mret(),
+      read_mstatus,
+    ]),
+    0U,
+  )
+  match supervisor_machine_denied.run(7) {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected supervisor access to machine CSR to trap")
+      }
+      assert_eq(info.trap_value, read_mstatus.to_uint64())
+    }
+    _ => fail("expected supervisor access to machine CSR trap")
+  }
+
+  let read_sstatus = encode_csr(0x100, 0, 0x2U, 1)
+  let supervisor_allowed = make_runner(rv64_machine_config())
+  supervisor_allowed.load_program(
+    words_to_bytes([
+      encode_i(24, 0, 0x0U, 5, 0x13U),
+      encode_csr(0x341, 5, 0x1U, 0),
+      encode_u(0x00001000U, 3, 0x37U),
+      encode_i(-2048, 3, 0x0U, 3, 0x13U),
+      encode_csr(0x300, 3, 0x1U, 0),
+      encode_mret(),
+      read_sstatus,
+    ]),
+    0U,
+  )
+  match supervisor_allowed.run(7) {
+    Running => ()
+    _ => fail("expected supervisor access to supervisor CSR")
+  }
+  match supervisor_allowed.privilege_mode() {
+    Supervisor => ()
+    _ => fail("expected supervisor mode after mret")
+  }
+
+  let user_supervisor_denied = make_runner(rv64_machine_config())
+  user_supervisor_denied.load_program(
+    words_to_bytes([
+      encode_i(16, 0, 0x0U, 5, 0x13U),
+      encode_csr(0x341, 5, 0x1U, 0),
+      encode_csr(0x300, 0, 0x5U, 0),
+      encode_mret(),
+      read_sstatus,
+    ]),
+    0U,
+  )
+  match user_supervisor_denied.run(5) {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected user access to supervisor CSR to trap")
+      }
+      assert_eq(info.trap_value, read_sstatus.to_uint64())
+    }
+    _ => fail("expected user access to supervisor CSR trap")
+  }
+}
+
+///|
 test "unsupported csr access traps as illegal instruction" {
   let raw = encode_csr(0x7A0, 0, 0x2U, 1)
   let runner = make_runner(default_machine_config())
