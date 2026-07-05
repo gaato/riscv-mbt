@@ -912,6 +912,9 @@ const SSTATUS_VISIBLE_MASK : UInt64 = 0xC0122 |
 const SIP_VISIBLE_MASK : UInt64 = 0x222
 
 ///|
+const SIP_WRITABLE_MASK : UInt64 = 0x2
+
+///|
 const MSTATUS_MPRV_BIT : UInt64 = 0x20000 // bit 17
 
 ///|

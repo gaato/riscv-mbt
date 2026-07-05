@@ -122,6 +122,11 @@
   memory system: `mstatus.MBE`, `mstatus.SBE`, and `mstatus.UBE`, plus
   `sstatus.UBE`, are visible where appropriate but normalize to read-only zero
   on writes.
+- `sip` and `sie` now behave as `mip`/`mie` views restricted by `mideleg`.
+  Non-delegated supervisor interrupt bits read as zero through the supervisor
+  CSRs, `sie` writes affect only delegated SSI/STI/SEI enable bits, and `sip`
+  writes affect only delegated SSIP; STIP/SEIP pending state is supplied through
+  the machine/platform path.
 
 - The first RV64C reserved/hint correction slice for Task 0063 is in place.
   `EBREAK` and `C.EBREAK` now raise the architectural breakpoint exception,

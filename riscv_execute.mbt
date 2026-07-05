@@ -990,10 +990,24 @@ fn Runner::read_csr_visible(self : Runner, csr : Int) -> UInt64 {
     CSR_SSTATUS =>
       legalize_mstatus_csr(self.cpu.read_csr(CSR_MSTATUS), self.config.xlen) &
       SSTATUS_VISIBLE_MASK
-    CSR_SIP => self.cpu.read_csr(CSR_MIP) & SIP_VISIBLE_MASK
-    CSR_SIE => self.cpu.read_csr(CSR_MIE) & SIP_VISIBLE_MASK
+    CSR_SIP => self.cpu.read_csr(CSR_MIP) & self.delegated_s_interrupt_mask()
+    CSR_SIE => self.cpu.read_csr(CSR_MIE) & self.delegated_s_interrupt_mask()
     _ => self.cpu.read_csr(csr)
   }
+}
+
+///|
+fn Runner::delegated_s_interrupt_mask(self : Runner) -> UInt64 {
+  // sip/sie are restricted views of mip/mie. Supervisor-visible interrupt bits
+  // appear only after M-mode delegates the corresponding source through mideleg.
+  self.cpu.read_csr(CSR_MIDELEG) & SIP_VISIBLE_MASK
+}
+
+///|
+fn Runner::writable_sip_mask(self : Runner) -> UInt64 {
+  // Through the supervisor view, only SSIP is software-writable. Timer and
+  // external interrupt pending bits are supplied by the execution environment.
+  self.delegated_s_interrupt_mask() & SIP_WRITABLE_MASK
 }
 
 ///|
@@ -1098,17 +1112,16 @@ fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
     }
     CSR_SIP => {
       let mip = self.cpu.read_csr(CSR_MIP)
+      let writable = self.writable_sip_mask()
       self.cpu.write_csr(
         CSR_MIP,
-        (mip & bit_not(SIP_VISIBLE_MASK)) | (value & SIP_VISIBLE_MASK),
+        (mip & bit_not(writable)) | (value & writable),
       )
     }
     CSR_SIE => {
       let mie = self.cpu.read_csr(CSR_MIE)
-      self.cpu.write_csr(
-        CSR_MIE,
-        (mie & bit_not(SIP_VISIBLE_MASK)) | (value & SIP_VISIBLE_MASK),
-      )
+      let visible = self.delegated_s_interrupt_mask()
+      self.cpu.write_csr(CSR_MIE, (mie & bit_not(visible)) | (value & visible))
     }
     CSR_SATP => {
       // WARL: satp.MODE field. Only mode=0 (Bare) and mode=8 (Sv39) are

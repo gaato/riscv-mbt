@@ -117,7 +117,7 @@ fn exec_test_supervisor_interrupt_program(
     encode_i(interrupt_mask, 0, 0x0U, 1, 0x13U),
     encode_csr(0x303, 1, 0x1U, 0),
     encode_csr(0x104, 1, 0x1U, 0),
-    encode_csr(0x144, 1, 0x1U, 0),
+    encode_csr(0x344, 1, 0x1U, 0),
     encode_i(2, 0, 0x0U, 2, 0x13U),
     encode_csr(0x100, 2, 0x1U, 0),
     encode_i(44, 0, 0x0U, 5, 0x13U),
@@ -8202,24 +8202,29 @@ test "MIP.MTIP cleared when mtimecmp raised above mtime" {
 }
 
 ///|
-test "SIE is masked view of MIE (bits 1,5,9)" {
-  // Write 0xFFFF to MIE directly, then read SIE — should see only bits 1,5,9.
+test "SIE is masked by delegated supervisor interrupt bits" {
+  // Write 0xFFFF to MIE directly. Without mideleg, SIE reads as zero; after
+  // delegating SSI/STI/SEI, SIE exposes the matching bits 1,5,9.
   // 1. ADDI x1, x0, -1   → x1 = 0xFFFF...FFFF
   // 2. CSRRW x0, MIE, x1 → MIE = 0xFFFF...FFFF
-  // 3. CSRRS x2, SIE, x0 → x2 = MIE & 0x222 (read SIE, no write since rs1=x0)
+  // 3. CSRRS x2, SIE, x0 → x2 = 0, because no S interrupts are delegated
+  // 4. CSRRW x0, MIDELEG, x1
+  // 5. CSRRS x3, SIE, x0 → x3 = MIE & MIDELEG & 0x222
   let program = words_to_bytes([
     encode_i(-1, 0, 0x0U, 1, 0x13U),
     encode_csr(0x304, 1, 0x1U, 0),
     encode_csr(0x104, 0, 0x2U, 2),
+    encode_csr(0x303, 1, 0x1U, 0),
+    encode_csr(0x104, 0, 0x2U, 3),
   ])
   let runner = make_runner(virt_machine_config())
   runner.load_program_u64(program, 0x80000000U.to_uint64())
-  match runner.run(3) {
+  match runner.run(5) {
     Running => ()
     _ => fail("expected running")
   }
-  // SIE should show only bits 1, 5, 9 = 0x222
-  assert_eq(runner.read_reg_u64(2), 0x222U.to_uint64())
+  assert_eq(runner.read_reg_u64(2), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(3), 0x222U.to_uint64())
   // MIE should have all bits set
   let mie = runner.cpu.read_csr(0x304)
   assert_eq(mie & 0xFFFU.to_uint64(), 0xFFFU.to_uint64())
@@ -8235,13 +8240,14 @@ test "CSRRW to SIE only affects bits 1,5,9 of MIE" {
   // 4. CSRRS x4, MIE, x0   → x4 = current MIE (read MIE)
   let program = words_to_bytes([
     encode_i(-1, 0, 0x0U, 1, 0x13U),
+    encode_csr(0x303, 1, 0x1U, 0),
     encode_csr(0x304, 1, 0x1U, 0),
     encode_csr(0x104, 0, 0x1U, 3),
     encode_csr(0x304, 0, 0x2U, 4),
   ])
   let runner = make_runner(virt_machine_config())
   runner.load_program_u64(program, 0x80000000U.to_uint64())
-  match runner.run(4) {
+  match runner.run(5) {
     Running => ()
     _ => fail("expected running")
   }
@@ -8265,6 +8271,8 @@ test "SIP is masked view of MIP; write does not affect MTIP" {
   // 6. CSRRS x4, SIP, x0    → read SIP into x4
   let nop = encode_i(0, 0, 0x0U, 0, 0x13U)
   let program = words_to_bytes([
+    encode_i(2, 0, 0x0U, 5, 0x13U),
+    encode_csr(0x303, 5, 0x1U, 0),
     encode_u(0x02004000U, 1, 0x37U),
     encode_i(1, 0, 0x0U, 2, 0x13U),
     encode_s(0, 2, 1, 0x3U, 0x23U),
@@ -8274,7 +8282,7 @@ test "SIP is masked view of MIP; write does not affect MTIP" {
   ])
   let runner = make_runner(virt_machine_config())
   runner.load_program_u64(program, 0x80000000U.to_uint64())
-  match runner.run(6) {
+  match runner.run(8) {
     Running => ()
     _ => fail("expected running")
   }
@@ -8286,6 +8294,26 @@ test "SIP is masked view of MIP; write does not affect MTIP" {
   // SIP read (x4) should show SSIP (bit 1) only, not MTIP (bit 7)
   // STIP (bit 5) is also not set, SEIP (bit 9) not set
   assert_eq(runner.read_reg_u64(4), 0x02U.to_uint64())
+}
+
+///|
+test "SIP writes affect only delegated SSIP through supervisor view" {
+  let program = words_to_bytes([
+    encode_i(-1, 0, 0x0U, 1, 0x13U),
+    encode_csr(0x303, 1, 0x1U, 0),
+    encode_csr(0x144, 1, 0x1U, 2),
+    encode_csr(0x144, 0, 0x2U, 3),
+    encode_csr(0x344, 0, 0x2U, 4),
+  ])
+  let runner = make_runner(virt_machine_config())
+  runner.load_program_u64(program, 0x80000000U.to_uint64())
+  match runner.run(5) {
+    Running => ()
+    _ => fail("expected SIP read-only pending bits test to run")
+  }
+  assert_eq(runner.read_reg_u64(2), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(3), 0x2U.to_uint64())
+  assert_eq(runner.read_reg_u64(4) & 0x222U.to_uint64(), 0x2U.to_uint64())
 }
 
 ///|

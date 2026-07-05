@@ -122,6 +122,10 @@ official coverage improve.
   The endian-control fields now match the emulator's little-endian-only memory
   system: `mstatus.MBE`, `mstatus.SBE`, and `mstatus.UBE`, plus `sstatus.UBE`,
   are visible where architecturally exposed but normalize to read-only zero.
+  `sip` and `sie` now expose only supervisor interrupt bits delegated by
+  `mideleg`; `sie` writes update only those delegated enable bits, and `sip`
+  writes update only delegated SSIP while STIP/SEIP remain pending bits supplied
+  by the machine/platform path.
   `mstatus.MPP` now rejects the reserved privilege encoding 2 at the CSR write
   boundary. The remaining audit is a spec pass over remaining WARL behavior,
   read-only/write-ignored fields, and privilege-visible side effects for every
@@ -346,6 +350,9 @@ official coverage improve.
 - `mstatus.MBE`/`SBE`/`UBE` and `sstatus.UBE` now behave as read-only-zero WARL
   fields for the current little-endian-only profile. A focused CSR regression
   covers writes through both `mstatus` and `sstatus`.
+- `sip`/`sie` are now delegated views of `mip`/`mie` instead of unconditional
+  aliases for SSI/STI/SEI. Focused regressions cover non-delegated readback,
+  delegated `sie` writes, and `sip` writes that affect only SSIP.
 - `MRET` and `SRET` now apply the privileged-spec `MPRV` return rule: when the
   return target is below M-mode, `mstatus.MPRV` is cleared so later data
   accesses cannot continue using the old MPP override. Focused regressions cover
