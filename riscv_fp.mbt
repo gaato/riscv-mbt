@@ -461,6 +461,54 @@ fn Runner::write_fcvt_word_result(
 }
 
 ///|
+fn Runner::write_fcvt_long_result(
+  self : Runner,
+  rd : Int,
+  value : Double,
+  mode : UInt,
+  source_nan : Bool,
+  unsigned : Bool,
+) -> Unit {
+  // FCVT.L[U] is RV64-only and writes the full XLEN result. The representable
+  // Double boundary values are powers of two, so the invalid checks are phrased
+  // as half-open ranges around 2^63 and 2^64 before doing any host conversion.
+  let rounded = fp_round_to_integer(value, mode)
+  let signed_min = -9223372036854775808.0
+  let signed_limit = 9223372036854775808.0
+  let unsigned_limit = 18446744073709551616.0
+  let invalid = if unsigned {
+    source_nan || rounded < 0.0 || rounded >= unsigned_limit
+  } else {
+    source_nan || rounded < signed_min || rounded >= signed_limit
+  }
+  let result_bits = if invalid {
+    self.set_fflags(fp_fflag_nv)
+    if source_nan ||
+      rounded >= (if unsigned { unsigned_limit } else { signed_limit }) {
+      if unsigned {
+        0xffffffffffffffffUL
+      } else {
+        0x7fffffffffffffffUL
+      }
+    } else if unsigned {
+      0U.to_uint64()
+    } else {
+      0x8000000000000000UL
+    }
+  } else {
+    if rounded != value {
+      self.set_fflags(fp_fflag_nx)
+    }
+    if unsigned {
+      UInt64::trunc_double(rounded)
+    } else {
+      rounded.to_int64().reinterpret_as_uint64()
+    }
+  }
+  self.write_xlen_reg(rd, result_bits)
+}
+
+///|
 fn Runner::execute_fp_load_store(
   self : Runner,
   instruction : Instruction,
@@ -1146,11 +1194,14 @@ fn Runner::execute_fp(
             raw.to_uint64(),
           )
       }
-      let result = fp_round_to_integer(
-        f32_from_bits(self.read_freg_single_value_bits(rs1)).to_double(),
+      let bits = self.read_freg_single_value_bits(rs1)
+      self.write_fcvt_long_result(
+        rd,
+        f32_from_bits(bits).to_double(),
         mode,
-      ).to_int64()
-      self.write_xlen_reg(rd, result.reinterpret_as_uint64())
+        f32_is_nan_bits(bits),
+        false,
+      )
       self.cpu.pc = next_pc
       Running
     }
@@ -1164,13 +1215,14 @@ fn Runner::execute_fp(
             raw.to_uint64(),
           )
       }
-      let result = UInt64::trunc_double(
-        fp_round_to_integer(
-          f32_from_bits(self.read_freg_single_value_bits(rs1)).to_double(),
-          mode,
-        ),
+      let bits = self.read_freg_single_value_bits(rs1)
+      self.write_fcvt_long_result(
+        rd,
+        f32_from_bits(bits).to_double(),
+        mode,
+        f32_is_nan_bits(bits),
+        true,
       )
-      self.write_xlen_reg(rd, result)
       self.cpu.pc = next_pc
       Running
     }
@@ -1226,11 +1278,14 @@ fn Runner::execute_fp(
             raw.to_uint64(),
           )
       }
-      let result = fp_round_to_integer(
-        f64_from_bits(self.read_freg_double_bits(rs1)),
+      let bits = self.read_freg_double_bits(rs1)
+      self.write_fcvt_long_result(
+        rd,
+        f64_from_bits(bits),
         mode,
-      ).to_int64()
-      self.write_xlen_reg(rd, result.reinterpret_as_uint64())
+        f64_is_nan_bits(bits),
+        false,
+      )
       self.cpu.pc = next_pc
       Running
     }
@@ -1244,13 +1299,14 @@ fn Runner::execute_fp(
             raw.to_uint64(),
           )
       }
-      let result = UInt64::trunc_double(
-        fp_round_to_integer(
-          f64_from_bits(self.read_freg_double_bits(rs1)),
-          mode,
-        ),
+      let bits = self.read_freg_double_bits(rs1)
+      self.write_fcvt_long_result(
+        rd,
+        f64_from_bits(bits),
+        mode,
+        f64_is_nan_bits(bits),
+        true,
       )
-      self.write_xlen_reg(rd, result)
       self.cpu.pc = next_pc
       Running
     }

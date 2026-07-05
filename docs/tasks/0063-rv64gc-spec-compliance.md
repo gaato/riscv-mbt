@@ -86,5 +86,9 @@ or more OpenRC-specific probing.
   spec-shaped result helper for NaN/out-of-range clipping and accrued flags.
   The helper sets NV for invalid conversions, sets NX when the rounded valid
   result differs from the source value, and preserves the RV64 rule that
-  32-bit conversion results are sign-extended to XLEN. The `L/LU` conversion
-  families still need the same treatment.
+  32-bit conversion results are sign-extended to XLEN.
+- `FCVT.L.S`, `FCVT.LU.S`, `FCVT.L.D`, and `FCVT.LU.D` now use the same
+  spec-shaped conversion policy for RV64-width results. The helper clips
+  invalid signed results to `INT64_MIN`/`INT64_MAX`, invalid unsigned results to
+  zero/`UINT64_MAX`, sets NV for invalid conversions, and sets NX for valid
+  inexact conversions.
