@@ -561,6 +561,27 @@ test "rv64c integer stack loads reserve x0 destination" {
 }
 
 ///|
+test "rv64c addi nop and li hint forms execute as no-ops" {
+  let runner = make_runner(rv64_machine_config())
+  runner.cpu.write_reg(5, 0x55U.to_uint64())
+  runner.load_program(
+    mixed_program_bytes([
+      (2, encode_c_addi(0, 7).reinterpret_as_uint()),
+      (2, encode_c_addi(5, 0).reinterpret_as_uint()),
+      (2, encode_c_li(0, -1).reinterpret_as_uint()),
+    ]),
+    0U,
+  )
+  match runner.run(3) {
+    Running => ()
+    _ => fail("expected compressed immediate hints to execute as no-ops")
+  }
+  assert_eq(runner.pc_u64(), 6U.to_uint64())
+  assert_eq(runner.read_reg_u64(0), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(5), 0x55U.to_uint64())
+}
+
+///|
 test "rv64c architectural hints execute as no-ops" {
   let runner = make_runner(rv64_machine_config())
   runner.load_program(

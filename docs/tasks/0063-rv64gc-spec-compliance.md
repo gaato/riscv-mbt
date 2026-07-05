@@ -145,6 +145,8 @@ official coverage improve.
   reserved traps distinct from the nearby nonzero hint encodings.
   Integer stack-load reserved forms for `C.LWSP rd=x0` and `C.LDSP rd=x0` are
   now covered, with adjacent stack stores from `x0` kept legal.
+  Immediate-form HINT coverage now pins nonzero `C.NOP`, zero-immediate
+  `C.ADDI rd!=x0`, and `C.LI rd=x0` as no-ops.
   `C.ADD rd=x0, rs2!=x0` forms now execute as
   ignored hints, including the `rs2=x2..x5` compressed Zihintntl non-temporal
   locality hint subrange. CR-format coverage now also pins `C.MV rd=x0,
@@ -445,6 +447,8 @@ official coverage improve.
 - RV64C integer stack-load coverage now keeps `C.LWSP rd=x0` and
   `C.LDSP rd=x0` illegal while leaving neighboring stack stores from `x0`
   legal.
+- RV64C immediate-form HINT coverage now executes nonzero `C.NOP`,
+  zero-immediate `C.ADDI rd!=x0`, and `C.LI rd=x0` as no-ops.
 - Compressed `C.ADD rd=x0, rs2!=x0` now executes as an architectural hint
   across the whole nonzero source range. The `rs2=x2..x5` encodings are the
   compressed Zihintntl locality hints, so they remain no-ops in this RV64GC

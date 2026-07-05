@@ -198,6 +198,8 @@
   `rd=x0` hint encodings.
   Integer stack loads now also pin their reserved `rd=x0` encodings for
   `C.LWSP` and `C.LDSP`, while adjacent stack stores from `x0` remain legal.
+  Immediate-form HINTs now cover nonzero `C.NOP`, zero-immediate
+  `C.ADDI rd!=x0`, and `C.LI rd=x0` as no-ops.
   `C.ADD rd=x0, rs2!=x0` forms now execute as ignored hints, including the
   `rs2=x2..x5` compressed Zihintntl non-temporal locality hint subrange.
   CR-format coverage now also pins `C.MV rd=x0, rs2!=x0` as an ignored hint,
