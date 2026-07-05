@@ -111,6 +111,14 @@ Use the upstream Linux RISC-V architecture index as the entry point for Linux-sp
 - Add `riscv-tests` as early as practical.
 - Add architectural conformance tests before trusting post-Linux extension work.
 - Improve traceability and debug support before chasing late-stage performance wins.
+- Keep completed Linux distributions as the verification target, but do not
+  let probe shaping become the work. When a long Alpine/OpenRC/BusyBox probe
+  exposes a failure, use it to identify the implementation family, then inspect
+  and improve the emulator-side CPU/MMU/CSR/trap/timer/interrupt/virtio/process
+  surface in a batch before rerunning another long probe.
+- Avoid growing OpenRC- or BusyBox-specific probe variants just to route around
+  a timeout. A narrower probe is useful only when it separates implementation
+  responsibility; otherwise, prefer body-side observability or fixes.
 
 ## `riscv-tests` Policy
 
