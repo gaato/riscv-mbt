@@ -116,7 +116,8 @@
   operand/candidate comparisons. Scalar `F/D` comparisons now snapshot the
   quiet-vs-signaling NaN flag split case-by-case: ordered `FLT/FLE` set NV for
   any NaN, while `FEQ` sets NV only for signaling NaNs. Scalar `F/D` arithmetic
-  now accrues NV for signaling NaNs and the obvious invalid-operation cases,
+  now accrues NV for signaling NaNs in both source positions for add/mul/div
+  and for the obvious invalid-operation cases,
   while quiet NaN `FSQRT.S/D` inputs stay quiet and do not set NV. `FDIV`
   NaN coverage now includes both dividend and divisor positions, and `FDIV`
   accrues DZ for finite nonzero division by zero. This is emulator-body
