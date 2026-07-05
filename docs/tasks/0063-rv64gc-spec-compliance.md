@@ -414,8 +414,10 @@ official coverage improve.
   base FENCE/Zifencei reserved-field contract is also pinned: reserved
   `FENCE` fm/pred/succ configurations retire as conservative base fences, and
   `FENCE.I` ignores its unused imm/rs1/rd fields while still flushing local
-  fetch state. The remaining audit is broader official coverage and any future
-  instruction-cache model beyond the current fetch/decode-cache shape.
+  fetch state. SMP coverage now also pins that the flush is local to the
+  executing hart rather than a global decode-cache shootdown. The remaining
+  audit is broader official coverage and any future instruction-cache model
+  beyond the current fetch/decode-cache shape.
 
 ## Progress Notes
 
@@ -638,7 +640,10 @@ official coverage improve.
   fetch and decode an instruction, store a different instruction to the same
   address, execute `FENCE.I`, jump back, and require the replacement instruction
   to execute. The test also asserts that the emulator-side decode cache was
-  flushed by `FENCE.I`.
+  flushed by `FENCE.I`. A separate SMP regression covers the complementary
+  scope rule: another hart's decode cache is not flushed by the issuing hart's
+  `FENCE.I`, even though the current coherent raw-fetch model can still observe
+  changed memory through a normal cache miss.
 - Base FENCE and Zifencei reserved-field behavior now has focused decode and
   execute coverage. This protects the spec rule that base implementations
   treat reserved `FENCE` configurations as normal fences and ignore FENCE.I's

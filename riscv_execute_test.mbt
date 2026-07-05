@@ -6978,6 +6978,53 @@ test "fence.i makes same-hart self-modified instruction fetch visible" {
 }
 
 ///|
+test "fence.i flushes only the executing hart fetch state" {
+  let harts = make_smp_runners(virt_machine_config(), 2)
+  let hart0 = harts[0]
+  let hart1 = harts[1]
+  let base = hart1.cpu.pc
+  let old_inst = encode_i(1, 0, 0x0U, 2, 0x13U)
+  let replacement = encode_i(2, 0, 0x0U, 2, 0x13U)
+
+  hart0.bus.store_u32(base, old_inst.to_uint64())
+  hart0.bus.store_u32(base + 4U.to_uint64(), encode_j(-4, 0, 0x6fU).to_uint64())
+  match hart1.step() {
+    Running => ()
+    _ => fail("expected hart1 to fetch and cache the original instruction")
+  }
+  assert_eq(hart1.read_reg_u64(2), 1U.to_uint64())
+
+  // A FENCE.I orders only the issuing hart's subsequent instruction fetches.
+  // The shared memory model may still make the replacement visible to hart 1,
+  // but hart 0's FENCE.I must not be implemented as a global decode-cache
+  // shootdown.
+  hart0.bus.store_u32(base, replacement.to_uint64())
+  let hart0_fence_pc = base + 0x100U.to_uint64()
+  hart0.load_program_u64(words_to_bytes([encode_fence_i()]), hart0_fence_pc)
+  let hart0_flushes_before = hart0.decode_cache_flush_count()
+  let hart1_flushes_before = hart1.decode_cache_flush_count()
+  match hart0.step() {
+    Running => ()
+    _ => fail("expected hart0 fence.i to retire")
+  }
+  assert_eq(
+    hart0.decode_cache_flush_count(),
+    hart0_flushes_before + 1U.to_uint64(),
+  )
+  assert_eq(hart1.decode_cache_flush_count(), hart1_flushes_before)
+
+  match hart1.step() {
+    Running => ()
+    _ => fail("expected hart1 branch to return to the patched instruction")
+  }
+  match hart1.step() {
+    Running => ()
+    _ => fail("expected hart1 to refetch after raw instruction changed")
+  }
+  assert_eq(hart1.read_reg_u64(2), 2U.to_uint64())
+}
+
+///|
 test "fence reserved fields retire as conservative fences" {
   let program = words_to_bytes([
     encode_i(11, 0, 0x0U, 2, 0x13U),
