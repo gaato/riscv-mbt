@@ -1058,14 +1058,27 @@ fn Runner::execute_jump(
 ) -> StepResult {
   match instruction {
     Jal(rd, imm) => {
+      // The branch/jump instruction owns instruction-address-misaligned
+      // exceptions. A faulting control transfer does not retire, so the link
+      // register write must wait until the target has passed the active IALIGN
+      // rule.
+      let target = self.step_next_pc(imm)
+      if !self.instruction_target_aligned(target) {
+        return self.raise_trap(InstructionAddressMisaligned, current_pc, target)
+      }
       self.write_xlen_reg(rd, next_pc)
-      self.jump_to_instruction_target(self.step_next_pc(imm), current_pc)
+      self.cpu.pc = target
+      Running
     }
     Jalr(rd, rs1, imm) => {
       let target = (self.cpu.read_reg(rs1) + int_to_uint64_bits(imm)) &
         bit_not(1U.to_uint64())
+      if !self.instruction_target_aligned(target) {
+        return self.raise_trap(InstructionAddressMisaligned, current_pc, target)
+      }
       self.write_xlen_reg(rd, next_pc)
-      self.jump_to_instruction_target(target, current_pc)
+      self.cpu.pc = target
+      Running
     }
     _ => abort("unexpected jump dispatch")
   }

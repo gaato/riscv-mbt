@@ -231,7 +231,9 @@
   executing profile authoritative. Control-flow target alignment now follows
   the same profile boundary: non-C profiles trap taken branches and jumps to
   2-byte-only targets with instruction-address-misaligned, while RV64GC/C
-  profiles use IALIGN=16 and allow those halfword targets.
+  profiles use IALIGN=16 and allow those halfword targets. Misaligned `JAL` and
+  `JALR` traps now validate the target before link-register writeback, so they
+  leave `rd` unchanged when the jump does not retire.
 
 - Zicsr write-side privilege checks now run even when a CSR instruction
   suppresses the read side. The regression covers `CSRRW rd=x0` from supervisor

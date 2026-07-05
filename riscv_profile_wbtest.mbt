@@ -221,6 +221,44 @@ test "jal target alignment follows C extension ialign" {
 }
 
 ///|
+test "misaligned jump targets do not write link registers" {
+  let jal = make_runner(wb_rv64_without_c_machine_config())
+  let jal_raw = wb_encode_j(2, 5, 0x6fU) // jal x5, +2
+  jal.load_program(wb_word_program(jal_raw), 0U)
+  match jal.step() {
+    Trap(info) => {
+      match info.cause {
+        InstructionAddressMisaligned => ()
+        _ => fail("expected jal to trap before writing the link register")
+      }
+      assert_eq(info.faulting_pc, 0U.to_uint64())
+      assert_eq(info.trap_value, 2U.to_uint64())
+    }
+    _ => fail("expected jal to halfword target to trap without C")
+  }
+  assert_eq(jal.read_reg_u64(5), 0U.to_uint64())
+
+  let jalr = make_runner(wb_rv64_without_c_machine_config())
+  let jalr_program = words_to_bytes([
+    wb_encode_i(6, 0, 0x0U, 1, 0x13U), // addi x1, x0, 6
+    wb_encode_i(0, 1, 0x0U, 6, 0x67U), // jalr x6, 0(x1)
+  ])
+  jalr.load_program(jalr_program, 0U)
+  match jalr.run(2) {
+    Trap(info) => {
+      match info.cause {
+        InstructionAddressMisaligned => ()
+        _ => fail("expected jalr to trap before writing the link register")
+      }
+      assert_eq(info.faulting_pc, 4U.to_uint64())
+      assert_eq(info.trap_value, 6U.to_uint64())
+    }
+    _ => fail("expected jalr to halfword target to trap without C")
+  }
+  assert_eq(jalr.read_reg_u64(6), 0U.to_uint64())
+}
+
+///|
 test "multiply instruction traps when M extension is not advertised" {
   let runner = make_runner(wb_rv64_without_m_machine_config())
   let raw = wb_encode_r(0x01U, 2, 1, 0x0U, 3, 0x33U) // mul x3, x1, x2

@@ -94,7 +94,9 @@ official coverage improve.
   local official rows are optional non-baseline extensions such as Zba/Zbb/Zfh.
   Taken branch and jump target alignment now follows the active IALIGN:
   non-C profiles trap halfword-only targets as instruction-address-misaligned,
-  while C/RV64GC profiles allow them under IALIGN=16.
+  while C/RV64GC profiles allow them under IALIGN=16. `JAL` and `JALR` also
+  check that target alignment before writing the link register, so a
+  misaligned jump trap leaves the architectural destination register unchanged.
 - `F/D`: `riscv_fp.mbt` now covers instruction availability, NaN-boxing,
   comparisons, min/max, FMA availability, conversion clipping, integer-to-float
   rounding modes, and the first NV/DZ arithmetic flags. The conversion
@@ -255,7 +257,9 @@ official coverage improve.
 - Control-flow execution now checks taken branch, `JAL`, and `JALR` targets
   against the active profile's IALIGN. Non-C profiles raise
   instruction-address-misaligned on 2-byte-only targets and report the branch or
-  jump as the faulting PC; RV64GC with C keeps those targets legal.
+  jump as the faulting PC; RV64GC with C keeps those targets legal. Jump-link
+  writeback is ordered after that target check, preserving the non-retirement
+  side-effect rule for misaligned `JAL`/`JALR` traps.
 - Sv39 permission checks now keep SUM limited to supervisor data accesses:
   S-mode loads/stores to U pages can proceed when SUM is set, but S-mode
   instruction fetches from U pages raise instruction page faults regardless of
