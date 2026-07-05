@@ -143,6 +143,8 @@
   rounding-mode encodings before executing representative word and long forms.
   `FCVT.W.D` now checks signed half-unit boundary cases around `-2^31` and
   `+2^31`, proving the valid-vs-invalid decision is made after rounding.
+  RMM ties-away-from-zero coverage now also checks the signed and unsigned word
+  half-unit boundaries where that rounding mode pushes the result out of range.
   `FCVT.WU.D` now also checks the mode-dependent upper edge where
   `+2^32 - 0.5` stays valid/inexact under RTZ but rounds out of range and sets
   NV under RNE/RUP, plus the lower S/D `-0.5` edge where RNE/RTZ produce valid

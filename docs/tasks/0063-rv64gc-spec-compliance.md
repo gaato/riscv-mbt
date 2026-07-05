@@ -113,7 +113,9 @@ official coverage improve.
   upper boundaries are pinned as flag-clean conversions as well.
   `FCVT.W.D` now also has mode-dependent signed-boundary coverage for
   `+2^31 - 0.5` and `-2^31 - 0.5`, proving that validity is decided after
-  tie-to-even or directed rounding chooses the integer result.
+  tie-to-even or directed rounding chooses the integer result. RMM
+  ties-away-from-zero coverage now also pins those signed boundaries, plus the
+  unsigned `+2^32 - 0.5` and `-0.5` word boundaries, as invalid after rounding.
   `FCVT.WU.D` also has mode-dependent upper-edge coverage for `+2^32 - 0.5`:
   RTZ remains a valid inexact all-ones result, while RNE and RUP round to
   `+2^32` and then take the invalid-conversion path. The symmetric `-0.5`
@@ -551,7 +553,10 @@ official coverage improve.
   sign-extension of the valid high-bit `FCVT.WU.D` result `0x80000000`.
   The signed double-to-word half-unit boundary now also checks validity after
   rounding: `+2^31 - 0.5` is valid under RTZ/RDN but invalid under RNE/RUP,
-  while `-2^31 - 0.5` is valid under RNE/RUP but invalid under RDN.
+  while `-2^31 - 0.5` is valid under RNE/RUP but invalid under RDN. RMM is
+  covered separately for the same signed boundaries and for the unsigned
+  `+2^32 - 0.5`/`-0.5` word boundaries, where ties away from zero produce
+  invalid rounded results.
   The unsigned double-to-word upper edge now also checks validity after
   rounding, proving that `+2^32 - 0.5` is valid with NX under RTZ but invalid
   with NV under RNE/RUP. The lower edge likewise checks that `-0.5` is valid

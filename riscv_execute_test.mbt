@@ -4260,6 +4260,48 @@ test "rv64fd signed word conversion checks range after rounding" {
 }
 
 ///|
+test "rv64fd rmm word conversion checks range after ties-away rounding" {
+  let csr_fcsr = 0x003
+  let invalid = 0x10U.to_uint64()
+  let runner = make_runner(rv64fd_machine_config())
+  // RMM rounds half-way cases away from zero. At the signed and unsigned
+  // integer boundaries that means the rounded integer crosses out of range,
+  // so the result must be the clipped invalid value and only NV may be set.
+  runner.cpu.write_freg(1, 0x41dfffffffe00000UL) // +2^31 - 0.5.
+  runner.cpu.write_freg(2, 0xc1e0000000100000UL) // -2^31 - 0.5.
+  runner.cpu.write_freg(3, 0x41effffffff00000UL) // +2^32 - 0.5.
+  runner.cpu.write_freg(4, 0xbfe0000000000000UL) // -0.5.
+  runner.load_program(
+    words_to_bytes([
+      encode_fcvt_w_d(1, 0x4U, 10),
+      encode_csr(csr_fcsr, 0, 0x2U, 11),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_w_d(2, 0x4U, 12),
+      encode_csr(csr_fcsr, 0, 0x2U, 13),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_wu_d(3, 0x4U, 14),
+      encode_csr(csr_fcsr, 0, 0x2U, 15),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_wu_d(4, 0x4U, 16),
+      encode_csr(csr_fcsr, 0, 0x2U, 17),
+    ]),
+    0U,
+  )
+  match runner.run(11) {
+    Running => ()
+    _ => fail("expected RMM fcvt word boundary path to run")
+  }
+  assert_eq(runner.read_reg_u64(10), 0x7fffffffU.to_uint64())
+  assert_eq(runner.read_reg_u64(11) & 0x1fU.to_uint64(), invalid)
+  assert_eq(runner.read_reg_u64(12), test_sign_extend_word64(0x80000000U))
+  assert_eq(runner.read_reg_u64(13) & 0x1fU.to_uint64(), invalid)
+  assert_eq(runner.read_reg_u64(14), test_sign_extend_word64(0xffffffffU))
+  assert_eq(runner.read_reg_u64(15) & 0x1fU.to_uint64(), invalid)
+  assert_eq(runner.read_reg_u64(16), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(17) & 0x1fU.to_uint64(), invalid)
+}
+
+///|
 test "rv64fd unsigned word conversion checks range after rounding" {
   let csr_fcsr = 0x003
   let invalid = 0x10U.to_uint64()
