@@ -627,7 +627,9 @@ official coverage improve.
 - Floating-point CSR access is now FS-gated. Focused regressions cover both
   read forms and write-only `CSRRW rd=x0` forms for `fflags`, `frm`, and
   `fcsr`, preserving Zicsr read suppression while still trapping writes to
-  FS-governed state when FS=Off.
+  FS-governed state when FS=Off. Pure reads and zero-mask set/clear forms over
+  those FP CSRs now also have coverage that they leave an Initial FP context
+  clean instead of incorrectly promoting `mstatus.FS` to Dirty.
 - `fcsr` reserved high bits now have focused regression coverage. A CSR write
   of all ones leaves only visible bits 7:0 readable, matching the F extension
   rule for absent standard-extension fields in bits 31:8.

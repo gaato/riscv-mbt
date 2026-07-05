@@ -1242,6 +1242,39 @@ test "rv64f fcsr frm and fflags views share one visible register" {
 }
 
 ///|
+test "rv64f floating-point csr pure reads do not dirty fs" {
+  let csr_fflags = 0x001
+  let csr_frm = 0x002
+  let csr_fcsr = 0x003
+  let mstatus = 0x300
+  let fs_initial = 0x2000U.to_uint64()
+  let fs_dirty = 0x6000U.to_uint64()
+  let sd_bit = 1U.to_uint64() << 63
+  let runner = make_runner(rv64f_machine_config())
+  assert_eq(runner.read_csr_u64(mstatus) & fs_dirty, fs_initial)
+  runner.load_program(
+    words_to_bytes([
+      encode_csr(csr_fflags, 0, 0x2U, 1), // CSRRS x1, fflags, x0
+      encode_csr(csr_frm, 0, 0x3U, 2), // CSRRC x2, frm, x0
+      encode_csr(csr_fcsr, 0, 0x6U, 3), // CSRRSI x3, fcsr, 0
+      encode_csr(csr_fcsr, 0, 0x7U, 4), // CSRRCI x4, fcsr, 0
+      encode_csr(mstatus, 0, 0x2U, 5),
+    ]),
+    0U,
+  )
+  match runner.run(5) {
+    Running => ()
+    _ => fail("expected pure FP CSR reads to run")
+  }
+  // FS=Initial means the FP context is valid but clean. Pure CSR reads and
+  // zero-mask set/clear forms must not turn that context into FS=Dirty.
+  assert_eq(runner.read_reg_u64(5) & fs_dirty, fs_initial)
+  assert_eq(runner.read_reg_u64(5) & sd_bit, 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(mstatus) & fs_dirty, fs_initial)
+  assert_eq(runner.read_csr_u64(mstatus) & sd_bit, 0U.to_uint64())
+}
+
+///|
 test "rv64f fcsr reserved high bits read as zero" {
   let csr_fcsr = 0x003
   let program = words_to_bytes([
