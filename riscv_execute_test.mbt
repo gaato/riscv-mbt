@@ -8057,6 +8057,34 @@ test "base shift-immediate reserved encodings trap" {
     }
     _ => fail("expected rv32 reserved slli to trap")
   }
+
+  let rv32_srli_reserved = encode_i(0x020, 1, 0x5U, 2, 0x13U)
+  let rv32_srli_runner = make_runner(default_machine_config())
+  rv32_srli_runner.load_program(words_to_bytes([rv32_srli_reserved]), 0U)
+  match rv32_srli_runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected rv32 reserved srli to raise illegal instruction")
+      }
+      assert_eq(info.trap_value, rv32_srli_reserved.to_uint64())
+    }
+    _ => fail("expected rv32 reserved srli to trap")
+  }
+
+  let rv32_srai_reserved = encode_i(0x420, 1, 0x5U, 2, 0x13U)
+  let rv32_srai_runner = make_runner(default_machine_config())
+  rv32_srai_runner.load_program(words_to_bytes([rv32_srai_reserved]), 0U)
+  match rv32_srai_runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected rv32 reserved srai to raise illegal instruction")
+      }
+      assert_eq(info.trap_value, rv32_srai_reserved.to_uint64())
+    }
+    _ => fail("expected rv32 reserved srai to trap")
+  }
 }
 
 ///|

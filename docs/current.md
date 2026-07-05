@@ -196,7 +196,8 @@
   (`rv64ui/um/ua/uc/uf/ud`) is in `gating`; remaining local official rows are
   optional non-baseline extensions such as Zba/Zbb/Zfh. Base `SLLI` now
   rejects reserved high immediate bits, and the RV32 profile gate rejects
-  `SLLI shamt[5]=1` rather than executing it as a six-bit shift.
+  `SLLI`/`SRLI`/`SRAI shamt[5]=1` rather than executing those encodings as
+  six-bit shifts.
 
 - The first RV64C reserved/hint correction slice for Task 0063 is in place.
   `EBREAK` and `C.EBREAK` now raise the architectural breakpoint exception,

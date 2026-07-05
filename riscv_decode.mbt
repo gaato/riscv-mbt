@@ -1051,9 +1051,10 @@ fn instruction_supported_for_current_config(
   }
   match instruction {
     Addiw(_, _, _) => xlen == XLEN_64
-    Slli(_, _, shamt) =>
-      // RV32 shift-immediate instructions encode a 5-bit shamt. The decoded
-      // shape is shared with RV64, so reject shamt[5] at the profile boundary.
+    Slli(_, _, shamt) | Srli(_, _, shamt) | Srai(_, _, shamt) =>
+      // RV32 base shift-immediate instructions encode a 5-bit shamt, while
+      // RV64 uses six bits. These decoded shapes are shared across XLENs, so
+      // reject shamt[5] at the profile boundary for the 32-bit profile.
       xlen == XLEN_64 || shamt < 32
     Slliw(_, _, _) => xlen == XLEN_64
     Srliw(_, _, _) => xlen == XLEN_64

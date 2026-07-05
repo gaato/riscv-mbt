@@ -78,8 +78,8 @@ official coverage improve.
   `gating`. The official non-word integer ALU rows for logical, compare,
   shift, and `sub` operations have also passed survey and moved to `gating`.
   Base `SLLI` decode now rejects reserved high immediate bits, and RV32 profile
-  legality rejects `SLLI` with `shamt[5]=1` instead of executing it as a
-  six-bit shift.
+  legality rejects `SLLI`, `SRLI`, and `SRAI` with `shamt[5]=1` instead of
+  executing them as six-bit shifts.
   The RV64 word-operation rows `addiw`, `addw`, `subw`, `slliw`, `sllw`,
   `srliw`, `srlw`, `sraiw`, and `sraw` have likewise passed survey and are now
   part of the gating manifest. The remaining local `rv64ui` branch and
@@ -460,8 +460,8 @@ official coverage improve.
   double-precision results and accrue NX.
 - Base shift-immediate decode now treats `SLLI` as a shift-immediate
   specialization rather than a generic 12-bit immediate. RV64 reserved high
-  immediate bits decode as illegal, and RV32 `SLLI shamt[5]=1` traps through
-  the profile legality gate.
+  immediate bits decode as illegal, and RV32 `SLLI`, `SRLI`, and `SRAI`
+  encodings with `shamt[5]=1` trap through the profile legality gate.
 - The first RV64C reserved/hint correction slice is in place. `EBREAK` and
   `C.EBREAK` now trap as architectural breakpoint exceptions instead of illegal
   instructions, RV64C rejects reserved `C.ADDIW rd=x0`, `C.LUI rd=x0` and
