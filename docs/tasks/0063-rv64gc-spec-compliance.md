@@ -748,7 +748,9 @@ official coverage improve.
   where RTZ and RUP select adjacent single-precision results and accrue NX.
   Dynamic `rm=111` with `frm=RUP` is also covered for a representative FMA.
   A separate regression pins exact-zero signs for finite cancellation and
-  negative-zero product/addend inputs.
+  negative-zero product/addend inputs. Another regression now pins the core
+  fused contract directly: an `FMADD.S` case whose separately rounded product
+  would cancel to zero instead produces the exact positive nonzero fused result.
 - Double-precision add/sub/mul now have corresponding non-RNE coverage.
   Focused regressions cover `2^53 + 1` add/sub and `(1 + 2^-52)^2` multiply,
   where RTZ and RUP select adjacent double-precision results and accrue NX.

@@ -1544,6 +1544,32 @@ test "rv64fd fused multiply-add single paths honor non-rne rounding modes" {
 }
 
 ///|
+test "rv64fd fused multiply-add single path does not round intermediate product" {
+  let runner = make_runner(rv64fd_machine_config())
+  let csr_fcsr = 0x003
+  // (1 + 2^-23) * (1 - 2^-24) is just below the RNE midpoint above 1.0, so a
+  // separately rounded multiply would become exactly 1.0 and then cancel with
+  // -1.0. FMADD.S must instead add the exact product and round once, producing
+  // the exactly representable positive single just below 2^-24.
+  runner.cpu.write_freg(1, exec_test_nan_box_single(0x3f800001U))
+  runner.cpu.write_freg(2, exec_test_nan_box_single(0x3f7fffffU))
+  runner.cpu.write_freg(3, exec_test_nan_box_single(exec_test_f32_bits(-1.0)))
+  runner.load_program(
+    words_to_bytes([encode_fp_r4(3, 0x0U, 2, 1, 0x0U, 4, 0x43U)]),
+    0U,
+  )
+  match runner.step() {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected fused single-rounding FMADD.S to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_freg_u64(4), exec_test_nan_box_single(0x337ffffeU))
+  assert_eq(runner.read_csr(csr_fcsr) & 0x1fU, 0U)
+}
+
+///|
 test "rv64fd fused multiply-add honors dynamic rounding mode" {
   let csr_fcsr = 0x003
   let fcsr_frm_shift = 5
