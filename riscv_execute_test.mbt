@@ -3053,6 +3053,7 @@ test "rv64fd double comparisons write integer results" {
 ///|
 test "rv64fd floating comparisons accrue invalid flags for nan inputs" {
   let csr_fcsr = 0x003
+  let invalid_only = 0x10U.to_uint64()
   let qnan_s = exec_test_nan_box_single(0x7fc00000U)
   let snan_s = exec_test_nan_box_single(0x7f800001U)
   let qnan_d = 0x7ff8000000000000UL
@@ -3069,30 +3070,39 @@ test "rv64fd floating comparisons accrue invalid flags for nan inputs" {
       encode_feq_s(1, 3, 10),
       encode_csr(csr_fcsr, 0, 0x2U, 11),
       encode_flt_s(1, 3, 12),
+      encode_csr(csr_fcsr, 0, 0x2U, 18),
       encode_csr(csr_fcsr, 0, 0x1U, 0),
       encode_feq_s(2, 3, 13),
+      encode_csr(csr_fcsr, 0, 0x2U, 19),
       encode_csr(csr_fcsr, 0, 0x1U, 0),
       encode_feq_d(4, 6, 14),
       encode_csr(csr_fcsr, 0, 0x2U, 15),
       encode_fle_d(4, 6, 16),
+      encode_csr(csr_fcsr, 0, 0x2U, 20),
       encode_csr(csr_fcsr, 0, 0x1U, 0),
       encode_feq_d(5, 6, 17),
+      encode_csr(csr_fcsr, 0, 0x2U, 21),
     ]),
     0U,
   )
-  match runner.run(11) {
+  match runner.run(15) {
     Running => ()
     _ => fail("expected nan comparison flag path to run")
   }
+  // Ordered comparisons are signaling comparisons and set NV for any NaN.
+  // FEQ is quiet for quiet NaNs but still signals on signaling NaNs.
   assert_eq(runner.read_reg_u64(10), 0U.to_uint64())
   assert_eq(runner.read_reg_u64(11), 0U.to_uint64())
   assert_eq(runner.read_reg_u64(12), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(18) & 0x1fU.to_uint64(), invalid_only)
   assert_eq(runner.read_reg_u64(13), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(19) & 0x1fU.to_uint64(), invalid_only)
   assert_eq(runner.read_reg_u64(14), 0U.to_uint64())
   assert_eq(runner.read_reg_u64(15), 0U.to_uint64())
   assert_eq(runner.read_reg_u64(16), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(20) & 0x1fU.to_uint64(), invalid_only)
   assert_eq(runner.read_reg_u64(17), 0U.to_uint64())
-  assert_eq(runner.read_csr(csr_fcsr) & 0x10U, 0x10U)
+  assert_eq(runner.read_reg_u64(21) & 0x1fU.to_uint64(), invalid_only)
 }
 
 ///|

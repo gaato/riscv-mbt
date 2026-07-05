@@ -423,7 +423,10 @@ official coverage improve.
   for the NaN cases required by the F specification: `FLT`/`FLE` set NV for any
   NaN input, `FEQ` sets NV only for signaling NaNs, and `FMIN`/`FMAX` set NV for
   signaling NaNs while preserving their existing result-selection behavior.
-  This starts replacing the old "no FP instruction updates fflags" limitation
+  The comparison regression now snapshots each quiet/signaling NaN case
+  independently for S and D so sticky flag behavior is not hidden by a later
+  case in the same program. This replaces the old "no FP instruction updates
+  fflags" limitation
   with instruction-family-specific flag handling.
 - `D` min/max now has matching signed-zero and quiet-NaN result-selection
   coverage: `FMIN.D` selects `-0.0`, `FMAX.D` selects `+0.0`, numeric operands
