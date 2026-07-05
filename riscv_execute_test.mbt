@@ -2783,6 +2783,43 @@ test "rv64fd long to double conversion honors non-rne rounding modes" {
 }
 
 ///|
+test "rv64fd long to double conversion honors dynamic directed rounding" {
+  let csr_fcsr = 0x003
+  let fcsr_frm_shift = 5
+  let rdn = make_runner(rv64fd_machine_config())
+  // -2^53-1 is exactly halfway between adjacent binary64 values. Dynamic RDN
+  // must choose the more-negative representable value and accrue NX.
+  rdn.cpu.write_reg(1, 0xffdfffffffffffffUL)
+  rdn.cpu.write_csr(csr_fcsr, 0x2U.to_uint64() << fcsr_frm_shift)
+  rdn.load_program(words_to_bytes([encode_fcvt_d_l(1, 0x7U, 2)]), 0U)
+  match rdn.run(1) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected dynamic-RDN fcvt.d.l to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(rdn.read_freg_u64(2), 0xc340000000000001UL)
+  assert_eq(rdn.read_csr(csr_fcsr) & 0x1U, 0x1U)
+
+  let rmm = make_runner(rv64fd_machine_config())
+  // +2^53+1 is the unsigned mirror of that halfway case. Dynamic RMM rounds
+  // away from zero, selecting the upper representable double.
+  rmm.cpu.write_reg(1, 0x0020000000000001UL)
+  rmm.cpu.write_csr(csr_fcsr, 0x4U.to_uint64() << fcsr_frm_shift)
+  rmm.load_program(words_to_bytes([encode_fcvt_d_lu(1, 0x7U, 2)]), 0U)
+  match rmm.run(1) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected dynamic-RMM fcvt.d.lu to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(rmm.read_freg_u64(2), 0x4340000000000001UL)
+  assert_eq(rmm.read_csr(csr_fcsr) & 0x1U, 0x1U)
+}
+
+///|
 test "rv64fd double comparisons write integer results" {
   let runner = make_runner(rv64fd_machine_config())
   runner.cpu.write_freg(1, exec_test_f64_bits(1.0))

@@ -126,6 +126,9 @@
   Float-to-integer conversion regressions now also pin exact RNE invalid
   boundaries for `FCVT.L.D` at `+2^63`, `FCVT.LU.D` at `+2^64`, and RNE
   NaN/infinity clipping before any host integer cast.
+  Integer-to-double conversion coverage now also pins dynamic-`frm`
+  long-to-double rounding at the binary64 precision boundary, including signed
+  negative RDN and unsigned positive RMM halfway cases with NX.
   Invalid scalar arithmetic coverage now checks both NV and canonical-NaN
   results for representative add, multiply, and divide cases.
   `FMIN/FMAX` result-selection coverage now includes the D path for signed

@@ -459,7 +459,10 @@ official coverage improve.
   `FCVT.D.LU` now construct IEEE result bits through a shared integer-magnitude
   rounding helper instead of relying on host-default conversion. The helper
   supports RNE, RTZ, RDN, RUP, RMM, valid dynamic `frm`, and NX accrual when
-  discarded integer bits make the conversion inexact.
+  discarded integer bits make the conversion inexact. The RV64 long-to-double
+  path now also has dynamic-`frm` coverage at the binary64 precision boundary:
+  signed negative RDN and unsigned positive RMM halfway cases select the
+  directed result and accrue NX.
 - `FCVT.S.D` now rounds double-precision source bits to single precision inside
   the emulator instead of relying on host-default conversion. The helper handles
   legal static/dynamic rounding modes, canonical NaN results, NX for inexact
