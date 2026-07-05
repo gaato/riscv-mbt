@@ -87,10 +87,17 @@ implemented.
 
 ## Status
 
-- `doing`
+- `done`
 
 ## Progress Notes
 
+- Closed as the full-rootfs I/O strategy decision task. Its original
+  acceptance criteria are satisfied: console/native functional smoke exists,
+  `docs/current.md` names the two-layer initrd plus virtio-blk strategy, and
+  the follow-up implementation path no longer needs to re-decide whether
+  initrd-only is enough. The later progress notes below intentionally exceed
+  the original decision scope and record the virtio-blk/rootfs bring-up that
+  followed from the decision.
 - Initial strategy selected: initrd remains the short-term usability gate;
   `virtio,mmio` `virtio-blk` is the full-rootfs path.
 - Added `cmd/alpine_probe --functional-smoke` as the console/native functional
