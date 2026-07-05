@@ -205,3 +205,11 @@ but it is not the same as a more ordinary Alpine service environment.
   to S-mode CSRs still works. The regression test again uses real `mret`
   transitions, keeping this as emulator-side privilege hardening rather than
   another OpenRC-specific probe variant.
+- Rerunning the existing auto-root system smoke after CSR address privilege
+  enforcement still reaches `post-init-system-ok`:
+  `moon run --target native cmd/alpine_probe xlong --auto-root-handoff --post-init-system-smoke --post-init-command-step-budget 120000000`.
+  It reaches `outcome=console-command`, `post_init_system_smoke=true`,
+  `post_init_command_index=3`, and `post-init-system-ok` at 606,000,000 guest
+  steps. The post-init command delta remains `0 read-req/0 read-bytes` and
+  `65 write-req/66560 write-bytes`, so this is a regression gate for stricter
+  CSR privilege behavior, not a new OpenRC probe variant.
