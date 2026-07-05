@@ -1258,8 +1258,11 @@ test "compressed jump-register x0 forms keep reserved and ebreak meanings" {
 }
 
 ///|
-test "compressed jump-register forms use jalr semantics with a 2-byte link address" {
-  let target = 8
+test "compressed jump-register forms use jalr target clearing and 2-byte links" {
+  // C.JR and C.JALR expand to the base JALR semantic path. Keep the register
+  // target intentionally odd so the test proves bit 0 is cleared before the
+  // compressed branch lands, while C.JALR still writes pc+2 as its link.
+  let target = 9
   let jr_runner = make_runner(default_machine_config())
   jr_runner.load_program(
     mixed_program_bytes([

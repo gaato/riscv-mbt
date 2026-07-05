@@ -268,6 +268,7 @@ official coverage improve.
   rs2!=x0` as an ignored hint, `C.JR rs1=x0` as reserved, and the
   `C.JALR rs1=x0` encoding as `C.EBREAK`. The legal `C.JR`/`C.JALR` forms are
   now pinned through execute coverage as `JALR` aliases, including the
+  inherited `JALR` target-bit-clearing rule for odd register targets and the
   compressed link rule that `C.JALR` writes `pc + 2` to `x1` while `C.JR` does
   not link. Post-decode profile legality now rejects all 16-bit compressed
   encodings when `MISA.C` is not advertised, preserving the permissive decoder
