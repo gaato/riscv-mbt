@@ -4021,6 +4021,29 @@ test "counter csr reads obey mcounteren and scounteren privilege gates" {
 }
 
 ///|
+test "counteren csrs expose only base counter enable bits" {
+  let mcounteren = 0x306
+  let scounteren = 0x106
+  let program = words_to_bytes([
+    encode_i(-1, 0, 0x0U, 1, 0x13U),
+    encode_csr(mcounteren, 1, 0x1U, 0),
+    encode_csr(scounteren, 1, 0x1U, 0),
+    encode_csr(mcounteren, 0, 0x2U, 2),
+    encode_csr(scounteren, 0, 0x2U, 3),
+  ])
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(5) {
+    Running => ()
+    _ => fail("expected counteren WARL program to run")
+  }
+  assert_eq(runner.read_reg_u64(2), 0x7U.to_uint64())
+  assert_eq(runner.read_reg_u64(3), 0x7U.to_uint64())
+  assert_eq(runner.read_csr_u64(mcounteren), 0x7U.to_uint64())
+  assert_eq(runner.read_csr_u64(scounteren), 0x7U.to_uint64())
+}
+
+///|
 test "csr address privilege bits gate supervisor and machine csrs" {
   let read_mstatus = encode_csr(0x300, 0, 0x2U, 1)
   let supervisor_machine_denied = make_runner(rv64_machine_config())

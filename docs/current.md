@@ -131,6 +131,9 @@
   The modeled delegatable exception surface is `0xb3ae`, and delegated
   interrupts are limited to SSI/STI/SEI (`0x222`); machine-only causes remain
   read-only zero.
+- `mcounteren` and `scounteren` now expose only CY/TM/IR (`0x7`) as writable
+  WARL bits. HPM counter-enable bits read back as zero because the matching
+  `hpmcounter` CSRs are not implemented in the current RV64GC profile.
 
 - The first RV64C reserved/hint correction slice for Task 0063 is in place.
   `EBREAK` and `C.EBREAK` now raise the architectural breakpoint exception,

@@ -129,6 +129,9 @@ official coverage improve.
   `medeleg` and `mideleg` now apply WARL masks on read, write, and internal
   trap-routing paths. `medeleg` exposes the modeled delegatable exception
   causes (`0xb3ae`), while `mideleg` exposes only SSI/STI/SEI (`0x222`).
+  `mcounteren` and `scounteren` now expose only the implemented base counter
+  enables CY/TM/IR (`0x7`); HPM counter enables are read-only zero because the
+  corresponding counter CSRs are absent.
   `mstatus.MPP` now rejects the reserved privilege encoding 2 at the CSR write
   boundary. The remaining audit is a spec pass over remaining WARL behavior,
   read-only/write-ignored fields, and privilege-visible side effects for every
@@ -359,6 +362,9 @@ official coverage improve.
 - `medeleg`/`mideleg` no longer store arbitrary compatibility bits. Focused
   coverage writes all ones and verifies the supported delegatable exception and
   interrupt bit surfaces are the only values that read back or affect routing.
+- `mcounteren`/`scounteren` are now WARL-filtered to CY/TM/IR. The existing
+  privilege-gate tests still cover access behavior, and a new readback
+  regression pins HPM enable bits as read-only zero.
 - `MRET` and `SRET` now apply the privileged-spec `MPRV` return rule: when the
   return target is below M-mode, `mstatus.MPRV` is cleared so later data
   accesses cannot continue using the old MPP override. Focused regressions cover

@@ -992,6 +992,8 @@ fn Runner::read_csr_visible(self : Runner, csr : Int) -> UInt64 {
       SSTATUS_VISIBLE_MASK
     CSR_MEDELEG => legalize_medeleg_csr(self.cpu.read_csr(CSR_MEDELEG))
     CSR_MIDELEG => legalize_mideleg_csr(self.cpu.read_csr(CSR_MIDELEG))
+    CSR_MCOUNTEREN => legalize_counteren_csr(self.cpu.read_csr(CSR_MCOUNTEREN))
+    CSR_SCOUNTEREN => legalize_counteren_csr(self.cpu.read_csr(CSR_SCOUNTEREN))
     CSR_SIP => self.cpu.read_csr(CSR_MIP) & self.delegated_s_interrupt_mask()
     CSR_SIE => self.cpu.read_csr(CSR_MIE) & self.delegated_s_interrupt_mask()
     _ => self.cpu.read_csr(csr)
@@ -1050,6 +1052,14 @@ fn legalize_mideleg_csr(value : UInt64) -> UInt64 {
 }
 
 ///|
+fn legalize_counteren_csr(value : UInt64) -> UInt64 {
+  // Only the base counters exist in this RV64GC profile. HPM counter enables
+  // are WARL read-only zero because the corresponding hpmcounter CSRs are not
+  // implemented.
+  value & COUNTEREN_WRITABLE_MASK
+}
+
+///|
 fn legalize_mstatus_csr(value : UInt64, xlen : Xlen) -> UInt64 {
   // SD is a read-only summary bit. For the current RV64GC baseline the modeled
   // dirty extension status is FS=Dirty; future VS/XS modeling should join this
@@ -1094,6 +1104,8 @@ fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
     CSR_MEPC | CSR_SEPC => self.cpu.write_csr(csr, legalize_epc_csr(value))
     CSR_MEDELEG => self.cpu.write_csr(csr, legalize_medeleg_csr(value))
     CSR_MIDELEG => self.cpu.write_csr(csr, legalize_mideleg_csr(value))
+    CSR_MCOUNTEREN | CSR_SCOUNTEREN =>
+      self.cpu.write_csr(csr, legalize_counteren_csr(value))
     CSR_MSTATUS =>
       self.cpu.write_csr(csr, legalize_mstatus_csr(value, self.config.xlen))
     CSR_FFLAGS => {
@@ -1178,10 +1190,11 @@ fn Runner::counter_csr_accessible(self : Runner, csr : Int) -> Bool {
   }
   match self.cpu.privilege {
     Machine => true
-    Supervisor => (self.cpu.read_csr(CSR_MCOUNTEREN) & bit) != 0U.to_uint64()
+    Supervisor =>
+      (self.read_csr_visible(CSR_MCOUNTEREN) & bit) != 0U.to_uint64()
     User =>
-      (self.cpu.read_csr(CSR_MCOUNTEREN) & bit) != 0U.to_uint64() &&
-      (self.cpu.read_csr(CSR_SCOUNTEREN) & bit) != 0U.to_uint64()
+      (self.read_csr_visible(CSR_MCOUNTEREN) & bit) != 0U.to_uint64() &&
+      (self.read_csr_visible(CSR_SCOUNTEREN) & bit) != 0U.to_uint64()
   }
 }
 

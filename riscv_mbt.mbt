@@ -785,6 +785,9 @@ const CSR_MCOUNTEREN : Int = 0x306
 const CSR_SCOUNTEREN : Int = 0x106
 
 ///|
+const COUNTEREN_WRITABLE_MASK : UInt64 = 0x7
+
+///|
 const CSR_MENVCFG : Int = 0x30A
 
 ///|
