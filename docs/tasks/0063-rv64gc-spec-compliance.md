@@ -185,13 +185,14 @@ official coverage improve.
 - `C`: compressed decode/execute coverage exists in
   `riscv_compressed_test.mbt`, and the upstream `rv64uc-p-rvc` binary is now
   part of the gating manifest. The RV64C reserved/hint audit now covers
-  `C.EBREAK`, `C.ADDIW rd=x0`, `C.LUI rd=x0`, `C.SLLI rd=x0`, 6-bit RV64
-  `C.SLLI` shift amounts, legal `C.ADDIW imm=0` sign-extension behavior,
-  `C.FLDSP f0`, and the RV32C custom-extension `shamt[5]=1` space for
+  `C.EBREAK`, `C.ADDIW rd=x0`, nonzero `C.LUI rd=x0`, `C.SLLI rd=x0`,
+  6-bit RV64 `C.SLLI` shift amounts, legal `C.ADDIW imm=0` sign-extension
+  behavior, `C.FLDSP f0`, and the RV32C custom-extension `shamt[5]=1` space for
   `C.SLLI`, `C.SRLI`, and `C.SRAI`, including the `C.SLLI rd=x0` hint-looking
   form. The zero-immediate reserved space for
   `C.LUI` and `C.ADDI16SP` is now pinned by focused RV64C regressions, keeping
-  reserved traps distinct from the nearby nonzero hint encodings.
+  reserved traps distinct from the nearby positive and negative nonzero
+  `rd=x0` hint encodings.
   Integer stack-load reserved forms for `C.LWSP rd=x0` and `C.LDSP rd=x0` are
   now covered, with adjacent stack stores from `x0` kept legal.
   `C.LUI` now has coverage for positive and negative compressed immediates,
@@ -640,8 +641,8 @@ official coverage improve.
   `shamt[5]=1` code points for `C.SLLI`, `C.SRLI`, and `C.SRAI`, while
   preserving the existing RV64C 6-bit shift behavior.
 - RV64C zero-immediate coverage now keeps the reserved `C.LUI` and
-  `C.ADDI16SP` code points illegal while leaving the nearby nonzero
-  `rd=x0` hint forms as no-ops.
+  `C.ADDI16SP` code points illegal while leaving nearby positive and negative
+  nonzero `C.LUI rd=x0` hint forms as no-ops.
 - RV64C `C.LUI` coverage now pins the positive and negative compressed
   immediate paths, including sign extension from bit 17 through XLEN.
 - Shared RV64C 6-bit signed immediate coverage now pins `C.ADDI`, `C.LI`, and

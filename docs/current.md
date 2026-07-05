@@ -210,15 +210,15 @@
 
 - The first RV64C reserved/hint correction slice for Task 0063 is in place.
   `EBREAK` and `C.EBREAK` now raise the architectural breakpoint exception,
-  `C.ADDIW rd=x0` is rejected as reserved on RV64C, `C.LUI rd=x0` and
-  `C.SLLI rd=x0` execute as ignored hints, `C.SLLI` uses the unsigned 6-bit
-  RV64 shift amount, and `C.FLDSP` can target valid FP register `f0`. RV32C
-  now rejects `C.SLLI`, `C.SRLI`, and `C.SRAI` forms with `shamt[5]=1`,
+  `C.ADDIW rd=x0` is rejected as reserved on RV64C, nonzero `C.LUI rd=x0`
+  and `C.SLLI rd=x0` execute as ignored hints, `C.SLLI` uses the unsigned
+  6-bit RV64 shift amount, and `C.FLDSP` can target valid FP register `f0`.
+  RV32C now rejects `C.SLLI`, `C.SRLI`, and `C.SRAI` forms with `shamt[5]=1`,
   including `C.SLLI rd=x0`, because those code points are reserved for custom
   extensions in the 32-bit profile.
   RV64C coverage now also pins the zero-immediate reserved space for
-  `C.LUI` and `C.ADDI16SP`, keeping those traps distinct from the nonzero
-  `rd=x0` hint encodings.
+  `C.LUI` and `C.ADDI16SP`, keeping those traps distinct from the positive and
+  negative nonzero `rd=x0` hint encodings.
   Integer stack loads now also pin their reserved `rd=x0` encodings for
   `C.LWSP` and `C.LDSP`, while adjacent stack stores from `x0` remain legal.
   `C.LUI` now has coverage for positive and negative compressed immediates,
