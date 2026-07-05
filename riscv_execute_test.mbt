@@ -11990,6 +11990,63 @@ test "LR.W/SC.W pair succeeds on single hart" {
 }
 
 ///|
+test "LR.W and SC.W aq rl encodings execute ordinary reservation pair" {
+  for order in [0U, 1U, 2U, 3U] {
+    let lr_runner = make_runner(virt_machine_config())
+    let lr_addr = lr_runner.cpu.pc + 0x100U.to_uint64()
+    lr_runner.bus.store_u32(lr_addr, 77U.to_uint64())
+    lr_runner.cpu.write_reg(1, lr_addr)
+    lr_runner.cpu.write_reg(5, 88U.to_uint64())
+    let lr_pc = lr_runner.cpu.pc
+    // The A extension assigns aq/rl bits to LR/SC too. Some combinations are
+    // only recommendations for useful acquire/release mappings, but they are
+    // still instruction encodings that must reach the normal LR/SC executor.
+    lr_runner.bus.store_u32(
+      lr_pc,
+      encode_amo_ordered(0x02U, order, 0, 1, 0x2U, 3).to_uint64(),
+    )
+    lr_runner.bus.store_u32(
+      lr_pc + 4U.to_uint64(),
+      encode_amo(0x03U, 5, 1, 0x2U, 4).to_uint64(),
+    )
+    match lr_runner.step() {
+      Running => ()
+      _ => fail("expected ordered LR.W form to run")
+    }
+    assert_eq(lr_runner.read_reg_u64(3), 77U.to_uint64())
+    match lr_runner.step() {
+      Running => ()
+      _ => fail("expected following SC.W to run")
+    }
+    assert_eq(lr_runner.read_reg_u64(4), 0U.to_uint64())
+    assert_eq(lr_runner.bus.load_u32(lr_addr), 88U.to_uint64())
+
+    let sc_runner = make_runner(virt_machine_config())
+    let sc_addr = sc_runner.cpu.pc + 0x100U.to_uint64()
+    sc_runner.bus.store_u32(sc_addr, 91U.to_uint64())
+    sc_runner.cpu.write_reg(1, sc_addr)
+    sc_runner.cpu.write_reg(5, 123U.to_uint64())
+    let sc_pc = sc_runner.cpu.pc
+    sc_runner.bus.store_u32(sc_pc, encode_amo(0x02U, 0, 1, 0x2U, 3).to_uint64())
+    sc_runner.bus.store_u32(
+      sc_pc + 4U.to_uint64(),
+      encode_amo_ordered(0x03U, order, 5, 1, 0x2U, 4).to_uint64(),
+    )
+    match sc_runner.step() {
+      Running => ()
+      _ => fail("expected LR.W before ordered SC.W to run")
+    }
+    assert_eq(sc_runner.read_reg_u64(3), 91U.to_uint64())
+    match sc_runner.step() {
+      Running => ()
+      _ => fail("expected ordered SC.W form to run")
+    }
+    assert_eq(sc_runner.read_reg_u64(4), 0U.to_uint64())
+    assert_eq(sc_runner.bus.load_u32(sc_addr), 123U.to_uint64())
+  }
+}
+
+///|
 test "LR.D/SC.D pair succeeds on single hart" {
   // Doubleword LR/SC is part of RV64A. Pin both the 64-bit load-reserved value
   // and the successful store-conditional status/result path.
@@ -12017,6 +12074,64 @@ test "LR.D/SC.D pair succeeds on single hart" {
   }
   assert_eq(runner.read_reg_u64(4), 0U.to_uint64())
   assert_eq(runner.bus.load_u64(addr), replacement)
+}
+
+///|
+test "LR.D and SC.D aq rl encodings execute ordinary reservation pair" {
+  for order in [0U, 1U, 2U, 3U] {
+    let lr_runner = make_runner(virt_machine_config())
+    let lr_addr = lr_runner.cpu.pc + 0x100U.to_uint64()
+    let lr_original = 0x1122334455667788UL + order.to_uint64()
+    let lr_replacement = 0x8877665544332211UL
+    lr_runner.bus.store_u64(lr_addr, lr_original)
+    lr_runner.cpu.write_reg(1, lr_addr)
+    lr_runner.cpu.write_reg(5, lr_replacement)
+    let lr_pc = lr_runner.cpu.pc
+    lr_runner.bus.store_u32(
+      lr_pc,
+      encode_amo_ordered(0x02U, order, 0, 1, 0x3U, 3).to_uint64(),
+    )
+    lr_runner.bus.store_u32(
+      lr_pc + 4U.to_uint64(),
+      encode_amo(0x03U, 5, 1, 0x3U, 4).to_uint64(),
+    )
+    match lr_runner.step() {
+      Running => ()
+      _ => fail("expected ordered LR.D form to run")
+    }
+    assert_eq(lr_runner.read_reg_u64(3), lr_original)
+    match lr_runner.step() {
+      Running => ()
+      _ => fail("expected following SC.D to run")
+    }
+    assert_eq(lr_runner.read_reg_u64(4), 0U.to_uint64())
+    assert_eq(lr_runner.bus.load_u64(lr_addr), lr_replacement)
+
+    let sc_runner = make_runner(virt_machine_config())
+    let sc_addr = sc_runner.cpu.pc + 0x100U.to_uint64()
+    let sc_original = 0x0123456789abcdefUL + order.to_uint64()
+    let sc_replacement = 0xfedcba9876543210UL
+    sc_runner.bus.store_u64(sc_addr, sc_original)
+    sc_runner.cpu.write_reg(1, sc_addr)
+    sc_runner.cpu.write_reg(5, sc_replacement)
+    let sc_pc = sc_runner.cpu.pc
+    sc_runner.bus.store_u32(sc_pc, encode_amo(0x02U, 0, 1, 0x3U, 3).to_uint64())
+    sc_runner.bus.store_u32(
+      sc_pc + 4U.to_uint64(),
+      encode_amo_ordered(0x03U, order, 5, 1, 0x3U, 4).to_uint64(),
+    )
+    match sc_runner.step() {
+      Running => ()
+      _ => fail("expected LR.D before ordered SC.D to run")
+    }
+    assert_eq(sc_runner.read_reg_u64(3), sc_original)
+    match sc_runner.step() {
+      Running => ()
+      _ => fail("expected ordered SC.D form to run")
+    }
+    assert_eq(sc_runner.read_reg_u64(4), 0U.to_uint64())
+    assert_eq(sc_runner.bus.load_u64(sc_addr), sc_replacement)
+  }
 }
 
 ///|

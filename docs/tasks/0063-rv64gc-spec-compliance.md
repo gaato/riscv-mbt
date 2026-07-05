@@ -176,7 +176,8 @@ official coverage improve.
   keeps `AMO.D` RV64-only, and preserves the two-bit `aq`/`rl` ordering field
   in decoded AMO instructions. Focused white-box regressions pin the reserved
   AMO/LR encodings, all four AMO order encodings for both AMO.W and AMO.D,
-  missing-`MISA.A` trap, and RV32 `AMO.D` rejection.
+  LR/SC order-bit execution for W and D reservation pairs, missing-`MISA.A`
+  trap, and RV32 `AMO.D` rejection.
   `riscv_execute.mbt` implements LR/SC and AMO W/D behavior with shared
   per-hart physical byte-range reservations, with regressions for
   reservation success/failure for word and doubleword LR/SC, same-hart store
