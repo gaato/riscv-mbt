@@ -1534,6 +1534,8 @@ test "rv64fd fused multiply-add accrues invalid for infinity times zero" {
   runner.cpu.write_freg(6, 0x7ff8000000000000UL)
   runner.cpu.write_freg(7, exec_test_nan_box_single(0x7f800001U))
   runner.cpu.write_freg(8, exec_test_nan_box_single(exec_test_f32_bits(1.0)))
+  runner.cpu.write_freg(9, exec_test_nan_box_single(0xff800000U))
+  runner.cpu.write_freg(15, exec_test_f64_bits(1.0))
   runner.load_program(
     words_to_bytes([
       encode_fp_r4(3, 0x0U, 2, 1, 0x0U, 10, 0x43U),
@@ -1543,19 +1545,29 @@ test "rv64fd fused multiply-add accrues invalid for infinity times zero" {
       encode_csr(csr_fcsr, 0, 0x2U, 13),
       encode_csr(csr_fcsr, 0, 0x1U, 0),
       encode_fp_r4(8, 0x0U, 8, 7, 0x0U, 14, 0x43U),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(9, 0x0U, 8, 1, 0x0U, 20, 0x43U),
+      encode_csr(csr_fcsr, 0, 0x2U, 16),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(4, 0x1U, 15, 4, 0x0U, 21, 0x47U),
+      encode_csr(csr_fcsr, 0, 0x2U, 18),
     ]),
     0U,
   )
-  match runner.run(7) {
+  match runner.run(13) {
     Running => ()
     _ => fail("expected fma invalid flag path to run")
   }
   assert_eq(runner.read_reg_u64(11) & 0x10U.to_uint64(), 0x10U.to_uint64())
   assert_eq(runner.read_reg_u64(13) & 0x10U.to_uint64(), 0x10U.to_uint64())
+  assert_eq(runner.read_reg_u64(16) & 0x10U.to_uint64(), 0x10U.to_uint64())
+  assert_eq(runner.read_reg_u64(18) & 0x10U.to_uint64(), 0x10U.to_uint64())
   assert_eq(runner.read_csr(csr_fcsr) & 0x10U, 0x10U)
   assert_eq(runner.read_freg_u64(10), exec_test_nan_box_single(0x7fc00000U))
   assert_eq(runner.read_freg_u64(12), 0x7ff8000000000000UL)
   assert_eq(runner.read_freg_u64(14), exec_test_nan_box_single(0x7fc00000U))
+  assert_eq(runner.read_freg_u64(20), exec_test_nan_box_single(0x7fc00000U))
+  assert_eq(runner.read_freg_u64(21), 0x7ff8000000000000UL)
 }
 
 ///|

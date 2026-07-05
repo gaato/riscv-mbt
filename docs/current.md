@@ -93,9 +93,11 @@
   products for finite nonzero results under legal non-RNE modes, and exact-zero
   fused result signs are handled explicitly. Invalid fused operations now write
   canonical NaNs directly while accruing NV for `infinity * zero` and
-  signaling-NaN operands. `FADD.D`, `FSUB.D`, `FMUL.D`, and `FDIV.D` now round
-  exact-rational finite results back to double precision for legal non-RNE
-  modes, including NX/OF/UF result flags. `FCLASS.S` /`FCLASS.D`
+  signaling-NaN operands, and they also accrue NV for an infinite product
+  fused with an opposite-signed infinite addend across the FMA opcode variants.
+  `FADD.D`, `FSUB.D`, `FMUL.D`, and `FDIV.D` now round exact-rational finite
+  results back to double precision for legal non-RNE modes, including NX/OF/UF
+  result flags. `FCLASS.S` /`FCLASS.D`
   now decode and execute the architectural 10-bit classification mask for zero,
   subnormal, normal, infinity, signaling-NaN, and quiet-NaN values. Double
   `FSQRT.D` now accepts legal non-RNE modes and derives directed finite results

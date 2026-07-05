@@ -101,7 +101,10 @@ official coverage improve.
   canonical-NaN results for representative add, multiply, and divide cases.
   Invalid fused multiply-add coverage now also checks canonical-NaN results for
   `infinity * zero` and signaling-NaN inputs, and the implementation writes
-  those results directly instead of depending on host NaN propagation.
+  those results directly instead of depending on host NaN propagation. The same
+  invalid-FMA path now handles the infinite-product plus opposite-infinity
+  fused-add case by applying the effective term signs for each FMA opcode
+  variant before accruing NV.
   Exact widening `FCVT.D.S` and exact
   RV32-width-to-double `FCVT.D.W[U]` now treat the otherwise unaffected `rm`
   field as architecturally significant for legal/reserved static and dynamic
