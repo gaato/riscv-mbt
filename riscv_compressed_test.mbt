@@ -838,6 +838,25 @@ test "rv64c compressed word ALU forms sign-extend and stay rv64-only" {
 }
 
 ///|
+test "rv64c compressed word ALU reserved slots trap" {
+  for raw_int in [encode_c_word_alu(0x2, 8, 9), encode_c_word_alu(0x3, 8, 9)] {
+    let raw = raw_int.reinterpret_as_uint()
+    let runner = make_runner(rv64_machine_config())
+    runner.load_program(mixed_program_bytes([(2, raw)]), 0U)
+    match runner.step() {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected illegal instruction trap")
+        }
+        assert_eq(info.trap_value, raw.to_uint64())
+      }
+      _ => fail("expected reserved compressed word ALU slot to trap")
+    }
+  }
+}
+
+///|
 test "compressed add rd x0 forms execute as hints" {
   for rs2 in 1..<=31 {
     let raw = encode_c_add(0, rs2)

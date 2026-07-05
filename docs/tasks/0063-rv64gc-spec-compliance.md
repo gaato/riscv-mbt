@@ -206,8 +206,9 @@ official coverage improve.
   `C.LDSP`/`C.SDSP`, preserving those encodings as RV64C-only load/store
   aliases instead of widening the 32-bit compressed profile.
   RV64C word-ALU coverage now pins `C.ADDW` and `C.SUBW` as RV64-only
-  compressed aliases, including low-32-bit sign extension and rejection of the
-  same code points under RV32C.
+  compressed aliases, including low-32-bit sign extension, rejection of the
+  same code points under RV32C, and illegal traps for the adjacent reserved
+  RV64C CA funct2 slots.
   `C.ADD rd=x0, rs2!=x0` forms now execute as
   ignored hints, including the `rs2=x2..x5` compressed Zihintntl non-temporal
   locality hint subrange. CR-format coverage now also pins `C.MV rd=x0,
@@ -623,7 +624,8 @@ official coverage improve.
   expansion path.
 - RV64C compressed word-ALU coverage now round-trips `C.ADDW` and `C.SUBW`
   through the existing RV64 word-operation helpers and proves the same code
-  points remain illegal in RV32C.
+  points remain illegal in RV32C. The adjacent RV64C CA word-ALU slots with no
+  standard compressed operation now trap as reserved encodings.
 - Compressed `C.ADD rd=x0, rs2!=x0` now executes as an architectural hint
   across the whole nonzero source range. The `rs2=x2..x5` encodings are the
   compressed Zihintntl locality hints, so they remain no-ops in this RV64GC
