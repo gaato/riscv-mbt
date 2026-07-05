@@ -3681,16 +3681,25 @@ test "rv64fd double to unsigned word conversion sign extends on rv64" {
   let runner = make_runner(rv64fd_machine_config())
   runner.cpu.write_freg(1, exec_test_f64_bits(42.75))
   runner.cpu.write_freg(2, exec_test_f64_bits(4294967295.0))
+  runner.cpu.write_freg(3, exec_test_f64_bits(2147483648.0))
   runner.load_program(
-    words_to_bytes([encode_fcvt_wu_d(1, 0x1U, 3), encode_fcvt_wu_d(2, 0x1U, 4)]),
+    words_to_bytes([
+      encode_fcvt_wu_d(1, 0x1U, 4),
+      encode_fcvt_wu_d(2, 0x1U, 5),
+      encode_fcvt_wu_d(3, 0x1U, 6),
+    ]),
     0U,
   )
-  match runner.run(2) {
+  match runner.run(3) {
     Running => ()
     _ => fail("expected rv64fd fcvt.wu.d path to run")
   }
-  assert_eq(runner.read_reg_u64(3), 42U.to_uint64())
-  assert_eq(runner.read_reg_u64(4), test_sign_extend_word64(0xffffffffU))
+  // RV64 FCVT.WU.D writes the unsigned 32-bit conversion result and then
+  // sign-extends that 32-bit pattern to XLEN. Pin both high-bit-set edges, not
+  // only the all-ones clipping-adjacent value.
+  assert_eq(runner.read_reg_u64(4), 42U.to_uint64())
+  assert_eq(runner.read_reg_u64(5), test_sign_extend_word64(0xffffffffU))
+  assert_eq(runner.read_reg_u64(6), test_sign_extend_word64(0x80000000U))
 }
 
 ///|
