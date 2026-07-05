@@ -3183,6 +3183,68 @@ test "rv64fd signed integer conversions keep exact minima valid" {
 }
 
 ///|
+test "rv64fd integer conversions keep upper valid edges flag clean" {
+  let csr_fcsr = 0x003
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, 0x41dfffffffc00000UL) // double 2^31 - 1.
+  runner.cpu.write_freg(2, 0x41efffffffe00000UL) // double 2^32 - 1.
+  runner.cpu.write_freg(3, exec_test_nan_box_single(0x4effffffU)) // largest single below 2^31.
+  runner.cpu.write_freg(4, exec_test_nan_box_single(0x4f7fffffU)) // largest single below 2^32.
+  runner.cpu.write_freg(5, 0x43dfffffffffffffUL) // largest double below 2^63.
+  runner.cpu.write_freg(6, 0x43efffffffffffffUL) // largest double below 2^64.
+  runner.cpu.write_freg(7, exec_test_nan_box_single(0x5effffffU)) // largest single below 2^63.
+  runner.cpu.write_freg(8, exec_test_nan_box_single(0x5f7fffffU)) // largest single below 2^64.
+  runner.load_program(
+    words_to_bytes([
+      encode_fcvt_w_d(1, 0x0U, 10),
+      encode_csr(csr_fcsr, 0, 0x2U, 11),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_wu_d(2, 0x0U, 12),
+      encode_csr(csr_fcsr, 0, 0x2U, 13),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_w_s(3, 0x0U, 14),
+      encode_csr(csr_fcsr, 0, 0x2U, 15),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_wu_s(4, 0x0U, 16),
+      encode_csr(csr_fcsr, 0, 0x2U, 17),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_l_d(5, 0x0U, 18),
+      encode_csr(csr_fcsr, 0, 0x2U, 19),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_lu_d(6, 0x0U, 20),
+      encode_csr(csr_fcsr, 0, 0x2U, 21),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_l_s(7, 0x0U, 22),
+      encode_csr(csr_fcsr, 0, 0x2U, 23),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_lu_s(8, 0x0U, 24),
+      encode_csr(csr_fcsr, 0, 0x2U, 25),
+    ]),
+    0U,
+  )
+  match runner.run(23) {
+    Running => ()
+    _ => fail("expected upper valid-edge conversion path to run")
+  }
+  assert_eq(runner.read_reg_u64(10), 0x7fffffffU.to_uint64())
+  assert_eq(runner.read_reg_u64(11), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(12), test_sign_extend_word64(0xffffffffU))
+  assert_eq(runner.read_reg_u64(13), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(14), 0x7fffff80U.to_uint64())
+  assert_eq(runner.read_reg_u64(15), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(16), test_sign_extend_word64(0xffffff00U))
+  assert_eq(runner.read_reg_u64(17), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(18), 0x7ffffffffffffc00UL)
+  assert_eq(runner.read_reg_u64(19), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(20), 0xfffffffffffff800UL)
+  assert_eq(runner.read_reg_u64(21), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(22), 0x7fffff8000000000UL)
+  assert_eq(runner.read_reg_u64(23), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(24), 0xffffff0000000000UL)
+  assert_eq(runner.read_reg_u64(25), 0U.to_uint64())
+}
+
+///|
 test "rv64fd rne integer conversions clip nan and infinity before host integer casts" {
   let csr_fcsr = 0x003
   let runner = make_runner(rv64fd_machine_config())

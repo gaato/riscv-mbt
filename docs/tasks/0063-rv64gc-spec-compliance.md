@@ -106,7 +106,8 @@ official coverage improve.
   inputs and the `+2^64` upper boundary, plus RNE NaN/infinity clipping before
   any host integer cast. The signed exact-minimum edge values `-2^31` and
   `-2^63` are also pinned as valid, flag-clean conversions for both S and D
-  sources.
+  sources. The last representable S/D values below the signed and unsigned
+  upper boundaries are pinned as flag-clean conversions as well.
   Invalid scalar arithmetic coverage now checks both NV and canonical-NaN
   results for representative add, multiply, and divide cases.
   Invalid fused multiply-add coverage now also checks canonical-NaN results for
@@ -360,8 +361,9 @@ official coverage improve.
   result differs from the source value, and preserves the RV64 rule that
   32-bit conversion results are sign-extended to XLEN. Focused coverage now
   also pins exact RNE invalid boundaries for `FCVT.W.S/D` below `-2^31` and at
-  `+2^31`, exact `-2^31` as a valid flag-clean signed result, plus unsigned
-  negative-input clipping and the `FCVT.WU.S/D` `+2^32` upper boundary.
+  `+2^31`, exact `-2^31` as a valid flag-clean signed result, flag-clean
+  high valid values below `+2^31`/`+2^32`, plus unsigned negative-input
+  clipping and the `FCVT.WU.S/D` `+2^32` upper boundary.
 - `FCVT.L.S`, `FCVT.LU.S`, `FCVT.L.D`, and `FCVT.LU.D` now use the same
   spec-shaped conversion policy for RV64-width results. The helper clips
   invalid signed results to `INT64_MIN`/`INT64_MAX`, invalid unsigned results to
@@ -369,7 +371,8 @@ official coverage improve.
   inexact conversions. Focused RNE coverage now pins both lower and upper
   invalid boundaries for signed long conversions plus the unsigned negative and
   `+2^64` boundaries, while exact `-2^63` remains a valid flag-clean signed
-  result.
+  result and the last representable values below `+2^63`/`+2^64` remain valid
+  flag-clean results.
 - `FCVT.S.W`, `FCVT.S.WU`, `FCVT.S.L`, `FCVT.S.LU`, `FCVT.D.L`, and
   `FCVT.D.LU` now construct IEEE result bits through a shared integer-magnitude
   rounding helper instead of relying on host-default conversion. The helper
