@@ -141,6 +141,10 @@ official coverage improve.
   WARL rules. User-interrupt, VS, XS, and other WPRI/reserved bits read back as
   zero, while the implemented interrupt, return, privilege, FP-status,
   memory-access, trap-control, fixed-XLEN, and derived-SD fields remain visible.
+  `menvcfg` and `senvcfg` now expose no optional environment-feature bits in
+  this RV64GC baseline. FIOM, Svpbmt, Svadu, Sstc, cache-block controls,
+  pointer masking, landing-pad, shadow-stack, and double-trap controls read
+  back as zero because those extensions are not implemented.
   `mstatus.MPP` now rejects the reserved privilege encoding 2 at the CSR write
   boundary. The remaining audit is a spec pass over remaining WARL behavior,
   read-only/write-ignored fields, and privilege-visible side effects for every
@@ -407,3 +411,7 @@ official coverage improve.
   write-all-ones regression verifies that unsupported user-interrupt, VS, XS,
   and WPRI/reserved storage is cleared before the existing endian, fixed-XLEN,
   MPP, and SD-derived normalization runs.
+- `menvcfg`/`senvcfg` no longer retain arbitrary compatibility storage bits.
+  A write-all-ones regression pins the current baseline behavior: all optional
+  environment controls read as zero until their corresponding extensions are
+  implemented.

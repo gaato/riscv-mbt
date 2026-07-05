@@ -994,6 +994,7 @@ fn Runner::read_csr_visible(self : Runner, csr : Int) -> UInt64 {
     CSR_MIDELEG => legalize_mideleg_csr(self.cpu.read_csr(CSR_MIDELEG))
     CSR_MCOUNTEREN => legalize_counteren_csr(self.cpu.read_csr(CSR_MCOUNTEREN))
     CSR_SCOUNTEREN => legalize_counteren_csr(self.cpu.read_csr(CSR_SCOUNTEREN))
+    CSR_MENVCFG | CSR_SENVCFG => legalize_envcfg_csr(self.cpu.read_csr(csr))
     CSR_MIP => legalize_mip_csr(self.cpu.read_csr(CSR_MIP))
     CSR_MIE => legalize_mie_csr(self.cpu.read_csr(CSR_MIE))
     CSR_SIP => self.cpu.read_csr(CSR_MIP) & self.delegated_s_interrupt_mask()
@@ -1059,6 +1060,15 @@ fn legalize_counteren_csr(value : UInt64) -> UInt64 {
   // are WARL read-only zero because the corresponding hpmcounter CSRs are not
   // implemented.
   value & COUNTEREN_WRITABLE_MASK
+}
+
+///|
+fn legalize_envcfg_csr(_value : UInt64) -> UInt64 {
+  // menvcfg/senvcfg mostly enable optional execution-environment features:
+  // FIOM, Svpbmt, Svadu, Sstc, cache-block ops, pointer masking, landing pads,
+  // shadow stacks, and double-trap controls. None are implemented in the
+  // current RV64GC baseline, so their fields are read-only zero.
+  0U.to_uint64()
 }
 
 ///|
@@ -1128,6 +1138,8 @@ fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
     CSR_MIDELEG => self.cpu.write_csr(csr, legalize_mideleg_csr(value))
     CSR_MCOUNTEREN | CSR_SCOUNTEREN =>
       self.cpu.write_csr(csr, legalize_counteren_csr(value))
+    CSR_MENVCFG | CSR_SENVCFG =>
+      self.cpu.write_csr(csr, legalize_envcfg_csr(value))
     CSR_MIE => self.cpu.write_csr(csr, legalize_mie_csr(value))
     CSR_MIP => {
       let mip = self.cpu.read_csr(CSR_MIP)

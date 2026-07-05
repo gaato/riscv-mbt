@@ -183,6 +183,10 @@
   zero; the remaining visible surface is the emulator's implemented interrupt,
   return, privilege, FP-status, memory-access, trap-control, fixed-XLEN, and
   derived-SD fields.
+- `menvcfg` and `senvcfg` now expose no optional environment-feature bits in
+  the RV64GC baseline. FIOM, Svpbmt, Svadu, Sstc, cache-block controls, pointer
+  masking, landing-pad, shadow-stack, and double-trap controls read back as
+  zero because those extensions are not implemented.
 
 ## Known Blockers
 

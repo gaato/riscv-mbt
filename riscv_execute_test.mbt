@@ -4083,6 +4083,29 @@ test "counteren csrs expose only base counter enable bits" {
 }
 
 ///|
+test "environment config csrs expose no optional feature bits" {
+  let menvcfg = 0x30A
+  let senvcfg = 0x10A
+  let program = words_to_bytes([
+    encode_i(-1, 0, 0x0U, 1, 0x13U),
+    encode_csr(menvcfg, 1, 0x1U, 0),
+    encode_csr(senvcfg, 1, 0x1U, 0),
+    encode_csr(menvcfg, 0, 0x2U, 2),
+    encode_csr(senvcfg, 0, 0x2U, 3),
+  ])
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(5) {
+    Running => ()
+    _ => fail("expected environment config CSR program to run")
+  }
+  assert_eq(runner.read_reg_u64(2), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(3), 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(menvcfg), 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(senvcfg), 0U.to_uint64())
+}
+
+///|
 test "csr address privilege bits gate supervisor and machine csrs" {
   let read_mstatus = encode_csr(0x300, 0, 0x2U, 1)
   let supervisor_machine_denied = make_runner(rv64_machine_config())
