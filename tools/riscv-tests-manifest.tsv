@@ -46,7 +46,11 @@ rv64ui	addw	rv64i	gating
 rv64ui	and	rv64i	gating
 rv64ui	andi	rv64i	gating
 rv64ui	beq	rv64i	gating
+rv64ui	bge	rv64i	gating
+rv64ui	bgeu	rv64i	gating
+rv64ui	blt	rv64i	gating
 rv64ui	bltu	rv64i	gating
+rv64ui	bne	rv64i	gating
 rv64ui	fence_i	rv64i	gating
 rv64ui	lb	rv64i	gating
 rv64ui	lbu	rv64i	gating
@@ -55,10 +59,13 @@ rv64ui	lhu	rv64i	gating
 rv64ui	lw	rv64i	gating
 rv64ui	lwu	rv64i	gating
 rv64ui	ld	rv64i	gating
+rv64ui	ld_st	rv64i	gating
+rv64ui	ma_data	rv64i	gating
 rv64ui	sb	rv64i	gating
 rv64ui	sw	rv64i	gating
 rv64ui	sh	rv64i	gating
 rv64ui	sd	rv64i	gating
+rv64ui	simple	rv64i	gating
 rv64ui	jal	rv64i	gating
 rv64ui	jalr	rv64i	gating
 rv64ui	lui	rv64i	gating
@@ -82,6 +89,7 @@ rv64ui	srlw	rv64i	gating
 rv64ui	srli	rv64i	gating
 rv64ui	sub	rv64i	gating
 rv64ui	subw	rv64i	gating
+rv64ui	st_ld	rv64i	gating
 rv64ui	auipc	rv64i	gating
 rv64ui	xor	rv64i	gating
 rv64ui	xori	rv64i	gating

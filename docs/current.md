@@ -167,6 +167,10 @@
   have also passed survey and moved to `gating`. The RV64 word-operation rows
   `addiw`, `addw`, `subw`, `slliw`, `sllw`, `srliw`, `srlw`, `sraiw`, and
   `sraw` have likewise passed survey and are now part of the gating manifest.
+  The remaining local `rv64ui` branch and memory-combination rows (`bge`,
+  `bgeu`, `blt`, `bne`, `ld_st`, `st_ld`, `simple`, and `ma_data`) now also
+  pass and are gated, so every `rv64ui` source row currently built from the
+  local official-test checkout is in the regression floor.
 
 - The first RV64C reserved/hint correction slice for Task 0063 is in place.
   `EBREAK` and `C.EBREAK` now raise the architectural breakpoint exception,

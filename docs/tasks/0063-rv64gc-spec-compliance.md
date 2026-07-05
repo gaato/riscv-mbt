@@ -79,7 +79,11 @@ official coverage improve.
   shift, and `sub` operations have also passed survey and moved to `gating`.
   The RV64 word-operation rows `addiw`, `addw`, `subw`, `slliw`, `sllw`,
   `srliw`, `srlw`, `sraiw`, and `sraw` have likewise passed survey and are now
-  part of the gating manifest.
+  part of the gating manifest. The remaining local `rv64ui` branch and
+  memory-combination rows (`bge`, `bgeu`, `blt`, `bne`, `ld_st`, `st_ld`,
+  `simple`, and `ma_data`) now also pass and are gated, so every `rv64ui`
+  source row currently built from the local official-test checkout is in the
+  regression floor.
   Taken branch and jump target alignment now follows the active IALIGN:
   non-C profiles trap halfword-only targets as instruction-address-misaligned,
   while C/RV64GC profiles allow them under IALIGN=16.
