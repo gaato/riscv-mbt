@@ -190,3 +190,8 @@ but it is not the same as a more ordinary Alpine service environment.
   steps. The post-init command delta is `0 read-req/0 read-bytes` and
   `65 write-req/66560 write-bytes`, so this rerun is a regression proof for
   the existing Linux system path rather than a new OpenRC probe variant.
+- Counter CSR access now also honors the privilege gates from `mcounteren` and
+  `scounteren`: M-mode reads do not need enable bits, S-mode reads require the
+  matching `mcounteren` bit, and U-mode reads require matching bits in both
+  `mcounteren` and `scounteren`. The regression test drives the S/U cases
+  through real `mret` transitions instead of mutating test state directly.
