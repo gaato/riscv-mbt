@@ -995,6 +995,7 @@ fn Runner::read_csr_visible(self : Runner, csr : Int) -> UInt64 {
     CSR_MCOUNTEREN => legalize_counteren_csr(self.cpu.read_csr(CSR_MCOUNTEREN))
     CSR_SCOUNTEREN => legalize_counteren_csr(self.cpu.read_csr(CSR_SCOUNTEREN))
     CSR_MENVCFG | CSR_SENVCFG => legalize_envcfg_csr(self.cpu.read_csr(csr))
+    CSR_PMPCFG0 | CSR_PMPADDR0 => legalize_pmp_csr(self.cpu.read_csr(csr))
     CSR_MIP => legalize_mip_csr(self.cpu.read_csr(CSR_MIP))
     CSR_MIE => legalize_mie_csr(self.cpu.read_csr(CSR_MIE))
     CSR_SIP => self.cpu.read_csr(CSR_MIP) & self.delegated_s_interrupt_mask()
@@ -1072,6 +1073,16 @@ fn legalize_envcfg_csr(_value : UInt64) -> UInt64 {
 }
 
 ///|
+fn legalize_pmp_csr(_value : UInt64) -> UInt64 {
+  // PMP is optional, and this emulator currently has no PMP enforcement in
+  // instruction fetch, load/store, page-table walks, or M-mode accesses. Expose
+  // zero implemented PMP entries until those access checks exist; otherwise
+  // firmware could configure protection rules that the emulator silently
+  // ignores.
+  0U.to_uint64()
+}
+
+///|
 fn legalize_mie_csr(value : UInt64) -> UInt64 {
   // The modeled platform can raise the standard machine and supervisor
   // software/timer/external interrupts. Other interrupt-enable bits are WARL
@@ -1140,6 +1151,8 @@ fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
       self.cpu.write_csr(csr, legalize_counteren_csr(value))
     CSR_MENVCFG | CSR_SENVCFG =>
       self.cpu.write_csr(csr, legalize_envcfg_csr(value))
+    CSR_PMPCFG0 | CSR_PMPADDR0 =>
+      self.cpu.write_csr(csr, legalize_pmp_csr(value))
     CSR_MIE => self.cpu.write_csr(csr, legalize_mie_csr(value))
     CSR_MIP => {
       let mip = self.cpu.read_csr(CSR_MIP)

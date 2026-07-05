@@ -4106,6 +4106,29 @@ test "environment config csrs expose no optional feature bits" {
 }
 
 ///|
+test "pmp csrs are read only zero without pmp enforcement" {
+  let pmpcfg0 = 0x3A0
+  let pmpaddr0 = 0x3B0
+  let program = words_to_bytes([
+    encode_i(-1, 0, 0x0U, 1, 0x13U),
+    encode_csr(pmpcfg0, 1, 0x1U, 0),
+    encode_csr(pmpaddr0, 1, 0x1U, 0),
+    encode_csr(pmpcfg0, 0, 0x2U, 2),
+    encode_csr(pmpaddr0, 0, 0x2U, 3),
+  ])
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(5) {
+    Running => ()
+    _ => fail("expected PMP CSR program to run")
+  }
+  assert_eq(runner.read_reg_u64(2), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(3), 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(pmpcfg0), 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(pmpaddr0), 0U.to_uint64())
+}
+
+///|
 test "csr address privilege bits gate supervisor and machine csrs" {
   let read_mstatus = encode_csr(0x300, 0, 0x2U, 1)
   let supervisor_machine_denied = make_runner(rv64_machine_config())

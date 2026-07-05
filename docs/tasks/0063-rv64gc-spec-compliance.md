@@ -145,6 +145,10 @@ official coverage improve.
   this RV64GC baseline. FIOM, Svpbmt, Svadu, Sstc, cache-block controls,
   pointer masking, landing-pad, shadow-stack, and double-trap controls read
   back as zero because those extensions are not implemented.
+  `pmpcfg0` and `pmpaddr0` now read as zero because PMP access enforcement is
+  not implemented. The OpenSBI smoke still boots and reports `PMP Count: 0`,
+  avoiding the old mismatch where firmware could configure protection rules the
+  emulator would silently ignore.
   `mstatus.MPP` now rejects the reserved privilege encoding 2 at the CSR write
   boundary. The remaining audit is a spec pass over remaining WARL behavior,
   read-only/write-ignored fields, and privilege-visible side effects for every
@@ -415,3 +419,7 @@ official coverage improve.
   A write-all-ones regression pins the current baseline behavior: all optional
   environment controls read as zero until their corresponding extensions are
   implemented.
+- `pmpcfg0`/`pmpaddr0` no longer retain arbitrary compatibility storage bits.
+  A write-all-ones regression pins the current no-PMP-enforcement profile as
+  read-only zero, and the native OpenSBI smoke confirms the firmware-visible
+  PMP count is zero.
