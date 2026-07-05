@@ -242,6 +242,31 @@ test "sv39 translate succeeds for U-page from S-mode with SUM" {
 }
 
 ///|
+test "sv39 translate faults when S-mode fetches U-page with SUM" {
+  let bus = Bus::new(0U.to_uint64(), 0x10000)
+  let satp = test_setup_identity_map(
+    bus,
+    test_pte_v |
+    test_pte_r |
+    test_pte_w |
+    test_pte_x |
+    test_pte_u |
+    test_pte_a |
+    test_pte_d,
+  )
+  match
+    sv39_translate(bus, satp, 0U.to_uint64(), Fetch, Supervisor, true, false) {
+    TranslateFault(cause) =>
+      match cause {
+        InstructionPageFault => ()
+        _ => fail("expected InstructionPageFault for S-mode fetch from U-page")
+      }
+    TranslatedAddr(_) =>
+      fail("expected page fault for S-mode fetch from U-page despite SUM")
+  }
+}
+
+///|
 test "sv39 translate faults when S-page accessed from U-mode" {
   let bus = Bus::new(0U.to_uint64(), 0x10000)
   // No test_pte_u → supervisor page

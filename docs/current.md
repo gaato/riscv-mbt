@@ -183,6 +183,9 @@
   visible CSR writes, while preserving legal U/S/M return-mode encodings.
 - `MRET` and `SRET` now clear `mstatus.MPRV` when returning to a privilege mode
   below M, while preserving `MPRV` for `MRET` returns that stay in M-mode.
+- Sv39 now keeps SUM data-only: supervisor loads/stores may access U pages when
+  SUM is set, but supervisor instruction fetches from U pages fault regardless
+  of SUM.
 - Return-instruction legality is now enforced for the modeled privileged
   surface: `MRET` traps outside M-mode, `SRET` traps from U-mode, and S-mode
   `SRET` traps when `mstatus.TSR` is set.

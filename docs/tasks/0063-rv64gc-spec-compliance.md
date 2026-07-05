@@ -189,6 +189,10 @@ official coverage improve.
 
 ## Progress Notes
 
+- Sv39 permission checks now keep SUM limited to supervisor data accesses:
+  S-mode loads/stores to U pages can proceed when SUM is set, but S-mode
+  instruction fetches from U pages raise instruction page faults regardless of
+  SUM.
 - `FCLASS.S` and `FCLASS.D` now decode and execute the architectural 10-bit
   classification mask for zero, subnormal, normal, infinity, signaling NaN,
   quiet NaN, and the D-present single-precision NaN-boxing path.

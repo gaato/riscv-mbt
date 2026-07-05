@@ -127,11 +127,18 @@ pub fn sv39_translate(
       }
     Store => if (pte & PTE_W) == 0U.to_uint64() { return TranslateFault(fault) }
   }
-  // U-bit check
+  // U-bit check. SUM only relaxes supervisor loads/stores into user pages; the
+  // privileged spec still forbids supervisor instruction fetches from U pages.
   let is_user_page = (pte & PTE_U) != 0U.to_uint64()
   match privilege {
     User => if !is_user_page { return TranslateFault(fault) }
-    Supervisor => if is_user_page && !sum { return TranslateFault(fault) }
+    Supervisor =>
+      if is_user_page {
+        match access_type {
+          Fetch => return TranslateFault(fault)
+          _ => if !sum { return TranslateFault(fault) }
+        }
+      }
     Machine => ()
   }
   // Superpage alignment: for level > 0, lower PPN bits must be zero
