@@ -769,8 +769,9 @@ official coverage improve.
   exact positive nonzero fused result.
 - Double-precision sqrt now has matching non-RNE coverage. A focused regression
   covers `FSQRT.D sqrt(2.0)`, where RTZ and RUP select adjacent
-  double-precision results and accrue NX. Exact double square roots are now
-  covered as flag-clean results.
+  double-precision results and accrue NX. A dynamic `rm=111` regression now
+  also verifies that `frm=RDN` selects the lower adjacent double and accrues NX.
+  Exact double square roots are now covered as flag-clean results.
 - Base shift-immediate decode now treats `SLLI` as a shift-immediate
   specialization rather than a generic 12-bit immediate. RV64 reserved high
   immediate bits decode as illegal, and RV32 `SLLI`, `SRLI`, and `SRAI`

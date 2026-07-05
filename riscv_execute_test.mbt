@@ -2135,6 +2135,27 @@ test "rv64fd sqrt honors non-rne rounding modes" {
 }
 
 ///|
+test "rv64fd sqrt honors dynamic rounding mode" {
+  let runner = make_runner(rv64fd_machine_config())
+  let csr_fcsr = 0x003
+  let fcsr_frm_shift = 5
+  // rm=111 selects fcsr.frm. Use RDN so sqrt(2.0) must choose the lower
+  // adjacent double and still accrue NX for the inexact square root.
+  runner.cpu.write_csr(csr_fcsr, 0x2U.to_uint64() << fcsr_frm_shift)
+  runner.cpu.write_freg(1, exec_test_f64_bits(2.0))
+  runner.load_program(words_to_bytes([encode_fsqrt_d(1, 0x7U, 2)]), 0U)
+  match runner.step() {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected dynamic-RDN FSQRT.D to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_freg_u64(2), 0x3ff6a09e667f3bccUL)
+  assert_eq(runner.read_csr(csr_fcsr) & 0x1U, 0x1U)
+}
+
+///|
 test "rv64fd sqrt exact squares stay flag clean" {
   let runner = make_runner(rv64fd_machine_config())
   let csr_fcsr = 0x003
