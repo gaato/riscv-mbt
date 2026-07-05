@@ -73,7 +73,9 @@ official coverage improve.
   multiply/divide/remainder instructions when `MISA.M` is not advertised.
   Focused RV64I regressions now also cover byte and halfword load/store paths
   sign-extending or zero-extending to XLEN, matching the official `lb/lbu/lh/lhu`
-  source rows beyond the narrower curated gating subset.
+  source rows beyond the older curated gating subset. The official `rv64ui`
+  `lbu`, `lh`, `sb`, and `sh` binaries now build locally and are promoted to
+  `gating`.
   Taken branch and jump target alignment now follows the active IALIGN:
   non-C profiles trap halfword-only targets as instruction-address-misaligned,
   while C/RV64GC profiles allow them under IALIGN=16.

@@ -45,11 +45,15 @@ rv64ui	beq	rv64i	gating
 rv64ui	bltu	rv64i	gating
 rv64ui	fence_i	rv64i	gating
 rv64ui	lb	rv64i	gating
+rv64ui	lbu	rv64i	gating
+rv64ui	lh	rv64i	gating
 rv64ui	lhu	rv64i	gating
 rv64ui	lw	rv64i	gating
 rv64ui	lwu	rv64i	gating
 rv64ui	ld	rv64i	gating
+rv64ui	sb	rv64i	gating
 rv64ui	sw	rv64i	gating
+rv64ui	sh	rv64i	gating
 rv64ui	sd	rv64i	gating
 rv64ui	jal	rv64i	gating
 rv64ui	jalr	rv64i	gating

@@ -161,8 +161,8 @@
 
 - RV64I byte and halfword load/store regressions now explicitly verify
   sign-extension and zero-extension to XLEN for `LB/LBU/LH/LHU` after `SB/SH`.
-  This covers official-source cases that are broader than the current curated
-  `rv64ui` gating subset.
+  The matching official `rv64ui` rows for `lbu`, `lh`, `sb`, and `sh` now
+  build locally and have been promoted to the gating manifest.
 
 - The first RV64C reserved/hint correction slice for Task 0063 is in place.
   `EBREAK` and `C.EBREAK` now raise the architectural breakpoint exception,
