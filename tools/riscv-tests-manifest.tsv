@@ -27,11 +27,14 @@ rv64uf	fmadd	rv64imafdc	gating
 rv64uf	ldst	rv64imafdc	gating
 rv64uf	move	rv64imafdc	gating
 rv64uf	recoding	rv64imafdc	gating
+rv64ud	fadd	rv64imafdc	gating
 rv64ud	fclass	rv64imafdc	gating
 rv64ud	fcmp	rv64imafdc	gating
 rv64ud	fcvt	rv64imafdc	gating
 rv64ud	fcvt_w	rv64imafdc	gating
+rv64ud	fdiv	rv64imafdc	gating
 rv64ud	fmin	rv64imafdc	gating
+rv64ud	fmadd	rv64imafdc	gating
 rv64ud	ldst	rv64imafdc	gating
 rv64ud	move	rv64imafdc	gating
 rv64ud	recoding	rv64imafdc	gating

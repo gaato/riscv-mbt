@@ -1092,6 +1092,50 @@ test "rv64fd single arithmetic accrues inexact flag" {
 }
 
 ///|
+test "rv64fd double arithmetic accrues inexact flag" {
+  let csr_fcsr = 0x003
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, exec_test_f64_bits(2.5))
+  runner.cpu.write_freg(2, exec_test_f64_bits(1.0))
+  runner.cpu.write_freg(3, exec_test_f64_bits(-1235.1))
+  runner.cpu.write_freg(4, exec_test_f64_bits(1.1))
+  runner.cpu.write_freg(5, exec_test_f64_bits(3.14159265))
+  runner.cpu.write_freg(6, exec_test_f64_bits(2.71828182))
+  runner.cpu.write_freg(7, exec_test_f64_bits(171.0))
+  runner.cpu.write_freg(8, exec_test_f64_bits(-1.0))
+  runner.cpu.write_freg(9, exec_test_f64_bits(-1235.1))
+  runner.cpu.write_freg(10, exec_test_f64_bits(1.1))
+  runner.load_program(
+    words_to_bytes([
+      encode_fp_r(0x01U, 2, 1, 0x0U, 20),
+      encode_csr(csr_fcsr, 0, 0x2U, 11),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x01U, 4, 3, 0x0U, 21),
+      encode_csr(csr_fcsr, 0, 0x2U, 12),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x0dU, 6, 5, 0x0U, 22),
+      encode_csr(csr_fcsr, 0, 0x2U, 13),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fsqrt_d(7, 0x0U, 23),
+      encode_csr(csr_fcsr, 0, 0x2U, 14),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(10, 0x1U, 9, 8, 0x0U, 24, 0x43U),
+      encode_csr(csr_fcsr, 0, 0x2U, 15),
+    ]),
+    0U,
+  )
+  match runner.run(14) {
+    Running => ()
+    _ => fail("expected double arithmetic inexact path to run")
+  }
+  assert_eq(runner.read_reg_u64(11) & 0x01U.to_uint64(), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(12) & 0x01U.to_uint64(), 0x01U.to_uint64())
+  assert_eq(runner.read_reg_u64(13) & 0x01U.to_uint64(), 0x01U.to_uint64())
+  assert_eq(runner.read_reg_u64(14) & 0x01U.to_uint64(), 0x01U.to_uint64())
+  assert_eq(runner.read_reg_u64(15) & 0x01U.to_uint64(), 0x01U.to_uint64())
+}
+
+///|
 test "rv64fd basic scalar arithmetic executes with host ieee defaults" {
   let four = exec_test_f64_bits(4.0)
   let two = exec_test_f64_bits(2.0)

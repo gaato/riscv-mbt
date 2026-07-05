@@ -177,6 +177,317 @@ fn f32_finite_inexact_from_double(exact : Double, result_bits : UInt) -> Bool {
 }
 
 ///|
+priv struct FpExactRational {
+  num : BigInt
+  den : BigInt
+}
+
+///|
+fn fp_bigint_one() -> BigInt {
+  BigInt::from_int(1)
+}
+
+///|
+fn fp_bigint_pow2(shift : Int) -> BigInt {
+  fp_bigint_one() << shift
+}
+
+///|
+fn fp_exact_rational_from_f64_bits(bits : UInt64) -> FpExactRational? {
+  // Finite IEEE values are exact signed integers scaled by a power of two. This
+  // representation lets us compare the mathematical D result with the rounded
+  // f64 bits and accrue NX without depending on host floating-point flags.
+  if f64_is_nan_bits(bits) || f64_is_infinite_bits(bits) {
+    None
+  } else {
+    let sign = bits >> 63 != 0U.to_uint64()
+    let exponent = ((bits >> 52) & 0x7ffU.to_uint64()).to_int()
+    let fraction = bits & ((1U.to_uint64() << 52) - 1U.to_uint64())
+    let mantissa = if exponent == 0 {
+      fraction
+    } else {
+      (1U.to_uint64() << 52) | fraction
+    }
+    if mantissa == 0U.to_uint64() {
+      Some({ num: BigInt::from_int(0), den: fp_bigint_one() })
+    } else {
+      let exp2 = if exponent == 0 {
+        1 - 1023 - 52
+      } else {
+        exponent - 1023 - 52
+      }
+      let magnitude = BigInt::from_uint64(mantissa)
+      let unsigned = if exp2 >= 0 {
+        { num: magnitude << exp2, den: fp_bigint_one() }
+      } else {
+        { num: magnitude, den: fp_bigint_pow2(0 - exp2) }
+      }
+      if sign {
+        Some({ num: -unsigned.num, den: unsigned.den })
+      } else {
+        Some(unsigned)
+      }
+    }
+  }
+}
+
+///|
+fn fp_exact_rational_add(
+  lhs : FpExactRational,
+  rhs : FpExactRational,
+) -> FpExactRational {
+  { num: lhs.num * rhs.den + rhs.num * lhs.den, den: lhs.den * rhs.den }
+}
+
+///|
+fn fp_exact_rational_neg(value : FpExactRational) -> FpExactRational {
+  { num: -value.num, den: value.den }
+}
+
+///|
+fn fp_exact_rational_sub(
+  lhs : FpExactRational,
+  rhs : FpExactRational,
+) -> FpExactRational {
+  fp_exact_rational_add(lhs, fp_exact_rational_neg(rhs))
+}
+
+///|
+fn fp_exact_rational_mul(
+  lhs : FpExactRational,
+  rhs : FpExactRational,
+) -> FpExactRational {
+  { num: lhs.num * rhs.num, den: lhs.den * rhs.den }
+}
+
+///|
+fn fp_exact_rational_div(
+  lhs : FpExactRational,
+  rhs : FpExactRational,
+) -> FpExactRational? {
+  if rhs.num.is_zero() {
+    None
+  } else if rhs.num < BigInt::from_int(0) {
+    Some({ num: -lhs.num * rhs.den, den: lhs.den * -rhs.num })
+  } else {
+    Some({ num: lhs.num * rhs.den, den: lhs.den * rhs.num })
+  }
+}
+
+///|
+fn fp_exact_rational_equal(
+  lhs : FpExactRational,
+  rhs : FpExactRational,
+) -> Bool {
+  lhs.num * rhs.den == rhs.num * lhs.den
+}
+
+///|
+fn f64_finite_inexact_from_rational(
+  exact : FpExactRational,
+  result_bits : UInt64,
+) -> Bool {
+  match fp_exact_rational_from_f64_bits(result_bits) {
+    Some(rounded) => !fp_exact_rational_equal(exact, rounded)
+    None => false
+  }
+}
+
+///|
+fn f64_sqrt_finite_inexact_from_result(
+  operand_bits : UInt64,
+  result_bits : UInt64,
+) -> Bool {
+  match
+    (
+      fp_exact_rational_from_f64_bits(operand_bits),
+      fp_exact_rational_from_f64_bits(result_bits),
+    ) {
+    (Some(operand), Some(result)) => {
+      let squared = fp_exact_rational_mul(result, result)
+      !fp_exact_rational_equal(operand, squared)
+    }
+    _ => false
+  }
+}
+
+///|
+fn f64_add_inexact_bits(
+  lhs_bits : UInt64,
+  rhs_bits : UInt64,
+  result_bits : UInt64,
+) -> Bool {
+  match
+    (
+      fp_exact_rational_from_f64_bits(lhs_bits),
+      fp_exact_rational_from_f64_bits(rhs_bits),
+    ) {
+    (Some(lhs), Some(rhs)) =>
+      f64_finite_inexact_from_rational(
+        fp_exact_rational_add(lhs, rhs),
+        result_bits,
+      )
+    _ => false
+  }
+}
+
+///|
+fn f64_sub_inexact_bits(
+  lhs_bits : UInt64,
+  rhs_bits : UInt64,
+  result_bits : UInt64,
+) -> Bool {
+  match
+    (
+      fp_exact_rational_from_f64_bits(lhs_bits),
+      fp_exact_rational_from_f64_bits(rhs_bits),
+    ) {
+    (Some(lhs), Some(rhs)) =>
+      f64_finite_inexact_from_rational(
+        fp_exact_rational_sub(lhs, rhs),
+        result_bits,
+      )
+    _ => false
+  }
+}
+
+///|
+fn f64_mul_inexact_bits(
+  lhs_bits : UInt64,
+  rhs_bits : UInt64,
+  result_bits : UInt64,
+) -> Bool {
+  match
+    (
+      fp_exact_rational_from_f64_bits(lhs_bits),
+      fp_exact_rational_from_f64_bits(rhs_bits),
+    ) {
+    (Some(lhs), Some(rhs)) =>
+      f64_finite_inexact_from_rational(
+        fp_exact_rational_mul(lhs, rhs),
+        result_bits,
+      )
+    _ => false
+  }
+}
+
+///|
+fn f64_div_inexact_bits(
+  lhs_bits : UInt64,
+  rhs_bits : UInt64,
+  result_bits : UInt64,
+) -> Bool {
+  match
+    (
+      fp_exact_rational_from_f64_bits(lhs_bits),
+      fp_exact_rational_from_f64_bits(rhs_bits),
+    ) {
+    (Some(lhs), Some(rhs)) =>
+      match fp_exact_rational_div(lhs, rhs) {
+        Some(exact) => f64_finite_inexact_from_rational(exact, result_bits)
+        None => false
+      }
+    _ => false
+  }
+}
+
+///|
+fn f64_fmadd_inexact_bits(
+  lhs_bits : UInt64,
+  rhs_bits : UInt64,
+  addend_bits : UInt64,
+  result_bits : UInt64,
+) -> Bool {
+  match
+    (
+      fp_exact_rational_from_f64_bits(lhs_bits),
+      fp_exact_rational_from_f64_bits(rhs_bits),
+      fp_exact_rational_from_f64_bits(addend_bits),
+    ) {
+    (Some(lhs), Some(rhs), Some(addend)) => {
+      let product = fp_exact_rational_mul(lhs, rhs)
+      f64_finite_inexact_from_rational(
+        fp_exact_rational_add(product, addend),
+        result_bits,
+      )
+    }
+    _ => false
+  }
+}
+
+///|
+fn f64_fmsub_inexact_bits(
+  lhs_bits : UInt64,
+  rhs_bits : UInt64,
+  addend_bits : UInt64,
+  result_bits : UInt64,
+) -> Bool {
+  match
+    (
+      fp_exact_rational_from_f64_bits(lhs_bits),
+      fp_exact_rational_from_f64_bits(rhs_bits),
+      fp_exact_rational_from_f64_bits(addend_bits),
+    ) {
+    (Some(lhs), Some(rhs), Some(addend)) => {
+      let product = fp_exact_rational_mul(lhs, rhs)
+      f64_finite_inexact_from_rational(
+        fp_exact_rational_sub(product, addend),
+        result_bits,
+      )
+    }
+    _ => false
+  }
+}
+
+///|
+fn f64_fnmsub_inexact_bits(
+  lhs_bits : UInt64,
+  rhs_bits : UInt64,
+  addend_bits : UInt64,
+  result_bits : UInt64,
+) -> Bool {
+  match
+    (
+      fp_exact_rational_from_f64_bits(lhs_bits),
+      fp_exact_rational_from_f64_bits(rhs_bits),
+      fp_exact_rational_from_f64_bits(addend_bits),
+    ) {
+    (Some(lhs), Some(rhs), Some(addend)) => {
+      let product = fp_exact_rational_mul(lhs, rhs)
+      f64_finite_inexact_from_rational(
+        fp_exact_rational_sub(addend, product),
+        result_bits,
+      )
+    }
+    _ => false
+  }
+}
+
+///|
+fn f64_fnmadd_inexact_bits(
+  lhs_bits : UInt64,
+  rhs_bits : UInt64,
+  addend_bits : UInt64,
+  result_bits : UInt64,
+) -> Bool {
+  match
+    (
+      fp_exact_rational_from_f64_bits(lhs_bits),
+      fp_exact_rational_from_f64_bits(rhs_bits),
+      fp_exact_rational_from_f64_bits(addend_bits),
+    ) {
+    (Some(lhs), Some(rhs), Some(addend)) => {
+      let product = fp_exact_rational_mul(lhs, rhs)
+      f64_finite_inexact_from_rational(
+        fp_exact_rational_sub(fp_exact_rational_neg(product), addend),
+        result_bits,
+      )
+    }
+    _ => false
+  }
+}
+
+///|
 fn f32_mul_is_invalid_bits(lhs : UInt, rhs : UInt) -> Bool {
   (f32_is_infinite_bits(lhs) && f32_is_zero_bits(rhs)) ||
   (f32_is_zero_bits(lhs) && f32_is_infinite_bits(rhs))
@@ -750,13 +1061,19 @@ fn Runner::execute_fp(
       let lhs_bits = self.read_freg_double_bits(rs1)
       let rhs_bits = self.read_freg_double_bits(rs2)
       let addend_bits = self.read_freg_double_bits(rs3)
-      if f64_any_signaling_nan3(lhs_bits, rhs_bits, addend_bits) ||
-        f64_mul_is_invalid_bits(lhs_bits, rhs_bits) {
+      let invalid = f64_any_signaling_nan3(lhs_bits, rhs_bits, addend_bits) ||
+        f64_mul_is_invalid_bits(lhs_bits, rhs_bits)
+      if invalid {
         self.set_fflags(fp_fflag_nv)
       }
       let result = f64_from_bits(lhs_bits) * f64_from_bits(rhs_bits) +
         f64_from_bits(addend_bits)
-      self.write_freg_double_bits(rd, f64_bits_from_host(result))
+      let result_bits = f64_bits_from_host(result)
+      if !invalid &&
+        f64_fmadd_inexact_bits(lhs_bits, rhs_bits, addend_bits, result_bits) {
+        self.set_fflags(fp_fflag_nx)
+      }
+      self.write_freg_double_bits(rd, result_bits)
       self.cpu.pc = next_pc
       Running
     }
@@ -767,13 +1084,19 @@ fn Runner::execute_fp(
       let lhs_bits = self.read_freg_double_bits(rs1)
       let rhs_bits = self.read_freg_double_bits(rs2)
       let addend_bits = self.read_freg_double_bits(rs3)
-      if f64_any_signaling_nan3(lhs_bits, rhs_bits, addend_bits) ||
-        f64_mul_is_invalid_bits(lhs_bits, rhs_bits) {
+      let invalid = f64_any_signaling_nan3(lhs_bits, rhs_bits, addend_bits) ||
+        f64_mul_is_invalid_bits(lhs_bits, rhs_bits)
+      if invalid {
         self.set_fflags(fp_fflag_nv)
       }
       let result = f64_from_bits(lhs_bits) * f64_from_bits(rhs_bits) -
         f64_from_bits(addend_bits)
-      self.write_freg_double_bits(rd, f64_bits_from_host(result))
+      let result_bits = f64_bits_from_host(result)
+      if !invalid &&
+        f64_fmsub_inexact_bits(lhs_bits, rhs_bits, addend_bits, result_bits) {
+        self.set_fflags(fp_fflag_nx)
+      }
+      self.write_freg_double_bits(rd, result_bits)
       self.cpu.pc = next_pc
       Running
     }
@@ -784,14 +1107,20 @@ fn Runner::execute_fp(
       let lhs_bits = self.read_freg_double_bits(rs1)
       let rhs_bits = self.read_freg_double_bits(rs2)
       let addend_bits = self.read_freg_double_bits(rs3)
-      if f64_any_signaling_nan3(lhs_bits, rhs_bits, addend_bits) ||
-        f64_mul_is_invalid_bits(lhs_bits, rhs_bits) {
+      let invalid = f64_any_signaling_nan3(lhs_bits, rhs_bits, addend_bits) ||
+        f64_mul_is_invalid_bits(lhs_bits, rhs_bits)
+      if invalid {
         self.set_fflags(fp_fflag_nv)
       }
       let result = 0.0 -
         f64_from_bits(lhs_bits) * f64_from_bits(rhs_bits) +
         f64_from_bits(addend_bits)
-      self.write_freg_double_bits(rd, f64_bits_from_host(result))
+      let result_bits = f64_bits_from_host(result)
+      if !invalid &&
+        f64_fnmsub_inexact_bits(lhs_bits, rhs_bits, addend_bits, result_bits) {
+        self.set_fflags(fp_fflag_nx)
+      }
+      self.write_freg_double_bits(rd, result_bits)
       self.cpu.pc = next_pc
       Running
     }
@@ -802,14 +1131,20 @@ fn Runner::execute_fp(
       let lhs_bits = self.read_freg_double_bits(rs1)
       let rhs_bits = self.read_freg_double_bits(rs2)
       let addend_bits = self.read_freg_double_bits(rs3)
-      if f64_any_signaling_nan3(lhs_bits, rhs_bits, addend_bits) ||
-        f64_mul_is_invalid_bits(lhs_bits, rhs_bits) {
+      let invalid = f64_any_signaling_nan3(lhs_bits, rhs_bits, addend_bits) ||
+        f64_mul_is_invalid_bits(lhs_bits, rhs_bits)
+      if invalid {
         self.set_fflags(fp_fflag_nv)
       }
       let result = 0.0 -
         f64_from_bits(lhs_bits) * f64_from_bits(rhs_bits) -
         f64_from_bits(addend_bits)
-      self.write_freg_double_bits(rd, f64_bits_from_host(result))
+      let result_bits = f64_bits_from_host(result)
+      if !invalid &&
+        f64_fnmadd_inexact_bits(lhs_bits, rhs_bits, addend_bits, result_bits) {
+        self.set_fflags(fp_fflag_nx)
+      }
+      self.write_freg_double_bits(rd, result_bits)
       self.cpu.pc = next_pc
       Running
     }
@@ -1067,10 +1402,13 @@ fn Runner::execute_fp(
         f64_add_is_invalid_bits(lhs_bits, rhs_bits) {
         self.set_fflags(fp_fflag_nv)
       }
-      let result = f64_bits_from_host(
+      let result_bits = f64_bits_from_host(
         f64_from_bits(lhs_bits) + f64_from_bits(rhs_bits),
       )
-      self.write_freg_double_bits(rd, result)
+      if f64_add_inexact_bits(lhs_bits, rhs_bits, result_bits) {
+        self.set_fflags(fp_fflag_nx)
+      }
+      self.write_freg_double_bits(rd, result_bits)
       self.cpu.pc = next_pc
       Running
     }
@@ -1084,10 +1422,13 @@ fn Runner::execute_fp(
         f64_add_is_invalid_bits(lhs_bits, rhs_bits ^ (1U.to_uint64() << 63)) {
         self.set_fflags(fp_fflag_nv)
       }
-      let result = f64_bits_from_host(
+      let result_bits = f64_bits_from_host(
         f64_from_bits(lhs_bits) - f64_from_bits(rhs_bits),
       )
-      self.write_freg_double_bits(rd, result)
+      if f64_sub_inexact_bits(lhs_bits, rhs_bits, result_bits) {
+        self.set_fflags(fp_fflag_nx)
+      }
+      self.write_freg_double_bits(rd, result_bits)
       self.cpu.pc = next_pc
       Running
     }
@@ -1101,10 +1442,13 @@ fn Runner::execute_fp(
         f64_mul_is_invalid_bits(lhs_bits, rhs_bits) {
         self.set_fflags(fp_fflag_nv)
       }
-      let result = f64_bits_from_host(
+      let result_bits = f64_bits_from_host(
         f64_from_bits(lhs_bits) * f64_from_bits(rhs_bits),
       )
-      self.write_freg_double_bits(rd, result)
+      if f64_mul_inexact_bits(lhs_bits, rhs_bits, result_bits) {
+        self.set_fflags(fp_fflag_nx)
+      }
+      self.write_freg_double_bits(rd, result_bits)
       self.cpu.pc = next_pc
       Running
     }
@@ -1121,10 +1465,13 @@ fn Runner::execute_fp(
       if f64_div_by_zero_bits(lhs_bits, rhs_bits) {
         self.set_fflags(fp_fflag_dz)
       }
-      let result = f64_bits_from_host(
+      let result_bits = f64_bits_from_host(
         f64_from_bits(lhs_bits) / f64_from_bits(rhs_bits),
       )
-      self.write_freg_double_bits(rd, result)
+      if f64_div_inexact_bits(lhs_bits, rhs_bits, result_bits) {
+        self.set_fflags(fp_fflag_nx)
+      }
+      self.write_freg_double_bits(rd, result_bits)
       self.cpu.pc = next_pc
       Running
     }
@@ -1164,8 +1511,11 @@ fn Runner::execute_fp(
         f64_sqrt_is_invalid_bits(operand_bits) {
         self.set_fflags(fp_fflag_nv)
       }
-      let result = f64_bits_from_host(f64_from_bits(operand_bits).sqrt())
-      self.write_freg_double_bits(rd, result)
+      let result_bits = f64_bits_from_host(f64_from_bits(operand_bits).sqrt())
+      if f64_sqrt_finite_inexact_from_result(operand_bits, result_bits) {
+        self.set_fflags(fp_fflag_nx)
+      }
+      self.write_freg_double_bits(rd, result_bits)
       self.cpu.pc = next_pc
       Running
     }

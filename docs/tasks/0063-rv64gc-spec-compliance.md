@@ -76,9 +76,11 @@ official coverage improve.
   manifest arch FP bits, and the passing `rv64uf`/`rv64ud` classification,
   compare, conversion, min/max, load/store, move, recoding, and structural rows
   are gated. The `rv64uf` arithmetic rows are also gated after adding
-  single-precision NX accrual. The remaining strict-spec gaps are exact
-  double-precision arithmetic result/flag behavior for `rv64ud`
-  `fadd`/`fdiv`/`fmadd`.
+  single-precision NX accrual, and the `rv64ud` arithmetic rows are gated after
+  adding exact-rational double-precision NX checks. The remaining strict-spec
+  gaps are broader than the current official rows: non-RNE arithmetic, deeper
+  fused-rounding audits, and exception-flag corner cases beyond the current
+  `riscv-tests` surface.
 - `A`: `riscv_decode.mbt` rejects reserved AMO operations and reserved
   `LR.W`/`LR.D` encodings with nonzero `rs2`, gates AMO execution on `MISA.A`,
   and accepts `aq`/`rl` encodings for the current single-hart interpreter.
@@ -167,9 +169,8 @@ official coverage improve.
   has been promoted to the `gating` manifest as the first official RV64C floor.
 - Official riscv-tests profile selection now derives `misa` extension bits from
   the manifest arch string instead of only selecting XLEN. With `rv64imafdc`
-  advertised, 20 of 23 current upstream `rv64uf`/`rv64ud` binaries pass and are
-  promoted to `gating`; the remaining failures are `rv64ud` `fadd`, `fdiv`,
-  and `fmadd`.
+  advertised, all 23 current upstream `rv64uf`/`rv64ud` binaries pass and are
+  promoted to `gating`.
 - `FSGNJ.S`, `FSGNJN.S`, and `FSGNJX.S` now use arithmetic single-precision
   operand reads instead of FMV-style transfer reads. This makes D-present
   malformed single NaN boxes become canonical NaNs before sign injection, while
@@ -181,5 +182,8 @@ official coverage improve.
   represented single operands. This covers ordinary RNE inexact behavior for
   `FADD.S`, `FSUB.S`, `FMUL.S`, `FDIV.S`, `FSQRT.S`, and the current FMA
   execution paths, and promotes official `rv64uf/fadd`, `rv64uf/fdiv`, and
-  `rv64uf/fmadd` to gating. Double-precision NX still needs a separate
-  bit-exact strategy rather than host-Double self-comparison.
+  `rv64uf/fmadd` to gating.
+- Double-precision arithmetic now accrues NX by representing finite operands
+  and rounded results as exact `BigInt` rationals and comparing the exact
+  add/sub/mul/div/sqrt/FMA rational against the rounded result bits. This
+  promotes official `rv64ud/fadd`, `rv64ud/fdiv`, and `rv64ud/fmadd` to gating.
