@@ -781,6 +781,27 @@ test "rv64f div sqrt honor non-rne rounding modes" {
 }
 
 ///|
+test "rv64f sqrt honors dynamic rounding mode" {
+  let runner = make_runner(rv64f_machine_config())
+  let csr_fcsr = 0x003
+  let fcsr_frm_shift = 5
+  // rm=111 delegates rounding to frm. RDN must choose the lower adjacent
+  // single for sqrt(2.0), and the inexact root must set NX.
+  runner.cpu.write_csr(csr_fcsr, 0x2U.to_uint64() << fcsr_frm_shift)
+  runner.cpu.write_freg(1, exec_test_f32_bits(2.0).to_uint64())
+  runner.load_program(words_to_bytes([encode_fsqrt_s(1, 0x7U, 2)]), 0U)
+  match runner.step() {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected dynamic-RDN FSQRT.S to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_freg_u64(2), 0x3fb504f3U.to_uint64())
+  assert_eq(runner.read_csr(csr_fcsr) & 0x1U, 0x1U)
+}
+
+///|
 test "rv64f div preserves exact zero signs" {
   let runner = make_runner(rv64f_machine_config())
   runner.cpu.write_freg(1, exec_test_f32_bits(0.0).to_uint64())
