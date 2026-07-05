@@ -237,6 +237,8 @@
   compressed aliases, including low-32-bit sign extension, rejection of the
   same code points under RV32C, and illegal traps for the adjacent reserved
   RV64C CA funct2 slots.
+  The permanently illegal all-ones halfword is now treated as a 16-bit illegal
+  sentinel instead of being widened into an ordinary 32-bit fetch.
   `C.ADD rd=x0, rs2!=x0` forms now execute as ignored hints, including the
   `rs2=x2..x5` compressed Zihintntl non-temporal locality hint subrange.
   CR-format coverage now also pins `C.MV rd=x0, rs2!=x0` as an ignored hint,

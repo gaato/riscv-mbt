@@ -343,9 +343,16 @@ test "jalr clears target bit zero before alignment checks" {
 ///|
 test "unsupported instruction traps" {
   let runner = make_runner(default_machine_config())
-  runner.load_program(words_to_bytes([0xffffffffU]), 0U)
+  let raw = 0x0000000bU
+  runner.load_program(words_to_bytes([raw]), 0U)
   match runner.step() {
-    Trap(_) => ()
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction trap")
+      }
+      assert_eq(info.trap_value, raw.to_uint64())
+    }
     _ => fail("expected trap")
   }
 }
@@ -5403,7 +5410,7 @@ test "synchronous traps do not retire into instret" {
   runner.load_program_u64(
     words_to_bytes([
       encode_i(1, 0, 0x0U, 1, 0x13U),
-      0xffffffffU, // Unknown 32-bit instruction: traps before retirement.
+      0x0000000bU, // Unknown 32-bit instruction: traps before retirement.
     ]),
     0x80000000U.to_uint64(),
   )
@@ -5418,7 +5425,7 @@ test "synchronous traps do not retire into instret" {
         IllegalInstruction => ()
         _ => fail("expected illegal instruction trap")
       }
-      assert_eq(info.trap_value, 0xffffffffU.to_uint64())
+      assert_eq(info.trap_value, 0x0000000bU.to_uint64())
     }
     _ => fail("expected illegal instruction trap")
   }

@@ -99,8 +99,12 @@ fn c_funct3(raw : UInt) -> UInt {
 fn instruction_length_from_low16(low16 : UInt) -> Int {
   // RISC-V encodes 16-bit compressed instructions with low bits != 0b11.
   // Fetch uses this before full decode, including the page-crossing 32-bit
-  // case that Linux userspace exposed.
-  if (low16 & 0x3U) == 0x3U {
+  // case that Linux userspace exposed. The all-ones halfword is the standard
+  // permanently illegal "very long instruction" sentinel, so keep it as a
+  // self-contained illegal 16-bit fetch instead of reading a bogus high half.
+  if low16 == 0xffffU {
+    2
+  } else if (low16 & 0x3U) == 0x3U {
     4
   } else {
     2

@@ -209,6 +209,8 @@ official coverage improve.
   compressed aliases, including low-32-bit sign extension, rejection of the
   same code points under RV32C, and illegal traps for the adjacent reserved
   RV64C CA funct2 slots.
+  The permanently illegal all-ones halfword is now treated as a 16-bit illegal
+  sentinel instead of being widened into an ordinary 32-bit fetch.
   `C.ADD rd=x0, rs2!=x0` forms now execute as
   ignored hints, including the `rs2=x2..x5` compressed Zihintntl non-temporal
   locality hint subrange. CR-format coverage now also pins `C.MV rd=x0,
@@ -626,6 +628,10 @@ official coverage improve.
   through the existing RV64 word-operation helpers and proves the same code
   points remain illegal in RV32C. The adjacent RV64C CA word-ALU slots with no
   standard compressed operation now trap as reserved encodings.
+- Fetch/decode now treats the all-ones halfword as the C extension's
+  permanently illegal sentinel. The regression keeps trap value `0xffff`
+  visible and prevents the fetch path from widening that sentinel into an
+  ordinary 32-bit instruction.
 - Compressed `C.ADD rd=x0, rs2!=x0` now executes as an architectural hint
   across the whole nonzero source range. The `rs2=x2..x5` encodings are the
   compressed Zihintntl locality hints, so they remain no-ops in this RV64GC

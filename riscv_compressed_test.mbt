@@ -572,6 +572,23 @@ test "c.addi4spn with zero immediate remains illegal" {
 }
 
 ///|
+test "all-ones compressed sentinel traps as a 16-bit illegal instruction" {
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(mixed_program_bytes([(2, 0xffffU)]), 0U)
+  match runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction trap")
+      }
+      assert_eq(info.faulting_pc, 0U.to_uint64())
+      assert_eq(info.trap_value, 0xffffU.to_uint64())
+    }
+    _ => fail("expected all-ones compressed sentinel to trap")
+  }
+}
+
+///|
 test "rv64 compressed breakpoint traps as breakpoint" {
   let runner = make_runner(rv64_machine_config())
   runner.load_program(
