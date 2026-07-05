@@ -2924,8 +2924,10 @@ test "rv64fd float to word conversions clip invalid inputs and set flags" {
 test "rv64fd word conversions clip exact upper rne boundaries" {
   let csr_fcsr = 0x003
   let runner = make_runner(rv64fd_machine_config())
-  runner.cpu.write_freg(1, 0x41e0000000000000UL) // +2^31, first invalid signed-word result.
-  runner.cpu.write_freg(2, 0x41f0000000000000UL) // +2^32, first invalid unsigned-word result.
+  runner.cpu.write_freg(1, 0x41e0000000000000UL) // double +2^31, first invalid signed-word result.
+  runner.cpu.write_freg(2, 0x41f0000000000000UL) // double +2^32, first invalid unsigned-word result.
+  runner.cpu.write_freg(3, exec_test_nan_box_single(0x4f000000U)) // single +2^31.
+  runner.cpu.write_freg(4, exec_test_nan_box_single(0x4f800000U)) // single +2^32.
   runner.load_program(
     words_to_bytes([
       encode_fcvt_w_d(1, 0x0U, 10),
@@ -2933,10 +2935,16 @@ test "rv64fd word conversions clip exact upper rne boundaries" {
       encode_csr(csr_fcsr, 0, 0x1U, 0),
       encode_fcvt_wu_d(2, 0x0U, 12),
       encode_csr(csr_fcsr, 0, 0x2U, 13),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_w_s(3, 0x0U, 14),
+      encode_csr(csr_fcsr, 0, 0x2U, 15),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_wu_s(4, 0x0U, 16),
+      encode_csr(csr_fcsr, 0, 0x2U, 17),
     ]),
     0U,
   )
-  match runner.run(5) {
+  match runner.run(11) {
     Running => ()
     _ => fail("expected exact upper-bound fcvt word path to run")
   }
@@ -2944,6 +2952,10 @@ test "rv64fd word conversions clip exact upper rne boundaries" {
   assert_eq(runner.read_reg_u64(11) & 0x10U.to_uint64(), 0x10U.to_uint64())
   assert_eq(runner.read_reg_u64(12), test_sign_extend_word64(0xffffffffU))
   assert_eq(runner.read_reg_u64(13) & 0x10U.to_uint64(), 0x10U.to_uint64())
+  assert_eq(runner.read_reg_u64(14), 0x7fffffffU.to_uint64())
+  assert_eq(runner.read_reg_u64(15) & 0x10U.to_uint64(), 0x10U.to_uint64())
+  assert_eq(runner.read_reg_u64(16), test_sign_extend_word64(0xffffffffU))
+  assert_eq(runner.read_reg_u64(17) & 0x10U.to_uint64(), 0x10U.to_uint64())
 }
 
 ///|
