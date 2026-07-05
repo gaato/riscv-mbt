@@ -129,7 +129,10 @@ official coverage improve.
   accrual, and the `rv64ud` arithmetic rows are gated after adding
   exact-rational double-precision NX checks. Machine profiles now canonicalize
   the architectural dependency that `D` implies `F`, so white-box configs cannot
-  expose or execute an impossible `misa.D`-without-`misa.F` profile. The
+  expose or execute an impossible `misa.D`-without-`misa.F` profile. Focused
+  all-NaN `FMIN/FMAX` coverage now pins the minimumNumber/maximumNumber split:
+  quiet all-NaN inputs produce the canonical NaN without NV, while signaling
+  all-NaN inputs produce the canonical NaN and accrue NV for both S and D. The
   remaining strict-spec gaps are broader than the current official rows:
   deeper fused-rounding audits and exception-flag corner cases beyond the
   current `riscv-tests` surface.

@@ -2255,6 +2255,46 @@ test "rv64fd min max accrue invalid for signaling nan only" {
 }
 
 ///|
+test "rv64fd min max canonicalize all nan inputs and flag signaling nan" {
+  let csr_fcsr = 0x003
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, exec_test_nan_box_single(0x7fc12345U))
+  runner.cpu.write_freg(2, exec_test_nan_box_single(0x7f812345U))
+  runner.cpu.write_freg(3, 0x7ff8000000001234UL)
+  runner.cpu.write_freg(4, 0x7ff0000000001234UL)
+  runner.load_program(
+    words_to_bytes([
+      encode_fp_r(0x14U, 1, 1, 0x0U, 10),
+      encode_csr(csr_fcsr, 0, 0x2U, 11),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x14U, 1, 2, 0x1U, 12),
+      encode_csr(csr_fcsr, 0, 0x2U, 13),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x15U, 3, 3, 0x0U, 14),
+      encode_csr(csr_fcsr, 0, 0x2U, 15),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x15U, 3, 4, 0x1U, 16),
+      encode_csr(csr_fcsr, 0, 0x2U, 17),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+    ]),
+    0U,
+  )
+  match runner.run(12) {
+    Running => ()
+    _ => fail("expected all-nan min/max result path to run")
+  }
+  assert_eq(runner.read_freg_u64(10), exec_test_nan_box_single(0x7fc00000U))
+  assert_eq(runner.read_reg_u64(11), 0U.to_uint64())
+  assert_eq(runner.read_freg_u64(12), exec_test_nan_box_single(0x7fc00000U))
+  assert_eq(runner.read_reg_u64(13) & 0x10U.to_uint64(), 0x10U.to_uint64())
+  assert_eq(runner.read_freg_u64(14), exec_test_f64_canonical_nan_bits())
+  assert_eq(runner.read_reg_u64(15), 0U.to_uint64())
+  assert_eq(runner.read_freg_u64(16), exec_test_f64_canonical_nan_bits())
+  assert_eq(runner.read_reg_u64(17) & 0x10U.to_uint64(), 0x10U.to_uint64())
+  assert_eq(runner.read_csr(csr_fcsr), 0U)
+}
+
+///|
 test "rv64fd double sign injection preserves magnitude bits" {
   let runner = make_runner(rv64fd_machine_config())
   runner.cpu.write_freg(1, exec_test_f64_bits(1.5))

@@ -2221,6 +2221,9 @@ fn Runner::execute_fp(
     FMinS(rd, rs1, rs2) => {
       let lhs_bits = self.read_freg_single_value_bits(rs1)
       let rhs_bits = self.read_freg_single_value_bits(rs2)
+      // Result selection and exception accrual are separate for FMIN/FMAX:
+      // quiet NaNs can be ignored in favor of a numeric operand, but any
+      // signaling NaN still raises NV even when the selected result is numeric.
       if f32_is_signaling_nan_bits(lhs_bits) ||
         f32_is_signaling_nan_bits(rhs_bits) {
         self.set_fflags(fp_fflag_nv)
@@ -2232,6 +2235,8 @@ fn Runner::execute_fp(
     FMaxS(rd, rs1, rs2) => {
       let lhs_bits = self.read_freg_single_value_bits(rs1)
       let rhs_bits = self.read_freg_single_value_bits(rs2)
+      // The helper handles signed zeros and canonical all-NaN results; this
+      // execute path is responsible for the architectural flag side effect.
       if f32_is_signaling_nan_bits(lhs_bits) ||
         f32_is_signaling_nan_bits(rhs_bits) {
         self.set_fflags(fp_fflag_nv)
@@ -2546,6 +2551,9 @@ fn Runner::execute_fp(
     FMinD(rd, rs1, rs2) => {
       let lhs_bits = self.read_freg_double_bits(rs1)
       let rhs_bits = self.read_freg_double_bits(rs2)
+      // Double min/max follows the same minimumNumber/maximumNumber split as
+      // single precision: result bits are selected below, signaling-NaN NV is
+      // accrued here.
       if f64_is_signaling_nan_bits(lhs_bits) ||
         f64_is_signaling_nan_bits(rhs_bits) {
         self.set_fflags(fp_fflag_nv)
@@ -2557,6 +2565,8 @@ fn Runner::execute_fp(
     FMaxD(rd, rs1, rs2) => {
       let lhs_bits = self.read_freg_double_bits(rs1)
       let rhs_bits = self.read_freg_double_bits(rs2)
+      // Quiet all-NaN cases produce the canonical NaN without NV; signaling
+      // all-NaN cases produce the same canonical result and additionally set NV.
       if f64_is_signaling_nan_bits(lhs_bits) ||
         f64_is_signaling_nan_bits(rhs_bits) {
         self.set_fflags(fp_fflag_nv)
