@@ -198,6 +198,8 @@ official coverage improve.
   pinning sign extension from bit 17 through XLEN.
   Shared 6-bit signed compressed immediates now have focused coverage through
   `C.ADDI`, `C.LI`, and `C.ANDI`.
+  `C.ADDI4SPN` now has high unsigned stack-offset coverage for the scattered
+  CIW immediate path, in addition to the zero-immediate reserved case.
   `C.ADDI16SP` now also has coverage for negative and high positive
   sign-extended stack-pointer adjustments, beyond the zero-immediate reserved
   case.
@@ -632,6 +634,8 @@ official coverage improve.
 - Shared RV64C 6-bit signed immediate coverage now pins `C.ADDI`, `C.LI`, and
   `C.ANDI`, keeping the CI and CB immediate decode paths from regressing into
   zero-extension.
+- RV64C `C.ADDI4SPN` coverage now pins the high unsigned `nzuimm=1020`
+  stack-offset path through the scattered CIW immediate decoder.
 - RV64C `C.ADDI16SP` coverage now pins the scattered signed immediate path for
   both a negative stack adjustment and the high positive `+496` adjustment.
 - RV64C integer stack-load coverage now keeps `C.LWSP rd=x0` and

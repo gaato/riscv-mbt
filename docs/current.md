@@ -225,6 +225,8 @@
   pinning sign extension from bit 17 through XLEN.
   Shared 6-bit signed compressed immediates now have focused coverage through
   `C.ADDI`, `C.LI`, and `C.ANDI`.
+  `C.ADDI4SPN` now has high unsigned stack-offset coverage for the scattered
+  CIW immediate path, in addition to the zero-immediate reserved case.
   `C.ADDI16SP` now also has coverage for negative and high positive
   sign-extended stack-pointer adjustments, beyond the zero-immediate reserved
   case.

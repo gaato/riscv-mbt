@@ -758,6 +758,25 @@ test "c.addi4spn with zero immediate remains illegal" {
 }
 
 ///|
+test "rv64c addi4spn decodes high unsigned stack offset" {
+  // C.ADDI4SPN is the CIW-format unsigned stack-pointer immediate. The high
+  // bits are deliberately scattered, so cover the maximum encoded nzuimm value
+  // rather than only the small offsets used in integration tests.
+  let runner = make_runner(rv64_machine_config())
+  runner.cpu.write_reg(2, 0x1000U.to_uint64())
+  runner.load_program(
+    mixed_program_bytes([(2, encode_c_addi4spn(15, 1020).reinterpret_as_uint())]),
+    0U,
+  )
+  match runner.step() {
+    Running => ()
+    _ => fail("expected high c.addi4spn offset to run")
+  }
+  assert_eq(runner.read_reg_u64(15), 0x13fcU.to_uint64())
+  assert_eq(runner.pc_u64(), 2U.to_uint64())
+}
+
+///|
 test "all-ones compressed sentinel traps as a 16-bit illegal instruction" {
   expect_compressed_illegal(rv64_machine_config(), 0xffffU)
 }
