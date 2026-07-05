@@ -802,6 +802,27 @@ test "rv64f sqrt honors dynamic rounding mode" {
 }
 
 ///|
+test "rv64f div honors dynamic rounding mode" {
+  let runner = make_runner(rv64f_machine_config())
+  let csr_fcsr = 0x003
+  let fcsr_frm_shift = 5
+  // Dynamic RDN must select the lower adjacent single quotient for 1.0 / 3.0.
+  runner.cpu.write_csr(csr_fcsr, 0x2U.to_uint64() << fcsr_frm_shift)
+  runner.cpu.write_freg(1, exec_test_f32_bits(1.0).to_uint64())
+  runner.cpu.write_freg(2, exec_test_f32_bits(3.0).to_uint64())
+  runner.load_program(words_to_bytes([encode_fp_r(0x0cU, 2, 1, 0x7U, 3)]), 0U)
+  match runner.step() {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected dynamic-RDN FDIV.S to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_freg_u64(3), 0x3eaaaaaaU.to_uint64())
+  assert_eq(runner.read_csr(csr_fcsr) & 0x1U, 0x1U)
+}
+
+///|
 test "rv64f div preserves exact zero signs" {
   let runner = make_runner(rv64f_machine_config())
   runner.cpu.write_freg(1, exec_test_f32_bits(0.0).to_uint64())
@@ -1974,6 +1995,27 @@ test "rv64fd div honors non-rne rounding modes" {
   }
   assert_eq(runner.read_freg_u64(3), 0x3fd5555555555555UL)
   assert_eq(runner.read_freg_u64(4), 0x3fd5555555555556UL)
+  assert_eq(runner.read_csr(csr_fcsr) & 0x1U, 0x1U)
+}
+
+///|
+test "rv64fd div honors dynamic rounding mode" {
+  let runner = make_runner(rv64fd_machine_config())
+  let csr_fcsr = 0x003
+  let fcsr_frm_shift = 5
+  // Dynamic RDN must select the lower adjacent double quotient for 1.0 / 3.0.
+  runner.cpu.write_csr(csr_fcsr, 0x2U.to_uint64() << fcsr_frm_shift)
+  runner.cpu.write_freg(1, exec_test_f64_bits(1.0))
+  runner.cpu.write_freg(2, exec_test_f64_bits(3.0))
+  runner.load_program(words_to_bytes([encode_fp_r(0x0dU, 2, 1, 0x7U, 3)]), 0U)
+  match runner.step() {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected dynamic-RDN FDIV.D to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_freg_u64(3), 0x3fd5555555555555UL)
   assert_eq(runner.read_csr(csr_fcsr) & 0x1U, 0x1U)
 }
 

@@ -742,9 +742,9 @@ official coverage improve.
   regressions cover `FDIV.S` `1.0 / 3.0` and `FSQRT.S` `sqrt(2.0)` cases where
   directed rounding selects adjacent single-precision results and accrues NX.
   A dynamic `rm=111` regression now also verifies that `frm=RDN` selects the
-  lower adjacent single for `FSQRT.S`. `FDIV.S` now also has exact-zero quotient
-  sign coverage, and `FSQRT.S` exact square roots are covered as flag-clean
-  results.
+  lower adjacent single for both `FDIV.S` and `FSQRT.S`. `FDIV.S` now also has
+  exact-zero quotient sign coverage, and `FSQRT.S` exact square roots are
+  covered as flag-clean results.
 - Single-precision FMA now has matching non-RNE coverage for finite nonzero
   exact results. Focused regressions cover all four FMA opcodes at `2^24 + 1`,
   where RTZ and RUP select adjacent single-precision results and accrue NX.
@@ -760,7 +760,9 @@ official coverage improve.
   `FMUL.D`, including the round-down cancellation case.
 - Double-precision division now has matching non-RNE coverage. Focused
   regressions cover `1.0 / 3.0`, where RTZ and RUP select adjacent
-  double-precision quotients and accrue NX, plus exact zero quotient signs.
+  double-precision quotients and accrue NX. A dynamic `rm=111` regression now
+  also verifies that `frm=RDN` selects the lower adjacent double quotient. Exact
+  zero quotient signs are covered separately.
 - Double-precision FMA now has matching non-RNE coverage for finite nonzero
   exact results. Focused regressions cover all four FMA opcodes at `2^53 + 1`,
   where RTZ and RUP select adjacent double-precision results and accrue NX.
