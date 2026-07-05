@@ -5745,6 +5745,37 @@ test "unsupported csr access traps as illegal instruction" {
 }
 
 ///|
+test "zicsr suppression does not make unsupported csrs legal" {
+  // Zicsr suppression selects which side effects are skipped, not whether an
+  // absent CSR exists. Suppressed-read write forms still need a writable CSR,
+  // and zero-mask set/clear forms still need a readable CSR.
+  let unsupported = 0x7A0
+  let forms = [
+    encode_csr(unsupported, 1, 0x1U, 0), // CSRRW rd=x0 suppresses read only
+    encode_csr(unsupported, 1, 0x5U, 0), // CSRRWI rd=x0 suppresses read only
+    encode_csr(unsupported, 0, 0x2U, 2), // CSRRS rs1=x0 suppresses write only
+    encode_csr(unsupported, 0, 0x3U, 3), // CSRRC rs1=x0 suppresses write only
+    encode_csr(unsupported, 0, 0x6U, 4), // CSRRSI uimm=0 suppresses write only
+    encode_csr(unsupported, 0, 0x7U, 5), // CSRRCI uimm=0 suppresses write only
+  ]
+  for raw in forms {
+    let runner = make_runner(default_machine_config())
+    runner.cpu.write_reg(1, 1U.to_uint64())
+    runner.load_program(words_to_bytes([raw]), 0U)
+    match runner.step() {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected illegal instruction cause")
+        }
+        assert_eq(info.trap_value, raw.to_uint64())
+      }
+      _ => fail("expected unsupported CSR suppression form to trap")
+    }
+  }
+}
+
+///|
 test "writes to read-only csrs trap as illegal instruction" {
   // The CSR address encoding marks these baseline CSRs read-only. Any CSR
   // instruction form that would write them must trap, even when the backing

@@ -299,6 +299,9 @@
   mode to `mstatus`, preventing lower privilege modes from writing
   higher-privilege CSRs just because the instruction form avoids reading the old
   CSR value.
+  Suppression is also pinned for absent CSRs: suppressed-read write forms still
+  require a supported writable CSR, and zero-mask set/clear forms still require
+  a supported readable CSR.
   Read-only CSR coverage now spans all write-attempting standard forms:
   `CSRRW[I]`, `CSRRS[I]`, and `CSRRC[I]` with a nonzero source all trap, while
   zero-mask `CSRRS[I]` / `CSRRC[I]` remain legal pure reads. The RMW executor
