@@ -77,6 +77,9 @@ official coverage improve.
   `lbu`, `lh`, `sb`, and `sh` binaries now build locally and are promoted to
   `gating`. The official non-word integer ALU rows for logical, compare,
   shift, and `sub` operations have also passed survey and moved to `gating`.
+  The RV64 word-operation rows `addiw`, `addw`, `subw`, `slliw`, `sllw`,
+  `srliw`, `srlw`, `sraiw`, and `sraw` have likewise passed survey and are now
+  part of the gating manifest.
   Taken branch and jump target alignment now follows the active IALIGN:
   non-C profiles trap halfword-only targets as instruction-address-misaligned,
   while C/RV64GC profiles allow them under IALIGN=16.

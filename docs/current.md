@@ -164,7 +164,9 @@
   The matching official `rv64ui` rows for `lbu`, `lh`, `sb`, and `sh` now
   build locally and have been promoted to the gating manifest. Official
   non-word integer ALU rows for logical, compare, shift, and `sub` operations
-  have also passed survey and moved to `gating`.
+  have also passed survey and moved to `gating`. The RV64 word-operation rows
+  `addiw`, `addw`, `subw`, `slliw`, `sllw`, `srliw`, `srlw`, `sraiw`, and
+  `sraw` have likewise passed survey and are now part of the gating manifest.
 
 - The first RV64C reserved/hint correction slice for Task 0063 is in place.
   `EBREAK` and `C.EBREAK` now raise the architectural breakpoint exception,
