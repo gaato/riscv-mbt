@@ -88,16 +88,16 @@
   inputs. `FCVT.S.D` now uses an emulator-side double-to-single rounding helper
   for legal static/dynamic modes, NX, overflow result selection, and
   tininess-after-rounding UF behavior. `FADD.S`, `FSUB.S`, `FMUL.S`, `FDIV.S`,
-  `FSQRT.S`, and the single-precision fused multiply-add family now use that
-  same rounding helper for legal non-RNE arithmetic and NX. `FADD.D`, `FSUB.D`,
-  `FMUL.D`, and `FDIV.D` now round exact-rational finite results back to double
-  precision for legal non-RNE modes, including NX/OF/UF result flags. `FCLASS.S`
-  /`FCLASS.D` now decode and execute the architectural 10-bit classification
-  mask for zero, subnormal, normal, infinity, signaling-NaN, and quiet-NaN
-  values. Double FMA now uses exact-rational fused products for finite nonzero
-  results under legal non-RNE modes, while exact-zero sign auditing remains
-  open. Double `FSQRT.D` now accepts legal non-RNE modes and derives directed
-  finite results from exact operand/candidate comparisons. Scalar `F/D`
+  and `FSQRT.S` now use that same rounding helper for legal non-RNE arithmetic
+  and NX. Single and double fused multiply-add now use exact-rational fused
+  products for finite nonzero results under legal non-RNE modes, while
+  exact-zero sign auditing remains open. `FADD.D`, `FSUB.D`, `FMUL.D`, and
+  `FDIV.D` now round exact-rational finite results back to double precision for
+  legal non-RNE modes, including NX/OF/UF result flags. `FCLASS.S` /`FCLASS.D`
+  now decode and execute the architectural 10-bit classification mask for zero,
+  subnormal, normal, infinity, signaling-NaN, and quiet-NaN values. Double
+  `FSQRT.D` now accepts legal non-RNE modes and derives directed finite results
+  from exact operand/candidate comparisons. Scalar `F/D`
   arithmetic now accrues NV for
   signaling NaNs and the obvious invalid-operation cases, and FDIV accrues DZ
   for finite nonzero division by zero. This is emulator-body hardening for the

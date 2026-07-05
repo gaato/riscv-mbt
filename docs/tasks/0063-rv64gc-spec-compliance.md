@@ -176,10 +176,11 @@ official coverage improve.
   boundary for the scalar single-precision arithmetic family. Exact quotient
   and square-root rounding audits remain part of the broader strict FP work.
 - The single-precision fused multiply-add family now accepts legal static
-  non-RNE modes and routes the final single-precision result through the same
-  helper. This closes the old RNE-only legality boundary for `FMADD.S`,
-  `FMSUB.S`, `FNMSUB.S`, and `FNMADD.S`; exact fused single-rounding remains an
-  explicit follow-up audit.
+  non-RNE modes and rounds finite nonzero fused results through an exact
+  rational-to-single helper. This closes the old RNE-only legality boundary for
+  `FMADD.S`, `FMSUB.S`, `FNMSUB.S`, and `FNMADD.S` without introducing a
+  rounded host-Double product-plus-addend; exact-zero result signs remain a
+  separate follow-up audit.
 - `FADD.D`, `FSUB.D`, and `FMUL.D` now round finite exact-rational results back
   to double precision inside the emulator. Legal static non-RNE modes execute
   where they change the result, and the helper accrues NX plus overflow and
@@ -265,9 +266,9 @@ official coverage improve.
 - Single-precision div/sqrt now have the same first non-RNE coverage. Focused
   regressions cover `FDIV.S` `1.0 / 3.0` and `FSQRT.S` `sqrt(2.0)` cases where
   directed rounding selects adjacent single-precision results and accrues NX.
-- Single-precision FMA now has matching first non-RNE coverage. Focused
-  regressions cover all four FMA opcodes at `2^24 + 1`, where RTZ and RUP
-  select adjacent single-precision results and accrue NX.
+- Single-precision FMA now has matching non-RNE coverage for finite nonzero
+  exact results. Focused regressions cover all four FMA opcodes at `2^24 + 1`,
+  where RTZ and RUP select adjacent single-precision results and accrue NX.
 - Double-precision add/sub/mul now have corresponding non-RNE coverage.
   Focused regressions cover `2^53 + 1` add/sub and `(1 + 2^-52)^2` multiply,
   where RTZ and RUP select adjacent double-precision results and accrue NX.

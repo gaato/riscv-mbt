@@ -251,6 +251,34 @@ fn fp_exact_rational_from_f64_bits(bits : UInt64) -> FpExactRational? {
 }
 
 ///|
+fn fp_exact_rational_from_f32_bits(bits : UInt) -> FpExactRational? {
+  if f32_is_nan_bits(bits) || f32_is_infinite_bits(bits) {
+    None
+  } else {
+    let sign = bits >> 31 != 0U
+    let exponent = ((bits >> 23) & 0xffU).reinterpret_as_int()
+    let fraction = bits & 0x007fffffU
+    let mantissa = if exponent == 0 { fraction } else { (1U << 23) | fraction }
+    if mantissa == 0U {
+      Some({ num: BigInt::from_int(0), den: fp_bigint_one() })
+    } else {
+      let exp2 = if exponent == 0 { 1 - 127 - 23 } else { exponent - 127 - 23 }
+      let magnitude = BigInt::from_uint64(mantissa.to_uint64())
+      let unsigned = if exp2 >= 0 {
+        { num: magnitude << exp2, den: fp_bigint_one() }
+      } else {
+        { num: magnitude, den: fp_bigint_pow2(0 - exp2) }
+      }
+      if sign {
+        Some({ num: -unsigned.num, den: unsigned.den })
+      } else {
+        Some(unsigned)
+      }
+    }
+  }
+}
+
+///|
 fn fp_exact_rational_add(
   lhs : FpExactRational,
   rhs : FpExactRational,
@@ -424,6 +452,92 @@ fn fp_f64_overflow_bits(sign : Bool, mode : UInt) -> UInt64 {
     0xffefffffffffffffUL
   } else {
     0x7fefffffffffffffUL
+  }
+}
+
+///|
+fn fp_round_rational_to_f32_bits(
+  exact : FpExactRational,
+  mode : UInt,
+) -> FpRoundedSingleBits {
+  let sign = exact.num < BigInt::from_int(0)
+  let sign_bits = if sign { 1U << 31 } else { 0U }
+  let numerator = fp_bigint_abs(exact.num)
+  if numerator.is_zero() {
+    { bits: sign_bits, flags: 0U.to_uint64() }
+  } else {
+    let exponent = fp_exact_rational_floor_log2(numerator, exact.den)
+    if exponent > 127 {
+      {
+        bits: fp_f32_overflow_bits(sign, mode),
+        flags: fp_fflag_of | fp_fflag_nx,
+      }
+    } else if exponent >= -126 {
+      // Normal singles carry 24 bits of precision including the hidden leading
+      // one. This is the fused-operation path: no host-Double intermediate is
+      // allowed to round the product-plus-addend before the final f32 result.
+      let rounded = fp_round_rational_scaled_to_integer(
+        numerator,
+        exact.den,
+        23 - exponent,
+        sign,
+        mode,
+      )
+      let mut significand = rounded.value
+      let mut stored_exponent = exponent + 127
+      if significand == fp_bigint_one() << 24 {
+        significand = significand >> 1
+        stored_exponent += 1
+      }
+      if stored_exponent >= 255 {
+        {
+          bits: fp_f32_overflow_bits(sign, mode),
+          flags: fp_fflag_of | fp_fflag_nx,
+        }
+      } else {
+        let exponent_bits = stored_exponent.reinterpret_as_uint() << 23
+        let fraction_bits = (significand - (fp_bigint_one() << 23))
+          .to_uint64()
+          .to_uint()
+        {
+          bits: sign_bits | exponent_bits | fraction_bits,
+          flags: if rounded.inexact {
+            fp_fflag_nx
+          } else {
+            0U.to_uint64()
+          },
+        }
+      }
+    } else {
+      // Subnormal singles are rounded in units of 2^-149. If rounding reaches
+      // the minimum normal, tininess-after-rounding means UF is not accrued.
+      let rounded = fp_round_rational_scaled_to_integer(
+        numerator,
+        exact.den,
+        149,
+        sign,
+        mode,
+      )
+      if rounded.value >= fp_bigint_one() << 23 {
+        {
+          bits: sign_bits | (1U << 23),
+          flags: if rounded.inexact {
+            fp_fflag_nx
+          } else {
+            0U.to_uint64()
+          },
+        }
+      } else {
+        {
+          bits: sign_bits | rounded.value.to_uint64().to_uint(),
+          flags: if rounded.inexact {
+            fp_fflag_uf | fp_fflag_nx
+          } else {
+            0U.to_uint64()
+          },
+        }
+      }
+    }
   }
 }
 
@@ -625,6 +739,43 @@ fn f64_sqrt_rounded_bits(
       }
     }
     None => { bits: host_bits, flags: 0UL }
+  }
+}
+
+///|
+fn f32_round_fused_result_bits(
+  lhs_bits : UInt,
+  rhs_bits : UInt,
+  addend_bits : UInt,
+  mode : UInt,
+  host_result_bits : UInt64,
+  variant : Int,
+) -> FpRoundedSingleBits {
+  let fallback = fp_round_f64_bits_to_f32_bits(host_result_bits, mode)
+  match
+    (
+      fp_exact_rational_from_f32_bits(lhs_bits),
+      fp_exact_rational_from_f32_bits(rhs_bits),
+      fp_exact_rational_from_f32_bits(addend_bits),
+    ) {
+    (Some(lhs), Some(rhs), Some(addend)) => {
+      let product = fp_exact_rational_mul(lhs, rhs)
+      let exact = match variant {
+        0 => fp_exact_rational_add(product, addend)
+        1 => fp_exact_rational_sub(product, addend)
+        2 => fp_exact_rational_sub(addend, product)
+        _ => fp_exact_rational_sub(fp_exact_rational_neg(product), addend)
+      }
+      // Exact zero signs for fused operations follow IEEE operation-specific
+      // rules. Keep that narrow case on the host fallback until the sign audit
+      // is explicit, but round every finite nonzero result from exact math.
+      if exact.num.is_zero() {
+        fallback
+      } else {
+        fp_round_rational_to_f32_bits(exact, mode)
+      }
+    }
+    _ => fallback
   }
 }
 
@@ -1397,11 +1548,11 @@ fn Runner::execute_fp(
       if invalid {
         self.set_fflags(fp_fflag_nv)
       }
-      let rounded = fp_round_f64_bits_to_f32_bits(
-        (f32_from_bits(lhs_bits).to_double() *
-        f32_from_bits(rhs_bits).to_double() +
-        f32_from_bits(addend_bits).to_double()).reinterpret_as_uint64(),
-        mode,
+      let host_bits = (f32_from_bits(lhs_bits).to_double() *
+      f32_from_bits(rhs_bits).to_double() +
+      f32_from_bits(addend_bits).to_double()).reinterpret_as_uint64()
+      let rounded = f32_round_fused_result_bits(
+        lhs_bits, rhs_bits, addend_bits, mode, host_bits, 0,
       )
       self.set_fflags(rounded.flags)
       self.write_freg_single_bits(rd, rounded.bits)
@@ -1426,11 +1577,11 @@ fn Runner::execute_fp(
       if invalid {
         self.set_fflags(fp_fflag_nv)
       }
-      let rounded = fp_round_f64_bits_to_f32_bits(
-        (f32_from_bits(lhs_bits).to_double() *
-        f32_from_bits(rhs_bits).to_double() -
-        f32_from_bits(addend_bits).to_double()).reinterpret_as_uint64(),
-        mode,
+      let host_bits = (f32_from_bits(lhs_bits).to_double() *
+      f32_from_bits(rhs_bits).to_double() -
+      f32_from_bits(addend_bits).to_double()).reinterpret_as_uint64()
+      let rounded = f32_round_fused_result_bits(
+        lhs_bits, rhs_bits, addend_bits, mode, host_bits, 1,
       )
       self.set_fflags(rounded.flags)
       self.write_freg_single_bits(rd, rounded.bits)
@@ -1455,11 +1606,10 @@ fn Runner::execute_fp(
       if invalid {
         self.set_fflags(fp_fflag_nv)
       }
-      let rounded = fp_round_f64_bits_to_f32_bits(
-        (f32_from_bits(addend_bits).to_double() -
-        f32_from_bits(lhs_bits).to_double() *
-        f32_from_bits(rhs_bits).to_double()).reinterpret_as_uint64(),
-        mode,
+      let host_bits = (f32_from_bits(addend_bits).to_double() -
+      f32_from_bits(lhs_bits).to_double() * f32_from_bits(rhs_bits).to_double()).reinterpret_as_uint64()
+      let rounded = f32_round_fused_result_bits(
+        lhs_bits, rhs_bits, addend_bits, mode, host_bits, 2,
       )
       self.set_fflags(rounded.flags)
       self.write_freg_single_bits(rd, rounded.bits)
@@ -1484,12 +1634,11 @@ fn Runner::execute_fp(
       if invalid {
         self.set_fflags(fp_fflag_nv)
       }
-      let rounded = fp_round_f64_bits_to_f32_bits(
-        (0.0 -
-        f32_from_bits(lhs_bits).to_double() *
-        f32_from_bits(rhs_bits).to_double() -
-        f32_from_bits(addend_bits).to_double()).reinterpret_as_uint64(),
-        mode,
+      let host_bits = (0.0 -
+      f32_from_bits(lhs_bits).to_double() * f32_from_bits(rhs_bits).to_double() -
+      f32_from_bits(addend_bits).to_double()).reinterpret_as_uint64()
+      let rounded = f32_round_fused_result_bits(
+        lhs_bits, rhs_bits, addend_bits, mode, host_bits, 3,
       )
       self.set_fflags(rounded.flags)
       self.write_freg_single_bits(rd, rounded.bits)
