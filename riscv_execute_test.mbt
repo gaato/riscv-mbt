@@ -4240,6 +4240,49 @@ test "rv64 mprv makes machine load and store follow Sv39 using mpp privilege" {
 }
 
 ///|
+test "rv64 mprv does not affect machine instruction fetch privilege" {
+  let program = words_to_bytes([
+    encode_i(8, 0, 0x0U, 2, 0x13U),
+    encode_i(60, 2, 0x1U, 2, 0x13U),
+    encode_i(1, 2, 0x0U, 2, 0x13U),
+    encode_csr(0x180, 2, 0x1U, 0),
+    encode_u(0x00021000U, 3, 0x37U),
+    encode_i(-2048, 3, 0x0U, 3, 0x13U),
+    encode_csr(0x300, 3, 0x1U, 0),
+    encode_j(228, 0, 0x6fU),
+  ])
+  let runner = make_runner(rv64_machine_config())
+  exec_test_setup_basic_sv39_map(runner)
+  runner.bus.store_u32(
+    0x100U.to_uint64(),
+    encode_i(1, 0, 0x0U, 5, 0x13U).to_uint64(),
+  )
+  runner.bus.store_u32(
+    0x104U.to_uint64(),
+    encode_i(3, 0, 0x0U, 6, 0x13U).to_uint64(),
+  )
+  runner.bus.store_u32(
+    0x4100U.to_uint64(),
+    encode_i(2, 0, 0x0U, 5, 0x13U).to_uint64(),
+  )
+  runner.bus.store_u32(
+    0x4104U.to_uint64(),
+    encode_i(4, 0, 0x0U, 6, 0x13U).to_uint64(),
+  )
+  runner.load_program(program, 0U)
+  match runner.run(10) {
+    Running => ()
+    _ => fail("expected M-mode fetch to ignore MPRV")
+  }
+  // The Sv39 fixture maps virtual 0x100 to physical 0x4100. If MPRV leaked
+  // into instruction fetch, this jump would execute the x5=2/x6=4 pair. The
+  // privileged rule keeps MPRV scoped to data accesses, so M-mode fetches the
+  // physical code at 0x100 instead.
+  assert_eq(runner.read_reg_u64(5), 1U.to_uint64())
+  assert_eq(runner.read_reg_u64(6), 3U.to_uint64())
+}
+
+///|
 test "sv39 translation cache records repeated data-page hits" {
   let program = words_to_bytes([
     encode_i(0x100, 0, 0x0U, 1, 0x13U),
