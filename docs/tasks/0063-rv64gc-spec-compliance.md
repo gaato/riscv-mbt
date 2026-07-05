@@ -414,8 +414,9 @@ official coverage improve.
 - The double-precision fused multiply-add family now accepts legal static
   non-RNE modes and routes finite nonzero exact fused results through the
   exact-rational-to-double helper. This covers `FMADD.D`, `FMSUB.D`,
-  `FNMSUB.D`, and `FNMADD.D` without using an intermediate rounded product;
-  exact-zero result signs remain a separate follow-up audit.
+  `FNMSUB.D`, and `FNMADD.D` without using an intermediate rounded product.
+  Exact-zero result signs are also handled explicitly for finite cancellation
+  and zero-product inputs.
 - `FSQRT.D` now accepts legal static/dynamic non-RNE modes. For finite positive
   operands it uses the host square root only as an RNE candidate, compares the
   candidate square against the exact operand, and selects the adjacent lower or
