@@ -159,6 +159,11 @@
   software-writable S-level pending bits; machine-level pending bits come from
   CLINT/PLIC state.
 
+- RV64I byte and halfword load/store regressions now explicitly verify
+  sign-extension and zero-extension to XLEN for `LB/LBU/LH/LHU` after `SB/SH`.
+  This covers official-source cases that are broader than the current curated
+  `rv64ui` gating subset.
+
 - The first RV64C reserved/hint correction slice for Task 0063 is in place.
   `EBREAK` and `C.EBREAK` now raise the architectural breakpoint exception,
   `C.ADDIW rd=x0` is rejected as reserved on RV64C, `C.LUI rd=x0` and

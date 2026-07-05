@@ -7816,6 +7816,31 @@ test "rv64 loads and stores preserve sign extension and full-width round trips" 
 }
 
 ///|
+test "rv64 byte and halfword loads and stores extend to xlen" {
+  let program = words_to_bytes([
+    encode_i(0x80, 0, 0x0U, 1, 0x13U),
+    encode_s(0, 1, 0, 0x0U, 0x23U),
+    encode_i(0, 0, 0x0U, 2, 0x03U),
+    encode_i(0, 0, 0x4U, 3, 0x03U),
+    encode_u(0xffffa000U, 4, 0x37U),
+    encode_i(0x678, 4, 0x6U, 4, 0x13U),
+    encode_s(2, 4, 0, 0x1U, 0x23U),
+    encode_i(2, 0, 0x1U, 5, 0x03U),
+    encode_i(2, 0, 0x5U, 6, 0x03U),
+  ])
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(9) {
+    Running => ()
+    _ => fail("expected rv64 byte/halfword program to run")
+  }
+  assert_eq(runner.read_reg_u64(2), 0xffffffffffffff80UL)
+  assert_eq(runner.read_reg_u64(3), 0x80U.to_uint64())
+  assert_eq(runner.read_reg_u64(5), 0xffffffffffffa678UL)
+  assert_eq(runner.read_reg_u64(6), 0xa678U.to_uint64())
+}
+
+///|
 test "rv64 word operations keep 32-bit results sign-extended" {
   let program = words_to_bytes([
     encode_i(-1, 0, 0x0U, 1, 0x1bU),
