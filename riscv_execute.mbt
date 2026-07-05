@@ -837,9 +837,11 @@ fn Runner::execute_amo(
   next_pc : UInt64,
   raw : UInt,
 ) -> StepResult {
-  // This is a practical single-hart AMO model. LR/SC reservation tracking is
-  // not modeled yet because current Linux bring-up uses one hart; SC succeeds
-  // after the same address checks that an ordinary store would perform.
+  // This is a practical single-hart AMO model. LR/SC reservations are tracked
+  // in physical-address space, which matches the current one-hart Linux path.
+  // The remaining strict-spec audit is memory-ordering (`aq`/`rl`) behavior and
+  // broader multi-hart reservation interference, not the basic success/failure
+  // result shape.
   match instruction {
     AmoW(funct5_val, rd, rs1, rs2) => {
       let addr = self.cpu.read_reg(rs1)

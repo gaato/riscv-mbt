@@ -58,6 +58,42 @@ or more OpenRC-specific probing.
 
 - `doing`
 
+## Current RV64GC Gap List
+
+This list tracks the known distance from "runs useful Linux" to strict
+`RV64IMAFDC_Zicsr_Zifencei` confidence. It should shrink as implementation and
+official coverage improve.
+
+- `RV64I/M`: curated official `rv64ui` and `rv64um` rows in
+  `tools/riscv-tests-manifest.tsv` are gating through
+  `rv32ui_gating_test.mbt`. The gap is broader official-suite coverage and any
+  remaining unlisted corner cases, not a known missing Linux-critical
+  instruction family.
+- `F/D`: `riscv_fp.mbt` now covers instruction availability, NaN-boxing,
+  comparisons, min/max, FMA availability, conversion clipping, and the first
+  NV/DZ arithmetic flags. The remaining strict-spec gaps are exact non-RNE
+  arithmetic, OF/UF/NX for rounded arithmetic results, exact fused
+  single-rounding for FMA, and broader official `rv64uf`/`rv64ud` style
+  coverage.
+- `A`: `riscv_execute.mbt` implements LR/SC and AMO W/D behavior for the
+  practical one-hart path, with regressions for reservation success/failure and
+  store invalidation. The remaining audit is `aq`/`rl` ordering semantics,
+  multi-hart reservation interference, and promotion of relevant official
+  `rv64ua` coverage.
+- `C`: compressed decode/execute coverage exists in
+  `riscv_compressed_test.mbt`, while official compressed coverage is still not
+  part of the RV64GC gating floor. The remaining audit is RV64C-specific
+  reserved/hint behavior and official `rv64uc` promotion once the decoded shape
+  is fully reviewed.
+- `Zicsr`: CSR decode, privilege checks, and `fcsr`/`fflags` views are covered
+  by focused execute tests. The remaining audit is a spec pass over
+  read/write suppression, read-only/write-ignored fields, and privilege-visible
+  side effects for every CSR currently exposed by `riscv_decode.mbt`.
+- `Zifencei`: `FENCE.I` decodes and flushes the emulator decode cache, and
+  official `fence_i` rows are in the gating subset. The remaining audit is a
+  self-modifying-code regression that proves instruction-cache/decode-cache
+  visibility through the same architectural rule.
+
 ## Progress Notes
 
 - `FCLASS.S` and `FCLASS.D` now decode and execute the architectural 10-bit
