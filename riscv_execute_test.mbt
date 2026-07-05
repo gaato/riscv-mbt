@@ -1766,6 +1766,39 @@ test "rv64fd div accrues underflow and inexact for tiny quotients" {
 }
 
 ///|
+test "rv64fd mul accrues underflow and inexact for tiny products" {
+  let runner = make_runner(rv64fd_machine_config())
+  let csr_fcsr = 0x003
+  runner.cpu.write_freg(1, exec_test_nan_box_single(0x00800000U))
+  runner.cpu.write_freg(2, exec_test_nan_box_single(0x3eaaaaabU))
+  runner.cpu.write_freg(3, 0x0010000000000000UL)
+  runner.cpu.write_freg(4, 0x3fd5555555555555UL)
+  runner.load_program(
+    words_to_bytes([
+      encode_fp_r(0x08U, 2, 1, 0x0U, 5),
+      encode_csr(csr_fcsr, 0, 0x2U, 6),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x09U, 4, 3, 0x0U, 7),
+      encode_csr(csr_fcsr, 0, 0x2U, 8),
+    ]),
+    0U,
+  )
+  match runner.run(5) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected tiny product multiply paths to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  // These products are tiny after rounding and inexact, so IEEE/RISC-V
+  // tininess-after-rounding requires both UF and NX to become sticky.
+  assert_eq(runner.read_freg_u64(5), exec_test_nan_box_single(0x002aaaabU))
+  assert_eq(runner.read_reg_u64(6) & 0x3U.to_uint64(), 0x3U.to_uint64())
+  assert_eq(runner.read_freg_u64(7), 0x0005555555555555UL)
+  assert_eq(runner.read_reg_u64(8) & 0x3U.to_uint64(), 0x3U.to_uint64())
+}
+
+///|
 test "rv64fd sqrt honors non-rne rounding modes" {
   let runner = make_runner(rv64fd_machine_config())
   let csr_fcsr = 0x003
