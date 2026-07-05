@@ -1168,6 +1168,18 @@ fn Runner::csr_tvm_accessible(self : Runner, csr : Int) -> Bool {
 }
 
 ///|
+fn Runner::csr_extension_state_accessible(self : Runner, csr : Int) -> Bool {
+  // Floating-point CSRs are part of the FS-governed state described by the
+  // privileged spec. Their address privilege may be unprivileged, but FS=Off
+  // still makes attempts to read or write them illegal.
+  if is_modeled_fp_csr(csr) {
+    self.fp_context_enabled()
+  } else {
+    true
+  }
+}
+
+///|
 fn Runner::read_csr_checked(self : Runner, csr : Int) -> UInt64? {
   if self.xlen_bits() == XLEN_64 {
     match csr {
@@ -1182,6 +1194,9 @@ fn Runner::read_csr_checked(self : Runner, csr : Int) -> UInt64? {
     return None
   }
   if !self.counter_csr_accessible(csr) {
+    return None
+  }
+  if !self.csr_extension_state_accessible(csr) {
     return None
   }
   if is_supported_csr(csr, self.config.extensions) {
@@ -1220,6 +1235,7 @@ fn Runner::execute_csr_read_write_checked(
   if should_write {
     if !self.csr_privilege_accessible(csr) ||
       !self.csr_tvm_accessible(csr) ||
+      !self.csr_extension_state_accessible(csr) ||
       !is_supported_rw_csr(csr, self.config.extensions) {
       return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
     }

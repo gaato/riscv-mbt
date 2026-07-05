@@ -917,6 +917,45 @@ test "rv64f fcsr frm and fflags views share one visible register" {
 }
 
 ///|
+test "rv64f traps floating-point csr access when mstatus fs is off" {
+  let fp_csrs = [0x001, 0x002, 0x003]
+  for csr in fp_csrs {
+    let read_raw = encode_csr(csr, 0, 0x2U, 1)
+    let read_runner = make_runner(rv64f_machine_config())
+    read_runner.cpu.write_csr(0x300, 0U.to_uint64())
+    read_runner.load_program(words_to_bytes([read_raw]), 0U)
+    match read_runner.step() {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected illegal instruction cause")
+        }
+        assert_eq(info.trap_value, read_raw.to_uint64())
+      }
+      _ => fail("expected floating-point csr read to trap when FS=Off")
+    }
+
+    let write_raw = encode_csr(csr, 1, 0x1U, 0)
+    let write_runner = make_runner(rv64f_machine_config())
+    write_runner.cpu.write_csr(0x300, 0U.to_uint64())
+    write_runner.load_program(
+      words_to_bytes([encode_i(1, 0, 0x0U, 1, 0x13U), write_raw]),
+      0U,
+    )
+    match write_runner.run(2) {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected illegal instruction cause")
+        }
+        assert_eq(info.trap_value, write_raw.to_uint64())
+      }
+      _ => fail("expected floating-point csr write to trap when FS=Off")
+    }
+  }
+}
+
+///|
 test "rv64f traps on reserved arithmetic rounding mode" {
   let two = exec_test_f32_bits(2.0)
   let program = words_to_bytes([

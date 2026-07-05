@@ -112,6 +112,8 @@
   F/D load/store plus arithmetic execution now traps as illegal when software
   sets `mstatus.FS=Off`. FP register and `fcsr` writes now mark FS Dirty, so
   the visible `mstatus.SD` summary follows actual modeled FP state changes.
+  The `fflags`, `frm`, and `fcsr` CSR aliases are also FS-gated: read and
+  write attempts trap when FS is Off.
 
 - The first RV64C reserved/hint correction slice for Task 0063 is in place.
   `EBREAK` and `C.EBREAK` now raise the architectural breakpoint exception,
