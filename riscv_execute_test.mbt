@@ -4392,6 +4392,26 @@ test "PLIC claim clears pending until completion" {
 }
 
 ///|
+test "load to x0 still performs PLIC claim side effects" {
+  let claim_x0_then_claim_x2 = words_to_bytes([
+    encode_u(0x0c201000U, 1, 0x37U),
+    encode_i(4, 1, 0x2U, 0, 0x03U),
+    encode_i(4, 1, 0x2U, 2, 0x03U),
+  ])
+  let runner = make_runner(virtio_blk_machine_config())
+  runner.plic_regs[4] = 1U.to_byte()
+  runner.plic_regs[0x2080] = 2U.to_byte()
+  runner.virtio_blk_state[6] = 1U.to_uint64()
+  runner.load_program_u64(claim_x0_then_claim_x2, 0x80000000U.to_uint64())
+  match runner.run(3) {
+    Running => ()
+    _ => fail("expected PLIC claim sequence to retire")
+  }
+  assert_eq(runner.read_reg_u64(0), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(2), 0U.to_uint64())
+}
+
+///|
 test "PLIC UART claim stays claimed while receiver drains input" {
   let claim_read_complete_claim = words_to_bytes([
     encode_u(0x0c201000U, 1, 0x37U),

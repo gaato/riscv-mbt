@@ -584,7 +584,8 @@ official coverage improve.
   encodings with `shamt[5]=1` trap through the profile legality gate.
 - Base load execution now has focused coverage for `rd=x0` destinations. The
   regression pins the unprivileged rule that a load into the zero register still
-  performs address checks and raises access faults before the loaded value is
+  performs address checks, raises access faults, and triggers device-visible
+  read side effects such as PLIC interrupt claims before the loaded value is
   discarded.
 - The first RV64C reserved/hint correction slice is in place. `EBREAK` and
   `C.EBREAK` now trap as architectural breakpoint exceptions instead of illegal
