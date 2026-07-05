@@ -434,9 +434,10 @@ official coverage improve.
 - RV32C compressed shift decode now rejects the standard-reserved/custom
   `shamt[5]=1` code points for `C.SLLI`, `C.SRLI`, and `C.SRAI`, while
   preserving the existing RV64C 6-bit shift behavior.
-- Compressed `C.ADD` now distinguishes the standard hint space from the custom
-  subrange: `rd=x0, rs2=x2..x5` traps as an unimplemented custom code point,
-  while neighboring `rd=x0` add hints continue to execute as no-ops.
+- Compressed `C.ADD rd=x0, rs2!=x0` now executes as an architectural hint
+  across the whole nonzero source range. The `rs2=x2..x5` encodings are the
+  compressed Zihintntl locality hints, so they remain no-ops in this RV64GC
+  baseline instead of trapping as custom code points.
 - Zicsr write-side privilege checks now run even when the instruction form
   suppresses the CSR read. This closes the `CSRRW rd=x0` hole where a lower
   privilege mode could otherwise write a higher-privilege CSR because no read
