@@ -89,6 +89,21 @@ test "service persistence smoke writes and reruns service script" {
 }
 
 ///|
+test "openrc install smoke keeps package and command checks aligned" {
+  let commands = alpine_post_init_openrc_install_commands()
+  let markers = alpine_post_init_openrc_install_markers()
+  assert_eq(commands.length(), 4)
+  assert_eq(markers.length(), 4)
+  assert_true(commands[0].contains("openrc-*.apk"))
+  assert_true(commands[1].contains("add openrc"))
+  assert_true(commands[2].contains("/sbin/openrc --version"))
+  assert_true(commands[2].contains("/sbin/rc-status"))
+  assert_true(commands[3].contains("/sbin/rc-update show"))
+  assert_eq(markers[2], "openrc-commands-ok")
+  assert_eq(markers[3], "post-init-openrc-ok")
+}
+
+///|
 test "auto-root handoff selects auto-root artifacts by default" {
   let args = ["alpine_probe", "xlong", "--auto-root-handoff"]
   assert_eq(select_dtb_path(args, true, true), auto_root_virtio_dtb_path)

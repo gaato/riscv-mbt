@@ -90,3 +90,26 @@ but it is not the same as a more ordinary Alpine service environment.
   persisted `/etc/init.d/riscv-mbt-service`, `service-started` from the script
   and runtime log, successful `status`, `stop`, pidfile removal, and
   `service-persistence-read-ok`.
+- OpenRC is now an explicit optional rootfs-builder path rather than a silent
+  default change. `scripts/build-alpine-rootfs-image.sh` accepts
+  `ALPINE_SERVICE_PACKAGES` and `ALPINE_APK_EXTRA_REPO_BASE_URLS`, merges the
+  configured APKINDEX files for local dependency resolution, and downloads each
+  selected package from the repository that actually contains it. This keeps the
+  known-good BusyBox-init rootfs baseline intact while allowing service-manager
+  experiments to be built as separate images.
+- The OpenRC image builder path exposed a real package-resolution bug:
+  `openrc` depends on the virtual dependency `ifupdown-any`, while Alpine's
+  `busybox-ifupdown` provides it as `p:ifupdown-any` without an `=` suffix. The
+  local APKINDEX provider resolver now accepts both versioned and unversioned
+  provides, so an image built with
+  `ALPINE_SERVICE_PACKAGES=openrc ALPINE_APK_EXTRA_REPO_BASE_URLS=https://dl-cdn.alpinelinux.org/alpine/latest-stable/community/riscv64 ALPINE_ROOTFS_IMAGE=_build/alpine-rootfs-riscv64-openrc-repo.ext4 ./scripts/build-alpine-rootfs-image.sh`
+  contains the OpenRC dependency closure, including `busybox-ifupdown`,
+  `openrc-user`, and `libcap2`.
+- `cmd/alpine_probe --post-init-openrc-install-smoke` is the first explicit
+  OpenRC install/surface probe: it installs `openrc` from the local repository
+  after auto-root handoff, checks that `/sbin/openrc`, `/sbin/rc-status`, and
+  `/sbin/rc-update` exist, runs `/sbin/openrc --version`, and separately probes
+  `rc-update show`. A direct emulator-side `apk add openrc` run is too heavy
+  for the routine development loop, so the next OpenRC slice should move toward
+  an OpenRC-prepared rootfs image and keep post-init probes focused on runtime
+  behavior rather than reinstalling service-manager packages every time.

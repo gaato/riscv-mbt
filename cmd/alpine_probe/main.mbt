@@ -728,6 +728,36 @@ fn alpine_post_init_service_persistence_read_command() -> String {
 }
 
 ///|
+fn alpine_post_init_openrc_install_commands() -> Array[String] {
+  // OpenRC is not the default boot path. This smoke proves an explicitly built
+  // local repository can install OpenRC userspace without changing the known
+  // good BusyBox-init baseline.
+  [
+    "test -x /sbin/apk && " +
+    "test -r /root/riscv-mbt-apks/APKINDEX.tar.gz && " +
+    "ls /root/riscv-mbt-apks/openrc-*.apk && " +
+    "printf '\\157\\160\\145\\156\\162\\143\\055\\146\\151\\154\\145\\163\\055\\157\\153\\012'",
+    "/sbin/apk --no-network --allow-untrusted --repository /root/riscv-mbt-apks add openrc && " +
+    "/sbin/apk info -e openrc && " +
+    "printf '\\157\\160\\145\\156\\162\\143\\055\\141\\144\\144\\055\\157\\153\\012'",
+    "test -x /sbin/openrc && " +
+    "test -x /sbin/rc-status && " +
+    "test -x /sbin/rc-update && " +
+    "/sbin/openrc --version && " +
+    "printf '\\157\\160\\145\\156\\162\\143\\055\\143\\157\\155\\155\\141\\156\\144\\163\\055\\157\\153\\012'",
+    "/sbin/rc-update show && " +
+    "printf '\\160\\157\\163\\164\\055\\151\\156\\151\\164\\055\\157\\160\\145\\156\\162\\143\\055\\157\\153\\012'",
+  ]
+}
+
+///|
+fn alpine_post_init_openrc_install_markers() -> Array[String] {
+  [
+    "openrc-files-ok", "openrc-add-ok", "openrc-commands-ok", "post-init-openrc-ok",
+  ]
+}
+
+///|
 fn alpine_post_init_storage_commands() -> Array[String] {
   // This smoke is about the block-backed rootfs path, not applet breadth:
   // write a file, force writeback, then read and compare it through a second
@@ -850,6 +880,9 @@ async fn main {
   let post_init_service_persistence_read_smoke = parse_flag(
     args, "--post-init-service-persistence-read-smoke",
   )
+  let post_init_openrc_install_smoke = parse_flag(
+    args, "--post-init-openrc-install-smoke",
+  )
   let post_init_storage_smoke = parse_flag(args, "--post-init-storage-smoke")
   let post_init_persistence_write_smoke = parse_flag(
     args, "--post-init-persistence-write-smoke",
@@ -890,6 +923,7 @@ async fn main {
     post_init_service_smoke ||
     post_init_service_persistence_write_smoke ||
     post_init_service_persistence_read_smoke ||
+    post_init_openrc_install_smoke ||
     post_init_storage_smoke ||
     post_init_persistence_write_smoke ||
     post_init_persistence_read_smoke ||
@@ -985,6 +1019,8 @@ async fn main {
     Some("service-persistence-write-ok")
   } else if post_init_service_persistence_read_smoke {
     Some("service-persistence-read-ok")
+  } else if post_init_openrc_install_smoke {
+    Some("post-init-openrc-ok")
   } else if post_init_storage_smoke {
     Some("post-init-storage-ok")
   } else if post_init_persistence_write_smoke {
@@ -1026,6 +1062,8 @@ async fn main {
     alpine_post_init_service_persistence_write_commands()
   } else if post_init_service_persistence_read_smoke {
     [alpine_post_init_service_persistence_read_command()]
+  } else if post_init_openrc_install_smoke {
+    alpine_post_init_openrc_install_commands()
   } else if post_init_storage_smoke {
     alpine_post_init_storage_commands()
   } else if post_init_persistence_write_smoke {
@@ -1071,6 +1109,8 @@ async fn main {
     alpine_post_init_service_persistence_write_markers()
   } else if post_init_service_persistence_read_smoke {
     ["service-persistence-read-ok"]
+  } else if post_init_openrc_install_smoke {
+    alpine_post_init_openrc_install_markers()
   } else if post_init_storage_smoke {
     alpine_post_init_storage_markers()
   } else if post_init_persistence_write_smoke {
@@ -1348,6 +1388,10 @@ async fn main {
   println(
     "post_init_service_persistence_read_smoke=" +
     post_init_service_persistence_read_smoke.to_string(),
+  )
+  println(
+    "post_init_openrc_install_smoke=" +
+    post_init_openrc_install_smoke.to_string(),
   )
   println("post_init_storage_smoke=" + post_init_storage_smoke.to_string())
   println(
