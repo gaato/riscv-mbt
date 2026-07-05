@@ -582,6 +582,10 @@ official coverage improve.
   specialization rather than a generic 12-bit immediate. RV64 reserved high
   immediate bits decode as illegal, and RV32 `SLLI`, `SRLI`, and `SRAI`
   encodings with `shamt[5]=1` trap through the profile legality gate.
+- Base load execution now has focused coverage for `rd=x0` destinations. The
+  regression pins the unprivileged rule that a load into the zero register still
+  performs address checks and raises access faults before the loaded value is
+  discarded.
 - The first RV64C reserved/hint correction slice is in place. `EBREAK` and
   `C.EBREAK` now trap as architectural breakpoint exceptions instead of illegal
   instructions, RV64C rejects reserved `C.ADDIW rd=x0`, `C.LUI rd=x0` and

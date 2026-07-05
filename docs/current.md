@@ -249,7 +249,10 @@
   the target before link-register writeback, so they leave `rd` unchanged when
   the jump does not retire. Base `JALR` now also has focused coverage for
   clearing target bit 0 before alignment validation, preserving the
-  unprivileged ISA's tagged-function-pointer behavior.
+  unprivileged ISA's tagged-function-pointer behavior. Base load coverage now
+  also pins the unprivileged rule that `rd=x0` discards only the loaded value:
+  address checks, exceptions, and memory/device side effects still happen before
+  the zero register suppresses writeback.
 
 - Zicsr write-side privilege checks now run even when a CSR instruction
   suppresses the read side. The regression covers `CSRRW rd=x0` from supervisor

@@ -263,6 +263,26 @@ test "rv64 store effective address keeps high bits with negative immediate" {
 }
 
 ///|
+test "load to x0 still raises access faults" {
+  let runner = make_runner(rv64_machine_config())
+  let bad_addr = 0x3fd100a308UL
+  runner.cpu.write_reg(1, bad_addr)
+  runner.load_program(words_to_bytes([encode_i(0, 1, 0x3U, 0, 0x03U)]), 0U)
+  match runner.step() {
+    Trap(info) => {
+      match info.cause {
+        LoadAccessFault => ()
+        _ => fail("expected load access fault")
+      }
+      assert_eq(info.faulting_pc, 0U.to_uint64())
+      assert_eq(info.trap_value, bad_addr)
+    }
+    Running => fail("expected load to x0 to fault before discarding the value")
+  }
+  assert_eq(runner.read_reg_u64(0), 0U.to_uint64())
+}
+
+///|
 test "bootstrap subset runs a small program" {
   let program = words_to_bytes([
     encode_u(0x12345000U, 6, 0x37U),

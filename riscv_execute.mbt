@@ -605,6 +605,9 @@ fn Runner::execute_load(
   let xlen = self.xlen_bits()
   match instruction {
     Lb(rd, rs1, imm) => {
+      // Loads into x0 still perform the memory access. The architectural
+      // destination discard happens only after address translation, permission
+      // checks, and any device-visible read side effects have completed.
       let (pa, check) = self.checked_load_pa(rs1, imm, 1)
       match check {
         Some(result) => result
