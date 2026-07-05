@@ -5908,6 +5908,33 @@ test "zero-mask set and clear forms read address-read-only csrs" {
 }
 
 ///|
+test "read-only counter csrs reject every non-suppressed write form" {
+  // cycle/time/instret are user-visible counter aliases. They may be read when
+  // privilege and counteren permit it, but writes must target the machine
+  // backing CSRs instead. This is also the Zicsr suppression edge: CSRRW with
+  // rd=x0 skips the read, but it is still a write and must trap.
+  let cases = [
+    encode_csr(0xC00, 1, 0x1U, 0), // CSRRW x0, cycle, x1
+    encode_csr(0xC01, 1, 0x2U, 2), // CSRRS x2, time, x1
+    encode_csr(0xC02, 1, 0x3U, 3), // CSRRC x3, instret, x1
+    encode_csr(0xC00, 1, 0x5U, 0), // CSRRWI x0, cycle, 1
+    encode_csr(0xC01, 1, 0x6U, 4), // CSRRSI x4, time, 1
+    encode_csr(0xC02, 1, 0x7U, 5), // CSRRCI x5, instret, 1
+  ]
+  for raw in cases {
+    let runner = make_runner(virt_machine_config())
+    runner.cpu.write_reg(1, 1U.to_uint64())
+    runner.load_program_u64(words_to_bytes([raw]), 0x80000000U.to_uint64())
+    expect_step_trap(
+      runner,
+      "illegal instruction",
+      raw.to_uint64(),
+      "expected read-only counter CSR write to trap",
+    )
+  }
+}
+
+///|
 test "mip writes affect only supervisor pending software bits" {
   let program = words_to_bytes([
     encode_i(-1, 0, 0x0U, 1, 0x13U),

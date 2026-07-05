@@ -363,9 +363,10 @@ official coverage improve.
   `mimpid`, and `mconfigptr` to zero and `mhartid` to the runner hart ID.
   `misa` now behaves as a fixed WARL machine ISA CSR for the current runner
   profile: write forms retire but read back the configured ISA. The read-only
-  machine-information CSR trap coverage samples the exposed read-only set:
-  `mvendorid`, `marchid`, `mimpid`, `mhartid`, `mconfigptr`, and the read-only
-  `time` counter.
+  CSR trap coverage samples the exposed machine-information read-only set
+  (`mvendorid`, `marchid`, `mimpid`, `mhartid`, and `mconfigptr`) and now also
+  pins the user-visible read-only counter aliases `cycle`, `time`, and
+  `instret`.
   `mcause` and `scause` now expose the modeled WLRL cause surface on explicit
   CSR writes and reads: the interrupt flag and low five exception-code bits are
   retained, while unsupported high platform/custom cause-code storage is masked
@@ -647,11 +648,11 @@ official coverage improve.
   (`CSRRW[I]`, `CSRRS[I]`, and `CSRRC[I]`) illegal for read-only CSRs. The
   read-only set/clear coverage now explicitly exercises both register-source
   and immediate-source zero and nonzero masks across the exposed
-  machine-information CSRs and the read-only `time` counter. The executor now
-  also keeps `CSRRS/CSRRC[I]` read-modify-write paths single-read: the old CSR
-  value returned to `rd` is the same value used to derive the writeback value,
-  avoiding a second visible CSR read when the form has already performed the
-  architectural read side.
+  machine-information CSRs and the read-only counter aliases `cycle`, `time`,
+  and `instret`. The executor now also keeps `CSRRS/CSRRC[I]`
+  read-modify-write paths single-read: the old CSR value returned to `rd` is
+  the same value used to derive the writeback value, avoiding a second visible
+  CSR read when the form has already performed the architectural read side.
 - Zicsr suppression no longer has an untested absent-CSR edge: suppressed-read
   write forms still require a supported writable CSR, and zero-mask set/clear
   forms still require a supported readable CSR.
