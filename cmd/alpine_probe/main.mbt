@@ -92,6 +92,11 @@ let drain_interval = 1000000
 let default_post_init_command_step_budget = 150000000
 
 ///|
+// Interactive console commands run after auto-root handoff, so a timeout here
+// means "this shell command did not settle" rather than "Linux did not boot".
+let default_interactive_command_step_budget = 30000000
+
+///|
 let csr_sstatus = 0x100
 
 ///|
@@ -199,6 +204,18 @@ fn parse_flag(args : Array[String], flag : String) -> Bool {
 }
 
 ///|
+fn trim_console_line(line : String) -> String {
+  line.trim_end(chars="\n").trim_end(chars="\r").to_owned()
+}
+
+///|
+fn format_runner_stats(runner : @riscv.Runner, steps : Int) -> String {
+  "[riscv-mbt stats] steps=\{steps} pc=\{hex(runner.pc_u64())} privilege=\{privilege_name(runner.privilege_mode())} " +
+  "decode=\{runner.decode_cache_hit_count()}/\{runner.decode_cache_miss_count()} translate=\{runner.translate_cache_hit_count()}/\{runner.translate_cache_miss_count()} " +
+  "virtio=\{runner.virtio_blk_read_request_count()}r/\{runner.virtio_blk_write_request_count()}w"
+}
+
+///|
 fn format_post_init_command_trace(
   start_steps : Array[Int],
   marker_steps : Array[Int],
@@ -228,6 +245,95 @@ fn format_post_init_command_trace(
     }
   }
   trace
+}
+
+///|
+struct InteractiveConsoleResult {
+  steps : Int
+  last_output_steps : Int
+  outcome : String
+  trapped : Bool
+  output : String
+}
+
+///|
+async fn run_interactive_console(
+  runner : @riscv.Runner,
+  start_steps : Int,
+  initial_output : String,
+  command_step_budget : Int,
+) -> InteractiveConsoleResult {
+  let mut steps = start_steps
+  let mut last_output_steps = start_steps
+  let mut outcome = "interactive-console"
+  let mut output = initial_output
+  @stdio.stdout.write(
+    "\n[riscv-mbt] interactive console ready. Type shell commands, :stats, or :quit.\n",
+  )
+  @stdio.stdout.write(format_runner_stats(runner, steps) + "\n")
+  @stdio.stdout.write("riscv-mbt> ")
+  while @stdio.stdin.read_until("\n") is Some(line) {
+    let command = trim_console_line(line)
+    if command == ":quit" || command == ":q" {
+      outcome = "interactive-console-quit"
+      break
+    }
+    if command == ":stats" {
+      @stdio.stdout.write(format_runner_stats(runner, steps) + "\n")
+      @stdio.stdout.write("riscv-mbt> ")
+      continue
+    }
+    runner.uart_push_input(command + "\r\n")
+    let command_start_steps = steps
+    let mut saw_output = false
+    let mut quiet_drains = 0
+    for ;; {
+      if steps - command_start_steps >= command_step_budget {
+        outcome = "interactive-command-timeout"
+        @stdio.stdout.write(
+          "\n[riscv-mbt] command step budget reached after \{command_step_budget} steps\n",
+        )
+        break
+      }
+      match runner.step() {
+        Running => {
+          steps = steps + 1
+          if steps % drain_interval == 0 {
+            let partial = runner.uart_drain()
+            if partial.length() > 0 {
+              output = output + partial
+              last_output_steps = steps
+              saw_output = true
+              quiet_drains = 0
+              @stdio.stdout.write(partial)
+            } else if saw_output {
+              quiet_drains += 1
+              if quiet_drains >= 2 {
+                break
+              }
+            }
+          }
+        }
+        Trap(info) => {
+          outcome = "trap pc=" +
+            info.faulting_pc.to_string() +
+            " tval=" +
+            info.trap_value.to_string()
+          @stdio.stdout.write("\n[riscv-mbt] " + outcome + "\n")
+          return { steps, last_output_steps, outcome, trapped: true, output }
+        }
+      }
+    }
+    @stdio.stdout.write("\n" + format_runner_stats(runner, steps) + "\n")
+    @stdio.stdout.write("riscv-mbt> ")
+  }
+  let tail = runner.uart_drain()
+  if tail.length() > 0 {
+    output = output + tail
+    last_output_steps = steps
+    @stdio.stdout.write(tail)
+  }
+  { steps, last_output_steps, outcome, trapped: false, output }
 }
 
 ///|
@@ -927,6 +1033,10 @@ async fn main {
   let post_init_command_step_budget = parse_positive_int_arg(
     args, "--post-init-command-step-budget", default_post_init_command_step_budget,
   )
+  let interactive_command_step_budget = parse_positive_int_arg(
+    args, "--interactive-command-step-budget", default_interactive_command_step_budget,
+  )
+  let interactive_console = parse_flag(args, "--interactive-console")
   let functional_smoke = parse_flag(args, "--functional-smoke")
   let rootfs_smoke = parse_flag(args, "--rootfs-smoke")
   let switch_root_smoke = parse_flag(args, "--switch-root-smoke")
@@ -1028,7 +1138,8 @@ async fn main {
     has_post_init_custom_command
   let uses_auto_root_artifacts = auto_root_smoke ||
     auto_root_handoff ||
-    auto_root_post_init_smoke
+    auto_root_post_init_smoke ||
+    interactive_console
   // Any smoke beyond the tiny initramfs prompt needs the virtio DTB and rootfs
   // disk image. Keep that routing centralized so adding a new post-init proof
   // does not accidentally boot the no-block-device platform.
@@ -1038,6 +1149,7 @@ async fn main {
     auto_root_smoke ||
     auto_root_handoff ||
     auto_root_post_init_smoke ||
+    interactive_console ||
     has_post_init_probe
   let selected_dtb_path = select_dtb_path(
     args, uses_auto_root_artifacts, uses_virtio_rootfs,
@@ -1065,6 +1177,8 @@ async fn main {
     None
   } else if auto_root_post_init_smoke {
     None
+  } else if interactive_console {
+    None
   } else if has_post_init_probe {
     // Post-init probes first run the standard root handoff command. The
     // per-proof commands are injected only after rootfs-side init emits
@@ -1084,6 +1198,8 @@ async fn main {
   } else if auto_root_smoke {
     Some(alpine_post_init_marker)
   } else if auto_root_handoff && !has_post_init_probe {
+    Some(alpine_post_init_marker)
+  } else if interactive_console {
     Some(alpine_post_init_marker)
   } else if auto_root_post_init_smoke {
     Some("post-init-functional-ok")
@@ -1336,6 +1452,11 @@ async fn main {
                 }
               None => if outcome == "alpine-shell-prompt" { break }
             }
+            if interactive_console && output.contains(alpine_post_init_marker) {
+              shell_expect_seen = true
+              outcome = "interactive-ready"
+              break
+            }
             if auto_root_smoke && output.contains(alpine_post_init_marker) {
               shell_expect_seen = true
               outcome = "console-command"
@@ -1411,6 +1532,16 @@ async fn main {
   if tail.length() > 0 {
     output = output + tail
   }
+  if interactive_console && outcome == "interactive-ready" {
+    let interactive_result = run_interactive_console(
+      runner, steps, output, interactive_command_step_budget,
+    )
+    steps = interactive_result.steps
+    last_output_steps = interactive_result.last_output_steps
+    output = interactive_result.output
+    outcome = interactive_result.outcome
+    trapped = interactive_result.trapped
+  }
   if outcome == "timeout" {
     // Preserve the strongest boot milestone visible in the final UART buffer
     // when the run otherwise timed out. Do not downgrade specific outcomes
@@ -1445,6 +1576,9 @@ async fn main {
         shell_expect_seen = true
         outcome = "console-command"
       }
+      if interactive_console && output.contains(marker) {
+        shell_expect_seen = true
+      }
     }
     None => ()
   }
@@ -1470,6 +1604,7 @@ async fn main {
   println("auto_root_smoke=" + auto_root_smoke.to_string())
   println("auto_root_handoff=" + auto_root_handoff.to_string())
   println("auto_root_post_init_smoke=" + auto_root_post_init_smoke.to_string())
+  println("interactive_console=" + interactive_console.to_string())
   println("post_init_smoke=" + post_init_smoke.to_string())
   println("post_init_session_smoke=" + post_init_session_smoke.to_string())
   println("post_init_busybox_smoke=" + post_init_busybox_smoke.to_string())
@@ -1551,6 +1686,10 @@ async fn main {
   )
   println(
     "post_init_command_step_budget=" + post_init_command_step_budget.to_string(),
+  )
+  println(
+    "interactive_command_step_budget=" +
+    interactive_command_step_budget.to_string(),
   )
   println("dtb_path=" + selected_dtb_path)
   println("initrd_path=" + selected_initrd_path)

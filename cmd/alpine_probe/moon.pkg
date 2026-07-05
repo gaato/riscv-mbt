@@ -2,6 +2,7 @@ import {
   "gaato/riscv_mbt" @riscv,
   "moonbitlang/async",
   "moonbitlang/async/fs",
+  "moonbitlang/async/stdio",
   "moonbitlang/core/env",
   "moonbitlang/core/string",
 }

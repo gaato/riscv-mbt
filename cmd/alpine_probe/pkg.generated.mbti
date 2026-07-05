@@ -6,6 +6,7 @@ package "gaato/riscv_mbt/cmd/alpine_probe"
 // Errors
 
 // Types and methods
+type InteractiveConsoleResult
 
 // Type aliases
 

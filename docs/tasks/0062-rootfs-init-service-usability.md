@@ -315,3 +315,20 @@ but it is not the same as a more ordinary Alpine service environment.
   steps. The post-init command trace remains
   `cmd1:start=558000000,marker=576000000,duration=18000000; cmd2:start=576000000,marker=585000000,duration=9000000; cmd3:start=585000000,marker=601000000,duration=16000000`,
   with `post_init_command_virtio_delta=0 read-req/0 read-bytes 65 write-req/66560 write-bytes`.
+- `cmd/alpine_probe --interactive-console` now boots the established auto-root
+  virtio rootfs path to `post-init-ready`, then leaves the same guest running
+  while host stdin lines are forwarded to the guest UART. The mode supports
+  `:stats` for host-side PC/privilege/cache/virtio counters and `:quit` to exit;
+  each shell command runs with `--interactive-command-step-budget` before the
+  console returns to the host prompt. This is intended to replace repeated
+  one-command long probes during low-layer inspection: boot once, try several
+  real Alpine/BusyBox/OpenRC commands in the same guest, and only promote a
+  command sequence back into a batch proof when it captures a specific
+  regression.
+- The first non-interactive exercise of that console path is:
+  `printf ':stats\n:quit\n' | moon run --target native cmd/alpine_probe xlong --interactive-console --interactive-command-step-budget 1000000`.
+  It reaches `interactive console ready` at 558,000,000 guest steps, prints
+  host-side stats at `pc=0xffffffff80056b24` in Supervisor mode, then exits
+  with `outcome=interactive-console-quit`, `interactive_console=true`,
+  `contains_post_init_marker=true`, `contains_auto_root_marker=true`, and
+  `virtio_blk=513 read-req/1601536 read-bytes 1 write-req/1024 write-bytes`.

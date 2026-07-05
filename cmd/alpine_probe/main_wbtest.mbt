@@ -18,6 +18,37 @@ test "post-init command step budget defaults and parses positive override" {
 }
 
 ///|
+test "interactive command step budget defaults and parses positive override" {
+  let args = [
+    "alpine_probe", "xlong", "--interactive-command-step-budget", "77",
+  ]
+  assert_eq(
+    parse_positive_int_arg(
+      args, "--interactive-command-step-budget", default_interactive_command_step_budget,
+    ),
+    77,
+  )
+  assert_eq(
+    parse_positive_int_arg(
+      ["alpine_probe", "xlong"],
+      "--interactive-command-step-budget",
+      default_interactive_command_step_budget,
+    ),
+    default_interactive_command_step_budget,
+  )
+}
+
+///|
+test "console line trimming preserves shell command body" {
+  assert_eq(trim_console_line("ps\n"), "ps")
+  assert_eq(trim_console_line("cat /proc/mounts\r\n"), "cat /proc/mounts")
+  assert_eq(
+    trim_console_line("echo keep trailing spaces  \n"),
+    "echo keep trailing spaces  ",
+  )
+}
+
+///|
 test "argument value parser keeps flag-specific routing simple" {
   let args = ["alpine_probe", "xlong", "--dtb", "custom.dtb", "--expect", "ok"]
   match parse_arg_value(args, "--dtb") {
@@ -169,6 +200,13 @@ test "auto-root handoff selects auto-root artifacts by default" {
     ),
     "custom.cpio",
   )
+}
+
+///|
+test "interactive console selects auto-root virtio artifacts by default" {
+  let args = ["alpine_probe", "xlong", "--interactive-console"]
+  assert_eq(select_dtb_path(args, true, true), auto_root_virtio_dtb_path)
+  assert_eq(select_initrd_path(args, true), auto_root_initrd_path)
 }
 
 ///|
