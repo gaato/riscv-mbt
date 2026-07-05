@@ -92,3 +92,10 @@ or more OpenRC-specific probing.
   invalid signed results to `INT64_MIN`/`INT64_MAX`, invalid unsigned results to
   zero/`UINT64_MAX`, sets NV for invalid conversions, and sets NX for valid
   inexact conversions.
+- Scalar `F/D` arithmetic now accrues the first spec-shaped exception flags:
+  `FADD`/`FSUB` set NV for opposite-signed infinity addition, `FMUL` and FMA set
+  NV for infinity-times-zero, `FDIV` sets NV for zero-over-zero and
+  infinity-over-infinity, `FSQRT` sets NV for negative nonzero operands, all
+  covered arithmetic paths set NV for signaling NaN inputs, and `FDIV` sets DZ
+  for finite nonzero division by zero. Exact non-RNE arithmetic, OF/UF/NX for
+  rounded arithmetic results, and exact fused single-rounding remain open.

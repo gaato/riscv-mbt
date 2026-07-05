@@ -917,20 +917,89 @@ test "rv64fd fused multiply-add accrues invalid for infinity times zero" {
   runner.cpu.write_freg(4, 0x7ff0000000000000UL)
   runner.cpu.write_freg(5, 0x0000000000000000UL)
   runner.cpu.write_freg(6, 0x7ff8000000000000UL)
+  runner.cpu.write_freg(7, exec_test_nan_box_single(0x7f800001U))
+  runner.cpu.write_freg(8, exec_test_nan_box_single(exec_test_f32_bits(1.0)))
   runner.load_program(
     words_to_bytes([
       encode_fp_r4(3, 0x0U, 2, 1, 0x0U, 10, 0x43U),
       encode_csr(csr_fcsr, 0, 0x2U, 11),
       encode_csr(csr_fcsr, 0, 0x1U, 0),
       encode_fp_r4(6, 0x1U, 5, 4, 0x0U, 12, 0x4fU),
+      encode_csr(csr_fcsr, 0, 0x2U, 13),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(8, 0x0U, 8, 7, 0x0U, 14, 0x43U),
     ]),
     0U,
   )
-  match runner.run(4) {
+  match runner.run(7) {
     Running => ()
     _ => fail("expected fma invalid flag path to run")
   }
   assert_eq(runner.read_reg_u64(11) & 0x10U.to_uint64(), 0x10U.to_uint64())
+  assert_eq(runner.read_reg_u64(13) & 0x10U.to_uint64(), 0x10U.to_uint64())
+  assert_eq(runner.read_csr(csr_fcsr) & 0x10U, 0x10U)
+}
+
+///|
+test "rv64fd scalar arithmetic accrues invalid and divide by zero flags" {
+  let csr_fcsr = 0x003
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, exec_test_nan_box_single(0x7f800000U))
+  runner.cpu.write_freg(2, exec_test_nan_box_single(0xff800000U))
+  runner.cpu.write_freg(3, exec_test_nan_box_single(0x00000000U))
+  runner.cpu.write_freg(4, exec_test_nan_box_single(exec_test_f32_bits(1.0)))
+  runner.cpu.write_freg(5, exec_test_nan_box_single(exec_test_f32_bits(-1.0)))
+  runner.cpu.write_freg(6, 0x7ff0000000000001UL)
+  runner.cpu.write_freg(7, exec_test_f64_bits(1.0))
+  runner.cpu.write_freg(8, exec_test_f64_bits(-1.0))
+  runner.cpu.write_freg(9, exec_test_f64_bits(0.0))
+  runner.cpu.write_freg(10, 0x7ff0000000000000UL)
+  runner.load_program(
+    words_to_bytes([
+      encode_fp_r(0x00U, 2, 1, 0x0U, 20),
+      encode_csr(csr_fcsr, 0, 0x2U, 11),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x04U, 1, 1, 0x0U, 21),
+      encode_csr(csr_fcsr, 0, 0x2U, 12),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x08U, 3, 1, 0x0U, 22),
+      encode_csr(csr_fcsr, 0, 0x2U, 13),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x0cU, 3, 4, 0x0U, 23),
+      encode_csr(csr_fcsr, 0, 0x2U, 14),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x0cU, 3, 3, 0x0U, 24),
+      encode_csr(csr_fcsr, 0, 0x2U, 15),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fsqrt_s(5, 0x0U, 25),
+      encode_csr(csr_fcsr, 0, 0x2U, 16),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x01U, 7, 6, 0x0U, 26),
+      encode_csr(csr_fcsr, 0, 0x2U, 17),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x0dU, 9, 7, 0x0U, 27),
+      encode_csr(csr_fcsr, 0, 0x2U, 18),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x0dU, 10, 10, 0x0U, 28),
+      encode_csr(csr_fcsr, 0, 0x2U, 19),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fsqrt_d(8, 0x0U, 29),
+    ]),
+    0U,
+  )
+  match runner.run(28) {
+    Running => ()
+    _ => fail("expected scalar arithmetic flag path to run")
+  }
+  assert_eq(runner.read_reg_u64(11) & 0x10U.to_uint64(), 0x10U.to_uint64())
+  assert_eq(runner.read_reg_u64(12) & 0x10U.to_uint64(), 0x10U.to_uint64())
+  assert_eq(runner.read_reg_u64(13) & 0x10U.to_uint64(), 0x10U.to_uint64())
+  assert_eq(runner.read_reg_u64(14) & 0x08U.to_uint64(), 0x08U.to_uint64())
+  assert_eq(runner.read_reg_u64(15) & 0x10U.to_uint64(), 0x10U.to_uint64())
+  assert_eq(runner.read_reg_u64(16) & 0x10U.to_uint64(), 0x10U.to_uint64())
+  assert_eq(runner.read_reg_u64(17) & 0x10U.to_uint64(), 0x10U.to_uint64())
+  assert_eq(runner.read_reg_u64(18) & 0x08U.to_uint64(), 0x08U.to_uint64())
+  assert_eq(runner.read_reg_u64(19) & 0x10U.to_uint64(), 0x10U.to_uint64())
   assert_eq(runner.read_csr(csr_fcsr) & 0x10U, 0x10U)
 }
 

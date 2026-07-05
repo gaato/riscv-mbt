@@ -87,15 +87,20 @@
   subnormal, normal, infinity, signaling-NaN, and quiet-NaN values. The F/D
   fused multiply-add family (`FMADD`, `FMSUB`, `FNMSUB`, `FNMADD`) now decodes
   and executes for both single and double precision under the current host-IEEE
-  RNE-only arithmetic boundary. This is emulator-body hardening for the
-  ordinary C floating-point paths that Alpine userspace can exercise; `fflags`,
-  exact invalid/overflow flag behavior, and exact fused single-rounding remain
-  later spec-compliance work.
+  RNE-only arithmetic boundary. Scalar `F/D` arithmetic now accrues NV for
+  signaling NaNs and the obvious invalid-operation cases, and FDIV accrues DZ
+  for finite nonzero division by zero. This is emulator-body hardening for the
+  ordinary C floating-point paths that Alpine userspace can exercise; exact
+  non-RNE arithmetic, OF/UF/NX for rounded arithmetic, and exact fused
+  single-rounding remain later spec-compliance work.
 
 ## Known Blockers
 
 - Local `moon test` now expects build artifacts under `_build/riscv-tests-src/isa`; run `./scripts/build-riscv-tests-official.sh` first if they are missing.
-- The built upstream `*-p-*` survey currently stands above the original RV32 checkpoint, but RV64 coverage is still survey-only and has not been promoted into the always-green CI subset.
+- The built upstream `*-p-*` survey currently stands above the original RV32
+  checkpoint. Curated `rv64ui` and `rv64um` rows are now part of the
+  always-green gating subset, while broader official coverage remains
+  survey-only until each extension family is ready.
 - The official QEMU cross-check path remains RV32-only; RV64 system-emulator cross-checking is still deferred.
 - The post-Linux compatibility target is fixed and the required `F/D` gap is closed. The first `V` state/CSR slice, `vsetvl*` execute path, first fractional LMUL path, first narrow arithmetic slice, first narrow unit-stride memory slice, first masked arithmetic slice, first widening integer add/subtract slice, first `LMUL=2` unit-stride memory path, first strided `e32` memory path, first indexed `e32` memory paths, first unit-stride segment `e32` memory path, vector mask load/store, first unit-stride fault-only-first load path, first masked vector memory path for the current unit-stride/strided/indexed/fault-only-first forms, first `LMUL=2` add/move arithmetic path, first `LMUL=4` arithmetic/memory group path, first `LMUL=8` arithmetic/memory group path, first vector subtract and reverse-subtract paths, first vector multiply, multiply-high, divide, and remainder paths, first vector bitwise logical path, first vector min/max path, first vector shift path, first vector compare mask-result path, first vector mask logical path, first vector mask population/first-set path, first vector mask prefix/only-first path, first vector iota/index path, first vector compress/permutation path, first vector gather/permutation path, first vector slide/permutation path, first vector slide1/permutation path, first whole-register vector move path, and first vector merge/move path are now in place. Broader segment memory forms, the widening `.wv/.wx` forms, narrowing arithmetic, reductions, vector floating-point operations, restart semantics, full vector policy behavior, and richer Linux-oriented ISA coverage remain open.
 - The browser host now builds as a Wasm artifact and the bare-metal browser smoke path is green. The Alpine rootfs path currently defaults to `wasm-gc`, while plain `wasm` remains available via `BROWSER_TARGET=wasm`. The browser runtime boundary is split between guest image construction, browser runtime state, Wasm exports, and JS UI glue. The browser can load OpenSBI, DTB, kernel, and initrd artifact bytes through a manifest, switch to the Linux artifact guest, expose explicit long-run scheduling, report boot marker progress, and reach initramfs unpacking in browser Wasm.

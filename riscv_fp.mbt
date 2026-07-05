@@ -6,6 +6,9 @@
 let fp_fflag_nv : UInt64 = 0x10U.to_uint64()
 
 ///|
+let fp_fflag_dz : UInt64 = 0x08U.to_uint64()
+
+///|
 let fp_fflag_nx : UInt64 = 0x01U.to_uint64()
 
 ///|
@@ -173,6 +176,86 @@ fn f32_mul_is_invalid_bits(lhs : UInt, rhs : UInt) -> Bool {
 fn f64_mul_is_invalid_bits(lhs : UInt64, rhs : UInt64) -> Bool {
   (f64_is_infinite_bits(lhs) && f64_is_zero_bits(rhs)) ||
   (f64_is_zero_bits(lhs) && f64_is_infinite_bits(rhs))
+}
+
+///|
+fn f32_any_signaling_nan2(lhs : UInt, rhs : UInt) -> Bool {
+  f32_is_signaling_nan_bits(lhs) || f32_is_signaling_nan_bits(rhs)
+}
+
+///|
+fn f64_any_signaling_nan2(lhs : UInt64, rhs : UInt64) -> Bool {
+  f64_is_signaling_nan_bits(lhs) || f64_is_signaling_nan_bits(rhs)
+}
+
+///|
+fn f32_any_signaling_nan3(lhs : UInt, rhs : UInt, addend : UInt) -> Bool {
+  f32_is_signaling_nan_bits(lhs) ||
+  f32_is_signaling_nan_bits(rhs) ||
+  f32_is_signaling_nan_bits(addend)
+}
+
+///|
+fn f64_any_signaling_nan3(lhs : UInt64, rhs : UInt64, addend : UInt64) -> Bool {
+  f64_is_signaling_nan_bits(lhs) ||
+  f64_is_signaling_nan_bits(rhs) ||
+  f64_is_signaling_nan_bits(addend)
+}
+
+///|
+fn f32_add_is_invalid_bits(lhs : UInt, rhs : UInt) -> Bool {
+  // Adding opposite-signed infinities is invalid. FSUB reuses this helper by
+  // flipping the right-hand sign bit before checking the same condition.
+  f32_is_infinite_bits(lhs) &&
+  f32_is_infinite_bits(rhs) &&
+  f32_sign_bit(lhs) != f32_sign_bit(rhs)
+}
+
+///|
+fn f64_add_is_invalid_bits(lhs : UInt64, rhs : UInt64) -> Bool {
+  f64_is_infinite_bits(lhs) &&
+  f64_is_infinite_bits(rhs) &&
+  f64_sign_bit(lhs) != f64_sign_bit(rhs)
+}
+
+///|
+fn f32_div_is_invalid_bits(lhs : UInt, rhs : UInt) -> Bool {
+  (f32_is_zero_bits(lhs) && f32_is_zero_bits(rhs)) ||
+  (f32_is_infinite_bits(lhs) && f32_is_infinite_bits(rhs))
+}
+
+///|
+fn f64_div_is_invalid_bits(lhs : UInt64, rhs : UInt64) -> Bool {
+  (f64_is_zero_bits(lhs) && f64_is_zero_bits(rhs)) ||
+  (f64_is_infinite_bits(lhs) && f64_is_infinite_bits(rhs))
+}
+
+///|
+fn f32_div_by_zero_bits(lhs : UInt, rhs : UInt) -> Bool {
+  // DZ is for a finite nonzero dividend divided by zero. Zero-over-zero is NV,
+  // and NaN or infinity operands are handled by the invalid/NaN paths.
+  f32_is_zero_bits(rhs) &&
+  !f32_is_zero_bits(lhs) &&
+  !f32_is_nan_bits(lhs) &&
+  !f32_is_infinite_bits(lhs)
+}
+
+///|
+fn f64_div_by_zero_bits(lhs : UInt64, rhs : UInt64) -> Bool {
+  f64_is_zero_bits(rhs) &&
+  !f64_is_zero_bits(lhs) &&
+  !f64_is_nan_bits(lhs) &&
+  !f64_is_infinite_bits(lhs)
+}
+
+///|
+fn f32_sqrt_is_invalid_bits(value : UInt) -> Bool {
+  f32_sign_bit(value) && !f32_is_zero_bits(value)
+}
+
+///|
+fn f64_sqrt_is_invalid_bits(value : UInt64) -> Bool {
+  f64_sign_bit(value) && !f64_is_zero_bits(value)
 }
 
 ///|
@@ -554,7 +637,8 @@ fn Runner::execute_fp(
       let lhs_bits = self.read_freg_single_value_bits(rs1)
       let rhs_bits = self.read_freg_single_value_bits(rs2)
       let addend_bits = self.read_freg_single_value_bits(rs3)
-      if f32_mul_is_invalid_bits(lhs_bits, rhs_bits) {
+      if f32_any_signaling_nan3(lhs_bits, rhs_bits, addend_bits) ||
+        f32_mul_is_invalid_bits(lhs_bits, rhs_bits) {
         self.set_fflags(fp_fflag_nv)
       }
       let result = f32_from_bits(lhs_bits) * f32_from_bits(rhs_bits) +
@@ -570,7 +654,8 @@ fn Runner::execute_fp(
       let lhs_bits = self.read_freg_single_value_bits(rs1)
       let rhs_bits = self.read_freg_single_value_bits(rs2)
       let addend_bits = self.read_freg_single_value_bits(rs3)
-      if f32_mul_is_invalid_bits(lhs_bits, rhs_bits) {
+      if f32_any_signaling_nan3(lhs_bits, rhs_bits, addend_bits) ||
+        f32_mul_is_invalid_bits(lhs_bits, rhs_bits) {
         self.set_fflags(fp_fflag_nv)
       }
       let result = f32_from_bits(lhs_bits) * f32_from_bits(rhs_bits) -
@@ -585,11 +670,13 @@ fn Runner::execute_fp(
       }
       let lhs_bits = self.read_freg_single_value_bits(rs1)
       let rhs_bits = self.read_freg_single_value_bits(rs2)
-      if f32_mul_is_invalid_bits(lhs_bits, rhs_bits) {
+      let addend_bits = self.read_freg_single_value_bits(rs3)
+      if f32_any_signaling_nan3(lhs_bits, rhs_bits, addend_bits) ||
+        f32_mul_is_invalid_bits(lhs_bits, rhs_bits) {
         self.set_fflags(fp_fflag_nv)
       }
       let product = f32_from_bits(lhs_bits) * f32_from_bits(rhs_bits)
-      let addend = f32_from_bits(self.read_freg_single_value_bits(rs3))
+      let addend = f32_from_bits(addend_bits)
       let result = addend - product
       self.write_freg_single_bits(rd, f32_bits_from_host(result))
       self.cpu.pc = next_pc
@@ -601,11 +688,13 @@ fn Runner::execute_fp(
       }
       let lhs_bits = self.read_freg_single_value_bits(rs1)
       let rhs_bits = self.read_freg_single_value_bits(rs2)
-      if f32_mul_is_invalid_bits(lhs_bits, rhs_bits) {
+      let addend_bits = self.read_freg_single_value_bits(rs3)
+      if f32_any_signaling_nan3(lhs_bits, rhs_bits, addend_bits) ||
+        f32_mul_is_invalid_bits(lhs_bits, rhs_bits) {
         self.set_fflags(fp_fflag_nv)
       }
       let product = f32_from_bits(lhs_bits) * f32_from_bits(rhs_bits)
-      let addend = f32_from_bits(self.read_freg_single_value_bits(rs3))
+      let addend = f32_from_bits(addend_bits)
       let result = Float::from_double(0.0) - product - addend
       self.write_freg_single_bits(rd, f32_bits_from_host(result))
       self.cpu.pc = next_pc
@@ -618,7 +707,8 @@ fn Runner::execute_fp(
       let lhs_bits = self.read_freg_double_bits(rs1)
       let rhs_bits = self.read_freg_double_bits(rs2)
       let addend_bits = self.read_freg_double_bits(rs3)
-      if f64_mul_is_invalid_bits(lhs_bits, rhs_bits) {
+      if f64_any_signaling_nan3(lhs_bits, rhs_bits, addend_bits) ||
+        f64_mul_is_invalid_bits(lhs_bits, rhs_bits) {
         self.set_fflags(fp_fflag_nv)
       }
       let result = f64_from_bits(lhs_bits) * f64_from_bits(rhs_bits) +
@@ -634,7 +724,8 @@ fn Runner::execute_fp(
       let lhs_bits = self.read_freg_double_bits(rs1)
       let rhs_bits = self.read_freg_double_bits(rs2)
       let addend_bits = self.read_freg_double_bits(rs3)
-      if f64_mul_is_invalid_bits(lhs_bits, rhs_bits) {
+      if f64_any_signaling_nan3(lhs_bits, rhs_bits, addend_bits) ||
+        f64_mul_is_invalid_bits(lhs_bits, rhs_bits) {
         self.set_fflags(fp_fflag_nv)
       }
       let result = f64_from_bits(lhs_bits) * f64_from_bits(rhs_bits) -
@@ -650,7 +741,8 @@ fn Runner::execute_fp(
       let lhs_bits = self.read_freg_double_bits(rs1)
       let rhs_bits = self.read_freg_double_bits(rs2)
       let addend_bits = self.read_freg_double_bits(rs3)
-      if f64_mul_is_invalid_bits(lhs_bits, rhs_bits) {
+      if f64_any_signaling_nan3(lhs_bits, rhs_bits, addend_bits) ||
+        f64_mul_is_invalid_bits(lhs_bits, rhs_bits) {
         self.set_fflags(fp_fflag_nv)
       }
       let result = 0.0 -
@@ -667,7 +759,8 @@ fn Runner::execute_fp(
       let lhs_bits = self.read_freg_double_bits(rs1)
       let rhs_bits = self.read_freg_double_bits(rs2)
       let addend_bits = self.read_freg_double_bits(rs3)
-      if f64_mul_is_invalid_bits(lhs_bits, rhs_bits) {
+      if f64_any_signaling_nan3(lhs_bits, rhs_bits, addend_bits) ||
+        f64_mul_is_invalid_bits(lhs_bits, rhs_bits) {
         self.set_fflags(fp_fflag_nv)
       }
       let result = 0.0 -
@@ -704,9 +797,14 @@ fn Runner::execute_fp(
       if !self.fp_rounding_mode_supported(rm) {
         return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
       }
+      let lhs_bits = self.read_freg_single_value_bits(rs1)
+      let rhs_bits = self.read_freg_single_value_bits(rs2)
+      if f32_any_signaling_nan2(lhs_bits, rhs_bits) ||
+        f32_add_is_invalid_bits(lhs_bits, rhs_bits) {
+        self.set_fflags(fp_fflag_nv)
+      }
       let result = f32_bits_from_host(
-        f32_from_bits(self.read_freg_single_value_bits(rs1)) +
-        f32_from_bits(self.read_freg_single_value_bits(rs2)),
+        f32_from_bits(lhs_bits) + f32_from_bits(rhs_bits),
       )
       self.write_freg_single_bits(rd, result)
       self.cpu.pc = next_pc
@@ -716,9 +814,14 @@ fn Runner::execute_fp(
       if !self.fp_rounding_mode_supported(rm) {
         return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
       }
+      let lhs_bits = self.read_freg_single_value_bits(rs1)
+      let rhs_bits = self.read_freg_single_value_bits(rs2)
+      if f32_any_signaling_nan2(lhs_bits, rhs_bits) ||
+        f32_add_is_invalid_bits(lhs_bits, rhs_bits ^ 0x80000000U) {
+        self.set_fflags(fp_fflag_nv)
+      }
       let result = f32_bits_from_host(
-        f32_from_bits(self.read_freg_single_value_bits(rs1)) -
-        f32_from_bits(self.read_freg_single_value_bits(rs2)),
+        f32_from_bits(lhs_bits) - f32_from_bits(rhs_bits),
       )
       self.write_freg_single_bits(rd, result)
       self.cpu.pc = next_pc
@@ -728,9 +831,14 @@ fn Runner::execute_fp(
       if !self.fp_rounding_mode_supported(rm) {
         return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
       }
+      let lhs_bits = self.read_freg_single_value_bits(rs1)
+      let rhs_bits = self.read_freg_single_value_bits(rs2)
+      if f32_any_signaling_nan2(lhs_bits, rhs_bits) ||
+        f32_mul_is_invalid_bits(lhs_bits, rhs_bits) {
+        self.set_fflags(fp_fflag_nv)
+      }
       let result = f32_bits_from_host(
-        f32_from_bits(self.read_freg_single_value_bits(rs1)) *
-        f32_from_bits(self.read_freg_single_value_bits(rs2)),
+        f32_from_bits(lhs_bits) * f32_from_bits(rhs_bits),
       )
       self.write_freg_single_bits(rd, result)
       self.cpu.pc = next_pc
@@ -740,9 +848,17 @@ fn Runner::execute_fp(
       if !self.fp_rounding_mode_supported(rm) {
         return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
       }
+      let lhs_bits = self.read_freg_single_value_bits(rs1)
+      let rhs_bits = self.read_freg_single_value_bits(rs2)
+      if f32_any_signaling_nan2(lhs_bits, rhs_bits) ||
+        f32_div_is_invalid_bits(lhs_bits, rhs_bits) {
+        self.set_fflags(fp_fflag_nv)
+      }
+      if f32_div_by_zero_bits(lhs_bits, rhs_bits) {
+        self.set_fflags(fp_fflag_dz)
+      }
       let result = f32_bits_from_host(
-        f32_from_bits(self.read_freg_single_value_bits(rs1)) /
-        f32_from_bits(self.read_freg_single_value_bits(rs2)),
+        f32_from_bits(lhs_bits) / f32_from_bits(rhs_bits),
       )
       self.write_freg_single_bits(rd, result)
       self.cpu.pc = next_pc
@@ -752,9 +868,12 @@ fn Runner::execute_fp(
       if !self.fp_rounding_mode_supported(rm) {
         return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
       }
-      let result = f32_bits_from_host(
-        f32_from_bits(self.read_freg_single_value_bits(rs1)).sqrt(),
-      )
+      let operand_bits = self.read_freg_single_value_bits(rs1)
+      if f32_is_signaling_nan_bits(operand_bits) ||
+        f32_sqrt_is_invalid_bits(operand_bits) {
+        self.set_fflags(fp_fflag_nv)
+      }
+      let result = f32_bits_from_host(f32_from_bits(operand_bits).sqrt())
       self.write_freg_single_bits(rd, result)
       self.cpu.pc = next_pc
       Running
@@ -874,9 +993,14 @@ fn Runner::execute_fp(
       if !self.fp_rounding_mode_supported(rm) {
         return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
       }
+      let lhs_bits = self.read_freg_double_bits(rs1)
+      let rhs_bits = self.read_freg_double_bits(rs2)
+      if f64_any_signaling_nan2(lhs_bits, rhs_bits) ||
+        f64_add_is_invalid_bits(lhs_bits, rhs_bits) {
+        self.set_fflags(fp_fflag_nv)
+      }
       let result = f64_bits_from_host(
-        f64_from_bits(self.read_freg_double_bits(rs1)) +
-        f64_from_bits(self.read_freg_double_bits(rs2)),
+        f64_from_bits(lhs_bits) + f64_from_bits(rhs_bits),
       )
       self.write_freg_double_bits(rd, result)
       self.cpu.pc = next_pc
@@ -886,9 +1010,14 @@ fn Runner::execute_fp(
       if !self.fp_rounding_mode_supported(rm) {
         return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
       }
+      let lhs_bits = self.read_freg_double_bits(rs1)
+      let rhs_bits = self.read_freg_double_bits(rs2)
+      if f64_any_signaling_nan2(lhs_bits, rhs_bits) ||
+        f64_add_is_invalid_bits(lhs_bits, rhs_bits ^ (1U.to_uint64() << 63)) {
+        self.set_fflags(fp_fflag_nv)
+      }
       let result = f64_bits_from_host(
-        f64_from_bits(self.read_freg_double_bits(rs1)) -
-        f64_from_bits(self.read_freg_double_bits(rs2)),
+        f64_from_bits(lhs_bits) - f64_from_bits(rhs_bits),
       )
       self.write_freg_double_bits(rd, result)
       self.cpu.pc = next_pc
@@ -898,9 +1027,14 @@ fn Runner::execute_fp(
       if !self.fp_rounding_mode_supported(rm) {
         return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
       }
+      let lhs_bits = self.read_freg_double_bits(rs1)
+      let rhs_bits = self.read_freg_double_bits(rs2)
+      if f64_any_signaling_nan2(lhs_bits, rhs_bits) ||
+        f64_mul_is_invalid_bits(lhs_bits, rhs_bits) {
+        self.set_fflags(fp_fflag_nv)
+      }
       let result = f64_bits_from_host(
-        f64_from_bits(self.read_freg_double_bits(rs1)) *
-        f64_from_bits(self.read_freg_double_bits(rs2)),
+        f64_from_bits(lhs_bits) * f64_from_bits(rhs_bits),
       )
       self.write_freg_double_bits(rd, result)
       self.cpu.pc = next_pc
@@ -910,9 +1044,17 @@ fn Runner::execute_fp(
       if !self.fp_rounding_mode_supported(rm) {
         return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
       }
+      let lhs_bits = self.read_freg_double_bits(rs1)
+      let rhs_bits = self.read_freg_double_bits(rs2)
+      if f64_any_signaling_nan2(lhs_bits, rhs_bits) ||
+        f64_div_is_invalid_bits(lhs_bits, rhs_bits) {
+        self.set_fflags(fp_fflag_nv)
+      }
+      if f64_div_by_zero_bits(lhs_bits, rhs_bits) {
+        self.set_fflags(fp_fflag_dz)
+      }
       let result = f64_bits_from_host(
-        f64_from_bits(self.read_freg_double_bits(rs1)) /
-        f64_from_bits(self.read_freg_double_bits(rs2)),
+        f64_from_bits(lhs_bits) / f64_from_bits(rhs_bits),
       )
       self.write_freg_double_bits(rd, result)
       self.cpu.pc = next_pc
@@ -949,9 +1091,12 @@ fn Runner::execute_fp(
       if !self.fp_rounding_mode_supported(rm) {
         return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
       }
-      let result = f64_bits_from_host(
-        f64_from_bits(self.read_freg_double_bits(rs1)).sqrt(),
-      )
+      let operand_bits = self.read_freg_double_bits(rs1)
+      if f64_is_signaling_nan_bits(operand_bits) ||
+        f64_sqrt_is_invalid_bits(operand_bits) {
+        self.set_fflags(fp_fflag_nv)
+      }
+      let result = f64_bits_from_host(f64_from_bits(operand_bits).sqrt())
       self.write_freg_double_bits(rd, result)
       self.cpu.pc = next_pc
       Running
