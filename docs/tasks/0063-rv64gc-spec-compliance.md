@@ -759,7 +759,8 @@ official coverage improve.
 - Single-precision FMA now has matching non-RNE coverage for finite nonzero
   exact results. Focused regressions cover all four FMA opcodes at `2^24 + 1`,
   where RTZ and RUP select adjacent single-precision results and accrue NX.
-  Dynamic `rm=111` with `frm=RUP` is also covered for a representative FMA.
+  Dynamic `rm=111` with `frm=RUP` now covers all four single-precision FMA
+  opcodes, not only a representative `FMADD.S`.
   A separate regression pins exact-zero signs for finite cancellation and
   negative-zero product/addend inputs. Another regression now pins the core
   fused contract directly: an `FMADD.S` case whose separately rounded product
@@ -779,7 +780,8 @@ official coverage improve.
 - Double-precision FMA now has matching non-RNE coverage for finite nonzero
   exact results. Focused regressions cover all four FMA opcodes at `2^53 + 1`,
   where RTZ and RUP select adjacent double-precision results and accrue NX.
-  Dynamic `rm=111` with `frm=RTZ` is also covered for a representative FMA.
+  Dynamic `rm=111` with `frm=RTZ` now covers all four double-precision FMA
+  opcodes, not only a representative `FMADD.D`.
   Separate regressions pin exact-zero signs for finite cancellation and
   negative-zero product/addend inputs, plus the core fused contract where a
   separately rounded product would cancel to zero but `FMADD.D` produces the
