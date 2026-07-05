@@ -874,26 +874,14 @@ fn f64_sqrt_rounded_bits(
             (f64_next_down_positive_finite(host_bits), host_bits)
           }
           let bits = match mode {
+            0 => f64_sqrt_midpoint_choice(lower_bits, upper_bits, operand, mode)
             // The square root of a positive finite value is non-negative, so
             // RTZ and RDN both choose the representable value below the exact
             // root while RUP chooses the value above it.
             1 => lower_bits
             2 => lower_bits
             3 => upper_bits
-            4 => {
-              let lower = fp_exact_rational_from_f64_bits(lower_bits).unwrap()
-              let upper = fp_exact_rational_from_f64_bits(upper_bits).unwrap()
-              let midpoint = fp_exact_rational_div(
-                fp_exact_rational_add(lower, upper),
-                { num: BigInt::from_int(2), den: fp_bigint_one() },
-              ).unwrap()
-              let midpoint_squared = fp_exact_rational_mul(midpoint, midpoint)
-              if fp_exact_rational_compare(operand, midpoint_squared) < 0 {
-                lower_bits
-              } else {
-                upper_bits
-              }
-            }
+            4 => f64_sqrt_midpoint_choice(lower_bits, upper_bits, operand, mode)
             _ => host_bits
           }
           { bits, flags: fp_fflag_nx }
@@ -902,6 +890,37 @@ fn f64_sqrt_rounded_bits(
       }
     }
     None => { bits: host_bits, flags: 0UL }
+  }
+}
+
+///|
+fn f64_sqrt_midpoint_choice(
+  lower_bits : UInt64,
+  upper_bits : UInt64,
+  operand : FpExactRational,
+  mode : UInt,
+) -> UInt64 {
+  let lower = fp_exact_rational_from_f64_bits(lower_bits).unwrap()
+  let upper = fp_exact_rational_from_f64_bits(upper_bits).unwrap()
+  let midpoint = fp_exact_rational_div(fp_exact_rational_add(lower, upper), {
+    num: BigInt::from_int(2),
+    den: fp_bigint_one(),
+  }).unwrap()
+  let midpoint_squared = fp_exact_rational_mul(midpoint, midpoint)
+  let compare = fp_exact_rational_compare(operand, midpoint_squared)
+  if compare < 0 {
+    lower_bits
+  } else if compare > 0 {
+    upper_bits
+  } else if mode == 4U {
+    // RMM rounds ties to the result with larger magnitude. Positive finite
+    // square roots are non-negative, so the upper candidate is farther away
+    // from zero.
+    upper_bits
+  } else if (lower_bits & 1UL) == 0UL {
+    lower_bits
+  } else {
+    upper_bits
   }
 }
 

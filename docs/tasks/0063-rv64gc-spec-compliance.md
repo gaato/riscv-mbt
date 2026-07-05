@@ -519,9 +519,10 @@ official coverage improve.
   Exact-zero result signs are also handled explicitly for finite cancellation
   and zero-product inputs.
 - `FSQRT.D` now accepts legal static/dynamic non-RNE modes. For finite positive
-  operands it uses the host square root only as an RNE candidate, compares the
-  candidate square against the exact operand, and selects the adjacent lower or
-  upper double for directed rounding while accruing NX for inexact roots.
+  operands it uses the host square root only as an initial candidate, compares
+  the candidate square against the exact operand, and selects the adjacent lower
+  or upper double for RNE, RTZ, RDN, RUP, and RMM while accruing NX for inexact
+  roots.
 - `mstatus.FS` is now enforced for scalar F/D execution. The emulator keeps
   FP-capable reset and official-test profiles in an enabled FS state, while a
   focused regression clears FS and requires both FP load/store and FP arithmetic
@@ -654,7 +655,8 @@ official coverage improve.
   negative-zero product/addend inputs.
 - Double-precision sqrt now has matching non-RNE coverage. A focused regression
   covers `FSQRT.D sqrt(2.0)`, where RTZ and RUP select adjacent
-  double-precision results and accrue NX.
+  double-precision results and accrue NX. Exact double square roots are now
+  covered as flag-clean results.
 - Base shift-immediate decode now treats `SLLI` as a shift-immediate
   specialization rather than a generic 12-bit immediate. RV64 reserved high
   immediate bits decode as illegal, and RV32 `SLLI`, `SRLI`, and `SRAI`
