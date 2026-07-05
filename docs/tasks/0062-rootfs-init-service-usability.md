@@ -252,3 +252,10 @@ but it is not the same as a more ordinary Alpine service environment.
   context; it still enters the S-mode external handler. This avoids routing an
   S-mode-only virtio-blk interrupt through M-mode merely because another
   interrupt-enable bit is set.
+- Rerunning the existing auto-root system smoke after context-specific PLIC
+  external interrupt reflection still reaches `post-init-system-ok`:
+  `moon run --target native cmd/alpine_probe xlong --auto-root-handoff --post-init-system-smoke --post-init-command-step-budget 120000000`.
+  It reaches `outcome=console-command`, `post_init_system_smoke=true`,
+  `post_init_command_index=3`, and `post-init-system-ok` at 601,000,000 guest
+  steps, with the same post-init virtio delta shape as the previous WFI run:
+  `0 read-req/0 read-bytes` and `65 write-req/66560 write-bytes`.
