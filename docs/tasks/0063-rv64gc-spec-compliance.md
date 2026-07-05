@@ -226,6 +226,8 @@ official coverage improve.
   RV64C CA funct2 slots.
   `C.ADDIW` now has nonzero signed-immediate coverage around the low-32-bit
   sign boundary, in addition to the existing `imm=0` word sign-extension case.
+  The permanently illegal all-zero halfword is now pinned explicitly, alongside
+  the existing all-ones sentinel coverage.
   The permanently illegal all-ones halfword is now treated as a 16-bit illegal
   sentinel instead of being widened into an ordinary 32-bit fetch.
   Compressed `C.J`, `C.BEQZ`, and `C.BNEZ` control transfers now have focused
@@ -682,6 +684,9 @@ official coverage improve.
   permanently illegal sentinel. The regression keeps trap value `0xffff`
   visible and prevents the fetch path from widening that sentinel into an
   ordinary 32-bit instruction.
+- Fetch/decode now also pins the all-zero halfword as the C extension's other
+  permanently illegal sentinel, while keeping the broader `C.ADDI4SPN`
+  zero-immediate reserved behavior intact.
 - Compressed `C.ADD rd=x0, rs2!=x0` now executes as an architectural hint
   across the whole nonzero source range. The `rs2=x2..x5` encodings are the
   compressed Zihintntl locality hints, so they remain no-ops in this RV64GC

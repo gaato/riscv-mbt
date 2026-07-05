@@ -857,6 +857,13 @@ test "all-ones compressed sentinel traps as a 16-bit illegal instruction" {
 }
 
 ///|
+test "all-zero compressed sentinel traps as a 16-bit illegal instruction" {
+  // The C extension reserves all-zero as a permanent illegal instruction, not
+  // merely as another ordinary ADDI4SPN reserved encoding.
+  expect_compressed_illegal(rv64_machine_config(), 0x0000U)
+}
+
+///|
 test "rv64 compressed breakpoint traps as breakpoint" {
   let runner = make_runner(rv64_machine_config())
   runner.load_program(

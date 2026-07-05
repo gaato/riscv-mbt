@@ -1947,6 +1947,9 @@ fn decode_c_q0(raw : UInt, xlen : Int) -> Instruction {
     0x0U => {
       let imm = c_nzuimm_addi4spn(raw)
       if imm == 0 {
+        // The all-zero halfword falls through this ADDI4SPN nzuimm=0 check.
+        // The C extension permanently reserves that value as illegal, and
+        // also reserves every other ADDI4SPN encoding with a zero immediate.
         Unknown(raw)
       } else {
         Addi(c_rd_prime(raw), 2, imm)
