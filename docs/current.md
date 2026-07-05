@@ -375,8 +375,9 @@
   pairs are covered, and failed `SC.W`/`SC.D` without a live reservation are
   both covered as nonzero-status, no-store operations. Signed AMO min/max
   coverage now includes both `AMOMIN.W` and full-width `AMOMIN.D`/`AMOMAX.D`
-  comparisons across the sign boundary. The remaining A-extension audit is
-  true `aq`/`rl` ordering behavior and
+  comparisons across the sign boundary, and unsigned AMO.D min/max coverage
+  now pins `AMOMINU.D`/`AMOMAXU.D` on the same bit patterns. The remaining
+  A-extension audit is true `aq`/`rl` ordering behavior and
   forward-progress/eventual-success behavior beyond the current interpreter
   scheduler.
 

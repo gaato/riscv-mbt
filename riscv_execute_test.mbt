@@ -10494,6 +10494,44 @@ test "AMOMIN.D and AMOMAX.D compare signed 64-bit operands" {
 }
 
 ///|
+test "AMOMINU.D and AMOMAXU.D compare unsigned 64-bit operands" {
+  // Use the same bit patterns as the signed test but require unsigned
+  // ordering: all-ones is greater than 1 for AMOMAXU.D and not chosen by
+  // AMOMINU.D.
+  let min_runner = make_runner(virt_machine_config())
+  let min_addr = min_runner.cpu.pc + 0x100U.to_uint64()
+  min_runner.bus.store_u64(min_addr, 1U.to_uint64())
+  min_runner.cpu.write_reg(1, min_addr)
+  min_runner.cpu.write_reg(2, 0xffffffffffffffffUL)
+  min_runner.bus.store_u32(
+    min_runner.cpu.pc,
+    encode_amo(0x18U, 2, 1, 0x3U, 3).to_uint64(),
+  )
+  match min_runner.step() {
+    Running => ()
+    _ => fail("expected amominu.d to run")
+  }
+  assert_eq(min_runner.read_reg_u64(3), 1U.to_uint64())
+  assert_eq(min_runner.bus.load_u64(min_addr), 1U.to_uint64())
+
+  let max_runner = make_runner(virt_machine_config())
+  let max_addr = max_runner.cpu.pc + 0x100U.to_uint64()
+  max_runner.bus.store_u64(max_addr, 1U.to_uint64())
+  max_runner.cpu.write_reg(1, max_addr)
+  max_runner.cpu.write_reg(2, 0xffffffffffffffffUL)
+  max_runner.bus.store_u32(
+    max_runner.cpu.pc,
+    encode_amo(0x1cU, 2, 1, 0x3U, 3).to_uint64(),
+  )
+  match max_runner.step() {
+    Running => ()
+    _ => fail("expected amomaxu.d to run")
+  }
+  assert_eq(max_runner.read_reg_u64(3), 1U.to_uint64())
+  assert_eq(max_runner.bus.load_u64(max_addr), 0xffffffffffffffffUL)
+}
+
+///|
 test "LR.W/SC.W pair succeeds on single hart" {
   let runner = make_runner(virt_machine_config())
   let addr = runner.cpu.pc + 0x100U.to_uint64()
