@@ -468,10 +468,14 @@ pub struct Runner {
   mut virtio_blk_read_sequential_requests : UInt64
   mut virtio_blk_read_forward_gap_requests : UInt64
   mut virtio_blk_read_backward_requests : UInt64
-  // Single-hart LR/SC reservation, tracked in physical-address space after
-  // translation. This keeps Linux lock/futex loops from seeing impossible SC
-  // success without modeling the full multi-hart reservation set yet.
-  mut lr_sc_reserved_pa : UInt64?
+  // LR/SC reservations are shared platform state, indexed by hart id and
+  // tracked in physical-address space after translation. The RISC-V A
+  // extension allows an implementation-defined reservation set; this emulator
+  // models that set as the exact accessed byte range, which is conservative
+  // enough for Linux lock/futex loops and lets stores from one hart invalidate
+  // another hart's pending SC when the physical ranges overlap.
+  lr_sc_reserved_pas : Array[UInt64]
+  lr_sc_reserved_sizes : Array[Int]
   // Decode cache keys by physical fetch address plus raw bits. This avoids
   // mixing Sv39 virtual aliases and keeps cache invalidation tied to fence.i.
   decode_cache_tags : Array[UInt64]
@@ -1431,7 +1435,8 @@ pub fn make_runner(config : MachineConfig) -> Runner {
     virtio_blk_read_sequential_requests: 0U.to_uint64(),
     virtio_blk_read_forward_gap_requests: 0U.to_uint64(),
     virtio_blk_read_backward_requests: 0U.to_uint64(),
-    lr_sc_reserved_pa: None,
+    lr_sc_reserved_pas: Array::make(2, LR_SC_NO_RESERVATION),
+    lr_sc_reserved_sizes: Array::make(2, 0),
     decode_cache_tags: Array::make(decode_cache_sets, decode_cache_invalid_tag),
     decode_cache_raws: Array::make(decode_cache_sets, 0U),
     decode_cache_lengths: Array::make(decode_cache_sets, 0),
@@ -1498,6 +1503,11 @@ pub fn make_smp_runners(
   )
   let shared_virtio_blk_state : Array[UInt64] = Array::make(16, 0U.to_uint64())
   let shared_virtio_blk_disk : Array[Byte] = []
+  let shared_lr_sc_reserved_pas : Array[UInt64] = Array::make(
+    num_harts,
+    LR_SC_NO_RESERVATION,
+  )
+  let shared_lr_sc_reserved_sizes : Array[Int] = Array::make(num_harts, 0)
   let harts : Array[Runner] = []
   for i in 0..<num_harts {
     let hart_config : MachineConfig = {
@@ -1551,7 +1561,8 @@ pub fn make_smp_runners(
       virtio_blk_read_sequential_requests: 0U.to_uint64(),
       virtio_blk_read_forward_gap_requests: 0U.to_uint64(),
       virtio_blk_read_backward_requests: 0U.to_uint64(),
-      lr_sc_reserved_pa: None,
+      lr_sc_reserved_pas: shared_lr_sc_reserved_pas,
+      lr_sc_reserved_sizes: shared_lr_sc_reserved_sizes,
       decode_cache_tags: Array::make(
         decode_cache_sets, decode_cache_invalid_tag,
       ),

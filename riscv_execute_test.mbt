@@ -8926,6 +8926,83 @@ test "store between LR.W and SC.W invalidates the reservation" {
 }
 
 ///|
+test "store from another hart invalidates LR.W reservation" {
+  let harts = make_smp_runners(virt_machine_config(), 2)
+  let hart0 = harts[0]
+  let hart1 = harts[1]
+  let pc0 = hart0.cpu.pc
+  let addr = pc0 + 0x100U.to_uint64()
+  hart0.bus.store_u32(addr, 77U.to_uint64())
+  hart0.cpu.write_reg(1, addr)
+  hart0.cpu.write_reg(5, 88U.to_uint64())
+  hart1.cpu.write_reg(1, addr)
+  hart1.cpu.write_reg(6, 99U.to_uint64())
+  hart0.bus.store_u32(pc0, encode_amo(0x02U, 0, 1, 0x2U, 3).to_uint64())
+  hart0.bus.store_u32(
+    pc0 + 4U.to_uint64(),
+    encode_amo(0x03U, 5, 1, 0x2U, 4).to_uint64(),
+  )
+  match hart0.step() {
+    Running => ()
+    _ => fail("expected hart0 LR.W to run")
+  }
+  // Hart 1 starts at the same reset PC. After hart 0 has consumed the LR
+  // instruction, replace that slot with a plain store for hart 1; hart 0's
+  // next instruction is already the SC at pc+4.
+  hart1.bus.store_u32(pc0, encode_s(0, 6, 1, 0x2U, 0x23U).to_uint64())
+  match hart1.step() {
+    Running => ()
+    _ => fail("expected hart1 SW to run")
+  }
+  match hart0.step() {
+    Running => ()
+    _ => fail("expected hart0 SC.W to run")
+  }
+  assert_eq(hart0.read_reg_u64(4), 1U.to_uint64())
+  assert_eq(hart0.bus.load_u32(addr), 99U.to_uint64())
+}
+
+///|
+test "overlapping store from another hart invalidates LR.D reservation" {
+  let harts = make_smp_runners(virt_machine_config(), 2)
+  let hart0 = harts[0]
+  let hart1 = harts[1]
+  let pc0 = hart0.cpu.pc
+  let addr = pc0 + 0x100U.to_uint64()
+  hart0.bus.store_u64(
+    addr,
+    (0x11223344U.to_uint64() << 32) | 0x55667788U.to_uint64(),
+  )
+  hart0.cpu.write_reg(1, addr)
+  hart0.cpu.write_reg(5, 123U.to_uint64())
+  hart1.cpu.write_reg(1, addr)
+  hart1.cpu.write_reg(6, 0x99aabbccU.to_uint64())
+  hart0.bus.store_u32(pc0, encode_amo(0x02U, 0, 1, 0x3U, 3).to_uint64())
+  hart0.bus.store_u32(
+    pc0 + 4U.to_uint64(),
+    encode_amo(0x03U, 5, 1, 0x3U, 4).to_uint64(),
+  )
+  match hart0.step() {
+    Running => ()
+    _ => fail("expected hart0 LR.D to run")
+  }
+  // A store to addr+4 overlaps the LR.D byte range even though it starts at a
+  // different physical address than the LR itself.
+  hart1.bus.store_u32(pc0, encode_s(4, 6, 1, 0x2U, 0x23U).to_uint64())
+  match hart1.step() {
+    Running => ()
+    _ => fail("expected hart1 SW to run")
+  }
+  match hart0.step() {
+    Running => ()
+    _ => fail("expected hart0 SC.D to run")
+  }
+  assert_eq(hart0.read_reg_u64(4), 1U.to_uint64())
+  assert_eq(hart0.bus.load_u32(addr), 0x55667788U.to_uint64())
+  assert_eq(hart0.bus.load_u32(addr + 4U.to_uint64()), 0x99aabbccU.to_uint64())
+}
+
+///|
 fn write_u64_le(runner : Runner, addr : UInt64, value : UInt64) -> Unit {
   runner.bus.store_u64(addr, value)
 }

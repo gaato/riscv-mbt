@@ -206,6 +206,13 @@
 - `mconfigptr` is now exposed as the mandatory read-only machine information
   CSR and returns zero, indicating that this platform has no standard
   configuration data structure and relies on the existing device-tree path.
+- LR/SC reservations are now shared across SMP runners as per-hart physical
+  byte ranges. Normal stores, successful SC stores, and AMO writes invalidate
+  every overlapping reservation, so another hart's store to the same word or to
+  the upper half of an LR.D reservation makes the original hart's later SC
+  fail. The remaining A-extension audit is true `aq`/`rl` ordering behavior and
+  forward-progress/eventual-success behavior beyond the current interpreter
+  scheduler.
 
 ## Known Blockers
 

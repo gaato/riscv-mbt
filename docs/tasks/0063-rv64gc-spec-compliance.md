@@ -96,11 +96,14 @@ official coverage improve.
 - `A`: `riscv_decode.mbt` rejects reserved AMO operations and reserved
   `LR.W`/`LR.D` encodings with nonzero `rs2`, gates AMO execution on `MISA.A`,
   and accepts `aq`/`rl` encodings for the current single-hart interpreter.
-  `riscv_execute.mbt` implements LR/SC and AMO W/D behavior for the practical
-  one-hart path, with regressions for reservation success/failure, store
-  invalidation, and RV64 AMO.W sign-extension. The upstream `rv64ua` AMO/LRSC
-  cases are now part of the gating manifest. The remaining audit is true
-  `aq`/`rl` memory-ordering semantics and multi-hart reservation interference.
+  `riscv_execute.mbt` implements LR/SC and AMO W/D behavior with shared
+  per-hart physical byte-range reservations, with regressions for
+  reservation success/failure, same-hart store invalidation, cross-hart store
+  invalidation, overlapping LR.D reservation invalidation, and RV64 AMO.W
+  sign-extension. The upstream `rv64ua` AMO/LRSC cases are now part of the
+  gating manifest. The remaining audit is true `aq`/`rl` memory-ordering
+  semantics and broader forward-progress/eventual-success behavior beyond the
+  current interpreter scheduling model.
 - `C`: compressed decode/execute coverage exists in
   `riscv_compressed_test.mbt`, and the upstream `rv64uc-p-rvc` binary is now
   part of the gating manifest. The RV64C reserved/hint audit now covers
