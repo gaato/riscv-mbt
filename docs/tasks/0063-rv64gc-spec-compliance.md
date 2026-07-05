@@ -378,7 +378,9 @@ official coverage improve.
   `mstatus` WARL normalization clears supervisor return state instead of
   accepting `MPP=S` or `SPP=1`. `misa` profile canonicalization now also
   applies the privileged dependency that `S` depends on `U`, and no-`U`
-  profiles clear `mstatus.UXL` and normalize `MPP=U` back to M-mode.
+  profiles clear `mstatus.UXL`, clear `MPRV` because U-mode is absent, clear
+  `TW` because there are no modes below M after `S` is also absent, and
+  normalize `MPP=U` back to M-mode.
   Supervisor-dependent compatibility CSRs now follow the same profile surface:
   no-`S` profiles reject `satp`, `medeleg`, `mideleg`, `scounteren`, and
   `senvcfg`, while no-`U` profiles reject `mcounteren`. `MRET` now also resets
@@ -904,8 +906,8 @@ official coverage improve.
   return state in that profile.
 - User-mode profile state now participates in the same canonicalization pass:
   clearing `U` from a requested RV64 config also clears `S`, and focused
-  coverage pins no-`U` `mstatus` writes so `UXL` reads as zero and `MPP=U`
-  normalizes to the only implemented return target, M-mode.
+  coverage pins no-`U` `mstatus` writes so `UXL`, `MPRV`, and `TW` read as
+  zero and `MPP=U` normalizes to the only implemented return target, M-mode.
 - Compatibility CSR classification is now split by the privilege mode it
   serves. `satp`, `medeleg`, `mideleg`, `scounteren`, and `senvcfg` are absent
   when `S` is absent, while `mcounteren` is absent when `U` is absent.

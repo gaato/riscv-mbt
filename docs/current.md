@@ -369,7 +369,9 @@
   state such as `MPP=S` and `SPP=1`.
 - The profile normalizer now also applies the privileged dependency that
   `S` depends on `U`. Requested no-`U` configs clear both bits, and `mstatus`
-  reads keep user-mode return state absent by clearing `UXL` and normalizing
+  reads keep user-mode return state absent by clearing `UXL`, clearing
+  `MPRV` because there is no U-mode effective-privilege target, clearing `TW`
+  because there are no modes below M after `S` is also absent, and normalizing
   `MPP=U` back to M-mode.
 - Compatibility CSR classification now follows those mode dependencies:
   `satp`, `medeleg`, `mideleg`, `scounteren`, and `senvcfg` are absent without

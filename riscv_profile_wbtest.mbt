@@ -502,7 +502,7 @@ test "user-mode counter delegation csr traps when U is not advertised" {
 ///|
 test "mstatus write cannot expose user return state without U" {
   let runner = make_runner(wb_rv64_without_u_machine_config())
-  runner.cpu.write_reg(1, MSTATUS_UXL_MASK)
+  runner.cpu.write_reg(1, MSTATUS_UXL_MASK | MSTATUS_MPRV_BIT | MSTATUS_TW_BIT)
   runner.load_program(
     words_to_bytes([
       wb_encode_csr(CSR_MSTATUS, 1, 0x1U, 0), // CSRRW x0, mstatus, x1
@@ -514,7 +514,11 @@ test "mstatus write cannot expose user return state without U" {
     Running => ()
     _ => fail("expected no-U mstatus UXL WARL program to run")
   }
-  assert_eq(runner.read_reg_u64(2) & MSTATUS_UXL_MASK, 0U.to_uint64())
+  assert_eq(
+    runner.read_reg_u64(2) &
+    (MSTATUS_UXL_MASK | MSTATUS_MPRV_BIT | MSTATUS_TW_BIT),
+    0U.to_uint64(),
+  )
 
   let mpp_u = make_runner(wb_rv64_without_u_machine_config())
   mpp_u.cpu.write_reg(1, 0U.to_uint64())

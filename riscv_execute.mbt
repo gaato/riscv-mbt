@@ -1459,7 +1459,13 @@ fn legalize_mstatus_csr(
   let without_absent_u = if has_u {
     without_absent_s
   } else {
-    without_absent_s & bit_not(MSTATUS_UXL_MASK | MSTATUS_UBE_BIT)
+    // Without U-mode there is no lower effective-privilege target for MPRV,
+    // and after S has been canonicalized away there is no mode below M where
+    // TW could intercept WFI. The privileged spec makes both read-only zero.
+    without_absent_s &
+    bit_not(
+      MSTATUS_UXL_MASK | MSTATUS_UBE_BIT | MSTATUS_MPRV_BIT | MSTATUS_TW_BIT,
+    )
   }
   let implemented = without_absent_u & MSTATUS_IMPLEMENTED_MASK
   // SD is a read-only summary bit. For the current RV64GC baseline the modeled
