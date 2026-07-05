@@ -1087,6 +1087,7 @@ fn Runner::read_csr_visible(self : Runner, csr : Int) -> UInt64 {
     CSR_TIMEH => self.clint_mtime() >> 32
     CSR_INSTRETH => self.minstret >> 32
     CSR_MINSTRETH => self.minstret >> 32
+    CSR_MISA => misa_value(self.config.xlen, self.config.extensions)
     CSR_FFLAGS => self.read_fcsr() & FCSR_FFLAGS_MASK
     CSR_FRM => (self.read_fcsr() & FCSR_FRM_MASK) >> FCSR_FRM_SHIFT
     CSR_FCSR => self.read_fcsr()
@@ -1270,6 +1271,14 @@ fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
       self.cpu.write_csr(csr, legalize_counteren_csr(value))
     CSR_MCOUNTINHIBIT =>
       self.cpu.write_csr(csr, legalize_mcountinhibit_csr(value))
+    CSR_MISA =>
+      // `misa` is WARL rather than address-encoded read-only. This emulator
+      // exposes a fixed ISA profile for a Runner, so writes retire but read
+      // back the configured extension set.
+      self.cpu.write_csr(
+        csr,
+        misa_value(self.config.xlen, self.config.extensions),
+      )
     CSR_MCYCLE => self.mcycle = value
     CSR_MINSTRET => self.minstret = value
     CSR_MCYCLEH =>

@@ -278,9 +278,11 @@
 - `mconfigptr` is now exposed as the mandatory read-only machine information
   CSR and returns zero, indicating that this platform has no standard
   configuration data structure and relies on the existing device-tree path.
-  Read-only write-trap coverage now samples the full exposed baseline machine
-  information set: `misa`, `mvendorid`, `marchid`, `mimpid`, `mhartid`,
-  `mconfigptr`, plus the read-only `time` counter.
+  `misa` now behaves as a fixed WARL machine ISA CSR for the current runner
+  profile: write forms retire but read back the configured ISA. Read-only
+  write-trap coverage samples the exposed read-only machine information set:
+  `mvendorid`, `marchid`, `mimpid`, `mhartid`, `mconfigptr`, plus the read-only
+  `time` counter.
 - LR/SC reservations are now shared across SMP runners as per-hart physical
   byte ranges. Normal stores, successful SC stores, and AMO writes invalidate
   every overlapping reservation, so another hart's store to the same word or to

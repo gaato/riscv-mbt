@@ -4015,14 +4015,16 @@ test "mstatus mpp rejects reserved privilege encoding" {
 
 ///|
 test "csr write forms still trap on read-only csrs even when old value is suppressed" {
-  let csrrw_misa = encode_csr(0x301, 1, 0x1U, 0)
-  let csrrs_misa = encode_csr(0x301, 1, 0x2U, 0)
-  let csrrc_misa = encode_csr(0x301, 1, 0x3U, 0)
-  let csrrwi_misa = encode_csr(0x301, 1, 0x5U, 0)
-  let csrrsi_misa = encode_csr(0x301, 1, 0x6U, 0)
-  let csrrci_misa = encode_csr(0x301, 1, 0x7U, 0)
+  let mvendorid = 0xF11
+  let csrrw_mvendorid = encode_csr(mvendorid, 1, 0x1U, 0)
+  let csrrs_mvendorid = encode_csr(mvendorid, 1, 0x2U, 0)
+  let csrrc_mvendorid = encode_csr(mvendorid, 1, 0x3U, 0)
+  let csrrwi_mvendorid = encode_csr(mvendorid, 1, 0x5U, 0)
+  let csrrsi_mvendorid = encode_csr(mvendorid, 1, 0x6U, 0)
+  let csrrci_mvendorid = encode_csr(mvendorid, 1, 0x7U, 0)
   let words = [
-    csrrw_misa, csrrs_misa, csrrc_misa, csrrwi_misa, csrrsi_misa, csrrci_misa,
+    csrrw_mvendorid, csrrs_mvendorid, csrrc_mvendorid, csrrwi_mvendorid, csrrsi_mvendorid,
+    csrrci_mvendorid,
   ]
   for raw in words {
     let runner = make_runner(default_machine_config())
@@ -4039,6 +4041,38 @@ test "csr write forms still trap on read-only csrs even when old value is suppre
       _ => fail("expected read-only csr write to trap")
     }
   }
+}
+
+///|
+test "misa writes preserve the fixed WARL ISA profile" {
+  let misa = 0x301
+  let read_misa = encode_csr(misa, 0, 0x2U, 2)
+  let runner = make_runner(rv64fd_machine_config())
+  let original = runner.read_csr_u64(misa)
+  runner.cpu.write_reg(1, 0U.to_uint64())
+  runner.load_program(
+    words_to_bytes([
+      encode_csr(misa, 1, 0x1U, 3),
+      read_misa,
+      encode_csr(misa, 1, 0x2U, 4),
+      read_misa,
+      encode_csr(misa, 1, 0x3U, 5),
+      read_misa,
+      encode_csr(misa, 0, 0x5U, 6),
+      read_misa,
+    ]),
+    0U,
+  )
+  match runner.run(8) {
+    Running => ()
+    _ => fail("expected fixed-WARL misa writes to retire")
+  }
+  assert_eq(runner.read_reg_u64(2), original)
+  assert_eq(runner.read_reg_u64(3), original)
+  assert_eq(runner.read_reg_u64(4), original)
+  assert_eq(runner.read_reg_u64(5), original)
+  assert_eq(runner.read_reg_u64(6), original)
+  assert_eq(runner.read_csr_u64(misa), original)
 }
 
 ///|
@@ -4621,8 +4655,7 @@ test "writes to read-only csrs trap as illegal instruction" {
   // instruction form that would write them must trap, even when the backing
   // value is otherwise readable and useful to firmware.
   let read_only_csrs = [
-    0x301, // misa
-     0xF11, // mvendorid
+    0xF11, // mvendorid
      0xF12, // marchid
      0xF13, // mimpid
      0xF14, // mhartid
@@ -8035,19 +8068,15 @@ test "rv64 csr semantics carry forward writable and read-only behavior" {
   assert_eq(runner.read_reg_u64(3), 9U.to_uint64())
   assert_eq(runner.read_csr_u64(0x305), 9U.to_uint64())
 
-  let misa_raw = encode_csr(0x301, 1, 0x1U, 0)
-  let trap_runner = make_runner(rv64_machine_config())
-  trap_runner.load_program(words_to_bytes([misa_raw]), 0U)
-  match trap_runner.step() {
-    Trap(info) => {
-      match info.cause {
-        IllegalInstruction => ()
-        _ => fail("expected illegal instruction cause")
-      }
-      assert_eq(info.trap_value, misa_raw.to_uint64())
-    }
-    _ => fail("expected read-only csr trap")
+  let misa_raw = encode_csr(0x301, 0, 0x5U, 0)
+  let misa_runner = make_runner(rv64_machine_config())
+  let original = misa_runner.read_csr_u64(0x301)
+  misa_runner.load_program(words_to_bytes([misa_raw]), 0U)
+  match misa_runner.step() {
+    Running => ()
+    _ => fail("expected fixed-WARL misa write to retire")
   }
+  assert_eq(misa_runner.read_csr_u64(0x301), original)
 }
 
 ///|

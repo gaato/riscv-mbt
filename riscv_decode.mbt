@@ -985,7 +985,6 @@ fn is_compatibility_storage_csr(csr : Int) -> Bool {
 ///|
 fn is_read_only_csr(csr : Int) -> Bool {
   match csr {
-    CSR_MISA => true
     CSR_MHARTID => true
     CSR_MVENDORID => true
     CSR_MARCHID => true
