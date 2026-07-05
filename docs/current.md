@@ -105,7 +105,8 @@
   RISC-V-specific rule that `FNMSUB`/`FNMADD` negate only the product term.
   `FADD.D`, `FSUB.D`, `FMUL.D`, and `FDIV.D` now round exact-rational finite
   results back to double precision for legal non-RNE modes, including NX/OF/UF
-  result flags. `FCLASS.S` /`FCLASS.D`
+  result flags. Scalar `FDIV.S/D` underflow coverage now pins subnormal tiny
+  quotients accruing UF and NX. `FCLASS.S` /`FCLASS.D`
   now decode and execute the architectural 10-bit classification mask for zero,
   subnormal, normal, infinity, signaling-NaN, and quiet-NaN values. Double
   `FSQRT.D` now derives finite results for all legal rounding modes from exact
