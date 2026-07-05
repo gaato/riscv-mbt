@@ -6314,6 +6314,37 @@ test "synchronous traps do not retire into instret" {
 }
 
 ///|
+test "interrupts do not retire into instret" {
+  let base = 0x80000000U.to_uint64()
+  let instret = 0xC02
+  let runner = make_runner(virt_machine_config())
+  runner.cpu.write_csr(0x300, 0x8U.to_uint64()) // mstatus.MIE
+  runner.cpu.write_csr(0x304, 0x80U.to_uint64()) // mie.MTIE
+  runner.all_mtimecmp[0] = 0U.to_uint64()
+  runner.load_program_u64(
+    words_to_bytes([encode_i(1, 0, 0x0U, 1, 0x13U)]),
+    base,
+  )
+  match runner.step() {
+    Trap(info) => {
+      match info.cause {
+        MachineTimerInterrupt => ()
+        _ => fail("expected machine timer interrupt")
+      }
+      assert_eq(info.faulting_pc, base)
+      assert_eq(info.trap_value, 0U.to_uint64())
+    }
+    _ => fail("expected pending interrupt before instruction execution")
+  }
+  // Interrupts are observed between instructions. The ADDI at `base` was never
+  // fetched or retired, so minstret and the destination register stay unchanged.
+  assert_eq(runner.read_csr_u64(instret), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(1), 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(0x341), base)
+  assert_eq(runner.read_csr_u64(0x342), (1U.to_uint64() << 63) | 7U.to_uint64())
+}
+
+///|
 test "machine counter csrs back unprivileged counter shadows" {
   let mcountinhibit = 0x320
   let mcycle = 0xB00

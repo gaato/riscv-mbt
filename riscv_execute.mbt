@@ -2225,7 +2225,9 @@ pub fn Runner::step(self : Runner) -> StepResult {
   // Advance CLINT mtime and update MIP.MTIP.
   self.update_timer()
   // Deliver pending interrupts before executing the next instruction. This
-  // keeps timer/external interrupts observable during long Linux loops.
+  // keeps timer/external interrupts observable during long Linux loops. Since
+  // no instruction has been fetched yet, an interrupt taken here must not
+  // increment minstret.
   match self.take_pending_interrupt() {
     Some(result) => return result
     None => ()

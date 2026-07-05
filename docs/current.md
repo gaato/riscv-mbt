@@ -203,6 +203,8 @@
   writable machine `mcycle` and `minstret` state instead of aliasing `mtime`.
   Synchronous exception coverage now explicitly pins illegal instructions,
   `ECALL`, `EBREAK`, and `C.EBREAK` as non-retiring instructions for `instret`.
+  Interrupt coverage also pins a pending machine-timer interrupt as a
+  between-instruction event that does not retire the interrupted instruction.
   RV32-only counter high-half CSRs are now excluded through the shared CSR
   support classifier on RV64, so `cycleh`/`timeh`/`instreth` and
   `mcycleh`/`minstreth` trap instead of reaching ad hoc executor checks.
