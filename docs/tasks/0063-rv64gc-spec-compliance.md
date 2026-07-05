@@ -175,8 +175,9 @@ official coverage improve.
   reservation success/failure for word and doubleword LR/SC, same-hart store
   invalidation, cross-hart store invalidation, overlapping LR.D reservation
   invalidation, device writes to bytes accessed by LR, RV64 AMO.W
-  sign-extension, signed AMO.W and signed/unsigned AMO.D min/max comparisons, and
-  natural-address alignment traps for LR/SC/AMO W/D operations. Virtio-blk
+  sign-extension, full-width AMOSWAP.D and bitwise AMO.D operations, signed
+  AMO.W and signed/unsigned AMO.D min/max comparisons, and natural-address
+  alignment traps for LR/SC/AMO W/D operations. Virtio-blk
   guest-visible DMA/status/used-ring writes now use reservation-aware device
   store helpers. The upstream `rv64ua` AMO/LRSC cases are now part of the
   gating manifest. The remaining audit is true `aq`/`rl` visibility ordering

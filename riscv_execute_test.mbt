@@ -10355,6 +10355,76 @@ test "AMOADD.D loads old value and stores sum" {
 }
 
 ///|
+test "AMOSWAP.D and bitwise AMO.D operate on full doublewords" {
+  // AMO.D uses the full XLEN source and memory value. This separates the
+  // doubleword operations from AMO.W, whose result is computed from low words
+  // and then sign-extended on RV64.
+  let swap_runner = make_runner(virt_machine_config())
+  let swap_addr = swap_runner.cpu.pc + 0x100U.to_uint64()
+  swap_runner.bus.store_u64(swap_addr, 0x0123456789abcdefUL)
+  swap_runner.cpu.write_reg(1, swap_addr)
+  swap_runner.cpu.write_reg(2, 0xfedcba9876543210UL)
+  swap_runner.bus.store_u32(
+    swap_runner.cpu.pc,
+    encode_amo(0x01U, 2, 1, 0x3U, 3).to_uint64(),
+  )
+  match swap_runner.step() {
+    Running => ()
+    _ => fail("expected amoswap.d to run")
+  }
+  assert_eq(swap_runner.read_reg_u64(3), 0x0123456789abcdefUL)
+  assert_eq(swap_runner.bus.load_u64(swap_addr), 0xfedcba9876543210UL)
+
+  let xor_runner = make_runner(virt_machine_config())
+  let xor_addr = xor_runner.cpu.pc + 0x100U.to_uint64()
+  xor_runner.bus.store_u64(xor_addr, 0xff00ff00ff00ff00UL)
+  xor_runner.cpu.write_reg(1, xor_addr)
+  xor_runner.cpu.write_reg(2, 0x0f0f0f0f0f0f0f0fUL)
+  xor_runner.bus.store_u32(
+    xor_runner.cpu.pc,
+    encode_amo(0x04U, 2, 1, 0x3U, 3).to_uint64(),
+  )
+  match xor_runner.step() {
+    Running => ()
+    _ => fail("expected amoxor.d to run")
+  }
+  assert_eq(xor_runner.read_reg_u64(3), 0xff00ff00ff00ff00UL)
+  assert_eq(xor_runner.bus.load_u64(xor_addr), 0xf00ff00ff00ff00fUL)
+
+  let and_runner = make_runner(virt_machine_config())
+  let and_addr = and_runner.cpu.pc + 0x100U.to_uint64()
+  and_runner.bus.store_u64(and_addr, 0xf0f0ffff0000ffffUL)
+  and_runner.cpu.write_reg(1, and_addr)
+  and_runner.cpu.write_reg(2, 0xffff0f0fffff0000UL)
+  and_runner.bus.store_u32(
+    and_runner.cpu.pc,
+    encode_amo(0x0cU, 2, 1, 0x3U, 3).to_uint64(),
+  )
+  match and_runner.step() {
+    Running => ()
+    _ => fail("expected amoand.d to run")
+  }
+  assert_eq(and_runner.read_reg_u64(3), 0xf0f0ffff0000ffffUL)
+  assert_eq(and_runner.bus.load_u64(and_addr), 0xf0f00f0f00000000UL)
+
+  let or_runner = make_runner(virt_machine_config())
+  let or_addr = or_runner.cpu.pc + 0x100U.to_uint64()
+  or_runner.bus.store_u64(or_addr, 0xf00000000000000fUL)
+  or_runner.cpu.write_reg(1, or_addr)
+  or_runner.cpu.write_reg(2, 0x0fff00000000fff0UL)
+  or_runner.bus.store_u32(
+    or_runner.cpu.pc,
+    encode_amo(0x08U, 2, 1, 0x3U, 3).to_uint64(),
+  )
+  match or_runner.step() {
+    Running => ()
+    _ => fail("expected amoor.d to run")
+  }
+  assert_eq(or_runner.read_reg_u64(3), 0xf00000000000000fUL)
+  assert_eq(or_runner.bus.load_u64(or_addr), 0xffff00000000ffffUL)
+}
+
+///|
 test "AMO.W sign-extends the loaded word on RV64" {
   let runner = make_runner(virt_machine_config())
   let addr = runner.cpu.pc + 0x100U.to_uint64()
