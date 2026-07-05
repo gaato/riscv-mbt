@@ -3145,6 +3145,44 @@ test "rv64fd long conversions clip exact lower rne boundaries" {
 }
 
 ///|
+test "rv64fd signed integer conversions keep exact minima valid" {
+  let csr_fcsr = 0x003
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, 0xc1e0000000000000UL) // double -2^31, valid for FCVT.W.D.
+  runner.cpu.write_freg(2, exec_test_nan_box_single(0xcf000000U)) // single -2^31.
+  runner.cpu.write_freg(3, 0xc3e0000000000000UL) // double -2^63, valid for FCVT.L.D.
+  runner.cpu.write_freg(4, exec_test_nan_box_single(0xdf000000U)) // single -2^63.
+  runner.load_program(
+    words_to_bytes([
+      encode_fcvt_w_d(1, 0x0U, 10),
+      encode_csr(csr_fcsr, 0, 0x2U, 11),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_w_s(2, 0x0U, 12),
+      encode_csr(csr_fcsr, 0, 0x2U, 13),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_l_d(3, 0x0U, 14),
+      encode_csr(csr_fcsr, 0, 0x2U, 15),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_l_s(4, 0x0U, 16),
+      encode_csr(csr_fcsr, 0, 0x2U, 17),
+    ]),
+    0U,
+  )
+  match runner.run(11) {
+    Running => ()
+    _ => fail("expected exact signed minimum conversion path to run")
+  }
+  assert_eq(runner.read_reg_u64(10), test_sign_extend_word64(0x80000000U))
+  assert_eq(runner.read_reg_u64(11), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(12), test_sign_extend_word64(0x80000000U))
+  assert_eq(runner.read_reg_u64(13), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(14), 0x8000000000000000UL)
+  assert_eq(runner.read_reg_u64(15), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(16), 0x8000000000000000UL)
+  assert_eq(runner.read_reg_u64(17), 0U.to_uint64())
+}
+
+///|
 test "rv64fd rne integer conversions clip nan and infinity before host integer casts" {
   let csr_fcsr = 0x003
   let runner = make_runner(rv64fd_machine_config())
