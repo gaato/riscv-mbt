@@ -7218,6 +7218,34 @@ test "unsupported csr access traps as illegal instruction" {
 }
 
 ///|
+test "debug mode only csrs trap from machine mode" {
+  // The standard CSR map reserves 0x7B0..0x7BF for debug-mode-only CSRs. This
+  // emulator has no Debug Mode, so even M-mode software must see these
+  // addresses as illegal rather than as generic machine storage.
+  let debug_only = 0x7B0
+  for
+    raw in [
+      encode_csr(debug_only, 0, 0x2U, 1),
+      encode_csr(debug_only, 1, 0x1U, 0),
+    ] {
+    let runner = make_runner(rv64_machine_config())
+    runner.cpu.write_reg(1, 1U.to_uint64())
+    runner.load_program(words_to_bytes([raw]), 0U)
+    match runner.step() {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected illegal instruction cause")
+        }
+        assert_eq(info.faulting_pc, 0U.to_uint64())
+        assert_eq(info.trap_value, raw.to_uint64())
+      }
+      _ => fail("expected debug-mode-only CSR access to trap")
+    }
+  }
+}
+
+///|
 test "zicsr suppression does not make unsupported csrs legal" {
   // Zicsr suppression selects which side effects are skipped, not whether an
   // absent CSR exists. Suppressed-read write forms still need a writable CSR,
