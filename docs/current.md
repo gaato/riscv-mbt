@@ -194,6 +194,9 @@
 - `mnstatus` is no longer exposed as compatibility storage. It belongs to the
   optional Smrnmi resumable-NMI extension, which is not implemented in the
   RV64GC baseline, so read and write attempts now trap as illegal instruction.
+- `mconfigptr` is now exposed as the mandatory read-only machine information
+  CSR and returns zero, indicating that this platform has no standard
+  configuration data structure and relies on the existing device-tree path.
 
 ## Known Blockers
 

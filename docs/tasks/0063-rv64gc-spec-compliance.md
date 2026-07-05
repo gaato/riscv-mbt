@@ -152,6 +152,9 @@ official coverage improve.
   `mnstatus` is no longer exposed as compatibility storage. It belongs to the
   optional Smrnmi resumable-NMI extension, which is not implemented in the
   RV64GC baseline, so read and write attempts now trap as illegal instruction.
+  `mconfigptr` is now exposed as the mandatory read-only machine information
+  CSR and returns zero, indicating that this platform has no standard
+  configuration data structure and relies on the existing device-tree path.
   `mstatus.MPP` now rejects the reserved privilege encoding 2 at the CSR write
   boundary. The remaining audit is a spec pass over remaining WARL behavior,
   read-only/write-ignored fields, and privilege-visible side effects for every
@@ -428,3 +431,5 @@ official coverage improve.
   PMP count is zero.
 - `mnstatus` is no longer part of the supported CSR table. Focused regressions
   cover both read and suppressed-read write forms trapping when Smrnmi is absent.
+- `mconfigptr` is now part of the supported read-only CSR table. Focused
+  regressions cover zero readback and illegal-instruction traps for write forms.

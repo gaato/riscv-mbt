@@ -4151,6 +4151,35 @@ test "mnstatus traps when Smrnmi is absent" {
 }
 
 ///|
+test "mconfigptr is mandatory read only zero" {
+  let mconfigptr = 0xF15
+  let read_raw = encode_csr(mconfigptr, 0, 0x2U, 2)
+  let write_raw = encode_csr(mconfigptr, 1, 0x1U, 0)
+  let reader = make_runner(rv64_machine_config())
+  reader.load_program(words_to_bytes([read_raw]), 0U)
+  match reader.step() {
+    Running => ()
+    _ => fail("expected mconfigptr read to run")
+  }
+  assert_eq(reader.read_reg_u64(2), 0U.to_uint64())
+  assert_eq(reader.read_csr_u64(mconfigptr), 0U.to_uint64())
+
+  let writer = make_runner(rv64_machine_config())
+  writer.cpu.write_reg(1, 1U.to_uint64())
+  writer.load_program(words_to_bytes([write_raw]), 0U)
+  match writer.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected mconfigptr write to trap as read-only")
+      }
+      assert_eq(info.trap_value, write_raw.to_uint64())
+    }
+    _ => fail("expected mconfigptr write to trap")
+  }
+}
+
+///|
 test "csr address privilege bits gate supervisor and machine csrs" {
   let read_mstatus = encode_csr(0x300, 0, 0x2U, 1)
   let supervisor_machine_denied = make_runner(rv64_machine_config())

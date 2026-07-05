@@ -903,6 +903,7 @@ fn is_modeled_machine_csr(csr : Int) -> Bool {
     CSR_MVENDORID => true
     CSR_MARCHID => true
     CSR_MIMPID => true
+    CSR_MCONFIGPTR => true
     _ => false
   }
 }
@@ -983,6 +984,7 @@ fn is_read_only_csr(csr : Int) -> Bool {
     CSR_MVENDORID => true
     CSR_MARCHID => true
     CSR_MIMPID => true
+    CSR_MCONFIGPTR => true
     CSR_CYCLE => true
     CSR_TIME => true
     CSR_INSTRET => true

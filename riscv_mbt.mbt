@@ -827,6 +827,12 @@ const CSR_MARCHID : Int = 0xF12
 const CSR_MIMPID : Int = 0xF13
 
 ///|
+// Mandatory machine information CSR. A zero value means there is no standard
+// configuration data structure and software should use another discovery path
+// such as the device tree supplied by the platform.
+const CSR_MCONFIGPTR : Int = 0xF15
+
+///|
 const CSR_VSTART : Int = 0x008
 
 ///|
