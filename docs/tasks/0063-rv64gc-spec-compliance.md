@@ -72,17 +72,18 @@ official coverage improve.
   instruction family.
 - `F/D`: `riscv_fp.mbt` now covers instruction availability, NaN-boxing,
   comparisons, min/max, FMA availability, conversion clipping, and the first
-  NV/DZ arithmetic flags. Exact widening `FCVT.D.S` now treats the otherwise
-  unaffected `rm` field as architecturally significant for legal/reserved
-  static and dynamic encodings. The corrected official-test harness now
-  advertises manifest arch FP bits, and the passing `rv64uf`/`rv64ud`
-  classification, compare, conversion, min/max, load/store, move, recoding, and
-  structural rows are gated. The `rv64uf` arithmetic rows are also gated after
-  adding single-precision NX accrual, and the `rv64ud` arithmetic rows are gated
-  after adding exact-rational double-precision NX checks. The remaining
-  strict-spec gaps are broader than the current official rows: non-RNE
-  arithmetic, deeper fused-rounding audits, and exception-flag corner cases
-  beyond the current `riscv-tests` surface.
+  NV/DZ arithmetic flags. Exact widening `FCVT.D.S` and exact
+  RV32-width-to-double `FCVT.D.W[U]` now treat the otherwise unaffected `rm`
+  field as architecturally significant for legal/reserved static and dynamic
+  encodings. The corrected official-test harness now advertises manifest arch FP
+  bits, and the passing `rv64uf`/`rv64ud` classification, compare, conversion,
+  min/max, load/store, move, recoding, and structural rows are gated. The
+  `rv64uf` arithmetic rows are also gated after adding single-precision NX
+  accrual, and the `rv64ud` arithmetic rows are gated after adding
+  exact-rational double-precision NX checks. The remaining strict-spec gaps are
+  broader than the current official rows: non-RNE arithmetic, deeper
+  fused-rounding audits, and exception-flag corner cases beyond the current
+  `riscv-tests` surface.
 - `A`: `riscv_decode.mbt` rejects reserved AMO operations and reserved
   `LR.W`/`LR.D` encodings with nonzero `rs2`, gates AMO execution on `MISA.A`,
   and accepts `aq`/`rl` encodings for the current single-hart interpreter.
@@ -200,6 +201,11 @@ official coverage improve.
   while reserved static `rm=101/110` and dynamic `rm=111` with reserved `frm`
   trap as illegal instructions. This follows the F/D spec rule that unaffected
   rounding-mode fields still participate in legal-vs-reserved encoding checks.
+- `FCVT.D.W` and `FCVT.D.WU` now use the same legal-vs-reserved `rm` check
+  instead of the current RNE-only rounded-arithmetic support gate. Signed and
+  unsigned 32-bit integer inputs are exactly representable in double precision,
+  so legal non-RNE encodings execute while reserved static or dynamic rounding
+  modes still trap.
 - The first RV64C reserved/hint correction slice is in place. `EBREAK` and
   `C.EBREAK` now trap as architectural breakpoint exceptions instead of illegal
   instructions, RV64C rejects reserved `C.ADDIW rd=x0`, `C.LUI rd=x0` and

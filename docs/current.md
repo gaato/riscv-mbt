@@ -95,10 +95,10 @@
   single-rounding remain later spec-compliance work. The subsequent
   arithmetic flag pass added RNE NX accrual for the current single/double
   arithmetic and FMA paths; broader non-RNE arithmetic, OF/UF, and deeper
-  fused-rounding audits remain open. Exact widening `FCVT.D.S` now validates the
-  otherwise unaffected `rm` field for legal/reserved static and dynamic
-  encodings, so legal non-RNE forms execute and reserved forms trap instead of
-  being silently accepted.
+  fused-rounding audits remain open. Exact widening `FCVT.D.S` and exact
+  RV32-width-to-double `FCVT.D.W[U]` now validate the otherwise unaffected `rm`
+  field for legal/reserved static and dynamic encodings, so legal non-RNE forms
+  execute and reserved forms trap instead of being silently accepted.
 
 - The first RV64C reserved/hint correction slice for Task 0063 is in place.
   `EBREAK` and `C.EBREAK` now raise the architectural breakpoint exception,

@@ -792,6 +792,14 @@ fn Runner::fp_effective_rounding_mode(self : Runner, rm : UInt) -> UInt? {
 }
 
 ///|
+fn Runner::fp_rounding_mode_legal(self : Runner, rm : UInt) -> Bool {
+  match self.fp_effective_rounding_mode(rm) {
+    Some(_) => true
+    None => false
+  }
+}
+
+///|
 fn fp_integer_is_even(value : Double) -> Bool {
   value.to_int64() % 2L == 0L
 }
@@ -1612,14 +1620,8 @@ fn Runner::execute_fp(
     FCvtDS(rd, rs1, rm) => {
       // FCVT.D.S widens exactly and never rounds, but the F/D specs still
       // require normal rm legality checks for static and dynamic encodings.
-      match self.fp_effective_rounding_mode(rm) {
-        Some(_) => ()
-        None =>
-          return self.raise_trap(
-            IllegalInstruction,
-            current_pc,
-            raw.to_uint64(),
-          )
+      if !self.fp_rounding_mode_legal(rm) {
+        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
       }
       let result = f32_from_bits(self.read_freg_single_value_bits(rs1)).to_double()
       self.write_freg_double_bits(rd, f64_bits_from_host(result))
@@ -1676,7 +1678,10 @@ fn Runner::execute_fp(
       Running
     }
     FCvtDW(rd, rs1, rm) => {
-      if !self.fp_rounding_mode_supported(rm) {
+      // RV32-width integers are exactly representable as doubles. Like other
+      // unaffected rm fields, legal modes are accepted but reserved encodings
+      // still trap.
+      if !self.fp_rounding_mode_legal(rm) {
         return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
       }
       let signed = sign_extend_64(self.cpu.read_reg(rs1), 32).reinterpret_as_int64()
@@ -1685,7 +1690,8 @@ fn Runner::execute_fp(
       Running
     }
     FCvtDWU(rd, rs1, rm) => {
-      if !self.fp_rounding_mode_supported(rm) {
+      // The full unsigned 32-bit range fits in binary64 without rounding.
+      if !self.fp_rounding_mode_legal(rm) {
         return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
       }
       let unsigned = self.cpu.read_reg(rs1) & 0xffffffffU.to_uint64()
