@@ -213,7 +213,8 @@ official coverage improve.
   `C.LI rd=x0` forms as no-ops.
   Zero-shift HINT coverage now pins `C.SLLI`, `C.SRLI`, and `C.SRAI` with
   `shamt=0` as no-ops, including the combined `C.SLLI rd=x0, shamt=0`
-  encoding.
+  encoding. High-shamt RV64C coverage now pins `C.SLLI`, `C.SRLI`, and
+  `C.SRAI` as six-bit shift operations.
   Register-based RV64C integer double load/store coverage now pins
   `C.LD`/`C.SD` as legal RV64C aliases and rejects those integer double aliases
   in the RV32C profile. The same integer double aliases now also have high
@@ -667,6 +668,9 @@ official coverage improve.
 - RV64C zero-shift HINT coverage now executes `C.SLLI shamt=0`,
   `C.SRLI shamt=0`, and `C.SRAI shamt=0` as no-ops, including the
   overlapping `C.SLLI rd=x0, shamt=0` hint spelling.
+- RV64C high-shift coverage now executes `C.SLLI`, `C.SRLI`, and `C.SRAI`
+  with `shamt[5]=1` as legal six-bit shifts, while the RV32C profile keeps the
+  same encodings reserved.
 - RV64C register-based integer double memory coverage now round-trips
   `C.SD`/`C.LD`, while the same integer double aliases trap in the RV32C
   profile. High-offset coverage now pins the unsigned `uimm=248` path through

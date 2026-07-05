@@ -242,7 +242,9 @@
   Immediate-form HINTs now cover canonical `C.NOP`, nonzero `C.NOP` hint
   encodings, zero-immediate `C.ADDI rd!=x0`, and zero/positive/negative
   `C.LI rd=x0` forms as no-ops.
-  Zero-shift HINTs now cover `C.SLLI`, `C.SRLI`, and `C.SRAI` as no-ops.
+  Zero-shift HINTs now cover `C.SLLI`, `C.SRLI`, and `C.SRAI` as no-ops, and
+  high-shamt RV64C coverage now pins `C.SLLI`, `C.SRLI`, and `C.SRAI` as
+  six-bit shift operations.
   Register-based RV64C integer double load/store forms `C.LD`/`C.SD` now have
   focused round-trip coverage, paired with RV32C rejection of the same integer
   double aliases, and high zero-extended offset coverage for the scattered

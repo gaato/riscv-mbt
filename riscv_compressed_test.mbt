@@ -1043,6 +1043,30 @@ test "rv64c slli uses six bit unsigned shift amount" {
 }
 
 ///|
+test "rv64c right shifts use six bit unsigned shift amount" {
+  // RV64C uses bit 12 plus bits 6:2 as a six-bit shift amount for the
+  // compressed right shifts. Keep SRLI zero-fill and SRAI sign-fill behavior
+  // distinct while exercising a shamt value that RV32C reserves.
+  let runner = make_runner(rv64_machine_config())
+  runner.cpu.write_reg(8, 0x8000000000000000UL)
+  runner.cpu.write_reg(9, 0x8000000000000000UL)
+  runner.load_program(
+    mixed_program_bytes([
+      (2, encode_c_srli(8, 40).reinterpret_as_uint()),
+      (2, encode_c_srai(9, 40).reinterpret_as_uint()),
+    ]),
+    0U,
+  )
+  match runner.run(2) {
+    Running => ()
+    _ => fail("expected rv64 compressed right shifts with shamt 40 to run")
+  }
+  assert_eq(runner.read_reg_u64(8), 0x800000U.to_uint64())
+  assert_eq(runner.read_reg_u64(9), 0xffffffffff800000UL)
+  assert_eq(runner.pc_u64(), 4U.to_uint64())
+}
+
+///|
 test "rv32c compressed shifts reserve high shamt bit" {
   let cases = [
     encode_c_slli(0, 32),
