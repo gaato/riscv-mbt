@@ -237,15 +237,17 @@
   `rs2=x2..x5` compressed Zihintntl non-temporal locality hint subrange.
   CR-format coverage now also pins `C.MV rd=x0, rs2!=x0` as an ignored hint,
   `C.JR rs1=x0` as reserved, and the `C.JALR rs1=x0` encoding as `C.EBREAK`.
-  Focused regressions cover the decode and execute behavior. Post-decode
-  profile legality now also rejects all 16-bit compressed encodings when
-  `MISA.C` is not advertised, keeping the permissive decoder while making the
-  executing profile authoritative. Control-flow target alignment now follows
-  the same profile boundary: non-C profiles trap taken branches and jumps to
-  2-byte-only targets with instruction-address-misaligned, while RV64GC/C
-  profiles use IALIGN=16 and allow those halfword targets. Misaligned `JAL` and
-  `JALR` traps now validate the target before link-register writeback, so they
-  leave `rd` unchanged when the jump does not retire.
+  Focused regressions cover the decode and execute behavior, including legal
+  `C.JR`/`C.JALR` expansion through `JALR` and the compressed `C.JALR`
+  `pc + 2` link address. Post-decode profile legality now also rejects all
+  16-bit compressed encodings when `MISA.C` is not advertised, keeping the
+  permissive decoder while making the executing profile authoritative.
+  Control-flow target alignment now follows the same profile boundary: non-C
+  profiles trap taken branches and jumps to 2-byte-only targets with
+  instruction-address-misaligned, while RV64GC/C profiles use IALIGN=16 and
+  allow those halfword targets. Misaligned `JAL` and `JALR` traps now validate
+  the target before link-register writeback, so they leave `rd` unchanged when
+  the jump does not retire.
 
 - Zicsr write-side privilege checks now run even when a CSR instruction
   suppresses the read side. The regression covers `CSRRW rd=x0` from supervisor
@@ -254,7 +256,10 @@
   CSR value.
   Read-only CSR coverage now spans all write-attempting standard forms:
   `CSRRW[I]`, `CSRRS[I]`, and `CSRRC[I]` with a nonzero source all trap, while
-  zero-mask `CSRRS[I]` / `CSRRC[I]` remain legal pure reads.
+  zero-mask `CSRRS[I]` / `CSRRC[I]` remain legal pure reads. The RMW executor
+  now keeps `CSRRS/CSRRC[I]` single-read internally, using the same old CSR
+  value for `rd` and writeback derivation instead of reading the CSR a second
+  time.
 - Trap-vector CSR writes now normalize `mtvec` and `stvec` to the modeled WARL
   surface: aligned BASE plus Direct or Vectored MODE only. A delegated
   supervisor-timer regression covers Vectored `stvec` dispatch to

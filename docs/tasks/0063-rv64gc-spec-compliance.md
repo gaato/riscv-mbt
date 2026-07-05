@@ -206,10 +206,12 @@ official coverage improve.
   ignored hints, including the `rs2=x2..x5` compressed Zihintntl non-temporal
   locality hint subrange. CR-format coverage now also pins `C.MV rd=x0,
   rs2!=x0` as an ignored hint, `C.JR rs1=x0` as reserved, and the
-  `C.JALR rs1=x0` encoding as `C.EBREAK`. Post-decode profile legality now
-  rejects all 16-bit compressed encodings when `MISA.C` is not advertised,
-  preserving the permissive decoder while making execution obey the active ISA
-  profile.
+  `C.JALR rs1=x0` encoding as `C.EBREAK`. The legal `C.JR`/`C.JALR` forms are
+  now pinned through execute coverage as `JALR` aliases, including the
+  compressed link rule that `C.JALR` writes `pc + 2` to `x1` while `C.JR` does
+  not link. Post-decode profile legality now rejects all 16-bit compressed
+  encodings when `MISA.C` is not advertised, preserving the permissive decoder
+  while making execution obey the active ISA profile.
   The compressed floating double load/store aliases are now also pinned as
   RV64DC forms rather than integer-only RV64C forms: `C.FLD`, `C.FSD`,
   `C.FLDSP`, and `C.FSDSP` trap without `MISA.D` and execute under the FD
@@ -476,7 +478,11 @@ official coverage improve.
   (`CSRRW[I]`, `CSRRS[I]`, and `CSRRC[I]`) illegal for read-only CSRs. The
   read-only set/clear coverage now explicitly exercises both register-source
   and immediate-source zero and nonzero masks across the exposed
-  machine-information CSRs and the read-only `time` counter.
+  machine-information CSRs and the read-only `time` counter. The executor now
+  also keeps `CSRRS/CSRRC[I]` read-modify-write paths single-read: the old CSR
+  value returned to `rd` is the same value used to derive the writeback value,
+  avoiding a second visible CSR read when the form has already performed the
+  architectural read side.
 - `A` decode now treats reserved AMO `funct5` values and the reserved
   nonzero-`rs2` LR encoding as illegal, while preserving the `aq`/`rl` ordering
   bits in the decoded instruction value. AMO W/D execution is also

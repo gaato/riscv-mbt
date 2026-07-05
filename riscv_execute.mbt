@@ -1630,6 +1630,26 @@ fn Runner::execute_csr_read_write_checked(
   } else {
     0U.to_uint64()
   }
+  self.execute_csr_write_checked(
+    rd, csr, old_value, write_value, should_write, next_pc, current_pc, raw,
+  )
+}
+
+///|
+fn Runner::execute_csr_write_checked(
+  self : Runner,
+  rd : Int,
+  csr : Int,
+  old_value : UInt64,
+  write_value : UInt64,
+  should_write : Bool,
+  next_pc : UInt64,
+  current_pc : UInt64,
+  raw : UInt,
+) -> StepResult {
+  // CSRRS/CSRRC are read-modify-write forms. The write value must be derived
+  // from the single old CSR value already read by the instruction, not from a
+  // second visible read that might diverge once a CSR grows side effects.
   if should_write {
     if !self.csr_privilege_accessible(csr) ||
       !self.csr_tvm_accessible(csr) ||
@@ -1678,11 +1698,11 @@ fn Runner::execute_system(
           )
       }
       let write_base = self.csr_rmw_write_base(csr, old_value)
-      self.execute_csr_read_write_checked(
+      self.execute_csr_write_checked(
         rd,
         csr,
+        old_value,
         write_base | self.cpu.read_reg(rs1),
-        true,
         rs1 != 0,
         next_pc,
         current_pc,
@@ -1700,11 +1720,11 @@ fn Runner::execute_system(
           )
       }
       let write_base = self.csr_rmw_write_base(csr, old_value)
-      self.execute_csr_read_write_checked(
+      self.execute_csr_write_checked(
         rd,
         csr,
+        old_value,
         write_base & bit_not(self.cpu.read_reg(rs1)),
-        true,
         rs1 != 0,
         next_pc,
         current_pc,
@@ -1733,11 +1753,11 @@ fn Runner::execute_system(
           )
       }
       let write_base = self.csr_rmw_write_base(csr, old_value)
-      self.execute_csr_read_write_checked(
+      self.execute_csr_write_checked(
         rd,
         csr,
+        old_value,
         write_base | uimm.to_uint64(),
-        true,
         uimm != 0U,
         next_pc,
         current_pc,
@@ -1755,11 +1775,11 @@ fn Runner::execute_system(
           )
       }
       let write_base = self.csr_rmw_write_base(csr, old_value)
-      self.execute_csr_read_write_checked(
+      self.execute_csr_write_checked(
         rd,
         csr,
+        old_value,
         write_base & bit_not(uimm.to_uint64()),
-        true,
         uimm != 0U,
         next_pc,
         current_pc,

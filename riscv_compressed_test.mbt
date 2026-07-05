@@ -857,26 +857,45 @@ test "compressed jump-register x0 forms keep reserved and ebreak meanings" {
 
 ///|
 test "compressed jump-register forms use jalr semantics with a 2-byte link address" {
-  let runner = make_runner(default_machine_config())
-  runner.load_program(
+  let target = 8
+  let jr_runner = make_runner(default_machine_config())
+  jr_runner.load_program(
     mixed_program_bytes([
-      (4, encode_i(12, 0, 0x0U, 9, 0x13U)),
-      (2, encode_c_jalr(9).reinterpret_as_uint()),
-      (4, encode_i(99, 0, 0x0U, 5, 0x13U)),
+      (4, encode_i(target, 0, 0x0U, 9, 0x13U)),
       (2, encode_c_jr(9).reinterpret_as_uint()),
+      (2, encode_c_li(5, 31).reinterpret_as_uint()),
+      (2, encode_c_li(6, 1).reinterpret_as_uint()),
     ]),
     0U,
   )
-  match runner.step() {
+  match jr_runner.run(3) {
     Running => ()
-    _ => fail("expected setup addi to run")
+    _ => fail("expected c.jr to branch through the register target")
   }
-  match runner.step() {
+  assert_eq(jr_runner.read_reg(1), 0U)
+  assert_eq(jr_runner.read_reg(5), 0U)
+  assert_eq(jr_runner.read_reg(6), 1U)
+  assert_eq(jr_runner.pc(), 10U)
+
+  let jalr_runner = make_runner(default_machine_config())
+  jalr_runner.load_program(
+    mixed_program_bytes([
+      (4, encode_i(target, 0, 0x0U, 9, 0x13U)),
+      (2, encode_c_jalr(9).reinterpret_as_uint()),
+      (2, encode_c_li(5, 31).reinterpret_as_uint()),
+      (2, encode_c_li(6, 1).reinterpret_as_uint()),
+    ]),
+    0U,
+  )
+  match jalr_runner.run(3) {
     Running => ()
-    _ => fail("expected c.jalr to run")
+    _ => fail("expected c.jalr to branch through the register target")
   }
-  assert_eq(runner.read_reg(1), 6U)
-  assert_eq(runner.pc(), 12U)
+  // C.JALR writes the address after the 16-bit instruction, not pc+4.
+  assert_eq(jalr_runner.read_reg(1), 6U)
+  assert_eq(jalr_runner.read_reg(5), 0U)
+  assert_eq(jalr_runner.read_reg(6), 1U)
+  assert_eq(jalr_runner.pc(), 10U)
 }
 
 ///|
