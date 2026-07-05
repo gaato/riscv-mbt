@@ -210,6 +210,11 @@ fn encode_sret() -> UInt {
 }
 
 ///|
+fn encode_wfi() -> UInt {
+  0x10500073U
+}
+
+///|
 fn encode_sfence_vma(rs1 : Int, rs2 : Int) -> UInt {
   (0x09U << 25) |
   (rs2.reinterpret_as_uint() << 20) |

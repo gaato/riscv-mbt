@@ -139,6 +139,9 @@
   cache: U-mode traps, and S-mode traps when `mstatus.TVM` is set.
 - `satp` CSR reads and writes now use the same `TVM` interception rule: S-mode
   access traps when `mstatus.TVM` is set, while M-mode remains allowed.
+- `WFI` now enforces the modeled privilege/TW legality rule before using the
+  existing CLINT timer fast-forward: U-mode traps, and S-mode traps when
+  `mstatus.TW` is set.
 
 ## Known Blockers
 

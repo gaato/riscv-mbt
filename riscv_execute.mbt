@@ -1445,6 +1445,30 @@ fn Runner::fast_forward_wfi_timer(self : Runner) -> Unit {
 }
 
 ///|
+fn Runner::execute_wfi(
+  self : Runner,
+  current_pc : UInt64,
+  next_pc : UInt64,
+  raw : UInt,
+) -> StepResult {
+  match self.cpu.privilege {
+    Machine => ()
+    Supervisor =>
+      if (self.cpu.read_csr(CSR_MSTATUS) & MSTATUS_TW_BIT) != 0U.to_uint64() {
+        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      }
+    User =>
+      return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+  }
+  // Legal WFI remains a scheduling hint for this interpreter. If a CLINT timer
+  // compare is armed, fast-forward close to it so the next normal step can let
+  // the existing interrupt path choose the architectural target mode.
+  self.fast_forward_wfi_timer()
+  self.cpu.pc = next_pc
+  Running
+}
+
+///|
 // Interrupt priority order (high to low): MEI, MSI, MTI, SEI, SSI, STI
 fn interrupt_cause_from_mip_bit(bit : Int) -> TrapCause {
   match bit {
@@ -1692,11 +1716,7 @@ pub fn Runner::step(self : Runner) -> StepResult {
       self.execute_system(instruction, current_pc, next_pc, raw)
     SfenceVma(_, _) =>
       self.execute_system(instruction, current_pc, next_pc, raw)
-    Wfi => {
-      self.fast_forward_wfi_timer()
-      self.cpu.pc = next_pc
-      Running
-    }
+    Wfi => self.execute_wfi(current_pc, next_pc, raw)
     AmoW(_, _, _, _) => self.execute_amo(instruction, current_pc, next_pc, raw)
     AmoD(_, _, _, _) => self.execute_amo(instruction, current_pc, next_pc, raw)
     FMAddS(_, _, _, _, _) =>

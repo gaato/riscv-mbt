@@ -328,3 +328,7 @@ official coverage improve.
   S-mode reads and writes raise illegal instruction when `mstatus.TVM` is set,
   including write forms that suppress the old-value read. Focused regressions
   cover both read and write attempts.
+- `WFI` now enforces the modeled privilege/TW legality rule before applying the
+  interpreter's CLINT timer fast-forward hint: U-mode raises illegal
+  instruction, and S-mode raises illegal instruction when `mstatus.TW` is set.
+  Legal WFI keeps the existing timer fast-forward behavior.

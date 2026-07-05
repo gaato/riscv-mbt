@@ -2543,6 +2543,61 @@ test "satp write traps as illegal from supervisor mode when tvm is set" {
 }
 
 ///|
+test "wfi traps as illegal from user mode" {
+  let program = words_to_bytes([
+    encode_i(20, 0, 0x0U, 5, 0x13U),
+    encode_csr(0x341, 5, 0x1U, 0),
+    encode_i(128, 0, 0x0U, 1, 0x13U),
+    encode_csr(0x300, 1, 0x1U, 0),
+    encode_mret(),
+    encode_wfi(),
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(6) {
+    Trap(info) =>
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction for wfi from user mode")
+      }
+    _ => fail("expected wfi from user mode to trap")
+  }
+  assert_eq(runner.pc(), 20U)
+  match runner.privilege_mode() {
+    Machine => ()
+    _ => fail("expected illegal wfi trap to enter machine mode")
+  }
+}
+
+///|
+test "wfi traps as illegal from supervisor mode when tw is set" {
+  let program = words_to_bytes([
+    encode_i(24, 0, 0x0U, 5, 0x13U),
+    encode_csr(0x341, 5, 0x1U, 0),
+    encode_u(0x00201000U, 1, 0x37U),
+    encode_i(-1920, 1, 0x0U, 1, 0x13U),
+    encode_csr(0x300, 1, 0x1U, 0),
+    encode_mret(),
+    encode_wfi(),
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(7) {
+    Trap(info) =>
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction for wfi with tw")
+      }
+    _ => fail("expected wfi with tw to trap")
+  }
+  assert_eq(runner.pc(), 24U)
+  match runner.privilege_mode() {
+    Machine => ()
+    _ => fail("expected illegal wfi trap to enter machine mode")
+  }
+}
+
+///|
 test "store to observed page-table page flushes translation cache" {
   let program = words_to_bytes([
     encode_i(0x100, 0, 0x0U, 1, 0x13U),
