@@ -898,6 +898,20 @@ fn f64_mul_is_invalid_bits(lhs : UInt64, rhs : UInt64) -> Bool {
 }
 
 ///|
+fn f32_fma_is_invalid_bits(lhs : UInt, rhs : UInt, addend : UInt) -> Bool {
+  // Fused multiply-add has the ordinary signaling-NaN invalid cases plus the
+  // IEEE invalid multiplication form infinity*zero. Once either condition is
+  // present, RISC-V writes the canonical NaN instead of exposing host NaN
+  // payload or sign propagation.
+  f32_any_signaling_nan3(lhs, rhs, addend) || f32_mul_is_invalid_bits(lhs, rhs)
+}
+
+///|
+fn f64_fma_is_invalid_bits(lhs : UInt64, rhs : UInt64, addend : UInt64) -> Bool {
+  f64_any_signaling_nan3(lhs, rhs, addend) || f64_mul_is_invalid_bits(lhs, rhs)
+}
+
+///|
 fn f32_any_signaling_nan2(lhs : UInt, rhs : UInt) -> Bool {
   f32_is_signaling_nan_bits(lhs) || f32_is_signaling_nan_bits(rhs)
 }
@@ -1660,10 +1674,11 @@ fn Runner::execute_fp(
       let lhs_bits = self.read_freg_single_value_bits(rs1)
       let rhs_bits = self.read_freg_single_value_bits(rs2)
       let addend_bits = self.read_freg_single_value_bits(rs3)
-      let invalid = f32_any_signaling_nan3(lhs_bits, rhs_bits, addend_bits) ||
-        f32_mul_is_invalid_bits(lhs_bits, rhs_bits)
-      if invalid {
+      if f32_fma_is_invalid_bits(lhs_bits, rhs_bits, addend_bits) {
         self.set_fflags(fp_fflag_nv)
+        self.write_freg_single_bits(rd, f32_canonical_nan_bits())
+        self.cpu.pc = next_pc
+        return Running
       }
       let host_bits = (f32_from_bits(lhs_bits).to_double() *
       f32_from_bits(rhs_bits).to_double() +
@@ -1689,10 +1704,11 @@ fn Runner::execute_fp(
       let lhs_bits = self.read_freg_single_value_bits(rs1)
       let rhs_bits = self.read_freg_single_value_bits(rs2)
       let addend_bits = self.read_freg_single_value_bits(rs3)
-      let invalid = f32_any_signaling_nan3(lhs_bits, rhs_bits, addend_bits) ||
-        f32_mul_is_invalid_bits(lhs_bits, rhs_bits)
-      if invalid {
+      if f32_fma_is_invalid_bits(lhs_bits, rhs_bits, addend_bits) {
         self.set_fflags(fp_fflag_nv)
+        self.write_freg_single_bits(rd, f32_canonical_nan_bits())
+        self.cpu.pc = next_pc
+        return Running
       }
       let host_bits = (f32_from_bits(lhs_bits).to_double() *
       f32_from_bits(rhs_bits).to_double() -
@@ -1718,10 +1734,11 @@ fn Runner::execute_fp(
       let lhs_bits = self.read_freg_single_value_bits(rs1)
       let rhs_bits = self.read_freg_single_value_bits(rs2)
       let addend_bits = self.read_freg_single_value_bits(rs3)
-      let invalid = f32_any_signaling_nan3(lhs_bits, rhs_bits, addend_bits) ||
-        f32_mul_is_invalid_bits(lhs_bits, rhs_bits)
-      if invalid {
+      if f32_fma_is_invalid_bits(lhs_bits, rhs_bits, addend_bits) {
         self.set_fflags(fp_fflag_nv)
+        self.write_freg_single_bits(rd, f32_canonical_nan_bits())
+        self.cpu.pc = next_pc
+        return Running
       }
       let host_bits = (f32_from_bits(addend_bits).to_double() -
       f32_from_bits(lhs_bits).to_double() * f32_from_bits(rhs_bits).to_double()).reinterpret_as_uint64()
@@ -1746,10 +1763,11 @@ fn Runner::execute_fp(
       let lhs_bits = self.read_freg_single_value_bits(rs1)
       let rhs_bits = self.read_freg_single_value_bits(rs2)
       let addend_bits = self.read_freg_single_value_bits(rs3)
-      let invalid = f32_any_signaling_nan3(lhs_bits, rhs_bits, addend_bits) ||
-        f32_mul_is_invalid_bits(lhs_bits, rhs_bits)
-      if invalid {
+      if f32_fma_is_invalid_bits(lhs_bits, rhs_bits, addend_bits) {
         self.set_fflags(fp_fflag_nv)
+        self.write_freg_single_bits(rd, f32_canonical_nan_bits())
+        self.cpu.pc = next_pc
+        return Running
       }
       let host_bits = (0.0 -
       f32_from_bits(lhs_bits).to_double() * f32_from_bits(rhs_bits).to_double() -
@@ -1775,10 +1793,11 @@ fn Runner::execute_fp(
       let lhs_bits = self.read_freg_double_bits(rs1)
       let rhs_bits = self.read_freg_double_bits(rs2)
       let addend_bits = self.read_freg_double_bits(rs3)
-      let invalid = f64_any_signaling_nan3(lhs_bits, rhs_bits, addend_bits) ||
-        f64_mul_is_invalid_bits(lhs_bits, rhs_bits)
-      if invalid {
+      if f64_fma_is_invalid_bits(lhs_bits, rhs_bits, addend_bits) {
         self.set_fflags(fp_fflag_nv)
+        self.write_freg_double_bits(rd, f64_canonical_nan_bits())
+        self.cpu.pc = next_pc
+        return Running
       }
       let host_bits = f64_bits_from_host(
         f64_from_bits(lhs_bits) * f64_from_bits(rhs_bits) +
@@ -1822,10 +1841,11 @@ fn Runner::execute_fp(
       let lhs_bits = self.read_freg_double_bits(rs1)
       let rhs_bits = self.read_freg_double_bits(rs2)
       let addend_bits = self.read_freg_double_bits(rs3)
-      let invalid = f64_any_signaling_nan3(lhs_bits, rhs_bits, addend_bits) ||
-        f64_mul_is_invalid_bits(lhs_bits, rhs_bits)
-      if invalid {
+      if f64_fma_is_invalid_bits(lhs_bits, rhs_bits, addend_bits) {
         self.set_fflags(fp_fflag_nv)
+        self.write_freg_double_bits(rd, f64_canonical_nan_bits())
+        self.cpu.pc = next_pc
+        return Running
       }
       let host_bits = f64_bits_from_host(
         f64_from_bits(lhs_bits) * f64_from_bits(rhs_bits) -
@@ -1869,10 +1889,11 @@ fn Runner::execute_fp(
       let lhs_bits = self.read_freg_double_bits(rs1)
       let rhs_bits = self.read_freg_double_bits(rs2)
       let addend_bits = self.read_freg_double_bits(rs3)
-      let invalid = f64_any_signaling_nan3(lhs_bits, rhs_bits, addend_bits) ||
-        f64_mul_is_invalid_bits(lhs_bits, rhs_bits)
-      if invalid {
+      if f64_fma_is_invalid_bits(lhs_bits, rhs_bits, addend_bits) {
         self.set_fflags(fp_fflag_nv)
+        self.write_freg_double_bits(rd, f64_canonical_nan_bits())
+        self.cpu.pc = next_pc
+        return Running
       }
       let host_bits = f64_bits_from_host(
         0.0 -
@@ -1917,10 +1938,11 @@ fn Runner::execute_fp(
       let lhs_bits = self.read_freg_double_bits(rs1)
       let rhs_bits = self.read_freg_double_bits(rs2)
       let addend_bits = self.read_freg_double_bits(rs3)
-      let invalid = f64_any_signaling_nan3(lhs_bits, rhs_bits, addend_bits) ||
-        f64_mul_is_invalid_bits(lhs_bits, rhs_bits)
-      if invalid {
+      if f64_fma_is_invalid_bits(lhs_bits, rhs_bits, addend_bits) {
         self.set_fflags(fp_fflag_nv)
+        self.write_freg_double_bits(rd, f64_canonical_nan_bits())
+        self.cpu.pc = next_pc
+        return Running
       }
       let host_bits = f64_bits_from_host(
         0.0 -

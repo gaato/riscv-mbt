@@ -99,6 +99,9 @@ official coverage improve.
   `+2^63`, `FCVT.LU.D` at `+2^64`, and RNE NaN/infinity clipping before any
   host integer cast. Invalid scalar arithmetic coverage now checks both NV and
   canonical-NaN results for representative add, multiply, and divide cases.
+  Invalid fused multiply-add coverage now also checks canonical-NaN results for
+  `infinity * zero` and signaling-NaN inputs, and the implementation writes
+  those results directly instead of depending on host NaN propagation.
   Exact widening `FCVT.D.S` and exact
   RV32-width-to-double `FCVT.D.W[U]` now treat the otherwise unaffected `rm`
   field as architecturally significant for legal/reserved static and dynamic

@@ -1553,6 +1553,9 @@ test "rv64fd fused multiply-add accrues invalid for infinity times zero" {
   assert_eq(runner.read_reg_u64(11) & 0x10U.to_uint64(), 0x10U.to_uint64())
   assert_eq(runner.read_reg_u64(13) & 0x10U.to_uint64(), 0x10U.to_uint64())
   assert_eq(runner.read_csr(csr_fcsr) & 0x10U, 0x10U)
+  assert_eq(runner.read_freg_u64(10), exec_test_nan_box_single(0x7fc00000U))
+  assert_eq(runner.read_freg_u64(12), 0x7ff8000000000000UL)
+  assert_eq(runner.read_freg_u64(14), exec_test_nan_box_single(0x7fc00000U))
 }
 
 ///|
