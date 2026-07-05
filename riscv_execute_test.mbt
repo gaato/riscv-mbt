@@ -1482,6 +1482,41 @@ test "rv64fd fused multiply-add single paths honor non-rne rounding modes" {
 }
 
 ///|
+test "rv64fd fused multiply-add rejects reserved rounding modes" {
+  let csr_fcsr = 0x003
+  let fcsr_frm_shift = 5
+  let reserved_static_single = encode_fp_r4(3, 0x0U, 2, 1, 0x5U, 4, 0x43U)
+  let reserved_dynamic_double = encode_fp_r4(3, 0x1U, 2, 1, 0x7U, 4, 0x4fU)
+
+  let single_static = make_runner(rv64fd_machine_config())
+  single_static.load_program(words_to_bytes([reserved_static_single]), 0U)
+  match single_static.run(1) {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+      assert_eq(info.trap_value, reserved_static_single.to_uint64())
+    }
+    _ => fail("expected reserved static single FMA rounding mode to trap")
+  }
+
+  let double_dynamic = make_runner(rv64fd_machine_config())
+  double_dynamic.cpu.write_csr(csr_fcsr, 0x6U.to_uint64() << fcsr_frm_shift)
+  double_dynamic.load_program(words_to_bytes([reserved_dynamic_double]), 0U)
+  match double_dynamic.run(1) {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+      assert_eq(info.trap_value, reserved_dynamic_double.to_uint64())
+    }
+    _ => fail("expected reserved dynamic double FMA rounding mode to trap")
+  }
+}
+
+///|
 test "rv64fd fused multiply-add single paths preserve exact zero signs" {
   let runner = make_runner(rv64fd_machine_config())
   let pos_one = exec_test_nan_box_single(exec_test_f32_bits(1.0))

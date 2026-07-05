@@ -516,7 +516,8 @@ official coverage improve.
   rational-to-single helper. This closes the old RNE-only legality boundary for
   `FMADD.S`, `FMSUB.S`, `FNMSUB.S`, and `FNMADD.S` without introducing a
   rounded host-Double product-plus-addend. Exact-zero result signs are now
-  handled explicitly for cancellation and zero-product inputs.
+  handled explicitly for cancellation and zero-product inputs. Representative
+  reserved static `rm` encodings are now covered as illegal instructions.
 - `FADD.D`, `FSUB.D`, and `FMUL.D` now round finite exact-rational results back
   to double precision inside the emulator. Legal static non-RNE modes execute
   where they change the result, and the helper accrues NX plus overflow and
@@ -542,7 +543,8 @@ official coverage improve.
   exact-rational-to-double helper. This covers `FMADD.D`, `FMSUB.D`,
   `FNMSUB.D`, and `FNMADD.D` without using an intermediate rounded product.
   Exact-zero result signs are also handled explicitly for finite cancellation
-  and zero-product inputs.
+  and zero-product inputs. Representative dynamic `rm=111` cases with a
+  reserved `frm` value are now covered as illegal instructions.
 - `FSQRT.D` now accepts legal static/dynamic non-RNE modes. For finite positive
   operands it uses the host square root only as an initial candidate, compares
   the candidate square against the exact operand, and selects the adjacent lower
