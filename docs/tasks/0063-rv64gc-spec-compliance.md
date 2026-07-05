@@ -202,6 +202,8 @@ official coverage improve.
   CIW immediate path, in addition to the zero-immediate reserved case.
   Register-based `C.LW`/`C.SW` now have high zero-extended offset coverage for
   the scattered CL/CS memory immediate path.
+  Stack-pointer `C.LWSP`/`C.SWSP` and `C.LDSP`/`C.SDSP` now have high
+  zero-extended offset coverage for the separate CI/CSS memory layouts.
   `C.ADDI16SP` now also has coverage for negative and high positive
   sign-extended stack-pointer adjustments, beyond the zero-immediate reserved
   case.
@@ -643,6 +645,9 @@ official coverage improve.
 - RV64C `C.LW`/`C.SW` coverage now pins the high unsigned `uimm=124`
   register-based memory offset through the scattered CL/CS decoder while
   preserving the ordinary RV64 `LW` sign-extension result.
+- RV64C stack-pointer memory coverage now pins the high unsigned
+  `C.LWSP`/`C.SWSP` `uimm=252` path and the high unsigned
+  `C.LDSP`/`C.SDSP` `uimm=504` path through the separate CI/CSS layouts.
 - RV64C `C.ADDI16SP` coverage now pins the scattered signed immediate path for
   both a negative stack adjustment and the high positive `+496` adjustment.
 - RV64C integer stack-load coverage now keeps `C.LWSP rd=x0` and

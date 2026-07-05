@@ -673,6 +673,34 @@ test "stack-pointer compressed forms reuse addi shift and memory execute paths" 
 }
 
 ///|
+test "rv64c stack word and double memory use high zero-extended offsets" {
+  // Stack-pointer forms use CI/CSS layouts rather than the register-based
+  // CL/CS layouts. Exercise the highest word and doubleword offsets so the
+  // scattered immediate bits stay zero-extended and scaled from x2.
+  let runner = make_runner(rv64_machine_config())
+  let raw_double = 0x1122334455667788UL
+  runner.cpu.write_reg(2, 0x300U.to_uint64())
+  runner.cpu.write_reg(13, 0x80000001U.to_uint64())
+  runner.cpu.write_reg(15, raw_double)
+  runner.load_program(
+    mixed_program_bytes([
+      (2, encode_c_swsp(13, 252).reinterpret_as_uint()),
+      (2, encode_c_lwsp(14, 252).reinterpret_as_uint()),
+      (2, encode_c_sdsp(15, 504).reinterpret_as_uint()),
+      (2, encode_c_ldsp(16, 504).reinterpret_as_uint()),
+    ]),
+    0U,
+  )
+  match runner.run(4) {
+    Running => ()
+    _ => fail("expected high-offset compressed stack memory sequence to run")
+  }
+  assert_eq(runner.read_reg_u64(14), 0xffffffff80000001UL)
+  assert_eq(runner.read_reg_u64(16), raw_double)
+  assert_eq(runner.pc_u64(), 8U.to_uint64())
+}
+
+///|
 test "rv64c addi16sp sign extends scaled stack offsets" {
   // C.ADDI16SP scatters nzimm bits across the CI format and then sign-extends
   // a value scaled in 16-byte units. Cover a negative prologue/epilogue-shaped

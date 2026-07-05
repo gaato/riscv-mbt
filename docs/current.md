@@ -229,6 +229,8 @@
   CIW immediate path, in addition to the zero-immediate reserved case.
   Register-based `C.LW`/`C.SW` now have high zero-extended offset coverage for
   the scattered CL/CS memory immediate path.
+  Stack-pointer `C.LWSP`/`C.SWSP` and `C.LDSP`/`C.SDSP` now have high
+  zero-extended offset coverage for the separate CI/CSS memory layouts.
   `C.ADDI16SP` now also has coverage for negative and high positive
   sign-extended stack-pointer adjustments, beyond the zero-immediate reserved
   case.
