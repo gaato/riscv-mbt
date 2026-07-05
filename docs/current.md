@@ -233,6 +233,9 @@
   RV32C now also rejects quadrant-2 integer double stack forms
   `C.LDSP`/`C.SDSP`, keeping those RV64C-only encodings from expanding into
   RV64 load/store operations in the 32-bit profile.
+  RV64C word-ALU coverage now pins `C.ADDW` and `C.SUBW` as RV64-only
+  compressed aliases, including low-32-bit sign extension and rejection of the
+  same code points under RV32C.
   `C.ADD rd=x0, rs2!=x0` forms now execute as ignored hints, including the
   `rs2=x2..x5` compressed Zihintntl non-temporal locality hint subrange.
   CR-format coverage now also pins `C.MV rd=x0, rs2!=x0` as an ignored hint,

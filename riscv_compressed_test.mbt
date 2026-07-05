@@ -229,6 +229,24 @@ fn encode_c_and(rd : Int, rs2 : Int) -> Int {
 }
 
 ///|
+fn encode_c_word_alu(funct2 : Int, rd : Int, rs2 : Int) -> Int {
+  0x9c01 |
+  (((rd - 8) & 0x7) << 7) |
+  ((funct2 & 0x3) << 5) |
+  (((rs2 - 8) & 0x7) << 2)
+}
+
+///|
+fn encode_c_subw(rd : Int, rs2 : Int) -> Int {
+  encode_c_word_alu(0x0, rd, rs2)
+}
+
+///|
+fn encode_c_addw(rd : Int, rs2 : Int) -> Int {
+  encode_c_word_alu(0x1, rd, rs2)
+}
+
+///|
 fn encode_c_lwsp(rd : Int, imm : Int) -> Int {
   0x4002 |
   (((imm >> 5) & 0x1) << 12) |
@@ -776,6 +794,45 @@ test "rv32c compressed double stack integer forms remain reserved" {
         assert_eq(info.trap_value, raw.reinterpret_as_uint().to_uint64())
       }
       _ => fail("expected rv32c ldsp/sdsp reserved form to trap")
+    }
+  }
+}
+
+///|
+test "rv64c compressed word ALU forms sign-extend and stay rv64-only" {
+  let runner = make_runner(rv64_machine_config())
+  runner.cpu.write_reg(8, 0x00000000ffffffffUL)
+  runner.cpu.write_reg(9, 1U.to_uint64())
+  runner.cpu.write_reg(10, 0U.to_uint64())
+  runner.cpu.write_reg(11, 1U.to_uint64())
+  runner.load_program(
+    mixed_program_bytes([
+      (2, encode_c_addw(8, 9).reinterpret_as_uint()),
+      (2, encode_c_subw(10, 11).reinterpret_as_uint()),
+    ]),
+    0U,
+  )
+  match runner.run(2) {
+    Running => ()
+    _ => fail("expected rv64c compressed word ALU forms to run")
+  }
+  assert_eq(runner.read_reg_u64(8), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(10), 0xffffffffffffffffUL)
+  assert_eq(runner.pc_u64(), 4U.to_uint64())
+
+  for raw_int in [encode_c_addw(8, 9), encode_c_subw(10, 11)] {
+    let raw = raw_int.reinterpret_as_uint()
+    let rv32_runner = make_runner(default_machine_config())
+    rv32_runner.load_program(mixed_program_bytes([(2, raw)]), 0U)
+    match rv32_runner.step() {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected illegal instruction trap")
+        }
+        assert_eq(info.trap_value, raw.to_uint64())
+      }
+      _ => fail("expected rv32c compressed word ALU form to trap")
     }
   }
 }

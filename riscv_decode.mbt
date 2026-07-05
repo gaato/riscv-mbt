@@ -1994,6 +1994,9 @@ fn decode_c_q1_cb(raw : UInt, xlen : Int) -> Instruction {
     0x3U =>
       if ((raw >> 12) & 0x1U) != 0U {
         if xlen == XLEN_64 {
+          // C.ADDW/C.SUBW are RV64C/RV128C-only CA-format aliases. This
+          // decoder supports the RV64 baseline and rejects the same code
+          // points under RV32C instead of widening them into word operations.
           match c_funct2_ca(raw) {
             0x0U => Subw(rd, rd, rs2)
             0x1U => Addw(rd, rd, rs2)
