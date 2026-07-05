@@ -175,8 +175,8 @@ official coverage improve.
   reservation success/failure for word and doubleword LR/SC, same-hart store
   invalidation, cross-hart store invalidation, overlapping LR.D reservation
   invalidation, device writes to bytes accessed by LR, RV64 AMO.W
-  sign-extension, and natural-address alignment traps for LR/SC/AMO W/D
-  operations. Virtio-blk
+  sign-extension, signed AMO.W and AMO.D min/max comparisons, and
+  natural-address alignment traps for LR/SC/AMO W/D operations. Virtio-blk
   guest-visible DMA/status/used-ring writes now use reservation-aware device
   store helpers. The upstream `rv64ua` AMO/LRSC cases are now part of the
   gating manifest. The remaining audit is true `aq`/`rl` visibility ordering
@@ -388,6 +388,8 @@ official coverage improve.
 - A-extension successful LR/SC coverage now includes both `LR.W`/`SC.W` and
   `LR.D`/`SC.D`, proving full-width load-reserved results, zero success status,
   and the committed store-conditional value.
+- A-extension signed min/max coverage now includes `AMOMIN.W` plus full-width
+  `AMOMIN.D`/`AMOMAX.D` comparisons across the 64-bit sign boundary.
 - Sv39 permission checks now keep SUM limited to supervisor data accesses:
   S-mode loads/stores to U pages can proceed when SUM is set, but S-mode
   instruction fetches from U pages raise instruction page faults regardless of

@@ -373,8 +373,10 @@
   reservation-aware device-store path, so device writes to bytes accessed by LR
   also make the later SC fail. Successful `LR.W`/`SC.W` and `LR.D`/`SC.D`
   pairs are covered, and failed `SC.W`/`SC.D` without a live reservation are
-  both covered as nonzero-status, no-store operations. The remaining
-  A-extension audit is true `aq`/`rl` ordering behavior and
+  both covered as nonzero-status, no-store operations. Signed AMO min/max
+  coverage now includes both `AMOMIN.W` and full-width `AMOMIN.D`/`AMOMAX.D`
+  comparisons across the sign boundary. The remaining A-extension audit is
+  true `aq`/`rl` ordering behavior and
   forward-progress/eventual-success behavior beyond the current interpreter
   scheduler.
 
