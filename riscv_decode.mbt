@@ -1006,7 +1006,22 @@ fn is_read_only_csr(csr : Int) -> Bool {
 }
 
 ///|
-fn is_supported_rw_csr(csr : Int, extensions : UInt64) -> Bool {
+fn is_rv32_only_csr(csr : Int) -> Bool {
+  // High-half counter CSRs exist to let RV32 software observe or update the
+  // upper half of 64-bit counters. In RV64 the base counter CSRs are already
+  // XLEN-wide, so these addresses are not part of the implemented CSR surface.
+  match csr {
+    CSR_CYCLEH | CSR_TIMEH | CSR_INSTRETH | CSR_MCYCLEH | CSR_MINSTRETH => true
+    _ => false
+  }
+}
+
+///|
+fn is_supported_rw_csr(csr : Int, extensions : UInt64, xlen : Xlen) -> Bool {
+  match xlen {
+    Xlen64 => if is_rv32_only_csr(csr) { return false }
+    Xlen32 => ()
+  }
   let has_fp = (extensions & (MISA_EXT_F | MISA_EXT_D)) != 0U.to_uint64()
   let has_v = (extensions & MISA_EXT_V) != 0U.to_uint64()
   (is_modeled_machine_csr(csr) && !is_read_only_csr(csr)) ||
@@ -1017,7 +1032,11 @@ fn is_supported_rw_csr(csr : Int, extensions : UInt64) -> Bool {
 }
 
 ///|
-fn is_supported_csr(csr : Int, extensions : UInt64) -> Bool {
+fn is_supported_csr(csr : Int, extensions : UInt64, xlen : Xlen) -> Bool {
+  match xlen {
+    Xlen64 => if is_rv32_only_csr(csr) { return false }
+    Xlen32 => ()
+  }
   let has_fp = (extensions & (MISA_EXT_F | MISA_EXT_D)) != 0U.to_uint64()
   let has_v = (extensions & MISA_EXT_V) != 0U.to_uint64()
   let read_only_supported = if is_modeled_fp_csr(csr) {
@@ -1029,7 +1048,7 @@ fn is_supported_csr(csr : Int, extensions : UInt64) -> Bool {
   } else {
     is_read_only_csr(csr)
   }
-  is_supported_rw_csr(csr, extensions) ||
+  is_supported_rw_csr(csr, extensions, xlen) ||
   (is_read_only_csr(csr) && read_only_supported)
 }
 

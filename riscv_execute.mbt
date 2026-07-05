@@ -1472,14 +1472,6 @@ fn counter_csr_enable_bit(csr : Int) -> UInt64? {
 }
 
 ///|
-fn machine_counter_high_csr(csr : Int) -> Bool {
-  match csr {
-    CSR_MCYCLEH | CSR_MINSTRETH => true
-    _ => false
-  }
-}
-
-///|
 fn Runner::counter_csr_accessible(self : Runner, csr : Int) -> Bool {
   let bit = match counter_csr_enable_bit(csr) {
     Some(bit) => bit
@@ -1540,13 +1532,6 @@ fn Runner::csr_extension_state_accessible(self : Runner, csr : Int) -> Bool {
 
 ///|
 fn Runner::read_csr_checked(self : Runner, csr : Int) -> UInt64? {
-  if self.xlen_bits() == XLEN_64 {
-    match csr {
-      CSR_CYCLEH | CSR_TIMEH | CSR_INSTRETH | CSR_MCYCLEH | CSR_MINSTRETH =>
-        return None
-      _ => ()
-    }
-  }
   if !self.csr_privilege_accessible(csr) {
     return None
   }
@@ -1559,7 +1544,7 @@ fn Runner::read_csr_checked(self : Runner, csr : Int) -> UInt64? {
   if !self.csr_extension_state_accessible(csr) {
     return None
   }
-  if is_supported_csr(csr, self.config.extensions) {
+  if is_supported_csr(csr, self.config.extensions, self.config.xlen) {
     Some(self.read_csr_visible(csr))
   } else {
     None
@@ -1595,13 +1580,10 @@ fn Runner::execute_csr_read_write_checked(
     0U.to_uint64()
   }
   if should_write {
-    if self.xlen_bits() == XLEN_64 && machine_counter_high_csr(csr) {
-      return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
-    }
     if !self.csr_privilege_accessible(csr) ||
       !self.csr_tvm_accessible(csr) ||
       !self.csr_extension_state_accessible(csr) ||
-      !is_supported_rw_csr(csr, self.config.extensions) {
+      !is_supported_rw_csr(csr, self.config.extensions, self.config.xlen) {
       return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
     }
     self.write_csr_visible(csr, write_value)

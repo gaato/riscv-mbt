@@ -214,6 +214,10 @@ official coverage improve.
   because the privileged spec excludes `mtime` from mcountinhibit. The
   unprivileged `cycle` and `instret` CSRs now shadow writable machine `mcycle`
   and `minstret` state instead of aliasing CLINT `mtime`.
+  RV32-only high-half counter CSRs are now filtered by the shared CSR support
+  classifier on RV64: `cycleh`, `timeh`, `instreth`, `mcycleh`, and
+  `minstreth` are readable where modeled for RV32 but absent from the RV64GC
+  CSR surface.
   `mie` now exposes only the modeled standard interrupt-enable bits
   MSI/MTI/MEI and SSI/STI/SEI (`0xaaa`), while `mip` readback is masked to the
   same implemented pending-bit surface. Writes to `mip` affect only the
@@ -564,6 +568,10 @@ official coverage improve.
   coverage writes all ones, verifies only CY/IR read back, proves inhibited
   `cycle` and `instret` stay stable, proves `time` still advances, and verifies
   writable `mcycle`/`minstret` back the unprivileged counter shadows.
+- RV32-only high-half counter CSR legality is now centralized in the CSR
+  support classifier. Focused coverage keeps `cycleh`, `timeh`, and `instreth`
+  readable on RV32, and verifies `cycleh`, `timeh`, `instreth`, `mcycleh`, and
+  `minstreth` trap as absent CSRs on RV64.
 - `mip`/`mie` no longer retain arbitrary interrupt bits. Focused regressions
   cover write-all-ones `mie` readback, `mip` writes limited to S-level pending
   bits, and the existing delegated `sie`/`sip` view behavior after masking.

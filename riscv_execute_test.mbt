@@ -4310,6 +4310,29 @@ test "rv32 counter high-half csrs are readable" {
 }
 
 ///|
+test "rv64 counter high-half csrs are absent" {
+  // cycleh/timeh/instreth and the machine high-half aliases are RV32-only.
+  // On RV64 the architectural counters are already XLEN-wide, so these CSR
+  // numbers are not implemented read aliases.
+  let cases = [0xC80, 0xC81, 0xC82, 0xB80, 0xB82]
+  for csr in cases {
+    let raw = encode_csr(csr, 0, 0x2U, 1)
+    let runner = make_runner(rv64_machine_config())
+    runner.load_program(words_to_bytes([raw]), 0U)
+    match runner.step() {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected rv64 high-half counter CSR read to trap")
+        }
+        assert_eq(info.trap_value, raw.to_uint64())
+      }
+      _ => fail("expected rv64 high-half counter CSR read to trap")
+    }
+  }
+}
+
+///|
 test "counter csr reads obey mcounteren and scounteren privilege gates" {
   let read_time = encode_csr(0xC01, 0, 0x2U, 1)
 
