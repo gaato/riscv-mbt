@@ -128,6 +128,8 @@
   NaN/infinity clipping before any host integer cast. Exact integral
   round-to-integer inputs now bypass RNE tie-breaking before any host `Int64`
   evenness cast, keeping large exact boundary values on the safe path.
+  Float-to-integer conversions now also reject reserved static and dynamic
+  rounding-mode encodings before executing representative word and long forms.
   Integer-to-double conversion coverage now also pins dynamic-`frm`
   long-to-double rounding at the binary64 precision boundary, including signed
   negative RDN and unsigned positive RMM halfway cases with NX. Rounded

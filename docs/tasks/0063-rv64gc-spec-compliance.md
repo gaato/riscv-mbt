@@ -445,7 +445,10 @@ official coverage improve.
   also pins exact RNE invalid boundaries for `FCVT.W.S/D` below `-2^31` and at
   `+2^31`, exact `-2^31` as a valid flag-clean signed result, flag-clean
   high valid values below `+2^31`/`+2^32`, plus unsigned negative-input
-  clipping and the `FCVT.WU.S/D` `+2^32` upper boundary.
+  clipping and the `FCVT.WU.S/D` `+2^32` upper boundary. Float-to-integer
+  conversions now also have explicit reserved-rounding regressions for
+  representative word, unsigned-word, and long forms, including dynamic
+  `rm=111` with a reserved `frm`.
 - `FCVT.L.S`, `FCVT.LU.S`, `FCVT.L.D`, and `FCVT.LU.D` now use the same
   spec-shaped conversion policy for RV64-width results. The helper clips
   invalid signed results to `INT64_MIN`/`INT64_MAX`, invalid unsigned results to

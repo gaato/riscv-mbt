@@ -3223,6 +3223,61 @@ test "rv64fd float to int conversion honors dynamic frm" {
 }
 
 ///|
+test "rv64fd float to integer conversions reject reserved rounding modes" {
+  let csr_fcsr = 0x003
+  let fcsr_frm_shift = 5
+  let reserved_static_single = encode_fcvt_w_s(1, 0x6U, 2)
+  let reserved_dynamic_double = encode_fcvt_wu_d(1, 0x7U, 3)
+  let reserved_static_long = encode_fcvt_l_d(1, 0x5U, 4)
+
+  let single_static = make_runner(rv64fd_machine_config())
+  single_static.cpu.write_freg(
+    1,
+    exec_test_nan_box_single(exec_test_f32_bits(2.0)),
+  )
+  single_static.load_program(words_to_bytes([reserved_static_single]), 0U)
+  match single_static.run(1) {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+      assert_eq(info.trap_value, reserved_static_single.to_uint64())
+    }
+    _ => fail("expected reserved static fcvt.w.s rounding mode to trap")
+  }
+
+  let double_dynamic = make_runner(rv64fd_machine_config())
+  double_dynamic.cpu.write_freg(1, exec_test_f64_bits(2.0))
+  double_dynamic.cpu.write_csr(csr_fcsr, 0x6U.to_uint64() << fcsr_frm_shift)
+  double_dynamic.load_program(words_to_bytes([reserved_dynamic_double]), 0U)
+  match double_dynamic.run(1) {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+      assert_eq(info.trap_value, reserved_dynamic_double.to_uint64())
+    }
+    _ => fail("expected reserved dynamic fcvt.wu.d rounding mode to trap")
+  }
+
+  let long_static = make_runner(rv64fd_machine_config())
+  long_static.cpu.write_freg(1, exec_test_f64_bits(2.0))
+  long_static.load_program(words_to_bytes([reserved_static_long]), 0U)
+  match long_static.run(1) {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+      assert_eq(info.trap_value, reserved_static_long.to_uint64())
+    }
+    _ => fail("expected reserved static fcvt.l.d rounding mode to trap")
+  }
+}
+
+///|
 test "rv64fd double to unsigned word conversion sign extends on rv64" {
   let runner = make_runner(rv64fd_machine_config())
   runner.cpu.write_freg(1, exec_test_f64_bits(42.75))
