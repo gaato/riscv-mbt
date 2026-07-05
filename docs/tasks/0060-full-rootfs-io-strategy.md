@@ -697,3 +697,29 @@ implemented.
   behavior; it gives the next short staged `apk` diagnostic enough information
   to choose between storage/read-ahead work, cache-shape work, or CPU-side
   loader/ISA investigation before starting another long Alpine run.
+- Reran the staged dynamic apk diagnostic with the new read-locality counters.
+  It still times out before `apk-loader-ok`, but reports
+  `post_init_command_virtio_delta=867 read-req/3581952 read-bytes 0
+  write-req/0 write-bytes` and
+  `post_init_command_read_pattern_delta=840 sequential 16 forward-gap 11
+  backward`. That makes the dynamic loader path a mostly sequential
+  library-read performance problem during the measured window, not a missing
+  file, flat CPU spin, or immediate illegal-instruction failure.
+- Updated the generated rootfs package-manager layout for practical use:
+  `scripts/build-alpine-rootfs-image.sh` now preserves Alpine's original
+  dynamic apk as `/sbin/apk.dynamic`, installs `/sbin/apk.static`, and maps the
+  standard `/sbin/apk` command to the static apk copy by default
+  (`ALPINE_USE_APK_STATIC_AS_DEFAULT=0` restores the original default layout).
+  The dynamic apk smoke now targets `/sbin/apk.dynamic`, while the static smoke
+  intentionally proves ordinary `/sbin/apk`.
+- Current standard `apk` proof:
+  `moon run --target native cmd/alpine_probe xlong --post-init-command-step-budget 80000000 --post-init-apk-static-smoke`
+  reaches `outcome=console-command`, `shell_expect_seen=true`,
+  `post_init_apk_static_smoke=true`, `post_init_command_index=4`, and
+  `post-init-apk-static-ok` at 755,000,000 guest steps. The UART tail shows
+  `/sbin/apk --version`, `/sbin/apk.static --version`, `/sbin/apk info -e
+  busybox`, package listing, and `apk info -L busybox` succeeding from the
+  rootfs-side Alpine shell. This promotes package-manager usability from
+  "call `/sbin/apk.static` explicitly" to "the standard `apk` command works",
+  while keeping `/sbin/apk.dynamic` available for future loader-performance
+  work.

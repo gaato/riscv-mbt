@@ -11,6 +11,7 @@ apkindex_url="${ALPINE_APKINDEX_URL:-$apk_repo_base_url/APKINDEX.tar.gz}"
 apkindex_path="$build_dir/APKINDEX.tar.gz"
 local_apkindex_path="$build_dir/APKINDEX-local-$arch.tar.gz"
 include_apk_static="${ALPINE_INCLUDE_APK_STATIC:-1}"
+use_apk_static_as_default="${ALPINE_USE_APK_STATIC_AS_DEFAULT:-1}"
 offline_apk_packages="${ALPINE_OFFLINE_APK_PACKAGES:-ddate iputils}"
 rootfs_name="alpine-minirootfs-$version-$arch.tar.gz"
 rootfs_url="$base_url/$rootfs_name"
@@ -174,6 +175,10 @@ if [[ "$include_apk_static" == "1" ]]; then
   apk_tools_static_apk="$(download_main_apk apk-tools-static)"
   tar --warning=no-unknown-keyword -xzf "$apk_tools_static_apk" -C "$root_dir" sbin/apk.static
   chmod +x "$root_dir/sbin/apk.static"
+  if [[ "$use_apk_static_as_default" == "1" && -x "$root_dir/sbin/apk" ]]; then
+    mv "$root_dir/sbin/apk" "$root_dir/sbin/apk.dynamic"
+    cp "$root_dir/sbin/apk.static" "$root_dir/sbin/apk"
+  fi
 fi
 
 if [[ -n "$offline_apk_packages" ]]; then
