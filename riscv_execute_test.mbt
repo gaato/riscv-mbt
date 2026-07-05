@@ -19,6 +19,35 @@ fn test_not_u64(value : UInt64) -> UInt64 {
 }
 
 ///|
+let exec_test_instret_csr : Int = 0xC02
+
+///|
+fn expect_step_running(runner : Runner, message : String) -> Unit raise {
+  match runner.step() {
+    Running => ()
+    _ => fail(message)
+  }
+}
+
+///|
+fn expect_step_trap(
+  runner : Runner,
+  expected_cause_name : String,
+  expected_trap_value : UInt64,
+  message : String,
+) -> Unit raise {
+  match runner.step() {
+    Trap(info) => {
+      if trap_cause_name(info.cause) != expected_cause_name {
+        fail(message)
+      }
+      assert_eq(info.trap_value, expected_trap_value)
+    }
+    _ => fail(message)
+  }
+}
+
+///|
 fn assert_vreg_e32x4(
   runner : Runner,
   vreg : Int,
@@ -6234,7 +6263,6 @@ test "mcountinhibit gates cycle and instret but not time" {
 
 ///|
 test "synchronous traps do not retire into instret" {
-  let instret = 0xC02
   let illegal_runner = make_runner(virt_machine_config())
   illegal_runner.load_program_u64(
     words_to_bytes([
@@ -6243,24 +6271,17 @@ test "synchronous traps do not retire into instret" {
     ]),
     0x80000000U.to_uint64(),
   )
-  match illegal_runner.step() {
-    Running => ()
-    _ => fail("expected first instruction to retire")
-  }
-  assert_eq(illegal_runner.read_csr_u64(instret), 1U.to_uint64())
-  match illegal_runner.step() {
-    Trap(info) => {
-      match info.cause {
-        IllegalInstruction => ()
-        _ => fail("expected illegal instruction trap")
-      }
-      assert_eq(info.trap_value, 0x0000000bU.to_uint64())
-    }
-    _ => fail("expected illegal instruction trap")
-  }
+  expect_step_running(illegal_runner, "expected first instruction to retire")
+  assert_eq(illegal_runner.read_csr_u64(exec_test_instret_csr), 1U.to_uint64())
+  expect_step_trap(
+    illegal_runner,
+    "illegal instruction",
+    0x0000000bU.to_uint64(),
+    "expected illegal instruction trap",
+  )
   // minstret counts retired instructions only; a synchronous exception updates
   // trap CSRs and control flow, but the faulting instruction does not retire.
-  assert_eq(illegal_runner.read_csr_u64(instret), 1U.to_uint64())
+  assert_eq(illegal_runner.read_csr_u64(exec_test_instret_csr), 1U.to_uint64())
 
   let ecall_runner = make_runner(virt_machine_config())
   ecall_runner.load_program_u64(
@@ -6270,22 +6291,17 @@ test "synchronous traps do not retire into instret" {
     ]),
     0x80000000U.to_uint64(),
   )
-  match ecall_runner.step() {
-    Running => ()
-    _ => fail("expected first instruction before ecall to retire")
-  }
-  assert_eq(ecall_runner.read_csr_u64(instret), 1U.to_uint64())
-  match ecall_runner.step() {
-    Trap(info) => {
-      match info.cause {
-        EnvironmentCallFromMMode => ()
-        _ => fail("expected machine environment-call trap")
-      }
-      assert_eq(info.trap_value, 0U.to_uint64())
-    }
-    _ => fail("expected ecall trap")
-  }
-  assert_eq(ecall_runner.read_csr_u64(instret), 1U.to_uint64())
+  expect_step_running(
+    ecall_runner, "expected first instruction before ecall to retire",
+  )
+  assert_eq(ecall_runner.read_csr_u64(exec_test_instret_csr), 1U.to_uint64())
+  expect_step_trap(
+    ecall_runner,
+    "ecall from m-mode",
+    0U.to_uint64(),
+    "expected ecall trap",
+  )
+  assert_eq(ecall_runner.read_csr_u64(exec_test_instret_csr), 1U.to_uint64())
 
   let ebreak_runner = make_runner(virt_machine_config())
   ebreak_runner.load_program_u64(
@@ -6295,27 +6311,21 @@ test "synchronous traps do not retire into instret" {
     ]),
     0x80000000U.to_uint64(),
   )
-  match ebreak_runner.step() {
-    Running => ()
-    _ => fail("expected first instruction before ebreak to retire")
-  }
-  assert_eq(ebreak_runner.read_csr_u64(instret), 1U.to_uint64())
-  match ebreak_runner.step() {
-    Trap(info) => {
-      match info.cause {
-        Breakpoint => ()
-        _ => fail("expected breakpoint trap")
-      }
-      assert_eq(info.trap_value, 0U.to_uint64())
-    }
-    _ => fail("expected ebreak trap")
-  }
-  assert_eq(ebreak_runner.read_csr_u64(instret), 1U.to_uint64())
+  expect_step_running(
+    ebreak_runner, "expected first instruction before ebreak to retire",
+  )
+  assert_eq(ebreak_runner.read_csr_u64(exec_test_instret_csr), 1U.to_uint64())
+  expect_step_trap(
+    ebreak_runner,
+    "breakpoint",
+    0U.to_uint64(),
+    "expected ebreak trap",
+  )
+  assert_eq(ebreak_runner.read_csr_u64(exec_test_instret_csr), 1U.to_uint64())
 }
 
 ///|
 test "trap-vector entry does not retire into instret" {
-  let instret = 0xC02
   let mtvec = 0x305
   let handler = 16
   let program = words_to_bytes([
@@ -6323,7 +6333,7 @@ test "trap-vector entry does not retire into instret" {
     encode_csr(mtvec, 1, 0x1U, 0),
     encode_i(1, 0, 0x0U, 2, 0x13U),
     encode_ecall(),
-    encode_csr(instret, 0, 0x2U, 3),
+    encode_csr(exec_test_instret_csr, 0, 0x2U, 3),
     encode_i(1, 0, 0x0U, 4, 0x13U),
   ])
   let runner = make_runner(default_machine_config())
@@ -6335,7 +6345,7 @@ test "trap-vector entry does not retire into instret" {
   // The handler sees three retired setup instructions. The ECALL itself
   // entered the trap vector but did not retire.
   assert_eq(runner.read_reg(3), 3U)
-  assert_eq(runner.read_csr(instret), 4U)
+  assert_eq(runner.read_csr(exec_test_instret_csr), 4U)
   assert_eq(runner.read_csr(0x341), 12U)
   assert_eq(runner.read_csr(0x342), 11U)
   assert_eq(runner.pc(), 20U)
@@ -6344,7 +6354,6 @@ test "trap-vector entry does not retire into instret" {
 
 ///|
 test "execute fault trap-vector entry does not retire into instret" {
-  let instret = 0xC02
   let mtvec = 0x305
   let handler = 24
   let program = words_to_bytes([
@@ -6354,7 +6363,7 @@ test "execute fault trap-vector entry does not retire into instret" {
     encode_i(0, 5, 0x2U, 6, 0x03U),
     encode_i(99, 0, 0x0U, 7, 0x13U),
     encode_i(99, 0, 0x0U, 8, 0x13U),
-    encode_csr(instret, 0, 0x2U, 3),
+    encode_csr(exec_test_instret_csr, 0, 0x2U, 3),
   ])
   let runner = make_runner(default_machine_config())
   runner.load_program(program, 0U)
@@ -6365,7 +6374,7 @@ test "execute fault trap-vector entry does not retire into instret" {
   // ADDI, CSRRW, and LUI retired. The faulting LW entered the handler but did
   // not retire, so the handler's CSR read observes 3.
   assert_eq(runner.read_reg(3), 3U)
-  assert_eq(runner.read_csr(instret), 4U)
+  assert_eq(runner.read_csr(exec_test_instret_csr), 4U)
   assert_eq(runner.read_csr(0x341), 12U)
   assert_eq(runner.read_csr(0x342), 5U)
   assert_eq(runner.read_csr(0x343), 0x50000000U)
@@ -6377,7 +6386,6 @@ test "execute fault trap-vector entry does not retire into instret" {
 ///|
 test "interrupts do not retire into instret" {
   let base = 0x80000000U.to_uint64()
-  let instret = 0xC02
   let runner = make_runner(virt_machine_config())
   runner.cpu.write_csr(0x300, 0x8U.to_uint64()) // mstatus.MIE
   runner.cpu.write_csr(0x304, 0x80U.to_uint64()) // mie.MTIE
@@ -6399,7 +6407,7 @@ test "interrupts do not retire into instret" {
   }
   // Interrupts are observed between instructions. The ADDI at `base` was never
   // fetched or retired, so minstret and the destination register stay unchanged.
-  assert_eq(runner.read_csr_u64(instret), 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(exec_test_instret_csr), 0U.to_uint64())
   assert_eq(runner.read_reg_u64(1), 0U.to_uint64())
   assert_eq(runner.read_csr_u64(0x341), base)
   assert_eq(runner.read_csr_u64(0x342), (1U.to_uint64() << 63) | 7U.to_uint64())
@@ -6408,7 +6416,6 @@ test "interrupts do not retire into instret" {
 ///|
 test "interrupt trap-vector entry does not retire into instret" {
   let base = 0x80000000U.to_uint64()
-  let instret = 0xC02
   let runner = make_runner(virt_machine_config())
   runner.cpu.write_csr(0x300, 0x8U.to_uint64()) // mstatus.MIE
   runner.cpu.write_csr(0x304, 0x80U.to_uint64()) // mie.MTIE
@@ -6418,7 +6425,7 @@ test "interrupt trap-vector entry does not retire into instret" {
     words_to_bytes([
       encode_i(1, 0, 0x0U, 1, 0x13U),
       encode_i(0, 0, 0x0U, 0, 0x13U),
-      encode_csr(instret, 0, 0x2U, 3),
+      encode_csr(exec_test_instret_csr, 0, 0x2U, 3),
     ]),
     base,
   )
@@ -6428,13 +6435,12 @@ test "interrupt trap-vector entry does not retire into instret" {
   }
   assert_eq(runner.pc_u64(), base + 8U.to_uint64())
   assert_eq(runner.read_reg_u64(1), 0U.to_uint64())
-  assert_eq(runner.read_csr_u64(instret), 0U.to_uint64())
-  match runner.step() {
-    Running => ()
-    _ => fail("expected interrupt handler instruction to retire")
-  }
+  assert_eq(runner.read_csr_u64(exec_test_instret_csr), 0U.to_uint64())
+  expect_step_running(
+    runner, "expected interrupt handler instruction to retire",
+  )
   assert_eq(runner.read_reg_u64(3), 0U.to_uint64())
-  assert_eq(runner.read_csr_u64(instret), 1U.to_uint64())
+  assert_eq(runner.read_csr_u64(exec_test_instret_csr), 1U.to_uint64())
   assert_eq(runner.read_csr_u64(0x341), base)
   assert_eq(runner.read_csr_u64(0x342), (1U.to_uint64() << 63) | 7U.to_uint64())
 }
@@ -6442,15 +6448,11 @@ test "interrupt trap-vector entry does not retire into instret" {
 ///|
 test "instruction fetch faults do not retire into instret" {
   let fault_pc = 0x10000U.to_uint64()
-  let instret = 0xC02
   let runner = make_runner(rv64_machine_config())
   runner.load_program(words_to_bytes([encode_j(0x10000, 0, 0x6fU)]), 0U)
-  match runner.step() {
-    Running => ()
-    _ => fail("expected jump to retire before fetch fault")
-  }
+  expect_step_running(runner, "expected jump to retire before fetch fault")
   assert_eq(runner.pc_u64(), fault_pc)
-  assert_eq(runner.read_csr_u64(instret), 1U.to_uint64())
+  assert_eq(runner.read_csr_u64(exec_test_instret_csr), 1U.to_uint64())
   match runner.step() {
     Trap(info) => {
       match info.cause {
@@ -6463,7 +6465,7 @@ test "instruction fetch faults do not retire into instret" {
     _ => fail("expected instruction fetch fault")
   }
   // The jump retired, but the failed fetch at the target did not.
-  assert_eq(runner.read_csr_u64(instret), 1U.to_uint64())
+  assert_eq(runner.read_csr_u64(exec_test_instret_csr), 1U.to_uint64())
 }
 
 ///|
