@@ -2659,11 +2659,15 @@ fn Runner::execute_fp(
         return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
       }
       let bits = self.read_freg_single_value_bits(rs1)
-      if f32_is_signaling_nan_bits(bits) {
-        self.set_fflags(fp_fflag_nv)
+      if f32_is_nan_bits(bits) {
+        if f32_is_signaling_nan_bits(bits) {
+          self.set_fflags(fp_fflag_nv)
+        }
+        self.write_freg_double_bits(rd, f64_canonical_nan_bits())
+      } else {
+        let result = f32_from_bits(bits).to_double()
+        self.write_freg_double_bits(rd, f64_bits_from_host(result))
       }
-      let result = f32_from_bits(bits).to_double()
-      self.write_freg_double_bits(rd, f64_bits_from_host(result))
       self.cpu.pc = next_pc
       Running
     }
