@@ -248,8 +248,8 @@ official coverage improve.
   while making execution obey the active ISA profile.
   The compressed floating double load/store aliases are now also pinned as
   RV64DC forms rather than integer-only RV64C forms: `C.FLD`, `C.FSD`,
-  `C.FLDSP`, and `C.FSDSP` trap without `MISA.D` and execute under the FD
-  profile.
+  `C.FLDSP`, and `C.FSDSP` trap without `MISA.D`, including under
+  RV64F-without-D, and execute under the FD profile.
   The same RV64DC aliases now also have high zero-extended offset coverage for
   both register-based and stack-pointer compressed memory layouts.
   The remaining audit is broader reserved/hint behavior beyond those focused
@@ -672,7 +672,8 @@ official coverage improve.
 - RV64C compressed floating double memory coverage now keeps `C.FLD`,
   `C.FSD`, `C.FLDSP`, and `C.FSDSP` tied to the D extension. The decoder still
   expands them to their ordinary F/D operations, but the execute profile gate
-  rejects them under integer-only RV64C and allows them under RV64FD.
+  rejects them under integer-only RV64C and RV64F-without-D while allowing them
+  under RV64FD.
 - RV64DC compressed floating double memory coverage now also pins the high
   unsigned `C.FLD`/`C.FSD` `uimm=248` path and the high unsigned
   `C.FLDSP`/`C.FSDSP` `uimm=504` path through the floating aliases.

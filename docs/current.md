@@ -236,7 +236,7 @@
   case.
   RV64C compressed floating double load/store aliases are now pinned as
   D-dependent RV64DC forms: they execute under the FD profile and trap as
-  illegal instructions under integer-only RV64C.
+  illegal instructions under integer-only RV64C and RV64F-without-D.
   The RV64DC floating double aliases now also have high zero-extended offset
   coverage for both register-based and stack-pointer compressed memory layouts.
   Immediate-form HINTs now cover canonical `C.NOP`, nonzero `C.NOP` hint

@@ -666,15 +666,18 @@ test "rv64c compressed floating double forms require d extension" {
   // The C spec provides compressed double load/store aliases for RV64DC, but
   // they are not integer-only RV64C instructions. Pin this at the execute
   // profile gate so decode can keep expanding them to the matching F/D op.
+  // F alone is also insufficient: these are double-precision D aliases.
   let cases = [
     encode_c_fld(8, 10, 16),
     encode_c_fsd(8, 10, 16),
     encode_c_fldsp(8, 16),
     encode_c_fsdsp(8, 16),
   ]
-  for raw_int in cases {
-    let raw = raw_int.reinterpret_as_uint()
-    expect_compressed_illegal(rv64_machine_config(), raw)
+  for config in [rv64_machine_config(), rv64f_machine_config()] {
+    for raw_int in cases {
+      let raw = raw_int.reinterpret_as_uint()
+      expect_compressed_illegal(config, raw)
+    }
   }
 }
 
