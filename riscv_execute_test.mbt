@@ -4035,7 +4035,7 @@ test "epc csrs clear bit zero on write and trap return" {
 }
 
 ///|
-test "mstatus mpp rejects reserved privilege encoding" {
+test "mstatus mpp normalizes reserved privilege encoding" {
   let program = words_to_bytes([
     encode_u(0x00001000U, 1, 0x37U),
     encode_csr(0x300, 1, 0x1U, 0),
@@ -4967,19 +4967,30 @@ test "rv64fdv rejects writes to read-only vector csrs" {
 }
 
 ///|
-test "rv64fd without v rejects vector csr access as illegal" {
-  let raw = encode_csr(0x00F, 0, 0x2U, 1)
-  let runner = make_runner(rv64fd_machine_config())
-  runner.load_program(words_to_bytes([raw]), 0U)
-  match runner.step() {
-    Trap(info) => {
-      match info.cause {
-        IllegalInstruction => ()
-        _ => fail("expected illegal instruction cause")
+test "rv64fd without v rejects the vector csr surface as illegal" {
+  let vector_csrs = [
+    0x008, // vstart
+     0x009, // vxsat
+     0x00A, // vxrm
+     0x00F, // vcsr
+     0xC20, // vl
+     0xC21, // vtype
+     0xC22, // vlenb
+  ]
+  for csr in vector_csrs {
+    let raw = encode_csr(csr, 0, 0x2U, 1)
+    let runner = make_runner(rv64fd_machine_config())
+    runner.load_program(words_to_bytes([raw]), 0U)
+    match runner.step() {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected illegal instruction cause")
+        }
+        assert_eq(info.trap_value, raw.to_uint64())
       }
-      assert_eq(info.trap_value, raw.to_uint64())
+      _ => fail("expected vector csr read to trap without v")
     }
-    _ => fail("expected vector csr access to trap without v")
   }
 }
 

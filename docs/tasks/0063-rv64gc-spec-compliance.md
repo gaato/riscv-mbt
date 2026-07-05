@@ -252,8 +252,12 @@ official coverage improve.
   `time` counter.
   `satp` writes with unsupported MODE values now preserve the previous CSR
   value, matching the privileged WARL rule that the whole write has no effect.
-  `mstatus.MPP` now rejects the reserved privilege encoding 2 at the CSR write
-  boundary. The remaining audit is a spec pass over remaining WARL behavior,
+  `mstatus.MPP` now treats reserved privilege encoding 2 as a WARL value and
+  normalizes it to U-mode in this implemented U/S/M profile. Optional vector
+  CSRs are also pinned as absent from the non-`V` RV64FD/RV64GC baseline: the
+  modeled `vstart`, `vxsat`, `vxrm`, `vcsr`, `vl`, `vtype`, and `vlenb`
+  addresses all trap unless the configured profile advertises `MISA.V`.
+  The remaining audit is a spec pass over remaining WARL behavior,
   read-only/write-ignored fields, and privilege-visible side effects for every
   CSR currently exposed by `riscv_decode.mbt`.
 - `Zifencei`: `FENCE.I` decodes, flushes the emulator decode cache, official
