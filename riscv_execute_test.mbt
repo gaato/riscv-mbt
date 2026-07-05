@@ -10508,6 +10508,60 @@ test "AMO.W operations ignore upper 32 bits of rs2" {
 }
 
 ///|
+test "bitwise AMO.W operations store low-word results and sign-extend rd" {
+  // AMO.W performs the read-modify-write in word width even on RV64. The
+  // memory result is the low 32 bits, while rd receives the old word
+  // sign-extended to XLEN.
+  let xor_runner = make_runner(virt_machine_config())
+  let xor_addr = xor_runner.cpu.pc + 0x100U.to_uint64()
+  xor_runner.bus.store_u32(xor_addr, 0x800000f0U.to_uint64())
+  xor_runner.cpu.write_reg(1, xor_addr)
+  xor_runner.cpu.write_reg(2, 0xffffffff0000000fUL)
+  xor_runner.bus.store_u32(
+    xor_runner.cpu.pc,
+    encode_amo(0x04U, 2, 1, 0x2U, 3).to_uint64(),
+  )
+  match xor_runner.step() {
+    Running => ()
+    _ => fail("expected amoxor.w to run")
+  }
+  assert_eq(xor_runner.read_reg_u64(3), 0xffffffff800000f0UL)
+  assert_eq(xor_runner.bus.load_u32(xor_addr), 0x800000ffU.to_uint64())
+
+  let and_runner = make_runner(virt_machine_config())
+  let and_addr = and_runner.cpu.pc + 0x100U.to_uint64()
+  and_runner.bus.store_u32(and_addr, 0xffff00ffU.to_uint64())
+  and_runner.cpu.write_reg(1, and_addr)
+  and_runner.cpu.write_reg(2, 0x123456780f0fff00UL)
+  and_runner.bus.store_u32(
+    and_runner.cpu.pc,
+    encode_amo(0x0cU, 2, 1, 0x2U, 3).to_uint64(),
+  )
+  match and_runner.step() {
+    Running => ()
+    _ => fail("expected amoand.w to run")
+  }
+  assert_eq(and_runner.read_reg_u64(3), 0xffffffffffff00ffUL)
+  assert_eq(and_runner.bus.load_u32(and_addr), 0x0f0f0000U.to_uint64())
+
+  let or_runner = make_runner(virt_machine_config())
+  let or_addr = or_runner.cpu.pc + 0x100U.to_uint64()
+  or_runner.bus.store_u32(or_addr, 0x80000000U.to_uint64())
+  or_runner.cpu.write_reg(1, or_addr)
+  or_runner.cpu.write_reg(2, 0x0000000100000001UL)
+  or_runner.bus.store_u32(
+    or_runner.cpu.pc,
+    encode_amo(0x08U, 2, 1, 0x2U, 3).to_uint64(),
+  )
+  match or_runner.step() {
+    Running => ()
+    _ => fail("expected amoor.w to run")
+  }
+  assert_eq(or_runner.read_reg_u64(3), 0xffffffff80000000UL)
+  assert_eq(or_runner.bus.load_u32(or_addr), 0x80000001U.to_uint64())
+}
+
+///|
 test "AMOMIN.W compares signed 32-bit operands" {
   let runner = make_runner(virt_machine_config())
   let addr = runner.cpu.pc + 0x100U.to_uint64()

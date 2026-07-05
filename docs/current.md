@@ -207,6 +207,8 @@
   effects. Misaligned LR raises load-address-misaligned; misaligned SC and AMO
   raise store-address-misaligned. Ordinary non-atomic load/store misalignment
   is intentionally left on the existing EEI path.
+  AMO.W bitwise regressions now pin low-word operation with sign-extended
+  old-word results in `rd`.
   Focused AMO.D regressions now also pin full-width swap and bitwise behavior
   for AMOSWAP.D, AMOXOR.D, AMOAND.D, and AMOOR.D, keeping those doubleword
   operations distinct from the AMO.W low-word/sign-extension path.
