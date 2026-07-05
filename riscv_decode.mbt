@@ -894,6 +894,11 @@ fn is_modeled_machine_csr(csr : Int) -> Bool {
     CSR_MIE => true
     CSR_MIP => true
     CSR_MTVEC => true
+    CSR_MCOUNTINHIBIT => true
+    CSR_MCYCLE => true
+    CSR_MINSTRET => true
+    CSR_MCYCLEH => true
+    CSR_MINSTRETH => true
     CSR_MEPC => true
     CSR_MCAUSE => true
     CSR_MTVAL => true

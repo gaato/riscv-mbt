@@ -416,6 +416,8 @@ pub struct Runner {
   uart_ier : Array[Byte]
   uart_lcr : Array[Byte]
   mtime : Array[UInt64]
+  mut mcycle : UInt64
+  mut minstret : UInt64
   clint_msip : Array[Bool]
   all_mtimecmp : Array[UInt64]
   plic_regs : Array[Byte]

@@ -4083,6 +4083,82 @@ test "counteren csrs expose only base counter enable bits" {
 }
 
 ///|
+test "mcountinhibit gates cycle and instret but not time" {
+  let mcountinhibit = 0x320
+  let program = words_to_bytes([
+    encode_csr(0xC00, 0, 0x2U, 1), // cycle
+    encode_csr(0xC02, 0, 0x2U, 2), // instret
+    encode_i(-1, 0, 0x0U, 5, 0x13U),
+    encode_csr(mcountinhibit, 5, 0x1U, 0),
+    encode_csr(mcountinhibit, 0, 0x2U, 10),
+    encode_csr(0xC00, 0, 0x2U, 3), // inhibited cycle
+    encode_csr(0xC02, 0, 0x2U, 4), // inhibited instret
+    encode_csr(0xC01, 0, 0x2U, 8), // uninhibited time
+    encode_i(0, 0, 0x0U, 0, 0x13U),
+    encode_csr(0xC00, 0, 0x2U, 6), // still inhibited cycle
+    encode_csr(0xC02, 0, 0x2U, 7), // still inhibited instret
+    encode_csr(0xC01, 0, 0x2U, 9), // time still advances
+  ])
+  let runner = make_runner(virt_machine_config())
+  runner.load_program_u64(program, 0x80000000U.to_uint64())
+  match runner.run(12) {
+    Running => ()
+    _ => fail("expected mcountinhibit program to run")
+  }
+  assert_true(runner.read_reg_u64(1) > 0U.to_uint64())
+  assert_true(runner.read_reg_u64(2) > 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(10), 0x5U.to_uint64())
+  assert_eq(runner.read_csr_u64(mcountinhibit), 0x5U.to_uint64())
+  assert_eq(runner.read_reg_u64(4), runner.read_reg_u64(2) + 3U.to_uint64())
+  assert_eq(runner.read_reg_u64(6), runner.read_reg_u64(3))
+  assert_eq(runner.read_reg_u64(7), runner.read_reg_u64(4))
+  assert_true(runner.read_reg_u64(9) > runner.read_reg_u64(8))
+}
+
+///|
+test "machine counter csrs back unprivileged counter shadows" {
+  let mcountinhibit = 0x320
+  let mcycle = 0xB00
+  let minstret = 0xB02
+  let program = words_to_bytes([
+    encode_i(5, 0, 0x0U, 5, 0x13U),
+    encode_csr(mcountinhibit, 5, 0x1U, 0),
+    encode_i(123, 0, 0x0U, 6, 0x13U),
+    encode_csr(mcycle, 6, 0x1U, 0),
+    encode_csr(minstret, 6, 0x1U, 0),
+    encode_csr(0xC00, 0, 0x2U, 2),
+    encode_csr(0xC02, 0, 0x2U, 3),
+    encode_csr(mcycle, 0, 0x2U, 4),
+    encode_csr(minstret, 0, 0x2U, 7),
+  ])
+  let runner = make_runner(virt_machine_config())
+  runner.load_program_u64(program, 0x80000000U.to_uint64())
+  match runner.run(9) {
+    Running => ()
+    _ => fail("expected machine counter CSR program to run")
+  }
+  assert_eq(runner.read_reg_u64(2), 123U.to_uint64())
+  assert_eq(runner.read_reg_u64(3), 123U.to_uint64())
+  assert_eq(runner.read_reg_u64(4), 123U.to_uint64())
+  assert_eq(runner.read_reg_u64(7), 123U.to_uint64())
+  assert_eq(runner.read_csr_u64(0xC00), runner.read_csr_u64(mcycle))
+  assert_eq(runner.read_csr_u64(0xC02), runner.read_csr_u64(minstret))
+
+  let write_mcycleh = encode_csr(0xB80, 1, 0x1U, 0)
+  let rv64_high = make_runner(rv64_machine_config())
+  rv64_high.cpu.write_reg(1, 1U.to_uint64())
+  rv64_high.load_program(words_to_bytes([write_mcycleh]), 0U)
+  match rv64_high.step() {
+    Trap(info) =>
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected rv64 mcycleh write to trap")
+      }
+    _ => fail("expected rv64 mcycleh write to trap")
+  }
+}
+
+///|
 test "environment config csrs expose no optional feature bits" {
   let menvcfg = 0x30A
   let senvcfg = 0x10A

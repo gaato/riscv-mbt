@@ -441,6 +441,11 @@ pub struct Runner {
   uart_ier : Array[Byte]
   uart_lcr : Array[Byte]
   mtime : Array[UInt64] // [0] = current mtime; shared across SMP harts
+  // Architectural performance counters are separate from CLINT mtime: time
+  // keeps advancing with the platform timer, while mcountinhibit can stop
+  // cycle/instret independently.
+  mut mcycle : UInt64
+  mut minstret : UInt64
   clint_msip : Array[Bool] // [hart_id] = MSIP bit; shared across SMP harts
   all_mtimecmp : Array[UInt64] // [hart_id] = mtimecmp; shared across SMP harts
   plic_regs : Array[Byte] // flat PLIC register file (4 MB); shared across SMP harts
@@ -789,6 +794,31 @@ const CSR_SCOUNTEREN : Int = 0x106
 
 ///|
 const COUNTEREN_WRITABLE_MASK : UInt64 = 0x7
+
+///|
+const CSR_MCOUNTINHIBIT : Int = 0x320
+
+///|
+const CSR_MCYCLE : Int = 0xB00
+
+///|
+const CSR_MINSTRET : Int = 0xB02
+
+///|
+const CSR_MCYCLEH : Int = 0xB80
+
+///|
+const CSR_MINSTRETH : Int = 0xB82
+
+///|
+const MCOUNTINHIBIT_CY_BIT : UInt64 = 0x1
+
+///|
+const MCOUNTINHIBIT_IR_BIT : UInt64 = 0x4
+
+///|
+const MCOUNTINHIBIT_WRITABLE_MASK : UInt64 = MCOUNTINHIBIT_CY_BIT |
+  MCOUNTINHIBIT_IR_BIT
 
 ///|
 const CSR_MENVCFG : Int = 0x30A
@@ -1369,6 +1399,8 @@ pub fn make_runner(config : MachineConfig) -> Runner {
     uart_ier: [0U.to_byte()],
     uart_lcr: [0U.to_byte()],
     mtime: [0U.to_uint64()],
+    mcycle: 0U.to_uint64(),
+    minstret: 0U.to_uint64(),
     clint_msip: Array::make(2, false),
     all_mtimecmp: Array::make(2, bit_not(0U.to_uint64())),
     plic_regs: if config.plic_base != 0U.to_uint64() {
@@ -1495,6 +1527,8 @@ pub fn make_smp_runners(
       uart_ier: shared_uart_ier,
       uart_lcr: shared_uart_lcr,
       mtime: shared_mtime,
+      mcycle: 0U.to_uint64(),
+      minstret: 0U.to_uint64(),
       clint_msip: shared_msip,
       all_mtimecmp: shared_mtimecmp,
       plic_regs: shared_plic,

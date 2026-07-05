@@ -972,12 +972,16 @@ fn Runner::read_csr_visible(self : Runner, csr : Int) -> UInt64 {
   // Keep that visibility rule centralized so instruction handlers and probe
   // reporting observe the same value Linux would read.
   match csr {
-    CSR_CYCLE => self.clint_mtime()
+    CSR_CYCLE => self.mcycle
+    CSR_MCYCLE => self.mcycle
     CSR_TIME => self.clint_mtime()
-    CSR_INSTRET => self.clint_mtime()
-    CSR_CYCLEH => self.clint_mtime() >> 32
+    CSR_INSTRET => self.minstret
+    CSR_MINSTRET => self.minstret
+    CSR_CYCLEH => self.mcycle >> 32
+    CSR_MCYCLEH => self.mcycle >> 32
     CSR_TIMEH => self.clint_mtime() >> 32
-    CSR_INSTRETH => self.clint_mtime() >> 32
+    CSR_INSTRETH => self.minstret >> 32
+    CSR_MINSTRETH => self.minstret >> 32
     CSR_FFLAGS => self.read_fcsr() & FCSR_FFLAGS_MASK
     CSR_FRM => (self.read_fcsr() & FCSR_FRM_MASK) >> FCSR_FRM_SHIFT
     CSR_FCSR => self.read_fcsr()
@@ -994,6 +998,8 @@ fn Runner::read_csr_visible(self : Runner, csr : Int) -> UInt64 {
     CSR_MIDELEG => legalize_mideleg_csr(self.cpu.read_csr(CSR_MIDELEG))
     CSR_MCOUNTEREN => legalize_counteren_csr(self.cpu.read_csr(CSR_MCOUNTEREN))
     CSR_SCOUNTEREN => legalize_counteren_csr(self.cpu.read_csr(CSR_SCOUNTEREN))
+    CSR_MCOUNTINHIBIT =>
+      legalize_mcountinhibit_csr(self.cpu.read_csr(CSR_MCOUNTINHIBIT))
     CSR_MENVCFG | CSR_SENVCFG => legalize_envcfg_csr(self.cpu.read_csr(csr))
     CSR_PMPCFG0 | CSR_PMPADDR0 => legalize_pmp_csr(self.cpu.read_csr(csr))
     CSR_MIP => legalize_mip_csr(self.cpu.read_csr(CSR_MIP))
@@ -1061,6 +1067,14 @@ fn legalize_counteren_csr(value : UInt64) -> UInt64 {
   // are WARL read-only zero because the corresponding hpmcounter CSRs are not
   // implemented.
   value & COUNTEREN_WRITABLE_MASK
+}
+
+///|
+fn legalize_mcountinhibit_csr(value : UInt64) -> UInt64 {
+  // The profile exposes mcycle and minstret, but not HPM counters. mtime is a
+  // platform timer and is explicitly outside the mcountinhibit mechanism, so
+  // only CY and IR are writable here.
+  value & MCOUNTINHIBIT_WRITABLE_MASK
 }
 
 ///|
@@ -1149,6 +1163,16 @@ fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
     CSR_MIDELEG => self.cpu.write_csr(csr, legalize_mideleg_csr(value))
     CSR_MCOUNTEREN | CSR_SCOUNTEREN =>
       self.cpu.write_csr(csr, legalize_counteren_csr(value))
+    CSR_MCOUNTINHIBIT =>
+      self.cpu.write_csr(csr, legalize_mcountinhibit_csr(value))
+    CSR_MCYCLE => self.mcycle = value
+    CSR_MINSTRET => self.minstret = value
+    CSR_MCYCLEH =>
+      self.mcycle = (self.mcycle & 0xffffffffU.to_uint64()) |
+        ((value & 0xffffffffU.to_uint64()) << 32)
+    CSR_MINSTRETH =>
+      self.minstret = (self.minstret & 0xffffffffU.to_uint64()) |
+        ((value & 0xffffffffU.to_uint64()) << 32)
     CSR_MENVCFG | CSR_SENVCFG =>
       self.cpu.write_csr(csr, legalize_envcfg_csr(value))
     CSR_PMPCFG0 | CSR_PMPADDR0 =>
@@ -1238,6 +1262,14 @@ fn counter_csr_enable_bit(csr : Int) -> UInt64? {
 }
 
 ///|
+fn machine_counter_high_csr(csr : Int) -> Bool {
+  match csr {
+    CSR_MCYCLEH | CSR_MINSTRETH => true
+    _ => false
+  }
+}
+
+///|
 fn Runner::counter_csr_accessible(self : Runner, csr : Int) -> Bool {
   let bit = match counter_csr_enable_bit(csr) {
     Some(bit) => bit
@@ -1300,7 +1332,8 @@ fn Runner::csr_extension_state_accessible(self : Runner, csr : Int) -> Bool {
 fn Runner::read_csr_checked(self : Runner, csr : Int) -> UInt64? {
   if self.xlen_bits() == XLEN_64 {
     match csr {
-      CSR_CYCLEH | CSR_TIMEH | CSR_INSTRETH => return None
+      CSR_CYCLEH | CSR_TIMEH | CSR_INSTRETH | CSR_MCYCLEH | CSR_MINSTRETH =>
+        return None
       _ => ()
     }
   }
@@ -1350,6 +1383,9 @@ fn Runner::execute_csr_read_write_checked(
     0U.to_uint64()
   }
   if should_write {
+    if self.xlen_bits() == XLEN_64 && machine_counter_high_csr(csr) {
+      return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+    }
     if !self.csr_privilege_accessible(csr) ||
       !self.csr_tvm_accessible(csr) ||
       !self.csr_extension_state_accessible(csr) ||
@@ -1730,7 +1766,30 @@ fn Runner::decode_cached(
 }
 
 ///|
+fn Runner::increment_cycle_counter(self : Runner) -> Unit {
+  // mcycle is an architectural counter, not the CLINT timer. It advances for
+  // each interpreter step unless machine software has inhibited CY.
+  if (self.read_csr_visible(CSR_MCOUNTINHIBIT) & MCOUNTINHIBIT_CY_BIT) ==
+    0U.to_uint64() {
+    self.mcycle = self.mcycle + 1U.to_uint64()
+  }
+}
+
+///|
+fn Runner::increment_instret_counter(self : Runner, inhibited : Bool) -> Unit {
+  // minstret counts instructions that retire. Synchronous traps return before
+  // this helper is called, while xRET/WFI and ordinary successful instructions
+  // do retire and therefore use this path. The inhibit bit is sampled before
+  // execution so writes to mcountinhibit take effect after the writing
+  // instruction has otherwise completed.
+  if !inhibited {
+    self.minstret = self.minstret + 1U.to_uint64()
+  }
+}
+
+///|
 pub fn Runner::step(self : Runner) -> StepResult {
+  self.increment_cycle_counter()
   // Advance CLINT mtime and update MIP.MTIP.
   self.update_timer()
   // Deliver pending interrupts before executing the next instruction. This
@@ -1758,7 +1817,11 @@ pub fn Runner::step(self : Runner) -> StepResult {
     ) {
     return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
   }
-  match instruction {
+  let instret_inhibited_before_execute = (
+      self.read_csr_visible(CSR_MCOUNTINHIBIT) & MCOUNTINHIBIT_IR_BIT
+    ) !=
+    0U.to_uint64()
+  let result = match instruction {
     // The central dispatcher should stay boring: group by architectural family
     // and delegate complicated behavior to focused helpers.
     Fence => {
@@ -2251,6 +2314,11 @@ pub fn Runner::step(self : Runner) -> StepResult {
     Sret => self.execute_system(instruction, current_pc, next_pc, raw)
     Unknown(_) => self.execute_system(instruction, current_pc, next_pc, raw)
   }
+  match result {
+    Running => self.increment_instret_counter(instret_inhibited_before_execute)
+    _ => ()
+  }
+  result
 }
 
 ///|

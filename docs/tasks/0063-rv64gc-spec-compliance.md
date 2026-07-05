@@ -132,6 +132,12 @@ official coverage improve.
   `mcounteren` and `scounteren` now expose only the implemented base counter
   enables CY/TM/IR (`0x7`); HPM counter enables are read-only zero because the
   corresponding counter CSRs are absent.
+  `mcountinhibit` now controls the exposed architectural counters: CY inhibits
+  `cycle`, IR inhibits `instret`, HPM inhibit bits are read-only zero because
+  no HPM counters are modeled, and `time` continues to reflect CLINT `mtime`
+  because the privileged spec excludes `mtime` from mcountinhibit. The
+  unprivileged `cycle` and `instret` CSRs now shadow writable machine `mcycle`
+  and `minstret` state instead of aliasing CLINT `mtime`.
   `mie` now exposes only the modeled standard interrupt-enable bits
   MSI/MTI/MEI and SSI/STI/SEI (`0xaaa`), while `mip` readback is masked to the
   same implemented pending-bit surface. Writes to `mip` affect only the
@@ -388,6 +394,10 @@ official coverage improve.
 - `mcounteren`/`scounteren` are now WARL-filtered to CY/TM/IR. The existing
   privilege-gate tests still cover access behavior, and a new readback
   regression pins HPM enable bits as read-only zero.
+- `mcountinhibit` is now modeled for the base architectural counters. Focused
+  coverage writes all ones, verifies only CY/IR read back, proves inhibited
+  `cycle` and `instret` stay stable, proves `time` still advances, and verifies
+  writable `mcycle`/`minstret` back the unprivileged counter shadows.
 - `mip`/`mie` no longer retain arbitrary interrupt bits. Focused regressions
   cover write-all-ones `mie` readback, `mip` writes limited to S-level pending
   bits, and the existing delegated `sie`/`sip` view behavior after masking.

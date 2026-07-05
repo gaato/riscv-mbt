@@ -134,6 +134,11 @@
 - `mcounteren` and `scounteren` now expose only CY/TM/IR (`0x7`) as writable
   WARL bits. HPM counter-enable bits read back as zero because the matching
   `hpmcounter` CSRs are not implemented in the current RV64GC profile.
+- `mcountinhibit` is now modeled for the exposed architectural counters. CY
+  and IR are writable, HPM inhibit bits read back as zero because HPM counters
+  are absent, and `time` remains tied to CLINT `mtime` rather than the inhibit
+  mechanism. The `cycle` and `instret` user-visible counters now shadow
+  writable machine `mcycle` and `minstret` state instead of aliasing `mtime`.
 - `mie` now exposes only the modeled standard interrupt-enable bits
   MSI/MTI/MEI and SSI/STI/SEI (`0xaaa`), while `mip` readback is masked to the
   same implemented pending-bit surface. CSR writes to `mip` affect only the
