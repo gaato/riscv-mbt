@@ -1594,6 +1594,97 @@ test "rv64fd fused multiply-add accrues invalid for infinity times zero" {
 }
 
 ///|
+test "rv64fd fused multiply-add nan operands canonicalize and flag signaling only" {
+  let csr_fcsr = 0x003
+  let flag_mask = 0x1fU.to_uint64()
+  let invalid_only = 0x10U.to_uint64()
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, exec_test_nan_box_single(0x7fc12345U))
+  runner.cpu.write_freg(2, exec_test_nan_box_single(0x7f800001U))
+  runner.cpu.write_freg(3, exec_test_nan_box_single(exec_test_f32_bits(1.0)))
+  runner.cpu.write_freg(4, exec_test_nan_box_single(exec_test_f32_bits(2.0)))
+  runner.cpu.write_freg(5, 0x7ff8000000000001UL)
+  runner.cpu.write_freg(6, 0x7ff0000000000001UL)
+  runner.cpu.write_freg(7, exec_test_f64_bits(1.0))
+  runner.cpu.write_freg(8, exec_test_f64_bits(2.0))
+  runner.load_program(
+    words_to_bytes([
+      encode_fp_r4(1, 0x0U, 4, 3, 0x0U, 10, 0x43U),
+      encode_csr(csr_fcsr, 0, 0x2U, 10),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(1, 0x0U, 4, 3, 0x0U, 11, 0x47U),
+      encode_csr(csr_fcsr, 0, 0x2U, 11),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(1, 0x0U, 4, 3, 0x0U, 12, 0x4bU),
+      encode_csr(csr_fcsr, 0, 0x2U, 12),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(1, 0x0U, 4, 3, 0x0U, 13, 0x4fU),
+      encode_csr(csr_fcsr, 0, 0x2U, 13),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(2, 0x0U, 4, 3, 0x0U, 14, 0x43U),
+      encode_csr(csr_fcsr, 0, 0x2U, 14),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(2, 0x0U, 4, 3, 0x0U, 15, 0x47U),
+      encode_csr(csr_fcsr, 0, 0x2U, 15),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(2, 0x0U, 4, 3, 0x0U, 16, 0x4bU),
+      encode_csr(csr_fcsr, 0, 0x2U, 16),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(2, 0x0U, 4, 3, 0x0U, 17, 0x4fU),
+      encode_csr(csr_fcsr, 0, 0x2U, 17),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(5, 0x1U, 8, 7, 0x0U, 18, 0x43U),
+      encode_csr(csr_fcsr, 0, 0x2U, 18),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(5, 0x1U, 8, 7, 0x0U, 19, 0x47U),
+      encode_csr(csr_fcsr, 0, 0x2U, 19),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(5, 0x1U, 8, 7, 0x0U, 20, 0x4bU),
+      encode_csr(csr_fcsr, 0, 0x2U, 20),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(5, 0x1U, 8, 7, 0x0U, 21, 0x4fU),
+      encode_csr(csr_fcsr, 0, 0x2U, 21),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(6, 0x1U, 8, 7, 0x0U, 22, 0x43U),
+      encode_csr(csr_fcsr, 0, 0x2U, 22),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(6, 0x1U, 8, 7, 0x0U, 23, 0x47U),
+      encode_csr(csr_fcsr, 0, 0x2U, 23),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(6, 0x1U, 8, 7, 0x0U, 24, 0x4bU),
+      encode_csr(csr_fcsr, 0, 0x2U, 24),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(6, 0x1U, 8, 7, 0x0U, 25, 0x4fU),
+      encode_csr(csr_fcsr, 0, 0x2U, 25),
+    ]),
+    0U,
+  )
+  match runner.run(47) {
+    Running => ()
+    _ => fail("expected fma NaN operand cases to retire")
+  }
+  // Quiet NaN addends use the ordinary canonical-NaN default result without
+  // flags. Signaling NaNs enter the invalid-operation path for every FMA
+  // opcode, but still write the same canonical NaN result.
+  for rd in 10..<=13 {
+    assert_eq(runner.read_freg_u64(rd), exec_test_nan_box_single(0x7fc00000U))
+    assert_eq(runner.read_reg_u64(rd) & flag_mask, 0U.to_uint64())
+  }
+  for rd in 14..<=17 {
+    assert_eq(runner.read_freg_u64(rd), exec_test_nan_box_single(0x7fc00000U))
+    assert_eq(runner.read_reg_u64(rd) & flag_mask, invalid_only)
+  }
+  for rd in 18..<=21 {
+    assert_eq(runner.read_freg_u64(rd), exec_test_f64_canonical_nan_bits())
+    assert_eq(runner.read_reg_u64(rd) & flag_mask, 0U.to_uint64())
+  }
+  for rd in 22..<=25 {
+    assert_eq(runner.read_freg_u64(rd), exec_test_f64_canonical_nan_bits())
+    assert_eq(runner.read_reg_u64(rd) & flag_mask, invalid_only)
+  }
+}
+
+///|
 test "rv64fd scalar arithmetic accrues invalid and divide by zero flags" {
   let csr_fcsr = 0x003
   let runner = make_runner(rv64fd_machine_config())

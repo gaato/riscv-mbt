@@ -110,7 +110,10 @@ official coverage improve.
   invalid-FMA path now handles the infinite-product plus opposite-infinity
   fused-add case by applying the effective term signs for each FMA opcode
   variant before accruing NV, with focused coverage for `FMADD`, `FMSUB`,
-  `FNMSUB`, and `FNMADD` in both S and D formats.
+  `FNMSUB`, and `FNMADD` in both S and D formats. The FMA family also now has
+  all-opcode quiet-vs-signaling NaN operand coverage in S and D: quiet NaN
+  addends produce canonical NaNs without flags, while signaling NaN addends
+  produce canonical NaNs with NV.
   Exact widening `FCVT.D.S` and exact
   RV32-width-to-double `FCVT.D.W[U]` now treat the otherwise unaffected `rm`
   field as architecturally significant for legal/reserved static and dynamic
@@ -368,11 +371,12 @@ official coverage improve.
   `FSUB.S/D`, and `FMUL.S/D` now have the same quiet-vs-signaling NaN operand
   regression coverage. `FSQRT.S/D` NaN operands now have matching coverage:
   quiet NaNs produce canonical NaNs without accruing NV, and signaling NaNs
-  produce canonical NaNs with NV. Fused multiply-add regressions also pin the
-  RISC-V-specific `FNMSUB`/`FNMADD` rule that only the product term is negated
-  before detecting opposite-infinity fused additions. Deeper NaN payload
-  behavior, broader flag corner cases, and full official-suite promotion remain
-  open.
+  produce canonical NaNs with NV. Fused multiply-add regressions now pin both
+  the RISC-V-specific `FNMSUB`/`FNMADD` rule that only the product term is
+  negated before detecting opposite-infinity fused additions, and the
+  all-opcode S/D quiet-vs-signaling NaN default-result split. Deeper NaN
+  payload behavior, broader flag corner cases, and full official-suite
+  promotion remain open.
 - `FADD.S`, `FSUB.S`, and `FMUL.S` now round their exact single-precision
   operand results through the emulator-side double-to-single helper. Legal
   static non-RNE modes are accepted where they change the result, reserved
