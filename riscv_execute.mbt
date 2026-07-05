@@ -1060,12 +1060,40 @@ fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
 }
 
 ///|
+fn counter_csr_enable_bit(csr : Int) -> UInt64? {
+  match csr {
+    CSR_CYCLE | CSR_CYCLEH => Some(1U.to_uint64())
+    CSR_TIME | CSR_TIMEH => Some(1U.to_uint64() << 1)
+    CSR_INSTRET | CSR_INSTRETH => Some(1U.to_uint64() << 2)
+    _ => None
+  }
+}
+
+///|
+fn Runner::counter_csr_accessible(self : Runner, csr : Int) -> Bool {
+  let bit = match counter_csr_enable_bit(csr) {
+    Some(bit) => bit
+    None => return true
+  }
+  match self.cpu.privilege {
+    Machine => true
+    Supervisor => (self.cpu.read_csr(CSR_MCOUNTEREN) & bit) != 0U.to_uint64()
+    User =>
+      (self.cpu.read_csr(CSR_MCOUNTEREN) & bit) != 0U.to_uint64() &&
+      (self.cpu.read_csr(CSR_SCOUNTEREN) & bit) != 0U.to_uint64()
+  }
+}
+
+///|
 fn Runner::read_csr_checked(self : Runner, csr : Int) -> UInt64? {
   if self.xlen_bits() == XLEN_64 {
     match csr {
       CSR_CYCLEH | CSR_TIMEH | CSR_INSTRETH => return None
       _ => ()
     }
+  }
+  if !self.counter_csr_accessible(csr) {
+    return None
   }
   if is_supported_csr(csr, self.config.extensions) {
     Some(self.read_csr_visible(csr))

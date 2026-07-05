@@ -1674,6 +1674,109 @@ test "rv32 counter high-half csrs are readable" {
 }
 
 ///|
+test "counter csr reads obey mcounteren and scounteren privilege gates" {
+  let read_time = encode_csr(0xC01, 0, 0x2U, 1)
+
+  let machine = make_runner(rv64_machine_config())
+  machine.load_program(words_to_bytes([read_time]), 0U)
+  match machine.step() {
+    Running => ()
+    _ => fail("machine mode counter read should not need counteren")
+  }
+
+  let supervisor_denied = make_runner(rv64_machine_config())
+  supervisor_denied.load_program(
+    words_to_bytes([
+      encode_i(24, 0, 0x0U, 5, 0x13U),
+      encode_csr(0x341, 5, 0x1U, 0),
+      encode_u(0x00001000U, 3, 0x37U),
+      encode_i(-2048, 3, 0x0U, 3, 0x13U),
+      encode_csr(0x300, 3, 0x1U, 0),
+      encode_mret(),
+      read_time,
+    ]),
+    0U,
+  )
+  match supervisor_denied.run(7) {
+    Trap(info) =>
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected supervisor counter read to trap without mcounteren")
+      }
+    _ => fail("expected supervisor counter read trap without mcounteren")
+  }
+
+  let supervisor_allowed = make_runner(rv64_machine_config())
+  supervisor_allowed.load_program(
+    words_to_bytes([
+      encode_i(2, 0, 0x0U, 2, 0x13U),
+      encode_csr(0x306, 2, 0x1U, 0),
+      encode_i(32, 0, 0x0U, 5, 0x13U),
+      encode_csr(0x341, 5, 0x1U, 0),
+      encode_u(0x00001000U, 3, 0x37U),
+      encode_i(-2048, 3, 0x0U, 3, 0x13U),
+      encode_csr(0x300, 3, 0x1U, 0),
+      encode_mret(),
+      read_time,
+    ]),
+    0U,
+  )
+  match supervisor_allowed.run(9) {
+    Running => ()
+    _ => fail("expected supervisor counter read with mcounteren")
+  }
+  match supervisor_allowed.privilege_mode() {
+    Supervisor => ()
+    _ => fail("expected supervisor mode after mret")
+  }
+
+  let user_denied_by_scounteren = make_runner(rv64_machine_config())
+  user_denied_by_scounteren.load_program(
+    words_to_bytes([
+      encode_i(2, 0, 0x0U, 2, 0x13U),
+      encode_csr(0x306, 2, 0x1U, 0),
+      encode_i(24, 0, 0x0U, 5, 0x13U),
+      encode_csr(0x341, 5, 0x1U, 0),
+      encode_csr(0x300, 0, 0x5U, 0),
+      encode_mret(),
+      read_time,
+    ]),
+    0U,
+  )
+  match user_denied_by_scounteren.run(7) {
+    Trap(info) =>
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected user counter read to trap without scounteren")
+      }
+    _ => fail("expected user counter read trap without scounteren")
+  }
+
+  let user_allowed = make_runner(rv64_machine_config())
+  user_allowed.load_program(
+    words_to_bytes([
+      encode_i(2, 0, 0x0U, 2, 0x13U),
+      encode_csr(0x306, 2, 0x1U, 0),
+      encode_csr(0x106, 2, 0x1U, 0),
+      encode_i(28, 0, 0x0U, 5, 0x13U),
+      encode_csr(0x341, 5, 0x1U, 0),
+      encode_csr(0x300, 0, 0x5U, 0),
+      encode_mret(),
+      read_time,
+    ]),
+    0U,
+  )
+  match user_allowed.run(8) {
+    Running => ()
+    _ => fail("expected user counter read with both counteren CSRs")
+  }
+  match user_allowed.privilege_mode() {
+    User => ()
+    _ => fail("expected user mode after mret")
+  }
+}
+
+///|
 test "unsupported csr access traps as illegal instruction" {
   let raw = encode_csr(0x7A0, 0, 0x2U, 1)
   let runner = make_runner(default_machine_config())
