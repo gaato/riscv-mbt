@@ -449,6 +449,10 @@ pub struct Runner {
   // cycle/instret independently.
   mut mcycle : UInt64
   mut minstret : UInt64
+  // raise_trap can still return Running when a trap vector exists. Keep a
+  // per-step marker so architectural trap entry is not mistaken for a retired
+  // guest instruction by Runner::step.
+  mut retire_suppressed : Bool
   clint_msip : Array[Bool] // [hart_id] = MSIP bit; shared across SMP harts
   all_mtimecmp : Array[UInt64] // [hart_id] = mtimecmp; shared across SMP harts
   plic_regs : Array[Byte] // flat PLIC register file (4 MB); shared across SMP harts
@@ -1440,6 +1444,7 @@ pub fn make_runner(config : MachineConfig) -> Runner {
     mtime: [0U.to_uint64()],
     mcycle: 0U.to_uint64(),
     minstret: 0U.to_uint64(),
+    retire_suppressed: false,
     clint_msip: Array::make(2, false),
     all_mtimecmp: Array::make(2, bit_not(0U.to_uint64())),
     plic_regs: if config.plic_base != 0U.to_uint64() {
@@ -1587,6 +1592,7 @@ pub fn make_smp_runners(
       mtime: shared_mtime,
       mcycle: 0U.to_uint64(),
       minstret: 0U.to_uint64(),
+      retire_suppressed: false,
       clint_msip: shared_msip,
       all_mtimecmp: shared_mtimecmp,
       plic_regs: shared_plic,

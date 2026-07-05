@@ -1130,6 +1130,10 @@ fn Runner::raise_trap(
   faulting_pc : UInt64,
   trap_value : UInt64,
 ) -> StepResult {
+  // Trap entry is architectural control flow, but the trapping or interrupted
+  // instruction does not retire. This matters when a nonzero tvec makes this
+  // helper return Running after jumping to the handler.
+  self.retire_suppressed = true
   let prior_privilege = self.cpu.privilege
   let target_privilege = self.trap_target_privilege(cause, prior_privilege)
   match target_privilege {

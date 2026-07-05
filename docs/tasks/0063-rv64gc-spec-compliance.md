@@ -322,7 +322,8 @@ official coverage improve.
   synchronous traps that do not retire into `instret`; machine-timer
   interrupts are also covered as between-instruction events that leave
   `instret` unchanged, and instruction-fetch faults are covered as pre-decode
-  traps that do not retire.
+  traps that do not retire. Trap-vector entry now also suppresses retirement
+  when the trap handler address is nonzero and `raise_trap` returns `Running`.
   RV32-only high-half counter CSRs are now filtered by the shared CSR support
   classifier on RV64: `cycleh`, `timeh`, `instreth`, `mcycleh`, and
   `minstreth` are readable where modeled for RV32 but absent from the RV64GC
@@ -875,7 +876,9 @@ official coverage improve.
   `instret`. Another regression verifies that a pending machine-timer
   interrupt enters the trap path before fetching the next instruction and does
   not increment `instret`. Instruction-fetch fault coverage also pins the
-  pre-decode fault path as non-retiring.
+  pre-decode fault path as non-retiring. A trap-vector regression verifies that
+  synchronous trap entry through nonzero `mtvec` is not counted as a retired
+  instruction even though execution continues at the handler.
 - RV32-only high-half counter CSR legality is now centralized in the CSR
   support classifier. Focused coverage keeps `cycleh`, `timeh`, and `instreth`
   readable on RV32, and verifies `cycleh`, `timeh`, `instreth`, `mcycleh`, and

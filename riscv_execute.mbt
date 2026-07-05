@@ -2221,6 +2221,7 @@ fn Runner::increment_instret_counter(self : Runner, inhibited : Bool) -> Unit {
 
 ///|
 pub fn Runner::step(self : Runner) -> StepResult {
+  self.retire_suppressed = false
   self.increment_cycle_counter()
   // Advance CLINT mtime and update MIP.MTIP.
   self.update_timer()
@@ -2751,7 +2752,10 @@ pub fn Runner::step(self : Runner) -> StepResult {
     Unknown(_) => self.execute_system(instruction, current_pc, next_pc, raw)
   }
   match result {
-    Running => self.increment_instret_counter(instret_inhibited_before_execute)
+    Running =>
+      if !self.retire_suppressed {
+        self.increment_instret_counter(instret_inhibited_before_execute)
+      }
     _ => ()
   }
   result
