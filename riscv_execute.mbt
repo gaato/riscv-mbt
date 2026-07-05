@@ -1168,6 +1168,8 @@ fn Runner::read_csr_visible(self : Runner, csr : Int) -> UInt64 {
     CSR_SSTATUS =>
       legalize_mstatus_csr(self.cpu.read_csr(CSR_MSTATUS), self.config.xlen) &
       SSTATUS_VISIBLE_MASK
+    CSR_MEPC | CSR_SEPC =>
+      visible_epc_csr(self.cpu.read_csr(csr), self.config.extensions)
     CSR_MEDELEG => legalize_medeleg_csr(self.cpu.read_csr(CSR_MEDELEG))
     CSR_MIDELEG => legalize_mideleg_csr(self.cpu.read_csr(CSR_MIDELEG))
     CSR_MCOUNTEREN => legalize_counteren_csr(self.cpu.read_csr(CSR_MCOUNTEREN))
@@ -1244,10 +1246,21 @@ fn legalize_trap_vector_csr(value : UInt64) -> UInt64 {
 
 ///|
 fn legalize_epc_csr(value : UInt64) -> UInt64 {
-  // mepc[0] and sepc[0] are architecturally hardwired to zero. Bit 1 remains
-  // representable for this RV64GC baseline because compressed instructions make
-  // IALIGN=16.
+  // mepc[0] and sepc[0] are architecturally hardwired to zero on writes.
+  // Bit 1 is a visibility rule, not a storage rule, and depends on IALIGN.
   value & bit_not(1U.to_uint64())
+}
+
+///|
+fn visible_epc_csr(value : UInt64, extensions : UInt64) -> UInt64 {
+  let base = legalize_epc_csr(value)
+  if (extensions & MISA_EXT_C) == 0U.to_uint64() {
+    // Without C, IALIGN is 32 bits. The privileged spec requires epc[1] to
+    // appear as zero on CSR reads and on the implicit xRET read.
+    base & bit_not(2U.to_uint64())
+  } else {
+    base
+  }
 }
 
 ///|
@@ -1800,7 +1813,10 @@ fn Runner::execute_mret(
   let mstatus = self.cpu.read_csr(CSR_MSTATUS)
   self.cpu.write_csr(CSR_MSTATUS, mstatus_after_mret(mstatus))
   self.cpu.privilege = mstatus_mpp(mstatus)
-  self.cpu.pc = legalize_epc_csr(self.cpu.read_csr(CSR_MEPC))
+  self.cpu.pc = visible_epc_csr(
+    self.cpu.read_csr(CSR_MEPC),
+    self.config.extensions,
+  )
   Running
 }
 
@@ -1824,7 +1840,10 @@ fn Runner::execute_sret(
   }
   self.cpu.write_csr(CSR_MSTATUS, mstatus_after_sret(mstatus))
   self.cpu.privilege = mstatus_spp(mstatus)
-  self.cpu.pc = legalize_epc_csr(self.cpu.read_csr(CSR_SEPC))
+  self.cpu.pc = visible_epc_csr(
+    self.cpu.read_csr(CSR_SEPC),
+    self.config.extensions,
+  )
   Running
 }
 

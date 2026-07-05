@@ -116,6 +116,25 @@ fn wb_encode_j(imm : Int, rd : Int, opcode : UInt) -> UInt {
 }
 
 ///|
+fn wb_encode_csr(csr : Int, rs1 : Int, funct3 : UInt, rd : Int) -> UInt {
+  (csr.reinterpret_as_uint() << 20) |
+  (rs1.reinterpret_as_uint() << 15) |
+  (funct3 << 12) |
+  (rd.reinterpret_as_uint() << 7) |
+  0x73U
+}
+
+///|
+fn wb_encode_mret() -> UInt {
+  0x30200073U
+}
+
+///|
+fn wb_encode_sret() -> UInt {
+  0x10200073U
+}
+
+///|
 test "compressed instruction traps when C extension is not advertised" {
   let runner = make_runner(wb_rv64_without_c_machine_config())
   let raw = 0x0405U // c.addi x8, 1
@@ -161,6 +180,60 @@ test "non-C profile does not trap untaken branch to halfword target" {
     _ => fail("expected untaken branch to ignore misaligned target")
   }
   assert_eq(runner.pc_u64(), 4U.to_uint64())
+}
+
+///|
+test "epc bit one visibility follows active ialign" {
+  let with_c = make_runner(rv64_machine_config())
+  with_c.cpu.write_csr(CSR_MEPC, 14U.to_uint64())
+  with_c.load_program(wb_word_program(wb_encode_csr(CSR_MEPC, 0, 0x2U, 1)), 0U)
+  match with_c.step() {
+    Running => ()
+    _ => fail("expected rv64c mepc read to run")
+  }
+  assert_eq(with_c.read_reg_u64(1), 14U.to_uint64())
+
+  let no_c_read = make_runner(wb_rv64_without_c_machine_config())
+  no_c_read.cpu.write_csr(CSR_MEPC, 14U.to_uint64())
+  no_c_read.load_program(
+    wb_word_program(wb_encode_csr(CSR_MEPC, 0, 0x2U, 1)),
+    0U,
+  )
+  match no_c_read.step() {
+    Running => ()
+    _ => fail("expected non-c mepc read to run")
+  }
+  assert_eq(no_c_read.read_reg_u64(1), 12U.to_uint64())
+
+  let no_c_sepc_read = make_runner(wb_rv64_without_c_machine_config())
+  no_c_sepc_read.cpu.write_csr(CSR_SEPC, 14U.to_uint64())
+  no_c_sepc_read.load_program(
+    wb_word_program(wb_encode_csr(CSR_SEPC, 0, 0x2U, 1)),
+    0U,
+  )
+  match no_c_sepc_read.step() {
+    Running => ()
+    _ => fail("expected non-c sepc read to run")
+  }
+  assert_eq(no_c_sepc_read.read_reg_u64(1), 12U.to_uint64())
+
+  let no_c_mret = make_runner(wb_rv64_without_c_machine_config())
+  no_c_mret.cpu.write_csr(CSR_MEPC, 14U.to_uint64())
+  no_c_mret.load_program(wb_word_program(wb_encode_mret()), 0U)
+  match no_c_mret.step() {
+    Running => ()
+    _ => fail("expected non-c mret to run")
+  }
+  assert_eq(no_c_mret.pc_u64(), 12U.to_uint64())
+
+  let no_c_sret = make_runner(wb_rv64_without_c_machine_config())
+  no_c_sret.cpu.write_csr(CSR_SEPC, 14U.to_uint64())
+  no_c_sret.load_program(wb_word_program(wb_encode_sret()), 0U)
+  match no_c_sret.step() {
+    Running => ()
+    _ => fail("expected non-c sret to run")
+  }
+  assert_eq(no_c_sret.pc_u64(), 12U.to_uint64())
 }
 
 ///|

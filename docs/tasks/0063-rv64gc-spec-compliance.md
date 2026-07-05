@@ -212,8 +212,9 @@ official coverage improve.
   modes cannot write higher-privilege CSRs by avoiding the read. `mtvec` and
   `stvec` writes now normalize to the modeled WARL surface: 4-byte-aligned BASE
   plus Direct or Vectored MODE only, with vectored supervisor-timer dispatch
-  covered by a focused regression. `mepc` and `sepc` now clear bit 0 on visible
-  writes and trap returns, preserving the RV64GC/IALIGN=16 ability to hold bit 1.
+  covered by a focused regression. `mepc` and `sepc` now clear bit 0 on writes,
+  preserve bit 1 for RV64GC/IALIGN=16, and mask bit 1 on visible reads plus
+  xRET target reads when `MISA.C` is absent and IALIGN=32.
   RV64 `mstatus.SXL`/`mstatus.UXL` and `sstatus.UXL` now expose the fixed
   SXLEN=UXLEN=64 profile and normalize writes back to that value.
   The endian-control fields now match the emulator's little-endian-only memory
@@ -577,10 +578,10 @@ official coverage improve.
   for Vectored, maps Direct and reserved MODE values to MODE=0, and keeps
   vectored interrupt dispatch covered with a delegated supervisor-timer
   regression.
-- EPC CSR writes now normalize `mepc[0]` and `sepc[0]` to zero, and `MRET`/`SRET`
-  also mask bit 0 when consuming internally prepared EPC values. Focused
-  regressions cover visible CSR writes plus return paths while leaving bit 1
-  representable for the compressed-instruction baseline.
+- EPC CSR writes now normalize `mepc[0]` and `sepc[0]` to zero, and EPC
+  visibility follows the active IALIGN. The compressed baseline keeps bit 1
+  visible and usable as a return target, while non-`C` profiles mask bit 1 on
+  CSR reads and on the implicit `MRET`/`SRET` EPC read.
 - `mstatus.MPP` now treats reserved privilege encoding 2 as a WARL value and
   normalizes it to U-mode on visible `mstatus`/`sstatus` writes. A focused CSR
   regression covers readback of the normalized field.
