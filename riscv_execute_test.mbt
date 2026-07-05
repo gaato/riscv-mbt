@@ -6374,6 +6374,40 @@ test "interrupts do not retire into instret" {
 }
 
 ///|
+test "interrupt trap-vector entry does not retire into instret" {
+  let base = 0x80000000U.to_uint64()
+  let instret = 0xC02
+  let runner = make_runner(virt_machine_config())
+  runner.cpu.write_csr(0x300, 0x8U.to_uint64()) // mstatus.MIE
+  runner.cpu.write_csr(0x304, 0x80U.to_uint64()) // mie.MTIE
+  runner.cpu.write_csr(0x305, base + 8U.to_uint64()) // mtvec direct
+  runner.all_mtimecmp[0] = 0U.to_uint64()
+  runner.load_program_u64(
+    words_to_bytes([
+      encode_i(1, 0, 0x0U, 1, 0x13U),
+      encode_i(0, 0, 0x0U, 0, 0x13U),
+      encode_csr(instret, 0, 0x2U, 3),
+    ]),
+    base,
+  )
+  match runner.step() {
+    Running => ()
+    _ => fail("expected interrupt to enter mtvec")
+  }
+  assert_eq(runner.pc_u64(), base + 8U.to_uint64())
+  assert_eq(runner.read_reg_u64(1), 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(instret), 0U.to_uint64())
+  match runner.step() {
+    Running => ()
+    _ => fail("expected interrupt handler instruction to retire")
+  }
+  assert_eq(runner.read_reg_u64(3), 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(instret), 1U.to_uint64())
+  assert_eq(runner.read_csr_u64(0x341), base)
+  assert_eq(runner.read_csr_u64(0x342), (1U.to_uint64() << 63) | 7U.to_uint64())
+}
+
+///|
 test "instruction fetch faults do not retire into instret" {
   let fault_pc = 0x10000U.to_uint64()
   let instret = 0xC02
