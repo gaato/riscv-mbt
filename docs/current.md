@@ -110,6 +110,9 @@
   execute and reserved forms trap instead of being silently accepted. Exact
   widening `FCVT.D.S` also now accrues NV for signaling single-precision NaNs
   before writing the canonical double-precision NaN result.
+  Float-to-integer conversion regressions now also pin exact RNE invalid
+  boundaries for `FCVT.L.D` at `+2^63`, `FCVT.LU.D` at `+2^64`, and RNE
+  NaN/infinity clipping before any host integer cast.
   FP-capable runner profiles now start with `mstatus.FS=Initial`, and scalar
   F/D load/store plus arithmetic execution now traps as illegal when software
   sets `mstatus.FS=Off`. FP register and `fcsr` writes now mark FS Dirty, so
@@ -228,6 +231,9 @@
 - `mconfigptr` is now exposed as the mandatory read-only machine information
   CSR and returns zero, indicating that this platform has no standard
   configuration data structure and relies on the existing device-tree path.
+  Read-only write-trap coverage now samples the full exposed baseline machine
+  information set: `misa`, `mvendorid`, `marchid`, `mimpid`, `mhartid`,
+  `mconfigptr`, plus the read-only `time` counter.
 - LR/SC reservations are now shared across SMP runners as per-hart physical
   byte ranges. Normal stores, successful SC stores, and AMO writes invalidate
   every overlapping reservation, so another hart's store to the same word or to

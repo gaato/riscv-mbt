@@ -76,8 +76,10 @@ official coverage improve.
   while C/RV64GC profiles allow them under IALIGN=16.
 - `F/D`: `riscv_fp.mbt` now covers instruction availability, NaN-boxing,
   comparisons, min/max, FMA availability, conversion clipping, integer-to-float
-  rounding modes, and the first NV/DZ arithmetic flags. Exact widening
-  `FCVT.D.S` and exact
+  rounding modes, and the first NV/DZ arithmetic flags. The conversion
+  regressions now include exact RNE invalid boundaries for `FCVT.L.D` at
+  `+2^63`, `FCVT.LU.D` at `+2^64`, and RNE NaN/infinity clipping before any
+  host integer cast. Exact widening `FCVT.D.S` and exact
   RV32-width-to-double `FCVT.D.W[U]` now treat the otherwise unaffected `rm`
   field as architecturally significant for legal/reserved static and dynamic
   encodings. `mstatus.FS` is now part of the execution contract: FP-capable
@@ -178,6 +180,9 @@ official coverage improve.
   `mconfigptr` is now exposed as the mandatory read-only machine information
   CSR and returns zero, indicating that this platform has no standard
   configuration data structure and relies on the existing device-tree path.
+  The read-only machine-information CSR trap coverage now samples the whole
+  exposed baseline set: `misa`, `mvendorid`, `marchid`, `mimpid`, `mhartid`,
+  `mconfigptr`, and the read-only `time` counter.
   `satp` writes with unsupported MODE values now preserve the previous CSR
   value, matching the privileged WARL rule that the whole write has no effect.
   `mstatus.MPP` now rejects the reserved privilege encoding 2 at the CSR write

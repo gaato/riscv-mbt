@@ -2431,6 +2431,58 @@ test "rv64fd float to long conversions clip invalid inputs and set flags" {
 }
 
 ///|
+test "rv64fd long conversions clip exact upper rne boundaries" {
+  let csr_fcsr = 0x003
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, 0x43e0000000000000UL) // +2^63, first invalid signed-long result.
+  runner.cpu.write_freg(2, 0x43f0000000000000UL) // +2^64, first invalid unsigned-long result.
+  runner.load_program(
+    words_to_bytes([
+      encode_fcvt_l_d(1, 0x0U, 10),
+      encode_csr(csr_fcsr, 0, 0x2U, 11),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_lu_d(2, 0x0U, 12),
+      encode_csr(csr_fcsr, 0, 0x2U, 13),
+    ]),
+    0U,
+  )
+  match runner.run(5) {
+    Running => ()
+    _ => fail("expected exact upper-bound fcvt long path to run")
+  }
+  assert_eq(runner.read_reg_u64(10), 0x7fffffffffffffffUL)
+  assert_eq(runner.read_reg_u64(11) & 0x10U.to_uint64(), 0x10U.to_uint64())
+  assert_eq(runner.read_reg_u64(12), 0xffffffffffffffffUL)
+  assert_eq(runner.read_reg_u64(13) & 0x10U.to_uint64(), 0x10U.to_uint64())
+}
+
+///|
+test "rv64fd rne integer conversions clip nan and infinity before host integer casts" {
+  let csr_fcsr = 0x003
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, exec_test_nan_box_single(0x7fc00000U))
+  runner.cpu.write_freg(2, 0x7ff0000000000000UL)
+  runner.load_program(
+    words_to_bytes([
+      encode_fcvt_w_s(1, 0x0U, 10),
+      encode_csr(csr_fcsr, 0, 0x2U, 11),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_lu_d(2, 0x0U, 12),
+      encode_csr(csr_fcsr, 0, 0x2U, 13),
+    ]),
+    0U,
+  )
+  match runner.run(5) {
+    Running => ()
+    _ => fail("expected RNE invalid fcvt inputs to clip without trapping")
+  }
+  assert_eq(runner.read_reg_u64(10), 0x7fffffffU.to_uint64())
+  assert_eq(runner.read_reg_u64(11) & 0x10U.to_uint64(), 0x10U.to_uint64())
+  assert_eq(runner.read_reg_u64(12), 0xffffffffffffffffUL)
+  assert_eq(runner.read_reg_u64(13) & 0x10U.to_uint64(), 0x10U.to_uint64())
+}
+
+///|
 test "rv64fd flw boxes single values and arithmetic treats unboxed input as canonical nan" {
   let runner = make_runner(rv64fd_machine_config())
   runner.load_program(words_to_bytes([exec_test_f32_bits(1.0)]), 0x100U)
@@ -4444,44 +4496,32 @@ test "unsupported csr access traps as illegal instruction" {
 
 ///|
 test "writes to read-only csrs trap as illegal instruction" {
-  let runner = make_runner(default_machine_config())
-  let misa_raw = encode_csr(0x301, 1, 0x1U, 0)
-  runner.load_program(words_to_bytes([misa_raw]), 0U)
-  match runner.step() {
-    Trap(info) => {
-      match info.cause {
-        IllegalInstruction => ()
-        _ => fail("expected illegal instruction cause")
+  // The CSR address encoding marks these baseline CSRs read-only. Any CSR
+  // instruction form that would write them must trap, even when the backing
+  // value is otherwise readable and useful to firmware.
+  let read_only_csrs = [
+    0x301, // misa
+     0xF11, // mvendorid
+     0xF12, // marchid
+     0xF13, // mimpid
+     0xF14, // mhartid
+     0xF15, // mconfigptr
+     0xC01, // time
+  ]
+  for csr in read_only_csrs {
+    let raw = encode_csr(csr, 1, 0x1U, 0)
+    let runner = make_runner(default_machine_config())
+    runner.load_program(words_to_bytes([raw]), 0U)
+    match runner.step() {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected illegal instruction cause")
+        }
+        assert_eq(info.trap_value, raw.to_uint64())
       }
-      assert_eq(info.trap_value, misa_raw.to_uint64())
+      _ => fail("expected illegal instruction trap")
     }
-    _ => fail("expected illegal instruction trap")
-  }
-  let mhartid_raw = encode_csr(0xF14, 1, 0x1U, 0)
-  let runner = make_runner(default_machine_config())
-  runner.load_program(words_to_bytes([mhartid_raw]), 0U)
-  match runner.step() {
-    Trap(info) => {
-      match info.cause {
-        IllegalInstruction => ()
-        _ => fail("expected illegal instruction cause")
-      }
-      assert_eq(info.trap_value, mhartid_raw.to_uint64())
-    }
-    _ => fail("expected illegal instruction trap")
-  }
-  let time_raw = encode_csr(0xC01, 1, 0x1U, 0)
-  let runner = make_runner(default_machine_config())
-  runner.load_program(words_to_bytes([time_raw]), 0U)
-  match runner.step() {
-    Trap(info) => {
-      match info.cause {
-        IllegalInstruction => ()
-        _ => fail("expected illegal instruction cause")
-      }
-      assert_eq(info.trap_value, time_raw.to_uint64())
-    }
-    _ => fail("expected illegal instruction trap")
   }
 }
 
