@@ -121,6 +121,10 @@
   mode to `mstatus`, preventing lower privilege modes from writing
   higher-privilege CSRs just because the instruction form avoids reading the old
   CSR value.
+- Trap-vector CSR writes now normalize `mtvec` and `stvec` to the modeled WARL
+  surface: aligned BASE plus Direct or Vectored MODE only. A delegated
+  supervisor-timer regression covers Vectored `stvec` dispatch to
+  `BASE + 4*cause`.
 
 ## Known Blockers
 

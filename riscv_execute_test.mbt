@@ -104,12 +104,15 @@ fn exec_test_setup_basic_sv39_map(runner : Runner) -> Unit {
 }
 
 ///|
-fn exec_test_supervisor_interrupt_program(interrupt_mask : Int) -> Bytes {
+fn exec_test_supervisor_interrupt_program(
+  interrupt_mask : Int,
+  stvec_value : Int,
+) -> Bytes {
   // Set up one delegated S-mode interrupt, return to S-mode at a body
   // instruction, and let the interrupt redirect to the stvec handler before
   // that body instruction can run.
   words_to_bytes([
-    encode_i(48, 0, 0x0U, 6, 0x13U),
+    encode_i(stvec_value, 0, 0x0U, 6, 0x13U),
     encode_csr(0x105, 6, 0x1U, 0),
     encode_i(interrupt_mask, 0, 0x0U, 1, 0x13U),
     encode_csr(0x303, 1, 0x1U, 0),
@@ -2700,7 +2703,7 @@ test "stvec direct target masks low bits during delegated supervisor trap entry"
 ///|
 test "delegated supervisor timer interrupt traps to stvec from supervisor mode" {
   let runner = make_runner(rv64_machine_config())
-  runner.load_program(exec_test_supervisor_interrupt_program(32), 0U)
+  runner.load_program(exec_test_supervisor_interrupt_program(32, 48), 0U)
   let expected_scause = (1U.to_uint64() << 63) | 5U.to_uint64()
   match runner.run(14) {
     Running => ()
@@ -2719,9 +2722,27 @@ test "delegated supervisor timer interrupt traps to stvec from supervisor mode" 
 }
 
 ///|
+test "delegated supervisor timer interrupt honors stvec vectored mode" {
+  let runner = make_runner(rv64_machine_config())
+  // BASE=28 with MODE=1 vectors supervisor timer cause 5 to byte 48, the same
+  // handler slot used by the direct-mode helper path.
+  runner.load_program(exec_test_supervisor_interrupt_program(32, 29), 0U)
+  let expected_scause = (1U.to_uint64() << 63) | 5U.to_uint64()
+  match runner.run(14) {
+    Running => ()
+    _ => fail("expected delegated supervisor timer vector handler to run")
+  }
+  assert_eq(runner.read_reg_u64(7), expected_scause)
+  assert_eq(runner.read_reg_u64(8), 1U.to_uint64())
+  assert_eq(runner.read_reg_u64(10), 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(0x105), 29U.to_uint64())
+  assert_eq(runner.pc_u64(), 56U.to_uint64())
+}
+
+///|
 test "delegated supervisor external interrupt traps to stvec from supervisor mode" {
   let runner = make_runner(rv64_machine_config())
-  runner.load_program(exec_test_supervisor_interrupt_program(512), 0U)
+  runner.load_program(exec_test_supervisor_interrupt_program(512, 48), 0U)
   let expected_scause = (1U.to_uint64() << 63) | 9U.to_uint64()
   match runner.run(14) {
     Running => ()
@@ -3082,13 +3103,36 @@ test "csr instruction families enforce the supported surface and no-write semant
   assert_eq(runner.read_reg(3), 5U)
   assert_eq(runner.read_reg(4), 5U)
   assert_eq(runner.read_reg(5), 5U)
-  assert_eq(runner.read_reg(6), 7U)
-  assert_eq(runner.read_reg(7), 7U)
+  assert_eq(runner.read_reg(6), 4U)
+  assert_eq(runner.read_reg(7), 4U)
   assert_eq(runner.read_reg(8), 0x40141105U)
   assert_eq(runner.read_reg(9), 0x40141105U)
   assert_eq(runner.read_reg(10), 0x40141105U)
   assert_eq(runner.read_reg(11), 0x40141105U)
-  assert_eq(runner.read_csr(0x305), 6U)
+  assert_eq(runner.read_csr(0x305), 4U)
+}
+
+///|
+test "trap vector csrs legalize base alignment and reserved modes" {
+  let program = words_to_bytes([
+    encode_i(7, 0, 0x0U, 1, 0x13U),
+    encode_csr(0x305, 1, 0x1U, 2),
+    encode_csr(0x305, 0, 0x2U, 3),
+    encode_csr(0x105, 1, 0x1U, 4),
+    encode_csr(0x105, 0, 0x2U, 5),
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(5) {
+    Running => ()
+    _ => fail("expected trap-vector csr writes to run")
+  }
+  assert_eq(runner.read_reg(2), 0U)
+  assert_eq(runner.read_reg(3), 4U)
+  assert_eq(runner.read_reg(4), 0U)
+  assert_eq(runner.read_reg(5), 4U)
+  assert_eq(runner.read_csr(0x305), 4U)
+  assert_eq(runner.read_csr(0x105), 4U)
 }
 
 ///|

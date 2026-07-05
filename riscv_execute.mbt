@@ -994,11 +994,27 @@ fn Runner::read_csr_visible(self : Runner, csr : Int) -> UInt64 {
 }
 
 ///|
+fn legalize_trap_vector_csr(value : UInt64) -> UInt64 {
+  // mtvec/stvec are WARL. The modeled platform supports the standard Direct
+  // and Vectored modes and requires the architectural 4-byte BASE alignment.
+  // Reserved MODE values are normalized to Direct while preserving BASE.
+  let base = value & bit_not(0x3U.to_uint64())
+  let mode = value & 0x3U.to_uint64()
+  if mode == 1U.to_uint64() {
+    base | mode
+  } else {
+    base
+  }
+}
+
+///|
 fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
   // Writes mirror read_csr_visible: aliases update their backing CSR and WARL
   // fields normalize at the write boundary. Avoid duplicating these rules in
   // individual CSR instruction cases.
   match csr {
+    CSR_MTVEC | CSR_STVEC =>
+      self.cpu.write_csr(csr, legalize_trap_vector_csr(value))
     CSR_FFLAGS => {
       let fcsr = self.read_fcsr()
       self.write_fcsr(

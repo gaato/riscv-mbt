@@ -104,10 +104,12 @@ official coverage improve.
   `fcsr`/`fflags` views, and explicit read/write suppression for the standard
   CSR instruction forms are covered by focused execute tests. The write-side
   coverage includes suppressed-read `CSRRW rd=x0` forms, so lower privilege
-  modes cannot write higher-privilege CSRs by avoiding the read. The remaining
-  audit is a spec pass over WARL behavior, read-only/write-ignored fields, and
-  privilege-visible side effects for every CSR currently exposed by
-  `riscv_decode.mbt`.
+  modes cannot write higher-privilege CSRs by avoiding the read. `mtvec` and
+  `stvec` writes now normalize to the modeled WARL surface: 4-byte-aligned BASE
+  plus Direct or Vectored MODE only, with vectored supervisor-timer dispatch
+  covered by a focused regression. The remaining audit is a spec pass over WARL
+  behavior, read-only/write-ignored fields, and privilege-visible side effects
+  for every CSR currently exposed by `riscv_decode.mbt`.
 - `Zifencei`: `FENCE.I` decodes, flushes the emulator decode cache, official
   `fence_i` rows are in the gating subset, and
   `riscv_execute_test.mbt` now covers same-hart self-modified instruction
@@ -295,3 +297,8 @@ official coverage improve.
   suppresses the CSR read. This closes the `CSRRW rd=x0` hole where a lower
   privilege mode could otherwise write a higher-privilege CSR because no read
   was attempted first.
+- Trap-vector CSR writes now normalize `mtvec` and `stvec` at the visible CSR
+  boundary. The modeled WARL surface preserves the aligned BASE, stores MODE=1
+  for Vectored, maps Direct and reserved MODE values to MODE=0, and keeps
+  vectored interrupt dispatch covered with a delegated supervisor-timer
+  regression.
