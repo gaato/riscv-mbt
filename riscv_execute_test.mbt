@@ -561,6 +561,25 @@ test "rv64f move path preserves raw single-precision bits" {
 }
 
 ///|
+test "rv64fd single move transfer boxes in and ignores upper bits out" {
+  let csr_fcsr = 0x003
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_reg(1, 0x7fc01234U.to_uint64())
+  runner.cpu.write_freg(3, 0x0000000080000001UL)
+  runner.load_program(
+    words_to_bytes([encode_fmv_w_x(1, 2), encode_fmv_x_w(3, 4)]),
+    0U,
+  )
+  match runner.run(2) {
+    Running => ()
+    _ => fail("expected rv64fd single transfer move path to run")
+  }
+  assert_eq(runner.read_freg_u64(2), exec_test_nan_box_single(0x7fc01234U))
+  assert_eq(runner.read_reg_u64(4), 0xffffffff80000001UL)
+  assert_eq(runner.read_csr(csr_fcsr) & 0x1fU, 0U)
+}
+
+///|
 test "rv64f flw and fsw preserve raw payload bits" {
   let program = words_to_bytes([
     encode_flw(0x100, 0, 1),

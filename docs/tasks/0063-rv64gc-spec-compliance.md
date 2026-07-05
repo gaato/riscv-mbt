@@ -361,6 +361,10 @@ official coverage improve.
   signaling NaN payload bits are preserved, and signaling NaN operands do not
   accrue `fflags`. This keeps the sign-injection "do not canonicalize NaNs"
   rule separate from the D-present malformed NaN-box input rule.
+- `FMV.W.X` / `FMV.X.W` now have RV64FD transfer-boundary coverage:
+  `FMV.W.X` NaN-boxes the raw low word on entry to the 64-bit FP register file,
+  while `FMV.X.W` ignores upper FP-register bits and sign-extends only the low
+  word. This pins the transfer exception to the normal NaN-box input rule.
 - Single-precision arithmetic now accrues NX when the rounded `Float` result
   differs from the same operation evaluated in `Double` from exactly
   represented single operands. This covers ordinary RNE inexact behavior for

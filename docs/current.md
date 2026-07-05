@@ -119,6 +119,9 @@
   regressions that valid NaN payloads, including signaling-NaN payloads, are
   preserved without accruing `fflags`; malformed D-present single NaN boxes
   remain covered by the separate NaN-boxing input rule.
+  `FMV.W.X` / `FMV.X.W` now also have RV64FD transfer-boundary coverage:
+  moving a raw word into an FP register creates a valid NaN box, while moving a
+  word out ignores upper FP-register bits and sign-extends only the low word.
   FP-capable runner profiles now start with `mstatus.FS=Initial`, and scalar
   F/D load/store plus arithmetic execution now traps as illegal when software
   sets `mstatus.FS=Off`. FP register and `fcsr` writes now mark FS Dirty, so

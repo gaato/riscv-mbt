@@ -1954,6 +1954,8 @@ fn Runner::execute_fp(
       Running
     }
     FmvXW(rd, rs1) => {
+      // FMV.X.W is a transfer, so it deliberately ignores NaN-boxing metadata
+      // and sign-extends only the low IEEE single-precision bit pattern.
       self.write_xlen_reg(
         rd,
         sign_extend_64(self.read_freg_single_transfer_bits(rs1).to_uint64(), 32),
@@ -1962,6 +1964,7 @@ fn Runner::execute_fp(
       Running
     }
     FmvWX(rd, rs1) => {
+      // The inverse single transfer boxes the raw low word when FLEN=64.
       self.write_freg_single_bits(rd, low32(self.cpu.read_reg(rs1)))
       self.cpu.pc = next_pc
       Running
