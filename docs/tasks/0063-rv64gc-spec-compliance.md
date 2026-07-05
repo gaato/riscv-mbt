@@ -149,7 +149,10 @@ official coverage improve.
   `fflags`, `frm`, and `fcsr` CSR aliases are now governed by the same FS state,
   so both read and write attempts trap when FS=Off. Writes to absent `fcsr` bits
   31:8 are covered as
-  ignored-on-write/read-as-zero. The corrected official-test harness now
+  ignored-on-write/read-as-zero. Focused profile coverage now also pins those
+  floating-point CSR addresses as absent when `MISA.F` is not advertised, even
+  though integer S-mode profiles may keep `mstatus.FS` writable for supervisor
+  context-status bookkeeping. The corrected official-test harness now
   advertises manifest arch FP bits, and the passing `rv64uf`/`rv64ud`
   classification, compare, conversion, min/max, load/store, move, recoding,
   and structural rows are gated. The

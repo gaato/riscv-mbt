@@ -503,6 +503,28 @@ test "user-mode counter delegation csr traps when U is not advertised" {
 }
 
 ///|
+test "floating-point csrs trap when F is not advertised" {
+  // RV64 integer/S-mode profiles may still expose mstatus.FS for supervisor
+  // context-status bookkeeping, but the actual floating-point CSR address
+  // surface belongs to the F extension and must be absent without MISA.F.
+  for csr in [CSR_FFLAGS, CSR_FRM, CSR_FCSR] {
+    let raw = wb_encode_csr(csr, 0, 0x2U, 1) // CSRRS x1, csr, x0
+    let runner = make_runner(rv64_machine_config())
+    runner.load_program(wb_word_program(raw), 0U)
+    match runner.step() {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected absent floating-point CSR to trap")
+        }
+        assert_eq(info.trap_value, raw.to_uint64())
+      }
+      _ => fail("expected absent floating-point CSR to trap")
+    }
+  }
+}
+
+///|
 test "mstatus write cannot expose user return state without U" {
   let runner = make_runner(wb_rv64_without_u_machine_config())
   runner.cpu.write_reg(

@@ -163,7 +163,10 @@
   the visible `mstatus.SD` summary follows actual modeled FP state changes.
   The `fflags`, `frm`, and `fcsr` CSR aliases are also FS-gated: read and
   write attempts trap when FS is Off. Writes to absent `fcsr` bits 31:8 are
-  now covered by regression as ignored-on-write/read-as-zero.
+  now covered by regression as ignored-on-write/read-as-zero. A no-`F` profile
+  regression also pins those floating-point CSR addresses as absent even when
+  an integer S-mode profile keeps `mstatus.FS` writable for context-status
+  bookkeeping.
 - RV64 `mstatus.SXL`/`mstatus.UXL` and `sstatus.UXL` are now visible as fixed
   64-bit lower-privilege XLEN fields. Writes that try to clear or change them
   are normalized back to the modeled SXLEN=UXLEN=64 profile.
