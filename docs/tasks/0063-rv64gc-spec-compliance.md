@@ -121,10 +121,8 @@ official coverage improve.
   classification mask for zero, subnormal, normal, infinity, signaling NaN,
   quiet NaN, and the D-present single-precision NaN-boxing path.
 - `FMADD.S/D`, `FMSUB.S/D`, `FNMSUB.S/D`, and `FNMADD.S/D` now decode and
-  execute under the current host-IEEE RNE-only arithmetic boundary. This closes
-  the missing FMA instruction family at the instruction-availability level.
-  Exact IEEE fused single-rounding and full `fflags` behavior remain open
-  spec-compliance work.
+  execute with exact-rational finite fused results and explicit exact-zero sign
+  handling. Full `fflags` and NaN behavior remain open spec-compliance work.
 - Scalar `F/D` comparisons and min/max now accrue the invalid-operation flag
   for the NaN cases required by the F specification: `FLT`/`FLE` set NV for any
   NaN input, `FEQ` sets NV only for signaling NaNs, and `FMIN`/`FMAX` set NV for
@@ -133,8 +131,8 @@ official coverage improve.
   with instruction-family-specific flag handling.
 - Fused multiply-add now also accrues NV for the required infinity-times-zero
   multiplicand case, including the spec-called-out path where the addend is a
-  quiet NaN. The arithmetic result still follows the current host-IEEE boundary
-  and exact fused single-rounding remains open.
+  quiet NaN. Finite fused results now avoid the old host-IEEE arithmetic
+  boundary; deeper NaN and exception-flag audits remain open.
 - The existing official `rv64ui`, `rv64um`, `rv64ua`, and `rv64uc` manifest
   rows have been promoted from `survey` to `gating`, alongside the older RV32
   gating rows. This makes the already-integrated upstream `riscv-tests` path
@@ -165,8 +163,8 @@ official coverage improve.
   NV for infinity-times-zero, `FDIV` sets NV for zero-over-zero and
   infinity-over-infinity, `FSQRT` sets NV for negative nonzero operands, all
   covered arithmetic paths set NV for signaling NaN inputs, and `FDIV` sets DZ
-  for finite nonzero division by zero. Exact non-RNE arithmetic, OF/UF/NX for
-  rounded arithmetic results, and exact fused single-rounding remain open.
+  for finite nonzero division by zero. Deeper NaN payload behavior, broader
+  flag corner cases, and full official-suite promotion remain open.
 - `FADD.S`, `FSUB.S`, and `FMUL.S` now round their exact single-precision
   operand results through the emulator-side double-to-single helper. Legal
   static non-RNE modes are accepted where they change the result, reserved
@@ -179,8 +177,8 @@ official coverage improve.
   non-RNE modes and rounds finite nonzero fused results through an exact
   rational-to-single helper. This closes the old RNE-only legality boundary for
   `FMADD.S`, `FMSUB.S`, `FNMSUB.S`, and `FNMADD.S` without introducing a
-  rounded host-Double product-plus-addend; exact-zero result signs remain a
-  separate follow-up audit.
+  rounded host-Double product-plus-addend. Exact-zero result signs are now
+  handled explicitly for cancellation and zero-product inputs.
 - `FADD.D`, `FSUB.D`, and `FMUL.D` now round finite exact-rational results back
   to double precision inside the emulator. Legal static non-RNE modes execute
   where they change the result, and the helper accrues NX plus overflow and
@@ -269,6 +267,8 @@ official coverage improve.
 - Single-precision FMA now has matching non-RNE coverage for finite nonzero
   exact results. Focused regressions cover all four FMA opcodes at `2^24 + 1`,
   where RTZ and RUP select adjacent single-precision results and accrue NX.
+  A separate regression pins exact-zero signs for finite cancellation and
+  negative-zero product/addend inputs.
 - Double-precision add/sub/mul now have corresponding non-RNE coverage.
   Focused regressions cover `2^53 + 1` add/sub and `(1 + 2^-52)^2` multiply,
   where RTZ and RUP select adjacent double-precision results and accrue NX.
@@ -280,6 +280,8 @@ official coverage improve.
 - Double-precision FMA now has matching non-RNE coverage for finite nonzero
   exact results. Focused regressions cover all four FMA opcodes at `2^53 + 1`,
   where RTZ and RUP select adjacent double-precision results and accrue NX.
+  A separate regression pins exact-zero signs for finite cancellation and
+  negative-zero product/addend inputs.
 - Double-precision sqrt now has matching non-RNE coverage. A focused regression
   covers `FSQRT.D sqrt(2.0)`, where RTZ and RUP select adjacent
   double-precision results and accrue NX.

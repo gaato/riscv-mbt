@@ -90,8 +90,8 @@
   tininess-after-rounding UF behavior. `FADD.S`, `FSUB.S`, `FMUL.S`, `FDIV.S`,
   and `FSQRT.S` now use that same rounding helper for legal non-RNE arithmetic
   and NX. Single and double fused multiply-add now use exact-rational fused
-  products for finite nonzero results under legal non-RNE modes, while
-  exact-zero sign auditing remains open. `FADD.D`, `FSUB.D`, `FMUL.D`, and
+  products for finite nonzero results under legal non-RNE modes, and exact-zero
+  fused result signs are handled explicitly. `FADD.D`, `FSUB.D`, `FMUL.D`, and
   `FDIV.D` now round exact-rational finite results back to double precision for
   legal non-RNE modes, including NX/OF/UF result flags. `FCLASS.S` /`FCLASS.D`
   now decode and execute the architectural 10-bit classification mask for zero,
@@ -101,9 +101,9 @@
   arithmetic now accrues NV for
   signaling NaNs and the obvious invalid-operation cases, and FDIV accrues DZ
   for finite nonzero division by zero. This is emulator-body hardening for the
-  ordinary C floating-point paths that Alpine userspace can exercise; exact
-  zero signs for fused operations, deeper NaN payload/flag behavior, and full
-  official-suite promotion remain later spec-compliance work. Exact widening
+  ordinary C floating-point paths that Alpine userspace can exercise; deeper
+  NaN payload/flag behavior and full official-suite promotion remain later
+  spec-compliance work. Exact widening
   `FCVT.D.S` and exact
   RV32-width-to-double `FCVT.D.W[U]` now validate the otherwise unaffected `rm`
   field for legal/reserved static and dynamic encodings, so legal non-RNE forms

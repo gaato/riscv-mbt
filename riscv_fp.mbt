@@ -108,6 +108,11 @@ fn f32_from_bits(bits : UInt) -> Float {
 }
 
 ///|
+fn f32_negative_zero_bits() -> UInt {
+  1U << 31
+}
+
+///|
 fn f64_is_nan_bits(bits : UInt64) -> Bool {
   let exponent_mask = 0x7ffU.to_uint64() << 52
   let fraction_mask = (1U.to_uint64() << 52) - 1U.to_uint64()
@@ -567,6 +572,82 @@ fn f64_exact_zero_add_bits(
 }
 
 ///|
+fn fp_exact_zero_sum_is_negative(
+  lhs_is_zero : Bool,
+  lhs_negative : Bool,
+  rhs_is_zero : Bool,
+  rhs_negative : Bool,
+  mode : UInt,
+) -> Bool {
+  // Exact zero from adding two signed zeros preserves their shared sign. All
+  // other exact cancellations produce +0 except under round-down, where IEEE
+  // directed rounding chooses -0.
+  if lhs_is_zero && rhs_is_zero && lhs_negative == rhs_negative {
+    lhs_negative
+  } else {
+    mode == 2U
+  }
+}
+
+///|
+fn f32_exact_zero_fma_bits(
+  lhs_bits : UInt,
+  rhs_bits : UInt,
+  addend_bits : UInt,
+  mode : UInt,
+  variant : Int,
+) -> UInt {
+  let product_negative = f32_sign_bit(lhs_bits) != f32_sign_bit(rhs_bits)
+  let adjusted_product_negative = (variant >= 2) != product_negative
+  let adjusted_addend_negative = if variant == 1 || variant == 3 {
+    !f32_sign_bit(addend_bits)
+  } else {
+    f32_sign_bit(addend_bits)
+  }
+  let negative = fp_exact_zero_sum_is_negative(
+    f32_is_zero_bits(lhs_bits) || f32_is_zero_bits(rhs_bits),
+    adjusted_product_negative,
+    f32_is_zero_bits(addend_bits),
+    adjusted_addend_negative,
+    mode,
+  )
+  if negative {
+    f32_negative_zero_bits()
+  } else {
+    0U
+  }
+}
+
+///|
+fn f64_exact_zero_fma_bits(
+  lhs_bits : UInt64,
+  rhs_bits : UInt64,
+  addend_bits : UInt64,
+  mode : UInt,
+  variant : Int,
+) -> UInt64 {
+  let product_negative = f64_sign_bit(lhs_bits) != f64_sign_bit(rhs_bits)
+  let adjusted_product_negative = (variant >= 2) != product_negative
+  let adjusted_addend_negative = if variant == 1 || variant == 3 {
+    !f64_sign_bit(addend_bits)
+  } else {
+    f64_sign_bit(addend_bits)
+  }
+  let negative = fp_exact_zero_sum_is_negative(
+    f64_is_zero_bits(lhs_bits) || f64_is_zero_bits(rhs_bits),
+    adjusted_product_negative,
+    f64_is_zero_bits(addend_bits),
+    adjusted_addend_negative,
+    mode,
+  )
+  if negative {
+    f64_negative_zero_bits()
+  } else {
+    0U.to_uint64()
+  }
+}
+
+///|
 fn f64_exact_zero_mul_bits(lhs_bits : UInt64, rhs_bits : UInt64) -> UInt64 {
   if f64_sign_bit(lhs_bits) != f64_sign_bit(rhs_bits) {
     f64_negative_zero_bits()
@@ -766,11 +847,13 @@ fn f32_round_fused_result_bits(
         2 => fp_exact_rational_sub(addend, product)
         _ => fp_exact_rational_sub(fp_exact_rational_neg(product), addend)
       }
-      // Exact zero signs for fused operations follow IEEE operation-specific
-      // rules. Keep that narrow case on the host fallback until the sign audit
-      // is explicit, but round every finite nonzero result from exact math.
       if exact.num.is_zero() {
-        fallback
+        {
+          bits: f32_exact_zero_fma_bits(
+            lhs_bits, rhs_bits, addend_bits, mode, variant,
+          ),
+          flags: 0U.to_uint64(),
+        }
       } else {
         fp_round_rational_to_f32_bits(exact, mode)
       }
@@ -1679,7 +1762,7 @@ fn Runner::execute_fp(
             addend,
           )
           if exact.num.is_zero() {
-            host_bits
+            f64_exact_zero_fma_bits(lhs_bits, rhs_bits, addend_bits, mode, 0)
           } else {
             let rounded = fp_round_rational_to_f64_bits(exact, mode)
             self.set_fflags(rounded.flags)
@@ -1726,7 +1809,7 @@ fn Runner::execute_fp(
             addend,
           )
           if exact.num.is_zero() {
-            host_bits
+            f64_exact_zero_fma_bits(lhs_bits, rhs_bits, addend_bits, mode, 1)
           } else {
             let rounded = fp_round_rational_to_f64_bits(exact, mode)
             self.set_fflags(rounded.flags)
@@ -1774,7 +1857,7 @@ fn Runner::execute_fp(
             fp_exact_rational_mul(lhs, rhs),
           )
           if exact.num.is_zero() {
-            host_bits
+            f64_exact_zero_fma_bits(lhs_bits, rhs_bits, addend_bits, mode, 2)
           } else {
             let rounded = fp_round_rational_to_f64_bits(exact, mode)
             self.set_fflags(rounded.flags)
@@ -1823,7 +1906,7 @@ fn Runner::execute_fp(
             addend,
           )
           if exact.num.is_zero() {
-            host_bits
+            f64_exact_zero_fma_bits(lhs_bits, rhs_bits, addend_bits, mode, 3)
           } else {
             let rounded = fp_round_rational_to_f64_bits(exact, mode)
             self.set_fflags(rounded.flags)

@@ -1082,6 +1082,49 @@ test "rv64fd fused multiply-add single paths honor non-rne rounding modes" {
 }
 
 ///|
+test "rv64fd fused multiply-add single paths preserve exact zero signs" {
+  let runner = make_runner(rv64fd_machine_config())
+  let pos_one = exec_test_nan_box_single(exec_test_f32_bits(1.0))
+  let neg_one = exec_test_nan_box_single(exec_test_f32_bits(-1.0))
+  let neg_zero = exec_test_nan_box_single(0x80000000U)
+  runner.cpu.write_freg(1, pos_one)
+  runner.cpu.write_freg(2, pos_one)
+  runner.cpu.write_freg(3, pos_one)
+  runner.cpu.write_freg(4, neg_one)
+  runner.cpu.write_freg(5, neg_zero)
+  runner.load_program(
+    words_to_bytes([
+      encode_fp_r4(3, 0x0U, 2, 1, 0x0U, 6, 0x47U),
+      encode_fp_r4(3, 0x0U, 2, 1, 0x2U, 7, 0x47U),
+      encode_fp_r4(3, 0x0U, 2, 1, 0x0U, 8, 0x4bU),
+      encode_fp_r4(3, 0x0U, 2, 1, 0x2U, 9, 0x4bU),
+      encode_fp_r4(3, 0x0U, 2, 4, 0x0U, 10, 0x43U),
+      encode_fp_r4(3, 0x0U, 2, 4, 0x2U, 11, 0x43U),
+      encode_fp_r4(3, 0x0U, 2, 4, 0x0U, 12, 0x4fU),
+      encode_fp_r4(3, 0x0U, 2, 4, 0x2U, 13, 0x4fU),
+      encode_fp_r4(5, 0x0U, 5, 1, 0x0U, 14, 0x43U),
+    ]),
+    0U,
+  )
+  match runner.run(9) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected exact-zero single FMA paths to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_freg_u64(6), exec_test_nan_box_single(0x00000000U))
+  assert_eq(runner.read_freg_u64(7), exec_test_nan_box_single(0x80000000U))
+  assert_eq(runner.read_freg_u64(8), exec_test_nan_box_single(0x00000000U))
+  assert_eq(runner.read_freg_u64(9), exec_test_nan_box_single(0x80000000U))
+  assert_eq(runner.read_freg_u64(10), exec_test_nan_box_single(0x00000000U))
+  assert_eq(runner.read_freg_u64(11), exec_test_nan_box_single(0x80000000U))
+  assert_eq(runner.read_freg_u64(12), exec_test_nan_box_single(0x00000000U))
+  assert_eq(runner.read_freg_u64(13), exec_test_nan_box_single(0x80000000U))
+  assert_eq(runner.read_freg_u64(14), exec_test_nan_box_single(0x80000000U))
+}
+
+///|
 test "rv64fd fused multiply-add double paths execute" {
   let runner = make_runner(rv64fd_machine_config())
   runner.cpu.write_freg(1, exec_test_f64_bits(2.0))
@@ -1143,6 +1186,46 @@ test "rv64fd fused multiply-add double paths honor non-rne rounding modes" {
   assert_eq(runner.read_freg_u64(14), 0x4340000000000000UL)
   assert_eq(runner.read_freg_u64(15), 0x4340000000000001UL)
   assert_eq(runner.read_csr(csr_fcsr) & 0x1U, 0x1U)
+}
+
+///|
+test "rv64fd fused multiply-add double paths preserve exact zero signs" {
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, exec_test_f64_bits(1.0))
+  runner.cpu.write_freg(2, exec_test_f64_bits(1.0))
+  runner.cpu.write_freg(3, exec_test_f64_bits(1.0))
+  runner.cpu.write_freg(4, exec_test_f64_bits(-1.0))
+  runner.cpu.write_freg(5, 0x8000000000000000UL)
+  runner.load_program(
+    words_to_bytes([
+      encode_fp_r4(3, 0x1U, 2, 1, 0x0U, 6, 0x47U),
+      encode_fp_r4(3, 0x1U, 2, 1, 0x2U, 7, 0x47U),
+      encode_fp_r4(3, 0x1U, 2, 1, 0x0U, 8, 0x4bU),
+      encode_fp_r4(3, 0x1U, 2, 1, 0x2U, 9, 0x4bU),
+      encode_fp_r4(3, 0x1U, 2, 4, 0x0U, 10, 0x43U),
+      encode_fp_r4(3, 0x1U, 2, 4, 0x2U, 11, 0x43U),
+      encode_fp_r4(3, 0x1U, 2, 4, 0x0U, 12, 0x4fU),
+      encode_fp_r4(3, 0x1U, 2, 4, 0x2U, 13, 0x4fU),
+      encode_fp_r4(5, 0x1U, 5, 1, 0x0U, 14, 0x43U),
+    ]),
+    0U,
+  )
+  match runner.run(9) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected exact-zero double FMA paths to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_freg_u64(6), 0x0000000000000000UL)
+  assert_eq(runner.read_freg_u64(7), 0x8000000000000000UL)
+  assert_eq(runner.read_freg_u64(8), 0x0000000000000000UL)
+  assert_eq(runner.read_freg_u64(9), 0x8000000000000000UL)
+  assert_eq(runner.read_freg_u64(10), 0x0000000000000000UL)
+  assert_eq(runner.read_freg_u64(11), 0x8000000000000000UL)
+  assert_eq(runner.read_freg_u64(12), 0x0000000000000000UL)
+  assert_eq(runner.read_freg_u64(13), 0x8000000000000000UL)
+  assert_eq(runner.read_freg_u64(14), 0x8000000000000000UL)
 }
 
 ///|
