@@ -5384,6 +5384,47 @@ test "mret preserves mprv when returning to machine mode" {
 }
 
 ///|
+test "mret preserves live LR reservation for following SC" {
+  // xRET is allowed, but not required, to clear LR reservations. This emulator
+  // keeps the reservation live across MRET, matching debugger-friendly
+  // implementations where software uses an explicit dummy SC when it needs to
+  // force-clear reservation state.
+  let runner = make_runner(rv64_machine_config())
+  let addr = runner.cpu.pc + 0x100U.to_uint64()
+  let original = 0x11223344U.to_uint64()
+  let replacement = 0x55667788U.to_uint64()
+  runner.bus.store_u32(addr, original)
+  runner.cpu.write_reg(1, addr)
+  runner.cpu.write_reg(5, replacement)
+  runner.cpu.write_csr(0x341, runner.cpu.pc + 8U.to_uint64())
+  runner.cpu.write_csr(0x300, 0x1800U.to_uint64())
+  let pc0 = runner.cpu.pc
+  runner.bus.store_u32(pc0, encode_amo(0x02U, 0, 1, 0x2U, 3).to_uint64())
+  runner.bus.store_u32(pc0 + 4U.to_uint64(), encode_mret().to_uint64())
+  runner.bus.store_u32(
+    pc0 + 8U.to_uint64(),
+    encode_amo(0x03U, 5, 1, 0x2U, 4).to_uint64(),
+  )
+
+  match runner.step() {
+    Running => ()
+    _ => fail("expected lr.w to run before mret")
+  }
+  assert_eq(runner.read_reg_u64(3), original)
+  match runner.step() {
+    Running => ()
+    _ => fail("expected mret to run")
+  }
+  assert_eq(runner.pc_u64(), pc0 + 8U.to_uint64())
+  match runner.step() {
+    Running => ()
+    _ => fail("expected sc.w after mret to run")
+  }
+  assert_eq(runner.read_reg_u64(4), 0U.to_uint64())
+  assert_eq(runner.bus.load_u32(addr), replacement)
+}
+
+///|
 test "sret clears mprv when returning below machine mode" {
   let program = words_to_bytes([
     encode_i(24, 0, 0x0U, 5, 0x13U),

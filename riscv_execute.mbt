@@ -1861,6 +1861,9 @@ fn Runner::execute_mret(
   // Return instructions restore privilege and interrupt-enable state from
   // mstatus before jumping to the saved EPC. The helper functions encode the
   // bit shuffling so this path stays readable.
+  // The privileged spec allows xRET to clear an outstanding LR reservation but
+  // does not require it. Keep reservations live here; software that needs to
+  // force-clear a reservation must use the architectural dummy-SC pattern.
   let mstatus = self.cpu.read_csr(CSR_MSTATUS)
   self.cpu.write_csr(CSR_MSTATUS, mstatus_after_mret(mstatus))
   self.cpu.privilege = mstatus_mpp(mstatus)
@@ -1885,6 +1888,8 @@ fn Runner::execute_sret(
   }
   // SRET is the same shape as MRET but uses SPP/SPIE and sepc. Linux relies on
   // this during every user/kernel boundary after userspace is alive.
+  // As with MRET, this implementation does not clear LR/SC reservations on
+  // xRET because the architecture makes that clearing optional.
   let mstatus = self.cpu.read_csr(CSR_MSTATUS)
   if sret_from_supervisor && (mstatus & MSTATUS_TSR_BIT) != 0U.to_uint64() {
     return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())

@@ -414,7 +414,9 @@
   older LR in program order. The reservation-set model is documented as the
   exact physical byte range loaded by the most recent LR, and mixed-width SC
   attempts at the same address are covered as deterministic failures under that
-  model. Signed AMO min/max coverage now includes both
+  model. The xRET policy is explicit and covered for `MRET`: trap returns do
+  not implicitly clear live reservations, which is permitted by the privileged
+  spec. Signed AMO min/max coverage now includes both
   `AMOMIN.W` and full-width `AMOMIN.D`/`AMOMAX.D`
   comparisons across the sign boundary, and unsigned AMO.D min/max coverage
   now pins `AMOMINU.D`/`AMOMAXU.D` on the same bit patterns. The remaining

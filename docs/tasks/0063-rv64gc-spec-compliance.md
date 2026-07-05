@@ -187,6 +187,9 @@ official coverage improve.
   program order. The reservation-set model is documented as the exact physical
   byte range loaded by the most recent LR, and mixed-width SC attempts at the
   same address now have focused regression coverage for deterministic failure.
+  The xRET policy is also explicit: `MRET`/`SRET` do not clear live
+  reservations, which is permitted by the privileged spec, and `MRET`
+  preserving a live LR reservation for a following SC is covered.
   Virtio-blk
   guest-visible DMA/status/used-ring writes now use reservation-aware device
   store helpers. The upstream `rv64ua` AMO/LRSC cases are now part of the
@@ -405,6 +408,9 @@ official coverage improve.
 - A-extension reservation-set coverage now documents the interpreter's exact
   physical byte-range reservation model and pins mixed-width SC attempts at the
   same address as deterministic failures under that model.
+- A-extension/privileged interaction coverage now pins the implementation's
+  legal xRET policy: `MRET` preserves a live LR reservation for a following SC
+  instead of implicitly clearing it.
 - A-extension signed min/max coverage now includes `AMOMIN.W` plus full-width
   `AMOMIN.D`/`AMOMAX.D` comparisons across the 64-bit sign boundary.
 - A-extension unsigned min/max coverage now includes full-width
