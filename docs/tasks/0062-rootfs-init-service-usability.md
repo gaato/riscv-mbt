@@ -259,3 +259,10 @@ but it is not the same as a more ordinary Alpine service environment.
   `post_init_command_index=3`, and `post-init-system-ok` at 601,000,000 guest
   steps, with the same post-init virtio delta shape as the previous WFI run:
   `0 read-req/0 read-bytes` and `65 write-req/66560 write-bytes`.
+- UART/PLIC external interrupt delivery now has the same S-mode execution
+  coverage as virtio-blk. The regression test feeds a receive byte, enables
+  UART source 10 only in PLIC context 1, enables both machine and supervisor
+  external interrupts, returns to S-mode with `mret`, and verifies that the
+  interrupt reaches the S-mode external handler before the body instruction
+  executes. This closes a console-input test gap on the full-rootfs path without
+  adding another OpenRC-specific probe variant.
