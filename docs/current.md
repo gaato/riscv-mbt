@@ -178,6 +178,11 @@
 - `mstatus.SD` / `sstatus.SD` are now read as derived summary bits for dirty
   modeled extension state: direct writes to SD are ignored, while FS=Dirty sets
   SD in the visible RV64 status view.
+- `mstatus` now drops unsupported status storage before applying the modeled
+  WARL rules. User-interrupt, VS, XS, and other WPRI/reserved bits read back as
+  zero; the remaining visible surface is the emulator's implemented interrupt,
+  return, privilege, FP-status, memory-access, trap-control, fixed-XLEN, and
+  derived-SD fields.
 
 ## Known Blockers
 

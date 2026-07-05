@@ -916,6 +916,13 @@ const MSTATUS_ENDIAN_MASK : UInt64 = MSTATUS_UBE_BIT |
   MSTATUS_MBE_BIT
 
 ///|
+// Implemented mstatus storage for this fixed RV64GC-style privileged profile.
+// It keeps S/M interrupt enables, xPIE/xPP return state, FS, MPRV/SUM/MXR,
+// TVM/TW/TSR, fixed-width XLEN/endian placeholders, and derived SD. Unsupported
+// user-interrupt, VS, XS, and WPRI/reserved bits are masked out at CSR writes.
+const MSTATUS_IMPLEMENTED_MASK : UInt64 = 0x8000003f007e79eaUL
+
+///|
 const SSTATUS_VISIBLE_MASK : UInt64 = 0xC0122 |
   MSTATUS_FS_MASK |
   MSTATUS_UXL_MASK |

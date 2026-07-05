@@ -1079,10 +1079,14 @@ fn legalize_mip_csr(value : UInt64) -> UInt64 {
 
 ///|
 fn legalize_mstatus_csr(value : UInt64, xlen : Xlen) -> UInt64 {
+  // The interpreter models a fixed privileged ISA surface, not arbitrary
+  // future mstatus bits. Drop unsupported user-interrupt, VS, XS, and WPRI
+  // storage before applying the fields that have profile-specific WARL rules.
+  let implemented = value & MSTATUS_IMPLEMENTED_MASK
   // SD is a read-only summary bit. For the current RV64GC baseline the modeled
   // dirty extension status is FS=Dirty; future VS/XS modeling should join this
   // summary rather than making SD directly writable.
-  let without_sd = value & bit_not(MSTATUS_SD_BIT)
+  let without_sd = implemented & bit_not(MSTATUS_SD_BIT)
   let fs_dirty = (without_sd & MSTATUS_FS_MASK) == MSTATUS_FS_DIRTY
   let summarized = if fs_dirty {
     without_sd | MSTATUS_SD_BIT

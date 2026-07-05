@@ -137,6 +137,10 @@ official coverage improve.
   same implemented pending-bit surface. Writes to `mip` affect only the
   software-writable S-level pending bits; machine-level pending bits are
   supplied by CLINT/PLIC state.
+  `mstatus` now clears unsupported status storage before applying the modeled
+  WARL rules. User-interrupt, VS, XS, and other WPRI/reserved bits read back as
+  zero, while the implemented interrupt, return, privilege, FP-status,
+  memory-access, trap-control, fixed-XLEN, and derived-SD fields remain visible.
   `mstatus.MPP` now rejects the reserved privilege encoding 2 at the CSR write
   boundary. The remaining audit is a spec pass over remaining WARL behavior,
   read-only/write-ignored fields, and privilege-visible side effects for every
@@ -399,3 +403,7 @@ official coverage improve.
 - `mstatus.SD` / `sstatus.SD` now behave as visible summary bits for the
   modeled extension status rather than writable storage: direct SD writes are
   ignored, and FS=Dirty derives SD=1 on the RV64 status views.
+- `mstatus` writes now retain only the implemented status field surface. A
+  write-all-ones regression verifies that unsupported user-interrupt, VS, XS,
+  and WPRI/reserved storage is cleared before the existing endian, fixed-XLEN,
+  MPP, and SD-derived normalization runs.

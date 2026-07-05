@@ -3051,6 +3051,28 @@ test "status endian control fields are read only zero" {
 }
 
 ///|
+test "mstatus clears unsupported status bits" {
+  let mstatus = 0x300
+  let sstatus = 0x100
+  let program = words_to_bytes([
+    encode_i(-1, 0, 0x0U, 1, 0x13U),
+    encode_csr(mstatus, 1, 0x1U, 0),
+    encode_csr(mstatus, 0, 0x2U, 2),
+    encode_csr(sstatus, 0, 0x2U, 3),
+  ])
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(4) {
+    Running => ()
+    _ => fail("expected mstatus supported-bit program to run")
+  }
+  assert_eq(runner.read_reg_u64(2), 0x8000000a007e79aaUL)
+  assert_eq(runner.read_reg_u64(3), 0x80000002000c6122UL)
+  assert_eq(runner.read_csr_u64(mstatus), 0x8000000a007e79aaUL)
+  assert_eq(runner.read_csr_u64(sstatus), 0x80000002000c6122UL)
+}
+
+///|
 test "delegated user ecall traps to stvec with supervisor trap state" {
   let program = words_to_bytes([
     encode_i(33, 0, 0x0U, 6, 0x13U),
