@@ -220,8 +220,22 @@ fn encode_c_lwsp(rd : Int, imm : Int) -> Int {
 }
 
 ///|
+fn encode_c_ldsp(rd : Int, imm : Int) -> Int {
+  0x6002 |
+  (((imm >> 5) & 0x1) << 12) |
+  (rd << 7) |
+  (((imm >> 3) & 0x3) << 5) |
+  (((imm >> 6) & 0x7) << 2)
+}
+
+///|
 fn encode_c_swsp(rs2 : Int, imm : Int) -> Int {
   0xc002 | (((imm >> 2) & 0xf) << 9) | (((imm >> 6) & 0x3) << 7) | (rs2 << 2)
+}
+
+///|
+fn encode_c_sdsp(rs2 : Int, imm : Int) -> Int {
+  0xe002 | (((imm >> 3) & 0x7) << 10) | (((imm >> 6) & 0x7) << 7) | (rs2 << 2)
 }
 
 ///|
@@ -509,6 +523,40 @@ test "rv64c lui and addi16sp zero immediates remain reserved" {
       }
       _ => fail("expected reserved compressed immediate form to trap")
     }
+  }
+}
+
+///|
+test "rv64c integer stack loads reserve x0 destination" {
+  // Stack stores may use rs2=x0 to write zero, but stack loads cannot target
+  // x0. Keep those neighboring encodings separated in the C reserved audit.
+  for raw_int in [encode_c_lwsp(0, 8), encode_c_ldsp(0, 8)] {
+    let raw = raw_int.reinterpret_as_uint()
+    let runner = make_runner(rv64_machine_config())
+    runner.load_program(mixed_program_bytes([(2, raw)]), 0U)
+    match runner.step() {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected illegal instruction trap")
+        }
+        assert_eq(info.trap_value, raw.to_uint64())
+      }
+      _ => fail("expected compressed stack load with x0 destination to trap")
+    }
+  }
+
+  let store_zero = make_runner(rv64_machine_config())
+  store_zero.load_program(
+    mixed_program_bytes([
+      (2, encode_c_swsp(0, 8).reinterpret_as_uint()),
+      (2, encode_c_sdsp(0, 16).reinterpret_as_uint()),
+    ]),
+    0U,
+  )
+  match store_zero.run(2) {
+    Running => ()
+    _ => fail("expected stack stores from x0 to remain legal")
   }
 }
 
