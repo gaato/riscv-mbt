@@ -143,7 +143,8 @@
   rounding-mode encodings before executing representative word and long forms.
   `FCVT.WU.D` now also checks the mode-dependent upper edge where
   `+2^32 - 0.5` stays valid/inexact under RTZ but rounds out of range and sets
-  NV under RNE/RUP.
+  NV under RNE/RUP, plus the lower `-0.5` edge where RNE/RTZ produce valid
+  inexact zero but RDN rounds invalid.
   Integer-to-double conversion coverage now also pins dynamic-`frm`
   long-to-double rounding at the binary64 precision boundary, including signed
   negative RDN and unsigned positive RMM halfway cases with NX. Rounded
