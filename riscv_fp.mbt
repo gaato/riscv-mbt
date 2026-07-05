@@ -1742,6 +1742,12 @@ fn fp_round_to_integer(value : Double, mode : UInt) -> Double {
     0U => {
       let down = value.floor()
       let up = value.ceil()
+      if down == up {
+        // Exact integral inputs need no tie-breaking. Returning early also
+        // avoids converting large exact doubles, such as 2^64, through the
+        // host Int64 path used only for the evenness test below.
+        return down
+      }
       let down_delta = value - down
       let up_delta = up - value
       if down_delta < up_delta {

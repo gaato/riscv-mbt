@@ -125,7 +125,9 @@
   before writing the canonical double-precision NaN result.
   Float-to-integer conversion regressions now also pin exact RNE invalid
   boundaries for `FCVT.L.D` at `+2^63`, `FCVT.LU.D` at `+2^64`, and RNE
-  NaN/infinity clipping before any host integer cast.
+  NaN/infinity clipping before any host integer cast. Exact integral
+  round-to-integer inputs now bypass RNE tie-breaking before any host `Int64`
+  evenness cast, keeping large exact boundary values on the safe path.
   Integer-to-double conversion coverage now also pins dynamic-`frm`
   long-to-double rounding at the binary64 precision boundary, including signed
   negative RDN and unsigned positive RMM halfway cases with NX.

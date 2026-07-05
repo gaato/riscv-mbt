@@ -454,7 +454,9 @@ official coverage improve.
   invalid boundaries for signed long conversions plus the unsigned negative and
   `+2^64` boundaries, while exact `-2^63` remains a valid flag-clean signed
   result and the last representable values below `+2^63`/`+2^64` remain valid
-  flag-clean results.
+  flag-clean results. The shared RNE round-to-integer helper now returns exact
+  integral doubles before tie-breaking, avoiding any host `Int64` evenness cast
+  for large exact boundary values such as `2^64`.
 - `FCVT.S.W`, `FCVT.S.WU`, `FCVT.S.L`, `FCVT.S.LU`, `FCVT.D.L`, and
   `FCVT.D.LU` now construct IEEE result bits through a shared integer-magnitude
   rounding helper instead of relying on host-default conversion. The helper
