@@ -275,3 +275,11 @@ but it is not the same as a more ordinary Alpine service environment.
   covers simultaneous virtio-blk source 1 and UART source 10 pending in the
   S-mode PLIC context, including a high-priority UART case, a same-priority
   lower-ID tie, and a threshold-masked-but-claimable source.
+- Rerunning the existing auto-root system smoke after the PLIC claim-priority
+  fix still reaches `post-init-system-ok`:
+  `moon run --target native cmd/alpine_probe xlong --auto-root-handoff --post-init-system-smoke --post-init-command-step-budget 120000000`.
+  It reaches `outcome=console-command`, `post_init_system_smoke=true`,
+  `post_init_command_index=3`, and `post-init-system-ok` at 601,000,000 guest
+  steps. The post-init command trace remains
+  `cmd1:start=558000000,marker=576000000,duration=18000000; cmd2:start=576000000,marker=585000000,duration=9000000; cmd3:start=585000000,marker=601000000,duration=16000000`,
+  with `post_init_command_virtio_delta=0 read-req/0 read-bytes 65 write-req/66560 write-bytes`.
