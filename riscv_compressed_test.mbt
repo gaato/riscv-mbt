@@ -96,6 +96,27 @@ fn encode_c_bnez(rs1 : Int, offset : Int) -> Int {
 }
 
 ///|
+fn expect_compressed_illegal(config : MachineConfig, raw : UInt) -> Unit raise {
+  // Most reserved-C tests need the same single-step contract: decode may expand
+  // a shape, but the active profile must report an illegal instruction at the
+  // original 16-bit word with the raw halfword preserved in mtval/stval-facing
+  // trap metadata.
+  let runner = make_runner(config)
+  runner.load_program(mixed_program_bytes([(2, raw)]), 0U)
+  match runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction trap")
+      }
+      assert_eq(info.faulting_pc, 0U.to_uint64())
+      assert_eq(info.trap_value, raw.to_uint64())
+    }
+    _ => fail("expected compressed illegal instruction trap")
+  }
+}
+
+///|
 fn encode_c_lw(rd : Int, rs1 : Int, imm : Int) -> Int {
   0x4000 |
   (((imm >> 3) & 0x7) << 10) |
@@ -483,19 +504,7 @@ test "rv64c rejects rv32-only compressed jal" {
   // slot for C.ADDIW, so a 16-bit JAL x1 expansion must not slip through the
   // shared JAL execute path.
   let raw = encode_c_jal(2).reinterpret_as_uint()
-  let runner = make_runner(rv64_machine_config())
-  runner.load_program(mixed_program_bytes([(2, raw)]), 0U)
-  match runner.step() {
-    Trap(info) => {
-      match info.cause {
-        IllegalInstruction => ()
-        _ => fail("expected illegal instruction trap")
-      }
-      assert_eq(info.faulting_pc, 0U.to_uint64())
-      assert_eq(info.trap_value, raw.to_uint64())
-    }
-    _ => fail("expected rv64c c.jal code point to trap")
-  }
+  expect_compressed_illegal(rv64_machine_config(), raw)
 }
 
 ///|
@@ -542,21 +551,10 @@ test "rv64c compressed double load and store keep rv32c aliases reserved" {
   // these code points for floating-point forms when the matching F profile is
   // present, but this integer-only RV32 profile must not decode them as LD/SD.
   for raw_int in [encode_c_ld(11, 10, 16), encode_c_sd(9, 10, 16)] {
-    let rv32_runner = make_runner(default_machine_config())
-    rv32_runner.load_program(
-      mixed_program_bytes([(2, raw_int.reinterpret_as_uint())]),
-      0U,
+    expect_compressed_illegal(
+      default_machine_config(),
+      raw_int.reinterpret_as_uint(),
     )
-    match rv32_runner.step() {
-      Trap(info) => {
-        match info.cause {
-          IllegalInstruction => ()
-          _ => fail("expected illegal instruction trap")
-        }
-        assert_eq(info.trap_value, raw_int.reinterpret_as_uint().to_uint64())
-      }
-      _ => fail("expected rv32c register double form to trap")
-    }
   }
 }
 
@@ -601,18 +599,7 @@ test "rv64c compressed floating double forms require d extension" {
   ]
   for raw_int in cases {
     let raw = raw_int.reinterpret_as_uint()
-    let runner = make_runner(rv64_machine_config())
-    runner.load_program(mixed_program_bytes([(2, raw)]), 0U)
-    match runner.step() {
-      Trap(info) => {
-        match info.cause {
-          IllegalInstruction => ()
-          _ => fail("expected illegal instruction trap")
-        }
-        assert_eq(info.trap_value, raw.to_uint64())
-      }
-      _ => fail("expected rv64c floating double form without D to trap")
-    }
+    expect_compressed_illegal(rv64_machine_config(), raw)
   }
 }
 
@@ -695,39 +682,15 @@ test "compressed mixed-width integration covers addi4spn and ALU subgroup" {
 
 ///|
 test "c.addi4spn with zero immediate remains illegal" {
-  let runner = make_runner(default_machine_config())
-  runner.load_program(
-    mixed_program_bytes([(2, encode_c_addi4spn(8, 0).reinterpret_as_uint())]),
-    0U,
+  expect_compressed_illegal(
+    default_machine_config(),
+    encode_c_addi4spn(8, 0).reinterpret_as_uint(),
   )
-  match runner.step() {
-    Trap(info) => {
-      match info.cause {
-        IllegalInstruction => ()
-        _ => fail("expected illegal instruction trap")
-      }
-      assert_eq(info.faulting_pc, 0U.to_uint64())
-      assert_eq(info.trap_value, 0x0000U.to_uint64())
-    }
-    _ => fail("expected illegal instruction trap")
-  }
 }
 
 ///|
 test "all-ones compressed sentinel traps as a 16-bit illegal instruction" {
-  let runner = make_runner(rv64_machine_config())
-  runner.load_program(mixed_program_bytes([(2, 0xffffU)]), 0U)
-  match runner.step() {
-    Trap(info) => {
-      match info.cause {
-        IllegalInstruction => ()
-        _ => fail("expected illegal instruction trap")
-      }
-      assert_eq(info.faulting_pc, 0U.to_uint64())
-      assert_eq(info.trap_value, 0xffffU.to_uint64())
-    }
-    _ => fail("expected all-ones compressed sentinel to trap")
-  }
+  expect_compressed_illegal(rv64_machine_config(), 0xffffU)
 }
 
 ///|
@@ -753,18 +716,7 @@ test "rv64 compressed breakpoint traps as breakpoint" {
 ///|
 test "rv64c addiw with x0 destination remains reserved" {
   let raw = encode_c_addiw(0, 1).reinterpret_as_uint()
-  let runner = make_runner(rv64_machine_config())
-  runner.load_program(mixed_program_bytes([(2, raw)]), 0U)
-  match runner.step() {
-    Trap(info) => {
-      match info.cause {
-        IllegalInstruction => ()
-        _ => fail("expected illegal instruction trap")
-      }
-      assert_eq(info.trap_value, raw.to_uint64())
-    }
-    _ => fail("expected illegal instruction trap")
-  }
+  expect_compressed_illegal(rv64_machine_config(), raw)
 }
 
 ///|
@@ -776,18 +728,7 @@ test "rv64c lui and addi16sp zero immediates remain reserved" {
   ]
   for raw_int in reserved {
     let raw = raw_int.reinterpret_as_uint()
-    let runner = make_runner(rv64_machine_config())
-    runner.load_program(mixed_program_bytes([(2, raw)]), 0U)
-    match runner.step() {
-      Trap(info) => {
-        match info.cause {
-          IllegalInstruction => ()
-          _ => fail("expected illegal instruction trap")
-        }
-        assert_eq(info.trap_value, raw.to_uint64())
-      }
-      _ => fail("expected reserved compressed immediate form to trap")
-    }
+    expect_compressed_illegal(rv64_machine_config(), raw)
   }
 }
 
@@ -797,18 +738,7 @@ test "rv64c integer stack loads reserve x0 destination" {
   // x0. Keep those neighboring encodings separated in the C reserved audit.
   for raw_int in [encode_c_lwsp(0, 8), encode_c_ldsp(0, 8)] {
     let raw = raw_int.reinterpret_as_uint()
-    let runner = make_runner(rv64_machine_config())
-    runner.load_program(mixed_program_bytes([(2, raw)]), 0U)
-    match runner.step() {
-      Trap(info) => {
-        match info.cause {
-          IllegalInstruction => ()
-          _ => fail("expected illegal instruction trap")
-        }
-        assert_eq(info.trap_value, raw.to_uint64())
-      }
-      _ => fail("expected compressed stack load with x0 destination to trap")
-    }
+    expect_compressed_illegal(rv64_machine_config(), raw)
   }
 
   let store_zero = make_runner(rv64_machine_config())
@@ -915,21 +845,10 @@ test "rv32c compressed shifts reserve high shamt bit" {
     encode_c_srai(9, 32),
   ]
   for raw in cases {
-    let runner = make_runner(default_machine_config())
-    runner.load_program(
-      mixed_program_bytes([(2, raw.reinterpret_as_uint())]),
-      0U,
+    expect_compressed_illegal(
+      default_machine_config(),
+      raw.reinterpret_as_uint(),
     )
-    match runner.step() {
-      Trap(info) => {
-        match info.cause {
-          IllegalInstruction => ()
-          _ => fail("expected illegal instruction trap")
-        }
-        assert_eq(info.trap_value, raw.reinterpret_as_uint().to_uint64())
-      }
-      _ => fail("expected illegal instruction trap")
-    }
   }
 }
 
@@ -939,21 +858,10 @@ test "rv32c compressed double stack integer forms remain reserved" {
   // decoder from expanding them into RV64 integer memory operations.
   let cases = [encode_c_ldsp(9, 8), encode_c_sdsp(9, 8)]
   for raw in cases {
-    let runner = make_runner(default_machine_config())
-    runner.load_program(
-      mixed_program_bytes([(2, raw.reinterpret_as_uint())]),
-      0U,
+    expect_compressed_illegal(
+      default_machine_config(),
+      raw.reinterpret_as_uint(),
     )
-    match runner.step() {
-      Trap(info) => {
-        match info.cause {
-          IllegalInstruction => ()
-          _ => fail("expected illegal instruction trap")
-        }
-        assert_eq(info.trap_value, raw.reinterpret_as_uint().to_uint64())
-      }
-      _ => fail("expected rv32c ldsp/sdsp reserved form to trap")
-    }
   }
 }
 
@@ -981,18 +889,7 @@ test "rv64c compressed word ALU forms sign-extend and stay rv64-only" {
 
   for raw_int in [encode_c_addw(8, 9), encode_c_subw(10, 11)] {
     let raw = raw_int.reinterpret_as_uint()
-    let rv32_runner = make_runner(default_machine_config())
-    rv32_runner.load_program(mixed_program_bytes([(2, raw)]), 0U)
-    match rv32_runner.step() {
-      Trap(info) => {
-        match info.cause {
-          IllegalInstruction => ()
-          _ => fail("expected illegal instruction trap")
-        }
-        assert_eq(info.trap_value, raw.to_uint64())
-      }
-      _ => fail("expected rv32c compressed word ALU form to trap")
-    }
+    expect_compressed_illegal(default_machine_config(), raw)
   }
 }
 
@@ -1000,18 +897,7 @@ test "rv64c compressed word ALU forms sign-extend and stay rv64-only" {
 test "rv64c compressed word ALU reserved slots trap" {
   for raw_int in [encode_c_word_alu(0x2, 8, 9), encode_c_word_alu(0x3, 8, 9)] {
     let raw = raw_int.reinterpret_as_uint()
-    let runner = make_runner(rv64_machine_config())
-    runner.load_program(mixed_program_bytes([(2, raw)]), 0U)
-    match runner.step() {
-      Trap(info) => {
-        match info.cause {
-          IllegalInstruction => ()
-          _ => fail("expected illegal instruction trap")
-        }
-        assert_eq(info.trap_value, raw.to_uint64())
-      }
-      _ => fail("expected reserved compressed word ALU slot to trap")
-    }
+    expect_compressed_illegal(rv64_machine_config(), raw)
   }
 }
 
@@ -1056,21 +942,7 @@ test "compressed mv rd x0 forms execute as hints" {
 ///|
 test "compressed jump-register x0 forms keep reserved and ebreak meanings" {
   let jr_x0 = encode_c_jr(0)
-  let jr_runner = make_runner(rv64_machine_config())
-  jr_runner.load_program(
-    mixed_program_bytes([(2, jr_x0.reinterpret_as_uint())]),
-    0U,
-  )
-  match jr_runner.step() {
-    Trap(info) => {
-      match info.cause {
-        IllegalInstruction => ()
-        _ => fail("expected c.jr x0 to remain reserved")
-      }
-      assert_eq(info.trap_value, jr_x0.reinterpret_as_uint().to_uint64())
-    }
-    _ => fail("expected c.jr x0 to trap")
-  }
+  expect_compressed_illegal(rv64_machine_config(), jr_x0.reinterpret_as_uint())
 
   let jalr_x0 = encode_c_jalr(0)
   let ebreak_runner = make_runner(rv64_machine_config())
@@ -1135,19 +1007,7 @@ test "compressed jump-register forms use jalr semantics with a 2-byte link addre
 
 ///|
 test "unsupported compressed instructions still trap as illegal instruction" {
-  let runner = make_runner(default_machine_config())
-  runner.load_program(mixed_program_bytes([(2, 0x9c25U)]), 0U)
-  match runner.step() {
-    Trap(info) => {
-      match info.cause {
-        IllegalInstruction => ()
-        _ => fail("expected illegal instruction trap")
-      }
-      assert_eq(info.faulting_pc, 0U.to_uint64())
-      assert_eq(info.trap_value, 0x9c25U.to_uint64())
-    }
-    _ => fail("expected illegal instruction trap")
-  }
+  expect_compressed_illegal(default_machine_config(), 0x9c25U)
 }
 
 ///|
