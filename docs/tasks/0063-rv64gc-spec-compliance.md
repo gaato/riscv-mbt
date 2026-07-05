@@ -180,6 +180,12 @@ official coverage improve.
   helper. This closes the old RNE-only legality boundary for `FMADD.S`,
   `FMSUB.S`, `FNMSUB.S`, and `FNMADD.S`; exact fused single-rounding remains an
   explicit follow-up audit.
+- `FADD.D`, `FSUB.D`, and `FMUL.D` now round finite exact-rational results back
+  to double precision inside the emulator. Legal static non-RNE modes execute
+  where they change the result, and the helper accrues NX plus overflow and
+  tininess-after-rounding underflow flags for rounded finite results. Exact
+  zero signs are handled explicitly for add/sub cancellation and multiplication
+  by zero.
 - `Zifencei` now has an execute regression for the key same-hart contract:
   fetch and decode an instruction, store a different instruction to the same
   address, execute `FENCE.I`, jump back, and require the replacement instruction
@@ -249,6 +255,11 @@ official coverage improve.
 - Single-precision FMA now has matching first non-RNE coverage. Focused
   regressions cover all four FMA opcodes at `2^24 + 1`, where RTZ and RUP
   select adjacent single-precision results and accrue NX.
+- Double-precision add/sub/mul now have corresponding non-RNE coverage.
+  Focused regressions cover `2^53 + 1` add/sub and `(1 + 2^-52)^2` multiply,
+  where RTZ and RUP select adjacent double-precision results and accrue NX.
+  A separate regression pins exact-zero signs for `FADD.D`, `FSUB.D`, and
+  `FMUL.D`, including the round-down cancellation case.
 - The first RV64C reserved/hint correction slice is in place. `EBREAK` and
   `C.EBREAK` now trap as architectural breakpoint exceptions instead of illegal
   instructions, RV64C rejects reserved `C.ADDIW rd=x0`, `C.LUI rd=x0` and

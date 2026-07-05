@@ -149,6 +149,11 @@ fn f64_from_bits(bits : UInt64) -> Double {
 }
 
 ///|
+fn f64_negative_zero_bits() -> UInt64 {
+  1U.to_uint64() << 63
+}
+
+///|
 fn f64_bits_from_host(value : Double) -> UInt64 {
   // Same policy as single precision: use the host for arithmetic, then
   // canonicalize NaN bits so behavior is deterministic across hosts.
@@ -182,6 +187,18 @@ priv struct FpRoundedIntegerBits {
 priv struct FpRoundedSingleBits {
   bits : UInt
   flags : UInt64
+}
+
+///|
+priv struct FpRoundedDoubleBits {
+  bits : UInt64
+  flags : UInt64
+}
+
+///|
+priv struct FpRoundedBigInt {
+  value : BigInt
+  inexact : Bool
 }
 
 ///|
@@ -285,6 +302,251 @@ fn fp_exact_rational_equal(
 }
 
 ///|
+fn fp_bigint_abs(value : BigInt) -> BigInt {
+  if value < BigInt::from_int(0) {
+    -value
+  } else {
+    value
+  }
+}
+
+///|
+fn fp_compare_to_scaled_power(
+  numerator : BigInt,
+  denominator : BigInt,
+  exponent : Int,
+) -> Int {
+  // Compare numerator / denominator with 2^exponent without converting through
+  // host floating point. This is used to find the architectural binary exponent
+  // before rounding a finite exact rational back to IEEE bits.
+  if exponent >= 0 {
+    numerator.compare(denominator << exponent)
+  } else {
+    (numerator << (0 - exponent)).compare(denominator)
+  }
+}
+
+///|
+fn fp_exact_rational_floor_log2(
+  numerator : BigInt,
+  denominator : BigInt,
+) -> Int {
+  // bit_length gives a close estimate for floor(log2(numerator/denominator)).
+  // The two local adjustments handle cases where numerator and denominator have
+  // similar top bits and the first estimate lands one step off.
+  let estimate = numerator.bit_length() - denominator.bit_length()
+  let lower = if fp_compare_to_scaled_power(numerator, denominator, estimate) <
+    0 {
+    estimate - 1
+  } else {
+    estimate
+  }
+  if fp_compare_to_scaled_power(numerator, denominator, lower + 1) >= 0 {
+    lower + 1
+  } else {
+    lower
+  }
+}
+
+///|
+fn fp_round_rational_to_integer(
+  numerator : BigInt,
+  denominator : BigInt,
+  sign : Bool,
+  mode : UInt,
+) -> FpRoundedBigInt {
+  let quotient = numerator / denominator
+  let remainder = numerator % denominator
+  let inexact = !remainder.is_zero()
+  let doubled = remainder << 1
+  let tie = doubled == denominator
+  let above_half = doubled > denominator
+  let round_up = match mode {
+    0U =>
+      above_half ||
+      (tie && quotient % BigInt::from_int(2) != BigInt::from_int(0))
+    1U => false
+    2U => sign && inexact
+    3U => !sign && inexact
+    4U => above_half || tie
+    _ => false
+  }
+  {
+    value: if round_up {
+      quotient + BigInt::from_int(1)
+    } else {
+      quotient
+    },
+    inexact,
+  }
+}
+
+///|
+fn fp_round_rational_scaled_to_integer(
+  numerator : BigInt,
+  denominator : BigInt,
+  binary_shift : Int,
+  sign : Bool,
+  mode : UInt,
+) -> FpRoundedBigInt {
+  if binary_shift >= 0 {
+    fp_round_rational_to_integer(
+      numerator << binary_shift,
+      denominator,
+      sign,
+      mode,
+    )
+  } else {
+    fp_round_rational_to_integer(
+      numerator,
+      denominator << (0 - binary_shift),
+      sign,
+      mode,
+    )
+  }
+}
+
+///|
+fn fp_f64_overflow_bits(sign : Bool, mode : UInt) -> UInt64 {
+  let use_infinity = match mode {
+    1U => false
+    2U => sign
+    3U => !sign
+    _ => true
+  }
+  if use_infinity {
+    if sign {
+      0xfff0000000000000UL
+    } else {
+      0x7ff0000000000000UL
+    }
+  } else if sign {
+    0xffefffffffffffffUL
+  } else {
+    0x7fefffffffffffffUL
+  }
+}
+
+///|
+fn f64_exact_zero_add_bits(
+  lhs_bits : UInt64,
+  rhs_bits : UInt64,
+  mode : UInt,
+) -> UInt64 {
+  // For exact zero sums, IEEE keeps a negative zero for two negative zero
+  // inputs and otherwise produces -0 only under round-down. FSUB calls this
+  // helper with the right-hand sign already flipped.
+  let lhs_negative = f64_sign_bit(lhs_bits)
+  let rhs_negative = f64_sign_bit(rhs_bits)
+  let negative = if f64_is_zero_bits(lhs_bits) &&
+    f64_is_zero_bits(rhs_bits) &&
+    lhs_negative == rhs_negative {
+    lhs_negative
+  } else {
+    mode == 2U
+  }
+  if negative {
+    f64_negative_zero_bits()
+  } else {
+    0U.to_uint64()
+  }
+}
+
+///|
+fn f64_exact_zero_mul_bits(lhs_bits : UInt64, rhs_bits : UInt64) -> UInt64 {
+  if f64_sign_bit(lhs_bits) != f64_sign_bit(rhs_bits) {
+    f64_negative_zero_bits()
+  } else {
+    0U.to_uint64()
+  }
+}
+
+///|
+fn fp_round_rational_to_f64_bits(
+  exact : FpExactRational,
+  mode : UInt,
+) -> FpRoundedDoubleBits {
+  let sign = exact.num < BigInt::from_int(0)
+  let sign_bits = if sign { 1U.to_uint64() << 63 } else { 0U.to_uint64() }
+  let numerator = fp_bigint_abs(exact.num)
+  if numerator.is_zero() {
+    { bits: sign_bits, flags: 0U.to_uint64() }
+  } else {
+    let exponent = fp_exact_rational_floor_log2(numerator, exact.den)
+    if exponent > 1023 {
+      {
+        bits: fp_f64_overflow_bits(sign, mode),
+        flags: fp_fflag_of | fp_fflag_nx,
+      }
+    } else if exponent >= -1022 {
+      // Normal doubles carry 53 bits of precision including the hidden leading
+      // one. Round the exact value after scaling that leading bit to bit 52.
+      let rounded = fp_round_rational_scaled_to_integer(
+        numerator,
+        exact.den,
+        52 - exponent,
+        sign,
+        mode,
+      )
+      let mut significand = rounded.value
+      let mut stored_exponent = exponent + 1023
+      if significand == fp_bigint_one() << 53 {
+        significand = significand >> 1
+        stored_exponent += 1
+      }
+      if stored_exponent >= 2047 {
+        {
+          bits: fp_f64_overflow_bits(sign, mode),
+          flags: fp_fflag_of | fp_fflag_nx,
+        }
+      } else {
+        let exponent_bits = stored_exponent.reinterpret_as_uint().to_uint64() <<
+          52
+        let fraction_bits = (significand - (fp_bigint_one() << 52)).to_uint64()
+        {
+          bits: sign_bits | exponent_bits | fraction_bits,
+          flags: if rounded.inexact {
+            fp_fflag_nx
+          } else {
+            0U.to_uint64()
+          },
+        }
+      }
+    } else {
+      // Subnormal doubles have no hidden bit. Scale directly to units of
+      // 2^-1074; if rounding reaches the minimum normal, tininess-after-rounding
+      // means UF is not accrued.
+      let rounded = fp_round_rational_scaled_to_integer(
+        numerator,
+        exact.den,
+        1074,
+        sign,
+        mode,
+      )
+      if rounded.value >= fp_bigint_one() << 52 {
+        {
+          bits: sign_bits | (1U.to_uint64() << 52),
+          flags: if rounded.inexact {
+            fp_fflag_nx
+          } else {
+            0U.to_uint64()
+          },
+        }
+      } else {
+        {
+          bits: sign_bits | rounded.value.to_uint64(),
+          flags: if rounded.inexact {
+            fp_fflag_uf | fp_fflag_nx
+          } else {
+            0U.to_uint64()
+          },
+        }
+      }
+    }
+  }
+}
+
+///|
 fn f64_finite_inexact_from_rational(
   exact : FpExactRational,
   result_bits : UInt64,
@@ -309,66 +571,6 @@ fn f64_sqrt_finite_inexact_from_result(
       let squared = fp_exact_rational_mul(result, result)
       !fp_exact_rational_equal(operand, squared)
     }
-    _ => false
-  }
-}
-
-///|
-fn f64_add_inexact_bits(
-  lhs_bits : UInt64,
-  rhs_bits : UInt64,
-  result_bits : UInt64,
-) -> Bool {
-  match
-    (
-      fp_exact_rational_from_f64_bits(lhs_bits),
-      fp_exact_rational_from_f64_bits(rhs_bits),
-    ) {
-    (Some(lhs), Some(rhs)) =>
-      f64_finite_inexact_from_rational(
-        fp_exact_rational_add(lhs, rhs),
-        result_bits,
-      )
-    _ => false
-  }
-}
-
-///|
-fn f64_sub_inexact_bits(
-  lhs_bits : UInt64,
-  rhs_bits : UInt64,
-  result_bits : UInt64,
-) -> Bool {
-  match
-    (
-      fp_exact_rational_from_f64_bits(lhs_bits),
-      fp_exact_rational_from_f64_bits(rhs_bits),
-    ) {
-    (Some(lhs), Some(rhs)) =>
-      f64_finite_inexact_from_rational(
-        fp_exact_rational_sub(lhs, rhs),
-        result_bits,
-      )
-    _ => false
-  }
-}
-
-///|
-fn f64_mul_inexact_bits(
-  lhs_bits : UInt64,
-  rhs_bits : UInt64,
-  result_bits : UInt64,
-) -> Bool {
-  match
-    (
-      fp_exact_rational_from_f64_bits(lhs_bits),
-      fp_exact_rational_from_f64_bits(rhs_bits),
-    ) {
-    (Some(lhs), Some(rhs)) =>
-      f64_finite_inexact_from_rational(
-        fp_exact_rational_mul(lhs, rhs),
-        result_bits,
-      )
     _ => false
   }
 }
@@ -1732,8 +1934,14 @@ fn Runner::execute_fp(
       Running
     }
     FAddD(rd, rs1, rs2, rm) => {
-      if !self.fp_rounding_mode_supported(rm) {
-        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      let mode = match self.fp_effective_rounding_mode(rm) {
+        Some(mode) => mode
+        None =>
+          return self.raise_trap(
+            IllegalInstruction,
+            current_pc,
+            raw.to_uint64(),
+          )
       }
       let lhs_bits = self.read_freg_double_bits(rs1)
       let rhs_bits = self.read_freg_double_bits(rs2)
@@ -1741,19 +1949,37 @@ fn Runner::execute_fp(
         f64_add_is_invalid_bits(lhs_bits, rhs_bits) {
         self.set_fflags(fp_fflag_nv)
       }
-      let result_bits = f64_bits_from_host(
-        f64_from_bits(lhs_bits) + f64_from_bits(rhs_bits),
-      )
-      if f64_add_inexact_bits(lhs_bits, rhs_bits, result_bits) {
-        self.set_fflags(fp_fflag_nx)
+      let result_bits = match
+        (
+          fp_exact_rational_from_f64_bits(lhs_bits),
+          fp_exact_rational_from_f64_bits(rhs_bits),
+        ) {
+        (Some(lhs), Some(rhs)) => {
+          let exact = fp_exact_rational_add(lhs, rhs)
+          if exact.num.is_zero() {
+            f64_exact_zero_add_bits(lhs_bits, rhs_bits, mode)
+          } else {
+            let rounded = fp_round_rational_to_f64_bits(exact, mode)
+            self.set_fflags(rounded.flags)
+            rounded.bits
+          }
+        }
+        _ =>
+          f64_bits_from_host(f64_from_bits(lhs_bits) + f64_from_bits(rhs_bits))
       }
       self.write_freg_double_bits(rd, result_bits)
       self.cpu.pc = next_pc
       Running
     }
     FSubD(rd, rs1, rs2, rm) => {
-      if !self.fp_rounding_mode_supported(rm) {
-        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      let mode = match self.fp_effective_rounding_mode(rm) {
+        Some(mode) => mode
+        None =>
+          return self.raise_trap(
+            IllegalInstruction,
+            current_pc,
+            raw.to_uint64(),
+          )
       }
       let lhs_bits = self.read_freg_double_bits(rs1)
       let rhs_bits = self.read_freg_double_bits(rs2)
@@ -1761,19 +1987,41 @@ fn Runner::execute_fp(
         f64_add_is_invalid_bits(lhs_bits, rhs_bits ^ (1U.to_uint64() << 63)) {
         self.set_fflags(fp_fflag_nv)
       }
-      let result_bits = f64_bits_from_host(
-        f64_from_bits(lhs_bits) - f64_from_bits(rhs_bits),
-      )
-      if f64_sub_inexact_bits(lhs_bits, rhs_bits, result_bits) {
-        self.set_fflags(fp_fflag_nx)
+      let result_bits = match
+        (
+          fp_exact_rational_from_f64_bits(lhs_bits),
+          fp_exact_rational_from_f64_bits(rhs_bits),
+        ) {
+        (Some(lhs), Some(rhs)) => {
+          let exact = fp_exact_rational_sub(lhs, rhs)
+          if exact.num.is_zero() {
+            f64_exact_zero_add_bits(
+              lhs_bits,
+              rhs_bits ^ (1U.to_uint64() << 63),
+              mode,
+            )
+          } else {
+            let rounded = fp_round_rational_to_f64_bits(exact, mode)
+            self.set_fflags(rounded.flags)
+            rounded.bits
+          }
+        }
+        _ =>
+          f64_bits_from_host(f64_from_bits(lhs_bits) - f64_from_bits(rhs_bits))
       }
       self.write_freg_double_bits(rd, result_bits)
       self.cpu.pc = next_pc
       Running
     }
     FMulD(rd, rs1, rs2, rm) => {
-      if !self.fp_rounding_mode_supported(rm) {
-        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      let mode = match self.fp_effective_rounding_mode(rm) {
+        Some(mode) => mode
+        None =>
+          return self.raise_trap(
+            IllegalInstruction,
+            current_pc,
+            raw.to_uint64(),
+          )
       }
       let lhs_bits = self.read_freg_double_bits(rs1)
       let rhs_bits = self.read_freg_double_bits(rs2)
@@ -1781,11 +2029,23 @@ fn Runner::execute_fp(
         f64_mul_is_invalid_bits(lhs_bits, rhs_bits) {
         self.set_fflags(fp_fflag_nv)
       }
-      let result_bits = f64_bits_from_host(
-        f64_from_bits(lhs_bits) * f64_from_bits(rhs_bits),
-      )
-      if f64_mul_inexact_bits(lhs_bits, rhs_bits, result_bits) {
-        self.set_fflags(fp_fflag_nx)
+      let result_bits = match
+        (
+          fp_exact_rational_from_f64_bits(lhs_bits),
+          fp_exact_rational_from_f64_bits(rhs_bits),
+        ) {
+        (Some(lhs), Some(rhs)) => {
+          let exact = fp_exact_rational_mul(lhs, rhs)
+          if exact.num.is_zero() {
+            f64_exact_zero_mul_bits(lhs_bits, rhs_bits)
+          } else {
+            let rounded = fp_round_rational_to_f64_bits(exact, mode)
+            self.set_fflags(rounded.flags)
+            rounded.bits
+          }
+        }
+        _ =>
+          f64_bits_from_host(f64_from_bits(lhs_bits) * f64_from_bits(rhs_bits))
       }
       self.write_freg_double_bits(rd, result_bits)
       self.cpu.pc = next_pc
