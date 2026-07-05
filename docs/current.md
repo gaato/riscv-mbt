@@ -87,12 +87,15 @@
   `fcvt.d.{l,lu}`, covering legal static/dynamic modes and NX for inexact
   inputs. `FCVT.S.D` now uses an emulator-side double-to-single rounding helper
   for legal static/dynamic modes, NX, overflow result selection, and
-  tininess-after-rounding UF behavior. `FADD.S`, `FSUB.S`, `FMUL.S`, `FDIV.S`,
-  and `FSQRT.S` now use that same rounding helper for legal non-RNE arithmetic
-  and NX. Single and double fused multiply-add now use exact-rational fused
-  products for finite nonzero results under legal non-RNE modes, and exact-zero
-  fused result signs are handled explicitly. Invalid fused operations now write
-  canonical NaNs directly while accruing NV for `infinity * zero` and
+  tininess-after-rounding UF behavior. `FADD.S`, `FSUB.S`, and `FMUL.S` now
+  round exact single-precision operand results inside the emulator, including
+  explicit signed-zero selection for exact cancellation and multiplication by
+  zero. `FDIV.S` and `FSQRT.S` use the double-to-single rounding helper for
+  legal non-RNE arithmetic and NX. Single and double fused multiply-add now use
+  exact-rational fused products for finite nonzero results under legal non-RNE
+  modes, and exact-zero fused result signs are handled explicitly. Invalid
+  fused operations now write canonical NaNs directly while accruing NV for
+  `infinity * zero` and
   signaling-NaN operands, and they also accrue NV for an infinite product
   fused with an opposite-signed infinite addend across the FMA opcode variants.
   The focused coverage now pins that behavior for `FMADD`, `FMSUB`, `FNMSUB`,

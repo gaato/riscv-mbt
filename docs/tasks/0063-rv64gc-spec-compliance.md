@@ -485,9 +485,10 @@ official coverage improve.
   payload behavior, broader flag corner cases, and full official-suite
   promotion remain open.
 - `FADD.S`, `FSUB.S`, and `FMUL.S` now round their exact single-precision
-  operand results through the emulator-side double-to-single helper. Legal
+  operand results through the emulator-side exact-rational helper. Legal
   static non-RNE modes are accepted where they change the result, reserved
-  rounding modes still trap, and inexact results accrue NX.
+  rounding modes still trap, inexact results accrue NX, and exact-zero result
+  signs are selected explicitly instead of inheriting host signed-zero behavior.
 - `FDIV.S` and `FSQRT.S` now also accept legal static non-RNE modes and use the
   same double-to-single result helper, retiring the previous RNE-only trap
   boundary for the scalar single-precision arithmetic family. Exact quotient
@@ -622,7 +623,9 @@ official coverage improve.
 - Single-precision add/sub/mul now support legal non-RNE arithmetic rounding.
   Focused regressions cover positive inexact `FADD.S`, `FSUB.S`, and `FMUL.S`
   cases where RTZ and RUP select adjacent single-precision results, plus
-  reserved arithmetic rounding-mode traps.
+  reserved arithmetic rounding-mode traps. A separate regression now pins
+  exact-zero signs for `FADD.S`, `FSUB.S`, and `FMUL.S`, including the
+  round-down cancellation case.
 - Single-precision div/sqrt now have the same first non-RNE coverage. Focused
   regressions cover `FDIV.S` `1.0 / 3.0` and `FSQRT.S` `sqrt(2.0)` cases where
   directed rounding selects adjacent single-precision results and accrues NX.

@@ -595,6 +595,29 @@ fn f64_exact_zero_add_bits(
 }
 
 ///|
+fn f32_exact_zero_add_bits(
+  lhs_bits : UInt,
+  rhs_bits : UInt,
+  mode : UInt,
+) -> UInt {
+  // Single arithmetic follows the same IEEE signed-zero rule as double:
+  // same-signed zero operands keep their sign, while all other exact
+  // cancellations choose -0 only under round-down.
+  let negative = fp_exact_zero_sum_is_negative(
+    f32_is_zero_bits(lhs_bits),
+    f32_sign_bit(lhs_bits),
+    f32_is_zero_bits(rhs_bits),
+    f32_sign_bit(rhs_bits),
+    mode,
+  )
+  if negative {
+    f32_negative_zero_bits()
+  } else {
+    0U
+  }
+}
+
+///|
 fn fp_exact_zero_sum_is_negative(
   lhs_is_zero : Bool,
   lhs_negative : Bool,
@@ -609,6 +632,15 @@ fn fp_exact_zero_sum_is_negative(
     lhs_negative
   } else {
     mode == 2U
+  }
+}
+
+///|
+fn f32_exact_zero_mul_bits(lhs_bits : UInt, rhs_bits : UInt) -> UInt {
+  if f32_sign_bit(lhs_bits) != f32_sign_bit(rhs_bits) {
+    f32_negative_zero_bits()
+  } else {
+    0U
   }
 }
 
@@ -2103,13 +2135,29 @@ fn Runner::execute_fp(
         f32_add_is_invalid_bits(lhs_bits, rhs_bits) {
         self.set_fflags(fp_fflag_nv)
       }
-      let rounded = fp_round_f64_bits_to_f32_bits(
-        (f32_from_bits(lhs_bits).to_double() +
-        f32_from_bits(rhs_bits).to_double()).reinterpret_as_uint64(),
-        mode,
-      )
-      self.set_fflags(rounded.flags)
-      self.write_freg_single_bits(rd, rounded.bits)
+      let result_bits = match
+        (
+          fp_exact_rational_from_f32_bits(lhs_bits),
+          fp_exact_rational_from_f32_bits(rhs_bits),
+        ) {
+        (Some(lhs), Some(rhs)) => {
+          let exact = fp_exact_rational_add(lhs, rhs)
+          if exact.num.is_zero() {
+            f32_exact_zero_add_bits(lhs_bits, rhs_bits, mode)
+          } else {
+            let rounded = fp_round_rational_to_f32_bits(exact, mode)
+            self.set_fflags(rounded.flags)
+            rounded.bits
+          }
+        }
+        _ =>
+          fp_round_f64_bits_to_f32_bits(
+            (f32_from_bits(lhs_bits).to_double() +
+            f32_from_bits(rhs_bits).to_double()).reinterpret_as_uint64(),
+            mode,
+          ).bits
+      }
+      self.write_freg_single_bits(rd, result_bits)
       self.cpu.pc = next_pc
       Running
     }
@@ -2129,13 +2177,29 @@ fn Runner::execute_fp(
         f32_add_is_invalid_bits(lhs_bits, rhs_bits ^ 0x80000000U) {
         self.set_fflags(fp_fflag_nv)
       }
-      let rounded = fp_round_f64_bits_to_f32_bits(
-        (f32_from_bits(lhs_bits).to_double() -
-        f32_from_bits(rhs_bits).to_double()).reinterpret_as_uint64(),
-        mode,
-      )
-      self.set_fflags(rounded.flags)
-      self.write_freg_single_bits(rd, rounded.bits)
+      let result_bits = match
+        (
+          fp_exact_rational_from_f32_bits(lhs_bits),
+          fp_exact_rational_from_f32_bits(rhs_bits),
+        ) {
+        (Some(lhs), Some(rhs)) => {
+          let exact = fp_exact_rational_sub(lhs, rhs)
+          if exact.num.is_zero() {
+            f32_exact_zero_add_bits(lhs_bits, rhs_bits ^ 0x80000000U, mode)
+          } else {
+            let rounded = fp_round_rational_to_f32_bits(exact, mode)
+            self.set_fflags(rounded.flags)
+            rounded.bits
+          }
+        }
+        _ =>
+          fp_round_f64_bits_to_f32_bits(
+            (f32_from_bits(lhs_bits).to_double() -
+            f32_from_bits(rhs_bits).to_double()).reinterpret_as_uint64(),
+            mode,
+          ).bits
+      }
+      self.write_freg_single_bits(rd, result_bits)
       self.cpu.pc = next_pc
       Running
     }
@@ -2155,13 +2219,29 @@ fn Runner::execute_fp(
         f32_mul_is_invalid_bits(lhs_bits, rhs_bits) {
         self.set_fflags(fp_fflag_nv)
       }
-      let rounded = fp_round_f64_bits_to_f32_bits(
-        (f32_from_bits(lhs_bits).to_double() *
-        f32_from_bits(rhs_bits).to_double()).reinterpret_as_uint64(),
-        mode,
-      )
-      self.set_fflags(rounded.flags)
-      self.write_freg_single_bits(rd, rounded.bits)
+      let result_bits = match
+        (
+          fp_exact_rational_from_f32_bits(lhs_bits),
+          fp_exact_rational_from_f32_bits(rhs_bits),
+        ) {
+        (Some(lhs), Some(rhs)) => {
+          let exact = fp_exact_rational_mul(lhs, rhs)
+          if exact.num.is_zero() {
+            f32_exact_zero_mul_bits(lhs_bits, rhs_bits)
+          } else {
+            let rounded = fp_round_rational_to_f32_bits(exact, mode)
+            self.set_fflags(rounded.flags)
+            rounded.bits
+          }
+        }
+        _ =>
+          fp_round_f64_bits_to_f32_bits(
+            (f32_from_bits(lhs_bits).to_double() *
+            f32_from_bits(rhs_bits).to_double()).reinterpret_as_uint64(),
+            mode,
+          ).bits
+      }
+      self.write_freg_single_bits(rd, result_bits)
       self.cpu.pc = next_pc
       Running
     }

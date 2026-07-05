@@ -1543,6 +1543,45 @@ test "rv64fd add sub mul preserve exact zero signs" {
 }
 
 ///|
+test "rv64fd single add sub mul preserve exact zero signs" {
+  let runner = make_runner(rv64fd_machine_config())
+  let pos_zero = exec_test_nan_box_single(0x00000000U)
+  let neg_zero = exec_test_nan_box_single(0x80000000U)
+  let pos_one = exec_test_nan_box_single(exec_test_f32_bits(1.0))
+  let neg_one = exec_test_nan_box_single(exec_test_f32_bits(-1.0))
+  runner.cpu.write_freg(1, pos_zero)
+  runner.cpu.write_freg(2, neg_zero)
+  runner.cpu.write_freg(3, pos_one)
+  runner.cpu.write_freg(4, neg_one)
+  runner.load_program(
+    words_to_bytes([
+      encode_fp_r(0x00U, 2, 1, 0x2U, 5),
+      encode_fp_r(0x00U, 2, 1, 0x0U, 6),
+      encode_fp_r(0x00U, 2, 2, 0x3U, 7),
+      encode_fp_r(0x04U, 3, 3, 0x2U, 8),
+      encode_fp_r(0x04U, 1, 1, 0x0U, 9),
+      encode_fp_r(0x08U, 2, 3, 0x0U, 10),
+      encode_fp_r(0x08U, 2, 4, 0x0U, 11),
+    ]),
+    0U,
+  )
+  match runner.run(7) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected exact-zero single arithmetic to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_freg_u64(5), neg_zero)
+  assert_eq(runner.read_freg_u64(6), pos_zero)
+  assert_eq(runner.read_freg_u64(7), neg_zero)
+  assert_eq(runner.read_freg_u64(8), neg_zero)
+  assert_eq(runner.read_freg_u64(9), pos_zero)
+  assert_eq(runner.read_freg_u64(10), neg_zero)
+  assert_eq(runner.read_freg_u64(11), pos_zero)
+}
+
+///|
 test "rv64fd div honors non-rne rounding modes" {
   let runner = make_runner(rv64fd_machine_config())
   let csr_fcsr = 0x003
