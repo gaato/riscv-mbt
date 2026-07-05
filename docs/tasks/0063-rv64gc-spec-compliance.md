@@ -102,8 +102,9 @@ official coverage improve.
   rounding modes, and the first NV/DZ arithmetic flags. The conversion
   regressions now include exact RNE invalid boundaries for `FCVT.W.S/D` around
   `-2^31` and `+2^31`, `FCVT.WU.S/D` at negative inputs and `+2^32`,
-  `FCVT.L.D` at `+2^63`, and `FCVT.LU.D` at `+2^64`, plus RNE NaN/infinity
-  clipping before any host integer cast.
+  `FCVT.L.S/D` around `-2^63` and `+2^63`, and `FCVT.LU.S/D` at negative
+  inputs and the `+2^64` upper boundary, plus RNE NaN/infinity clipping before
+  any host integer cast.
   Invalid scalar arithmetic coverage now checks both NV and canonical-NaN
   results for representative add, multiply, and divide cases.
   Invalid fused multiply-add coverage now also checks canonical-NaN results for
@@ -363,7 +364,9 @@ official coverage improve.
   spec-shaped conversion policy for RV64-width results. The helper clips
   invalid signed results to `INT64_MIN`/`INT64_MAX`, invalid unsigned results to
   zero/`UINT64_MAX`, sets NV for invalid conversions, and sets NX for valid
-  inexact conversions.
+  inexact conversions. Focused RNE coverage now pins both lower and upper
+  invalid boundaries for signed long conversions plus the unsigned negative and
+  `+2^64` boundaries.
 - `FCVT.S.W`, `FCVT.S.WU`, `FCVT.S.L`, `FCVT.S.LU`, `FCVT.D.L`, and
   `FCVT.D.LU` now construct IEEE result bits through a shared integer-magnitude
   rounding helper instead of relying on host-default conversion. The helper
