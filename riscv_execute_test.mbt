@@ -1799,7 +1799,7 @@ test "rv64fd mul accrues underflow and inexact for tiny products" {
 }
 
 ///|
-test "rv64fd fused multiply-add accrues underflow and inexact for tiny products" {
+test "rv64fd fused multiply-add family accrues underflow and inexact for tiny products" {
   let runner = make_runner(rv64fd_machine_config())
   let csr_fcsr = 0x003
   runner.cpu.write_freg(1, exec_test_nan_box_single(0x00800000U))
@@ -1813,24 +1813,55 @@ test "rv64fd fused multiply-add accrues underflow and inexact for tiny products"
       encode_fp_r4(3, 0x0U, 2, 1, 0x0U, 7, 0x43U),
       encode_csr(csr_fcsr, 0, 0x2U, 8),
       encode_csr(csr_fcsr, 0, 0x1U, 0),
-      encode_fp_r4(6, 0x1U, 5, 4, 0x0U, 9, 0x43U),
+      encode_fp_r4(3, 0x0U, 2, 1, 0x0U, 9, 0x47U),
       encode_csr(csr_fcsr, 0, 0x2U, 10),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(3, 0x0U, 2, 1, 0x0U, 11, 0x4bU),
+      encode_csr(csr_fcsr, 0, 0x2U, 12),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(3, 0x0U, 2, 1, 0x0U, 13, 0x4fU),
+      encode_csr(csr_fcsr, 0, 0x2U, 14),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(6, 0x1U, 5, 4, 0x0U, 15, 0x43U),
+      encode_csr(csr_fcsr, 0, 0x2U, 16),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(6, 0x1U, 5, 4, 0x0U, 17, 0x47U),
+      encode_csr(csr_fcsr, 0, 0x2U, 18),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(6, 0x1U, 5, 4, 0x0U, 19, 0x4bU),
+      encode_csr(csr_fcsr, 0, 0x2U, 20),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(6, 0x1U, 5, 4, 0x0U, 21, 0x4fU),
+      encode_csr(csr_fcsr, 0, 0x2U, 22),
     ]),
     0U,
   )
-  match runner.run(5) {
+  match runner.run(23) {
     Running => ()
     Trap(info) =>
       fail(
-        "expected tiny product fused multiply-add paths to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+        "expected tiny product fused multiply-add family paths to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
       )
   }
-  // The addend is exact +0, so these cases isolate the FMA single-rounding
-  // path while still requiring the same UF|NX sticky flags as plain multiply.
+  // The addend is exact +0, so these cases isolate the fused single-rounding
+  // path. FNMSUB/FNMADD negate only the product term, giving a negative tiny
+  // result while preserving the same UF|NX sticky-flag requirement.
   assert_eq(runner.read_freg_u64(7), exec_test_nan_box_single(0x002aaaabU))
   assert_eq(runner.read_reg_u64(8) & 0x3U.to_uint64(), 0x3U.to_uint64())
-  assert_eq(runner.read_freg_u64(9), 0x0005555555555555UL)
+  assert_eq(runner.read_freg_u64(9), exec_test_nan_box_single(0x002aaaabU))
   assert_eq(runner.read_reg_u64(10) & 0x3U.to_uint64(), 0x3U.to_uint64())
+  assert_eq(runner.read_freg_u64(11), exec_test_nan_box_single(0x802aaaabU))
+  assert_eq(runner.read_reg_u64(12) & 0x3U.to_uint64(), 0x3U.to_uint64())
+  assert_eq(runner.read_freg_u64(13), exec_test_nan_box_single(0x802aaaabU))
+  assert_eq(runner.read_reg_u64(14) & 0x3U.to_uint64(), 0x3U.to_uint64())
+  assert_eq(runner.read_freg_u64(15), 0x0005555555555555UL)
+  assert_eq(runner.read_reg_u64(16) & 0x3U.to_uint64(), 0x3U.to_uint64())
+  assert_eq(runner.read_freg_u64(17), 0x0005555555555555UL)
+  assert_eq(runner.read_reg_u64(18) & 0x3U.to_uint64(), 0x3U.to_uint64())
+  assert_eq(runner.read_freg_u64(19), 0x8005555555555555UL)
+  assert_eq(runner.read_reg_u64(20) & 0x3U.to_uint64(), 0x3U.to_uint64())
+  assert_eq(runner.read_freg_u64(21), 0x8005555555555555UL)
+  assert_eq(runner.read_reg_u64(22) & 0x3U.to_uint64(), 0x3U.to_uint64())
 }
 
 ///|
