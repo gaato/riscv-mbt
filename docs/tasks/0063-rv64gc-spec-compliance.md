@@ -336,6 +336,11 @@ official coverage improve.
 
 ## Progress Notes
 
+- Refactor/tuning checkpoint `c07f9b0` consolidated compressed
+  illegal-instruction trap assertions behind a local `riscv_compressed_test.mbt`
+  helper. The pass preserves the raw-halfword trap metadata checks while
+  reducing repeated reserved/profile-gate boilerplate; measure the next
+  roughly-3000-line feature-growth window from this checkpoint.
 - Control-flow execution now checks taken branch, `JAL`, and `JALR` targets
   against the active profile's IALIGN. Non-C profiles raise
   instruction-address-misaligned on 2-byte-only targets and report the branch or
