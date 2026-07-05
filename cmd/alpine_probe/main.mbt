@@ -813,6 +813,35 @@ fn alpine_post_init_openrc_service_markers() -> Array[String] {
 }
 
 ///|
+fn alpine_post_init_openrc_action_commands() -> Array[String] {
+  // Narrower than daemon supervision: prove rc-service can dispatch
+  // openrc-run start/status/stop actions in this BusyBox-init environment.
+  [
+    "mkdir -p /run/openrc /etc/init.d && " +
+    "touch /run/openrc/softlevel && " +
+    "printf '#!/sbin/openrc-run\\ndescription=\"riscv-mbt OpenRC action smoke\"\\nstart() { touch /run/riscv-mbt-openrc-action.started; }\\nstatus() { test -e /run/riscv-mbt-openrc-action.started; }\\nstop() { rm -f /run/riscv-mbt-openrc-action.started; }\\n' > /etc/init.d/riscv-mbt-openrc-action && " +
+    "chmod 755 /etc/init.d/riscv-mbt-openrc-action && " +
+    "test -x /etc/init.d/riscv-mbt-openrc-action && " +
+    "printf '\\157\\160\\145\\156\\162\\143\\055\\141\\143\\164\\151\\157\\156\\055\\146\\151\\154\\145\\163\\055\\157\\153\\012'",
+    "/sbin/rc-service --nodeps riscv-mbt-openrc-action start && " +
+    "test -e /run/riscv-mbt-openrc-action.started && " +
+    "/sbin/rc-service --nodeps riscv-mbt-openrc-action status && " +
+    "printf '\\157\\160\\145\\156\\162\\143\\055\\141\\143\\164\\151\\157\\156\\055\\163\\164\\141\\162\\164\\055\\157\\153\\012'",
+    "/sbin/rc-service --nodeps riscv-mbt-openrc-action stop && " +
+    "! test -e /run/riscv-mbt-openrc-action.started && " +
+    "rm -f /etc/init.d/riscv-mbt-openrc-action && " +
+    "printf '\\160\\157\\163\\164\\055\\151\\156\\151\\164\\055\\157\\160\\145\\156\\162\\143\\055\\141\\143\\164\\151\\157\\156\\055\\157\\153\\012'",
+  ]
+}
+
+///|
+fn alpine_post_init_openrc_action_markers() -> Array[String] {
+  [
+    "openrc-action-files-ok", "openrc-action-start-ok", "post-init-openrc-action-ok",
+  ]
+}
+
+///|
 fn alpine_post_init_storage_commands() -> Array[String] {
   // This smoke is about the block-backed rootfs path, not applet breadth:
   // write a file, force writeback, then read and compare it through a second
@@ -944,6 +973,9 @@ async fn main {
   let post_init_openrc_service_smoke = parse_flag(
     args, "--post-init-openrc-service-smoke",
   )
+  let post_init_openrc_action_smoke = parse_flag(
+    args, "--post-init-openrc-action-smoke",
+  )
   let post_init_storage_smoke = parse_flag(args, "--post-init-storage-smoke")
   let post_init_persistence_write_smoke = parse_flag(
     args, "--post-init-persistence-write-smoke",
@@ -987,6 +1019,7 @@ async fn main {
     post_init_openrc_install_smoke ||
     post_init_openrc_surface_smoke ||
     post_init_openrc_service_smoke ||
+    post_init_openrc_action_smoke ||
     post_init_storage_smoke ||
     post_init_persistence_write_smoke ||
     post_init_persistence_read_smoke ||
@@ -1088,6 +1121,8 @@ async fn main {
     Some("post-init-openrc-surface-ok")
   } else if post_init_openrc_service_smoke {
     Some("post-init-openrc-service-ok")
+  } else if post_init_openrc_action_smoke {
+    Some("post-init-openrc-action-ok")
   } else if post_init_storage_smoke {
     Some("post-init-storage-ok")
   } else if post_init_persistence_write_smoke {
@@ -1135,6 +1170,8 @@ async fn main {
     alpine_post_init_openrc_surface_commands()
   } else if post_init_openrc_service_smoke {
     alpine_post_init_openrc_service_commands()
+  } else if post_init_openrc_action_smoke {
+    alpine_post_init_openrc_action_commands()
   } else if post_init_storage_smoke {
     alpine_post_init_storage_commands()
   } else if post_init_persistence_write_smoke {
@@ -1186,6 +1223,8 @@ async fn main {
     alpine_post_init_openrc_surface_markers()
   } else if post_init_openrc_service_smoke {
     alpine_post_init_openrc_service_markers()
+  } else if post_init_openrc_action_smoke {
+    alpine_post_init_openrc_action_markers()
   } else if post_init_storage_smoke {
     alpine_post_init_storage_markers()
   } else if post_init_persistence_write_smoke {
@@ -1475,6 +1514,9 @@ async fn main {
   println(
     "post_init_openrc_service_smoke=" +
     post_init_openrc_service_smoke.to_string(),
+  )
+  println(
+    "post_init_openrc_action_smoke=" + post_init_openrc_action_smoke.to_string(),
   )
   println("post_init_storage_smoke=" + post_init_storage_smoke.to_string())
   println(

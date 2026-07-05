@@ -133,6 +133,21 @@ test "openrc service smoke exercises rc-update registration" {
 }
 
 ///|
+test "openrc action smoke exercises rc-service actions" {
+  let commands = alpine_post_init_openrc_action_commands()
+  let markers = alpine_post_init_openrc_action_markers()
+  assert_eq(commands.length(), 3)
+  assert_eq(markers.length(), 3)
+  assert_true(commands[0].contains("#!/sbin/openrc-run"))
+  assert_true(commands[1].contains("/sbin/rc-service --nodeps"))
+  assert_true(commands[1].contains(" start"))
+  assert_true(commands[1].contains(" status"))
+  assert_true(commands[2].contains(" stop"))
+  assert_eq(markers[1], "openrc-action-start-ok")
+  assert_eq(markers[2], "post-init-openrc-action-ok")
+}
+
+///|
 test "auto-root handoff selects auto-root artifacts by default" {
   let args = ["alpine_probe", "xlong", "--auto-root-handoff"]
   assert_eq(select_dtb_path(args, true, true), auto_root_virtio_dtb_path)

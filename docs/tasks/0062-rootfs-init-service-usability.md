@@ -154,3 +154,17 @@ but it is not the same as a more ordinary Alpine service environment.
   attempt timed out in the second command window, so actual OpenRC-managed
   start/status/stop remains the next narrower OpenRC blocker rather than a
   reason to keep rerunning long install probes.
+- `cmd/alpine_probe --post-init-openrc-action-smoke` narrows that blocker: it
+  writes a simple `openrc-run` script whose `start`, `status`, and `stop`
+  actions only create/check/remove a marker file, then runs those actions
+  through `rc-service --nodeps`. This proves the `rc-service` action-dispatch
+  path itself works under the current BusyBox-init rootfs.
+- The first successful OpenRC action proof is:
+  `moon run --target native cmd/alpine_probe xlong --auto-root-handoff --virtio-blk-disk _build/alpine-rootfs-riscv64-openrc-surface.ext4 --post-init-command-step-budget 80000000 --post-init-openrc-action-smoke`.
+  It reaches `outcome=console-command`,
+  `post_init_openrc_action_smoke=true`, `post_init_command_index=3`, and
+  `post-init-openrc-action-ok` at 722,000,000 guest steps. The command trace is
+  `cmd1:start=591000000,marker=606000000,duration=15000000; cmd2:start=606000000,marker=680000000,duration=74000000; cmd3:start=680000000,marker=722000000,duration=42000000`.
+  The remaining OpenRC gap is narrower than before: `rc-service` can dispatch
+  actions, but daemon-style start/status/stop using a persistent background
+  process still needs a separate service-supervision slice.
