@@ -111,6 +111,9 @@ official coverage improve.
   `-2^63` are also pinned as valid, flag-clean conversions for both S and D
   sources. The last representable S/D values below the signed and unsigned
   upper boundaries are pinned as flag-clean conversions as well.
+  `FCVT.WU.D` also has mode-dependent upper-edge coverage for `+2^32 - 0.5`:
+  RTZ remains a valid inexact all-ones result, while RNE and RUP round to
+  `+2^32` and then take the invalid-conversion path.
   Invalid scalar arithmetic coverage now checks both NV and canonical-NaN
   results for representative add, multiply, and divide cases.
   Invalid fused multiply-add coverage now also checks canonical-NaN results for
@@ -537,6 +540,9 @@ official coverage improve.
   high valid values below `+2^31`/`+2^32`, plus unsigned negative-input
   clipping, the `FCVT.WU.S/D` `+2^32` upper boundary, and the RV64
   sign-extension of the valid high-bit `FCVT.WU.D` result `0x80000000`.
+  The unsigned double-to-word upper edge now also checks validity after
+  rounding, proving that `+2^32 - 0.5` is valid with NX under RTZ but invalid
+  with NV under RNE/RUP.
   Float-to-integer conversions now also have explicit reserved-rounding
   regressions for representative word, unsigned-word, and long forms,
   including dynamic `rm=111` with a reserved `frm`.

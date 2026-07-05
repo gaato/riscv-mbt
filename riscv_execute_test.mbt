@@ -4203,6 +4203,42 @@ test "rv64fd word conversions clip exact upper rne boundaries" {
 }
 
 ///|
+test "rv64fd unsigned word conversion checks range after rounding" {
+  let csr_fcsr = 0x003
+  let invalid = 0x10U.to_uint64()
+  let inexact = 0x01U.to_uint64()
+  let runner = make_runner(rv64fd_machine_config())
+  // The source is exactly +2^32 - 0.5.  It is still in range for FCVT.WU.D
+  // under RTZ, but RNE and RUP round it to +2^32 before the unsigned-word
+  // range check. This pins the spec ordering: round first, then decide whether
+  // the integer result is invalid.
+  runner.cpu.write_freg(1, 0x41effffffff00000UL)
+  runner.load_program(
+    words_to_bytes([
+      encode_fcvt_wu_d(1, 0x1U, 10),
+      encode_csr(csr_fcsr, 0, 0x2U, 11),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_wu_d(1, 0x0U, 12),
+      encode_csr(csr_fcsr, 0, 0x2U, 13),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_wu_d(1, 0x3U, 14),
+      encode_csr(csr_fcsr, 0, 0x2U, 15),
+    ]),
+    0U,
+  )
+  match runner.run(8) {
+    Running => ()
+    _ => fail("expected mode-dependent fcvt.wu.d boundary path to run")
+  }
+  assert_eq(runner.read_reg_u64(10), test_sign_extend_word64(0xffffffffU))
+  assert_eq(runner.read_reg_u64(11) & 0x1fU.to_uint64(), inexact)
+  assert_eq(runner.read_reg_u64(12), test_sign_extend_word64(0xffffffffU))
+  assert_eq(runner.read_reg_u64(13) & 0x1fU.to_uint64(), invalid)
+  assert_eq(runner.read_reg_u64(14), test_sign_extend_word64(0xffffffffU))
+  assert_eq(runner.read_reg_u64(15) & 0x1fU.to_uint64(), invalid)
+}
+
+///|
 test "rv64fd word conversions clip exact lower rne boundaries" {
   let csr_fcsr = 0x003
   let runner = make_runner(rv64fd_machine_config())
