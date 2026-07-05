@@ -791,6 +791,44 @@ test "rv64f min and max handle signed zero and canonical nan fallback" {
 }
 
 ///|
+test "rv64fd min and max handle double signed zero and canonical nan fallback" {
+  let neg_zero = 0x8000000000000000UL
+  let pos_zero = 0U.to_uint64()
+  let quiet_nan = 0x7ff8000000001234UL
+  let one = 0x3ff0000000000000UL
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, neg_zero)
+  runner.cpu.write_freg(2, pos_zero)
+  runner.cpu.write_freg(5, quiet_nan)
+  runner.cpu.write_freg(6, one)
+  runner.load_program(
+    words_to_bytes([
+      // FMIN.D must select -0.0 and FMAX.D must select +0.0 when both
+      // operands are zero. All-NaN min/max returns the canonical NaN.
+      encode_fp_r(0x15U, 2, 1, 0x0U, 3),
+      encode_fp_r(0x15U, 2, 1, 0x1U, 4),
+      encode_fp_r(0x15U, 6, 5, 0x0U, 7),
+      encode_fp_r(0x15U, 6, 5, 0x1U, 8),
+      encode_fp_r(0x15U, 5, 5, 0x0U, 9),
+    ]),
+    0U,
+  )
+  match runner.run(5) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected double min/max signed-zero path to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_freg_u64(3), neg_zero)
+  assert_eq(runner.read_freg_u64(4), pos_zero)
+  assert_eq(runner.read_freg_u64(7), one)
+  assert_eq(runner.read_freg_u64(8), one)
+  assert_eq(runner.read_freg_u64(9), 0x7ff8000000000000UL)
+  assert_eq(runner.read_csr(0x003) & 0x1fU, 0U)
+}
+
+///|
 test "rv64f single comparisons write integer results" {
   let runner = make_runner(rv64f_machine_config())
   runner.cpu.write_freg(1, exec_test_f32_bits(1.0).to_uint64())

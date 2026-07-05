@@ -158,10 +158,12 @@ official coverage improve.
   exact-rational double-precision NX checks. Machine profiles now canonicalize
   the architectural dependency that `D` implies `F`, so white-box configs cannot
   expose or execute an impossible `misa.D`-without-`misa.F` profile. Focused
-  all-NaN `FMIN/FMAX` coverage now pins the minimumNumber/maximumNumber split:
-  quiet all-NaN inputs produce the canonical NaN without NV, while signaling
-  all-NaN inputs produce the canonical NaN and accrue NV for both S and D. The
-  remaining strict-spec gaps are broader than the current official rows:
+  `FMIN/FMAX` coverage now pins signed-zero selection in S and D, numeric
+  selection against quiet NaNs in S and D, and the all-NaN
+  minimumNumber/maximumNumber split: quiet all-NaN inputs produce the canonical
+  NaN without NV, while signaling all-NaN inputs produce the canonical NaN and
+  accrue NV for both S and D. The remaining strict-spec gaps are broader than
+  the current official rows:
   deeper fused-rounding audits and exception-flag corner cases beyond the
   current `riscv-tests` surface.
 - `A`: `riscv_decode.mbt` rejects reserved AMO operations and reserved
@@ -422,6 +424,10 @@ official coverage improve.
   signaling NaNs while preserving their existing result-selection behavior.
   This starts replacing the old "no FP instruction updates fflags" limitation
   with instruction-family-specific flag handling.
+- `D` min/max now has matching signed-zero and quiet-NaN result-selection
+  coverage: `FMIN.D` selects `-0.0`, `FMAX.D` selects `+0.0`, numeric operands
+  beat quiet NaNs, and quiet all-NaN inputs produce the canonical double NaN
+  without accruing `fflags`.
 - Fused multiply-add now also accrues NV for the required infinity-times-zero
   multiplicand case, including the spec-called-out path where the addend is a
   quiet NaN. Finite fused results now avoid the old host-IEEE arithmetic
