@@ -11556,6 +11556,49 @@ test "failed SC clears the hart reservation before a later matching SC" {
 }
 
 ///|
+test "a later LR replaces the reservation used by SC" {
+  // SC pairs with the most recent LR in program order. A later LR to a
+  // different address makes the older address unreserved even when no store or
+  // device write has touched either location.
+  let runner = make_runner(virt_machine_config())
+  let addr_a = runner.cpu.pc + 0x100U.to_uint64()
+  let addr_b = runner.cpu.pc + 0x108U.to_uint64()
+  runner.bus.store_u32(addr_a, 55U.to_uint64())
+  runner.bus.store_u32(addr_b, 66U.to_uint64())
+  runner.cpu.write_reg(1, addr_a)
+  runner.cpu.write_reg(2, addr_b)
+  runner.cpu.write_reg(5, 77U.to_uint64())
+  let pc0 = runner.cpu.pc
+  runner.bus.store_u32(pc0, encode_amo(0x02U, 0, 1, 0x2U, 3).to_uint64())
+  runner.bus.store_u32(
+    pc0 + 4U.to_uint64(),
+    encode_amo(0x02U, 0, 2, 0x2U, 4).to_uint64(),
+  )
+  runner.bus.store_u32(
+    pc0 + 8U.to_uint64(),
+    encode_amo(0x03U, 5, 1, 0x2U, 6).to_uint64(),
+  )
+
+  match runner.step() {
+    Running => ()
+    _ => fail("expected first lr.w to run")
+  }
+  assert_eq(runner.read_reg_u64(3), 55U.to_uint64())
+  match runner.step() {
+    Running => ()
+    _ => fail("expected second lr.w to run")
+  }
+  assert_eq(runner.read_reg_u64(4), 66U.to_uint64())
+  match runner.step() {
+    Running => ()
+    _ => fail("expected sc.w to older address to retire as failure")
+  }
+  assert_eq(runner.read_reg_u64(6), 1U.to_uint64())
+  assert_eq(runner.bus.load_u32(addr_a), 55U.to_uint64())
+  assert_eq(runner.bus.load_u32(addr_b), 66U.to_uint64())
+}
+
+///|
 test "atomic operations require natural address alignment" {
   fn expect_atomic_misaligned_trap(
     name : String,

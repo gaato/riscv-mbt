@@ -409,7 +409,9 @@
   pairs are covered, failed `SC.W`/`SC.D` without a live reservation are
   both covered as nonzero-status, no-store operations, and a failed mismatched
   `SC.W` is now covered as consuming the hart reservation before any later
-  matching `SC.W` can succeed. Signed AMO min/max coverage now includes both
+  matching `SC.W` can succeed. A later `LR.W` to a different address is also
+  covered as replacing the previous reservation, so SC cannot pair with an
+  older LR in program order. Signed AMO min/max coverage now includes both
   `AMOMIN.W` and full-width `AMOMIN.D`/`AMOMAX.D`
   comparisons across the sign boundary, and unsigned AMO.D min/max coverage
   now pins `AMOMINU.D`/`AMOMAXU.D` on the same bit patterns. The remaining

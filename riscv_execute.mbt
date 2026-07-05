@@ -740,6 +740,9 @@ fn Runner::set_lr_sc_reservation(
   pa : UInt64,
   width : Int,
 ) -> Unit {
+  // A hart tracks only the reservation that can pair with a later SC in
+  // program order. A second LR replaces the previous reservation, making an SC
+  // to the older address fail even if nothing else touched that memory.
   let hart = self.lr_sc_hart_index()
   self.lr_sc_reserved_pas[hart] = pa
   self.lr_sc_reserved_sizes[hart] = width

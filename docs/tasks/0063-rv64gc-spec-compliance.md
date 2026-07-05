@@ -182,7 +182,9 @@ official coverage improve.
   bitwise AMO.D operations, signed AMO.W and signed/unsigned AMO.D min/max
   comparisons, natural-address alignment traps for LR/SC/AMO W/D operations,
   and the architectural rule that a failed, non-trapping SC still consumes the
-  hart reservation before any later matching SC can observe it. Virtio-blk
+  hart reservation before any later matching SC can observe it. A later LR also
+  replaces the previous hart reservation, so SC cannot pair with an older LR in
+  program order. Virtio-blk
   guest-visible DMA/status/used-ring writes now use reservation-aware device
   store helpers. The upstream `rv64ua` AMO/LRSC cases are now part of the
   gating manifest. The remaining audit is true `aq`/`rl` visibility ordering
