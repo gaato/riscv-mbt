@@ -119,9 +119,11 @@ official coverage improve.
   NaNs produce the same canonical result and accrue NV. `FDIV.S/D` coverage now
   also pins invalid `0/0` and `infinity/infinity` default results to canonical
   NaNs while distinguishing them from finite-nonzero division by zero, so DZ is
-  not accrued for those invalid cases. `FSQRT.S/D` coverage now also pins
-  negative finite inputs to canonical NaN plus NV, while `sqrt(-0)` remains an
-  exact negative-zero result without flags. `mstatus.FS`
+  not accrued for those invalid cases. The same divide coverage now checks NaN
+  operands directly: quiet NaN inputs canonicalize without flags, while
+  signaling NaN inputs canonicalize and accrue NV. `FSQRT.S/D` coverage now
+  also pins negative finite inputs to canonical NaN plus NV, while `sqrt(-0)`
+  remains an exact negative-zero result without flags. `mstatus.FS`
   is now part of the execution contract: FP-capable reset profiles start with
   FS enabled, but scalar F/D load/store and arithmetic instructions trap as
   illegal when software sets FS=Off. FP register and `fcsr` writes also mark FS
@@ -356,11 +358,13 @@ official coverage improve.
   `FDIV` sets DZ for finite nonzero division by zero. The invalid `FDIV.S/D`
   zero-over-zero and infinity-over-infinity cases now also have focused
   default-result coverage: they write canonical NaNs and accrue NV without DZ.
-  Quiet NaN `FSQRT.S/D` inputs now produce canonical NaNs without accruing NV.
-  Fused multiply-add regressions also pin the RISC-V-specific
-  `FNMSUB`/`FNMADD` rule that only the product term is negated before detecting
-  opposite-infinity fused additions. Deeper NaN payload behavior, broader flag
-  corner cases, and full official-suite promotion remain open.
+  `FDIV.S/D` NaN operand coverage now keeps quiet NaNs flag-clean and raises NV
+  only for signaling NaNs while writing canonical NaN results. Quiet NaN
+  `FSQRT.S/D` inputs now produce canonical NaNs without accruing NV. Fused
+  multiply-add regressions also pin the RISC-V-specific `FNMSUB`/`FNMADD` rule
+  that only the product term is negated before detecting opposite-infinity
+  fused additions. Deeper NaN payload behavior, broader flag corner cases, and
+  full official-suite promotion remain open.
 - `FADD.S`, `FSUB.S`, and `FMUL.S` now round their exact single-precision
   operand results through the emulator-side double-to-single helper. Legal
   static non-RNE modes are accepted where they change the result, reserved
