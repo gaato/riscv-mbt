@@ -108,18 +108,6 @@ fn f32_from_bits(bits : UInt) -> Float {
 }
 
 ///|
-fn f32_bits_from_host(value : Float) -> UInt {
-  // Host Float operations are used for the practical Linux path, but NaN
-  // payload/sign details are normalized so tests see a stable canonical value.
-  let bits = Float::reinterpret_as_uint(value)
-  if f32_is_nan_bits(bits) {
-    f32_canonical_nan_bits()
-  } else {
-    bits
-  }
-}
-
-///|
 fn f64_is_nan_bits(bits : UInt64) -> Bool {
   let exponent_mask = 0x7ffU.to_uint64() << 52
   let fraction_mask = (1U.to_uint64() << 52) - 1U.to_uint64()
@@ -170,16 +158,6 @@ fn f64_bits_from_host(value : Double) -> UInt64 {
   } else {
     bits
   }
-}
-
-///|
-fn f32_finite_inexact_from_double(exact : Double, result_bits : UInt) -> Bool {
-  // Single-precision operands are exactly representable as Double. For the
-  // current RNE-only scope this lets us detect ordinary NX cases by comparing
-  // the rounded Float result against the wider calculation used to produce it.
-  !f32_is_nan_bits(result_bits) &&
-  !f32_is_infinite_bits(result_bits) &&
-  f32_from_bits(result_bits).to_double() != exact
 }
 
 ///|
@@ -1277,8 +1255,14 @@ fn Runner::execute_fp(
 ) -> StepResult {
   match instruction {
     FMAddS(rd, rs1, rs2, rs3, rm) => {
-      if !self.fp_rounding_mode_supported(rm) {
-        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      let mode = match self.fp_effective_rounding_mode(rm) {
+        Some(mode) => mode
+        None =>
+          return self.raise_trap(
+            IllegalInstruction,
+            current_pc,
+            raw.to_uint64(),
+          )
       }
       let lhs_bits = self.read_freg_single_value_bits(rs1)
       let rhs_bits = self.read_freg_single_value_bits(rs2)
@@ -1288,22 +1272,26 @@ fn Runner::execute_fp(
       if invalid {
         self.set_fflags(fp_fflag_nv)
       }
-      let result = f32_from_bits(lhs_bits) * f32_from_bits(rhs_bits) +
-        f32_from_bits(addend_bits)
-      let result_bits = f32_bits_from_host(result)
-      let exact = f32_from_bits(lhs_bits).to_double() *
+      let rounded = fp_round_f64_bits_to_f32_bits(
+        (f32_from_bits(lhs_bits).to_double() *
         f32_from_bits(rhs_bits).to_double() +
-        f32_from_bits(addend_bits).to_double()
-      if !invalid && f32_finite_inexact_from_double(exact, result_bits) {
-        self.set_fflags(fp_fflag_nx)
-      }
-      self.write_freg_single_bits(rd, result_bits)
+        f32_from_bits(addend_bits).to_double()).reinterpret_as_uint64(),
+        mode,
+      )
+      self.set_fflags(rounded.flags)
+      self.write_freg_single_bits(rd, rounded.bits)
       self.cpu.pc = next_pc
       Running
     }
     FMSubS(rd, rs1, rs2, rs3, rm) => {
-      if !self.fp_rounding_mode_supported(rm) {
-        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      let mode = match self.fp_effective_rounding_mode(rm) {
+        Some(mode) => mode
+        None =>
+          return self.raise_trap(
+            IllegalInstruction,
+            current_pc,
+            raw.to_uint64(),
+          )
       }
       let lhs_bits = self.read_freg_single_value_bits(rs1)
       let rhs_bits = self.read_freg_single_value_bits(rs2)
@@ -1313,22 +1301,26 @@ fn Runner::execute_fp(
       if invalid {
         self.set_fflags(fp_fflag_nv)
       }
-      let result = f32_from_bits(lhs_bits) * f32_from_bits(rhs_bits) -
-        f32_from_bits(addend_bits)
-      let result_bits = f32_bits_from_host(result)
-      let exact = f32_from_bits(lhs_bits).to_double() *
+      let rounded = fp_round_f64_bits_to_f32_bits(
+        (f32_from_bits(lhs_bits).to_double() *
         f32_from_bits(rhs_bits).to_double() -
-        f32_from_bits(addend_bits).to_double()
-      if !invalid && f32_finite_inexact_from_double(exact, result_bits) {
-        self.set_fflags(fp_fflag_nx)
-      }
-      self.write_freg_single_bits(rd, result_bits)
+        f32_from_bits(addend_bits).to_double()).reinterpret_as_uint64(),
+        mode,
+      )
+      self.set_fflags(rounded.flags)
+      self.write_freg_single_bits(rd, rounded.bits)
       self.cpu.pc = next_pc
       Running
     }
     FNMSubS(rd, rs1, rs2, rs3, rm) => {
-      if !self.fp_rounding_mode_supported(rm) {
-        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      let mode = match self.fp_effective_rounding_mode(rm) {
+        Some(mode) => mode
+        None =>
+          return self.raise_trap(
+            IllegalInstruction,
+            current_pc,
+            raw.to_uint64(),
+          )
       }
       let lhs_bits = self.read_freg_single_value_bits(rs1)
       let rhs_bits = self.read_freg_single_value_bits(rs2)
@@ -1338,23 +1330,26 @@ fn Runner::execute_fp(
       if invalid {
         self.set_fflags(fp_fflag_nv)
       }
-      let product = f32_from_bits(lhs_bits) * f32_from_bits(rhs_bits)
-      let addend = f32_from_bits(addend_bits)
-      let result = addend - product
-      let result_bits = f32_bits_from_host(result)
-      let exact = f32_from_bits(addend_bits).to_double() -
+      let rounded = fp_round_f64_bits_to_f32_bits(
+        (f32_from_bits(addend_bits).to_double() -
         f32_from_bits(lhs_bits).to_double() *
-        f32_from_bits(rhs_bits).to_double()
-      if !invalid && f32_finite_inexact_from_double(exact, result_bits) {
-        self.set_fflags(fp_fflag_nx)
-      }
-      self.write_freg_single_bits(rd, result_bits)
+        f32_from_bits(rhs_bits).to_double()).reinterpret_as_uint64(),
+        mode,
+      )
+      self.set_fflags(rounded.flags)
+      self.write_freg_single_bits(rd, rounded.bits)
       self.cpu.pc = next_pc
       Running
     }
     FNMAddS(rd, rs1, rs2, rs3, rm) => {
-      if !self.fp_rounding_mode_supported(rm) {
-        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      let mode = match self.fp_effective_rounding_mode(rm) {
+        Some(mode) => mode
+        None =>
+          return self.raise_trap(
+            IllegalInstruction,
+            current_pc,
+            raw.to_uint64(),
+          )
       }
       let lhs_bits = self.read_freg_single_value_bits(rs1)
       let rhs_bits = self.read_freg_single_value_bits(rs2)
@@ -1364,18 +1359,15 @@ fn Runner::execute_fp(
       if invalid {
         self.set_fflags(fp_fflag_nv)
       }
-      let product = f32_from_bits(lhs_bits) * f32_from_bits(rhs_bits)
-      let addend = f32_from_bits(addend_bits)
-      let result = Float::from_double(0.0) - product - addend
-      let result_bits = f32_bits_from_host(result)
-      let exact = 0.0 -
+      let rounded = fp_round_f64_bits_to_f32_bits(
+        (0.0 -
         f32_from_bits(lhs_bits).to_double() *
         f32_from_bits(rhs_bits).to_double() -
-        f32_from_bits(addend_bits).to_double()
-      if !invalid && f32_finite_inexact_from_double(exact, result_bits) {
-        self.set_fflags(fp_fflag_nx)
-      }
-      self.write_freg_single_bits(rd, result_bits)
+        f32_from_bits(addend_bits).to_double()).reinterpret_as_uint64(),
+        mode,
+      )
+      self.set_fflags(rounded.flags)
+      self.write_freg_single_bits(rd, rounded.bits)
       self.cpu.pc = next_pc
       Running
     }

@@ -1038,6 +1038,50 @@ test "rv64fd fused multiply-add single paths execute" {
 }
 
 ///|
+test "rv64fd fused multiply-add single paths honor non-rne rounding modes" {
+  let runner = make_runner(rv64fd_machine_config())
+  let csr_fcsr = 0x003
+  let pos_large = exec_test_nan_box_single(0x4b800000U)
+  let neg_large = exec_test_nan_box_single(0xcb800000U)
+  let pos_one = exec_test_nan_box_single(exec_test_f32_bits(1.0))
+  let neg_one = exec_test_nan_box_single(exec_test_f32_bits(-1.0))
+  runner.cpu.write_freg(1, pos_large)
+  runner.cpu.write_freg(2, pos_one)
+  runner.cpu.write_freg(3, pos_one)
+  runner.cpu.write_freg(4, neg_one)
+  runner.cpu.write_freg(5, neg_large)
+  runner.load_program(
+    words_to_bytes([
+      encode_fp_r4(3, 0x0U, 2, 1, 0x1U, 8, 0x43U),
+      encode_fp_r4(3, 0x0U, 2, 1, 0x3U, 9, 0x43U),
+      encode_fp_r4(4, 0x0U, 2, 1, 0x1U, 10, 0x47U),
+      encode_fp_r4(4, 0x0U, 2, 1, 0x3U, 11, 0x47U),
+      encode_fp_r4(3, 0x0U, 2, 5, 0x1U, 12, 0x4bU),
+      encode_fp_r4(3, 0x0U, 2, 5, 0x3U, 13, 0x4bU),
+      encode_fp_r4(4, 0x0U, 2, 5, 0x1U, 14, 0x4fU),
+      encode_fp_r4(4, 0x0U, 2, 5, 0x3U, 15, 0x4fU),
+    ]),
+    0U,
+  )
+  match runner.run(8) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected non-RNE single FMA paths to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_freg_u64(8), exec_test_nan_box_single(0x4b800000U))
+  assert_eq(runner.read_freg_u64(9), exec_test_nan_box_single(0x4b800001U))
+  assert_eq(runner.read_freg_u64(10), exec_test_nan_box_single(0x4b800000U))
+  assert_eq(runner.read_freg_u64(11), exec_test_nan_box_single(0x4b800001U))
+  assert_eq(runner.read_freg_u64(12), exec_test_nan_box_single(0x4b800000U))
+  assert_eq(runner.read_freg_u64(13), exec_test_nan_box_single(0x4b800001U))
+  assert_eq(runner.read_freg_u64(14), exec_test_nan_box_single(0x4b800000U))
+  assert_eq(runner.read_freg_u64(15), exec_test_nan_box_single(0x4b800001U))
+  assert_eq(runner.read_csr(csr_fcsr) & 0x1U, 0x1U)
+}
+
+///|
 test "rv64fd fused multiply-add double paths execute" {
   let runner = make_runner(rv64fd_machine_config())
   runner.cpu.write_freg(1, exec_test_f64_bits(2.0))
