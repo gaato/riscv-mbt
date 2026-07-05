@@ -163,7 +163,9 @@
   sets `mstatus.FS=Off`. FP register and `fcsr` writes now mark FS Dirty, so
   the visible `mstatus.SD` summary follows actual modeled FP state changes.
   The `fflags`, `frm`, and `fcsr` CSR aliases are also FS-gated: read and
-  write attempts trap when FS is Off. Writes to absent `fcsr` bits 31:8 are
+  write attempts trap when FS is Off. Alias writes now explicitly preserve the
+  untouched field, including `fflags` writes and clears that leave `frm`
+  intact. Writes to absent `fcsr` bits 31:8 are
   now covered by regression as ignored-on-write/read-as-zero. A no-`F` profile
   regression also pins those floating-point CSR addresses as absent even when
   an integer S-mode profile keeps `mstatus.FS` writable for context-status

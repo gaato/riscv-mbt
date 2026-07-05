@@ -289,12 +289,15 @@ official coverage improve.
   cases and the official aggregate compressed test.
 - `Zicsr`: CSR decode, read-side and write-side privilege checks,
   `fcsr`/`fflags` views, and explicit read/write suppression for the standard
-  CSR instruction forms are covered by focused execute tests. The write-side
-  coverage includes suppressed-read `CSRRW[I] rd=x0` forms, so lower privilege
-  modes cannot write higher-privilege CSRs by avoiding the read. `mtvec` and
-  `stvec` writes now normalize to the modeled WARL surface: 4-byte-aligned BASE
-  plus Direct or Vectored MODE only, with vectored supervisor-timer dispatch
-  covered by a focused regression. `mepc` and `sepc` now clear bit 0 on writes,
+  CSR instruction forms are covered by focused execute tests. The `fcsr` alias
+  coverage now also pins field preservation in both directions that are easy to
+  regress: `frm` writes preserve accrued `fflags`, and `fflags` writes or
+  clears preserve `frm`. The write-side coverage includes suppressed-read
+  `CSRRW[I] rd=x0` forms, so lower privilege modes cannot write
+  higher-privilege CSRs by avoiding the read. `mtvec` and `stvec` writes now
+  normalize to the modeled WARL surface: 4-byte-aligned BASE plus Direct or
+  Vectored MODE only, with vectored supervisor-timer dispatch covered by a
+  focused regression. `mepc` and `sepc` now clear bit 0 on writes,
   preserve bit 1 for RV64GC/IALIGN=16, and mask bit 1 on visible reads plus
   xRET target reads when `MISA.C` is absent and IALIGN=32.
   RV64 `mstatus.SXL`/`mstatus.UXL` and `sstatus.UXL` now expose the fixed
@@ -652,7 +655,10 @@ official coverage improve.
   `fcsr`, preserving Zicsr read suppression while still trapping writes to
   FS-governed state when FS=Off. Pure reads and zero-mask set/clear forms over
   those FP CSRs now also have coverage that they leave an Initial FP context
-  clean instead of incorrectly promoting `mstatus.FS` to Dirty.
+  clean instead of incorrectly promoting `mstatus.FS` to Dirty. The alias
+  field split is now pinned more directly: writes through the `fflags` view
+  replace only accrued exception flags and leave the current `frm` intact,
+  including the zero write used to clear flags.
 - `fcsr` reserved high bits now have focused regression coverage. A CSR write
   of all ones leaves only visible bits 7:0 readable, matching the F extension
   rule for absent standard-extension fields in bits 31:8.
