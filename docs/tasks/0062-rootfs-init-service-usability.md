@@ -176,3 +176,9 @@ but it is not the same as a more ordinary Alpine service environment.
   failure without LR plus invalidation by an intervening store. This improves
   the lock/futex-like A-extension surface used by ordinary Linux process
   coordination before rerunning another long OpenRC probe.
+- The same body-side pass added the unprivileged counter CSR surface used by
+  ordinary Linux timing paths. `cycle`, `time`, and `instret` now read from the
+  modeled CLINT time base; RV32 high-half counter CSRs are readable, while
+  RV64 rejects those high-half aliases. The regression suite covers monotonic
+  reads and read-only write traps, and the OpenSBI smoke now reports `zicntr`
+  in the boot HART ISA extension list.

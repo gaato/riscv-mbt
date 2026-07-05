@@ -1638,6 +1638,42 @@ test "csr contract distinguishes modeled, compatibility-only, and unsupported cs
 }
 
 ///|
+test "counter csrs expose monotonic Linux-visible reads" {
+  let program = words_to_bytes([
+    encode_csr(0xC00, 0, 0x2U, 1), // cycle
+    encode_csr(0xC01, 0, 0x2U, 2), // time
+    encode_csr(0xC02, 0, 0x2U, 3), // instret
+  ])
+  let runner = make_runner(virt_machine_config())
+  runner.load_program_u64(program, 0x80000000U.to_uint64())
+  match runner.run(3) {
+    Running => ()
+    _ => fail("expected counter CSR reads to run")
+  }
+  assert_true(runner.read_reg_u64(1) > 0U.to_uint64())
+  assert_true(runner.read_reg_u64(2) >= runner.read_reg_u64(1))
+  assert_true(runner.read_reg_u64(3) >= runner.read_reg_u64(2))
+}
+
+///|
+test "rv32 counter high-half csrs are readable" {
+  let program = words_to_bytes([
+    encode_csr(0xC80, 0, 0x2U, 1), // cycleh
+    encode_csr(0xC81, 0, 0x2U, 2), // timeh
+    encode_csr(0xC82, 0, 0x2U, 3), // instreth
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(3) {
+    Running => ()
+    _ => fail("expected rv32 counter high-half CSR reads to run")
+  }
+  assert_eq(runner.read_reg_u64(1), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(2), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(3), 0U.to_uint64())
+}
+
+///|
 test "unsupported csr access traps as illegal instruction" {
   let raw = encode_csr(0x7A0, 0, 0x2U, 1)
   let runner = make_runner(default_machine_config())
@@ -1679,6 +1715,19 @@ test "writes to read-only csrs trap as illegal instruction" {
         _ => fail("expected illegal instruction cause")
       }
       assert_eq(info.trap_value, mhartid_raw.to_uint64())
+    }
+    _ => fail("expected illegal instruction trap")
+  }
+  let time_raw = encode_csr(0xC01, 1, 0x1U, 0)
+  let runner = make_runner(default_machine_config())
+  runner.load_program(words_to_bytes([time_raw]), 0U)
+  match runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+      assert_eq(info.trap_value, time_raw.to_uint64())
     }
     _ => fail("expected illegal instruction trap")
   }

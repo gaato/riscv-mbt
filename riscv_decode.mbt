@@ -866,6 +866,19 @@ fn is_modeled_vector_csr(csr : Int) -> Bool {
 }
 
 ///|
+fn is_modeled_counter_csr(csr : Int) -> Bool {
+  match csr {
+    CSR_CYCLE => true
+    CSR_TIME => true
+    CSR_INSTRET => true
+    CSR_CYCLEH => true
+    CSR_TIMEH => true
+    CSR_INSTRETH => true
+    _ => false
+  }
+}
+
+///|
 fn is_compatibility_storage_csr(csr : Int) -> Bool {
   match csr {
     CSR_SATP => true
@@ -890,6 +903,12 @@ fn is_read_only_csr(csr : Int) -> Bool {
     CSR_MVENDORID => true
     CSR_MARCHID => true
     CSR_MIMPID => true
+    CSR_CYCLE => true
+    CSR_TIME => true
+    CSR_INSTRET => true
+    CSR_CYCLEH => true
+    CSR_TIMEH => true
+    CSR_INSTRETH => true
     CSR_VL => true
     CSR_VTYPE => true
     CSR_VLENB => true
@@ -916,6 +935,8 @@ fn is_supported_csr(csr : Int, extensions : UInt64) -> Bool {
     has_fp
   } else if is_modeled_vector_csr(csr) {
     has_v
+  } else if is_modeled_counter_csr(csr) {
+    true
   } else {
     is_read_only_csr(csr)
   }

@@ -970,6 +970,12 @@ fn Runner::read_csr_visible(self : Runner, csr : Int) -> UInt64 {
   // Keep that visibility rule centralized so instruction handlers and probe
   // reporting observe the same value Linux would read.
   match csr {
+    CSR_CYCLE => self.clint_mtime()
+    CSR_TIME => self.clint_mtime()
+    CSR_INSTRET => self.clint_mtime()
+    CSR_CYCLEH => self.clint_mtime() >> 32
+    CSR_TIMEH => self.clint_mtime() >> 32
+    CSR_INSTRETH => self.clint_mtime() >> 32
     CSR_FFLAGS => self.read_fcsr() & FCSR_FFLAGS_MASK
     CSR_FRM => (self.read_fcsr() & FCSR_FRM_MASK) >> FCSR_FRM_SHIFT
     CSR_FCSR => self.read_fcsr()
@@ -1055,6 +1061,12 @@ fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
 
 ///|
 fn Runner::read_csr_checked(self : Runner, csr : Int) -> UInt64? {
+  if self.xlen_bits() == XLEN_64 {
+    match csr {
+      CSR_CYCLEH | CSR_TIMEH | CSR_INSTRETH => return None
+      _ => ()
+    }
+  }
   if is_supported_csr(csr, self.config.extensions) {
     Some(self.read_csr_visible(csr))
   } else {

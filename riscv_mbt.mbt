@@ -734,6 +734,24 @@ const CSR_MENVCFG : Int = 0x30A
 const CSR_SENVCFG : Int = 0x10A
 
 ///|
+const CSR_CYCLE : Int = 0xC00
+
+///|
+const CSR_TIME : Int = 0xC01
+
+///|
+const CSR_INSTRET : Int = 0xC02
+
+///|
+const CSR_CYCLEH : Int = 0xC80
+
+///|
+const CSR_TIMEH : Int = 0xC81
+
+///|
+const CSR_INSTRETH : Int = 0xC82
+
+///|
 const CSR_MHARTID : Int = 0xF14
 
 ///|
