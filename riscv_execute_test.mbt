@@ -2926,6 +2926,8 @@ test "sstatus exposes and writes FS bits through the alias mask" {
 ///|
 test "mstatus sd is derived from dirty FS instead of writable storage" {
   let sd_bit = 1U.to_uint64() << 63
+  let mstatus_xlen_bits = 0xa00000000UL
+  let sstatus_xlen_bits = 0x200000000UL
   let write_mstatus_then_read_views = words_to_bytes([
     encode_csr(0x300, 1, 0x1U, 0),
     encode_csr(0x300, 0, 0x2U, 2),
@@ -2939,10 +2941,10 @@ test "mstatus sd is derived from dirty FS instead of writable storage" {
     Running => ()
     _ => fail("expected mstatus SD-only write test to run")
   }
-  assert_eq(sd_only.read_reg_u64(2), 0U.to_uint64())
-  assert_eq(sd_only.read_reg_u64(3), 0U.to_uint64())
-  assert_eq(sd_only.read_csr_u64(0x300), 0U.to_uint64())
-  assert_eq(sd_only.read_csr_u64(0x100), 0U.to_uint64())
+  assert_eq(sd_only.read_reg_u64(2), mstatus_xlen_bits)
+  assert_eq(sd_only.read_reg_u64(3), sstatus_xlen_bits)
+  assert_eq(sd_only.read_csr_u64(0x300), mstatus_xlen_bits)
+  assert_eq(sd_only.read_csr_u64(0x100), sstatus_xlen_bits)
 
   let fs_dirty = make_runner(rv64_machine_config())
   fs_dirty.cpu.write_reg(1, 0x6000U.to_uint64())
@@ -2951,10 +2953,50 @@ test "mstatus sd is derived from dirty FS instead of writable storage" {
     Running => ()
     _ => fail("expected mstatus dirty-FS write test to run")
   }
-  assert_eq(fs_dirty.read_reg_u64(2), sd_bit | 0x6000U.to_uint64())
-  assert_eq(fs_dirty.read_reg_u64(3), sd_bit | 0x6000U.to_uint64())
-  assert_eq(fs_dirty.read_csr_u64(0x300), sd_bit | 0x6000U.to_uint64())
-  assert_eq(fs_dirty.read_csr_u64(0x100), sd_bit | 0x6000U.to_uint64())
+  assert_eq(
+    fs_dirty.read_reg_u64(2),
+    sd_bit | mstatus_xlen_bits | 0x6000U.to_uint64(),
+  )
+  assert_eq(
+    fs_dirty.read_reg_u64(3),
+    sd_bit | sstatus_xlen_bits | 0x6000U.to_uint64(),
+  )
+  assert_eq(
+    fs_dirty.read_csr_u64(0x300),
+    sd_bit | mstatus_xlen_bits | 0x6000U.to_uint64(),
+  )
+  assert_eq(
+    fs_dirty.read_csr_u64(0x100),
+    sd_bit | sstatus_xlen_bits | 0x6000U.to_uint64(),
+  )
+}
+
+///|
+test "rv64 status exposes fixed lower privilege xlen fields" {
+  let mstatus = 0x300
+  let sstatus = 0x100
+  let sxl_uxl_64 = 0xa00000000UL
+  let uxl_64 = 0x200000000UL
+  let runner = make_runner(rv64_machine_config())
+  assert_eq(runner.read_csr_u64(mstatus) & sxl_uxl_64, sxl_uxl_64)
+  assert_eq(runner.read_csr_u64(sstatus) & uxl_64, uxl_64)
+  assert_eq(runner.read_csr_u64(sstatus) & 0x800000000UL, 0U.to_uint64())
+
+  let program = words_to_bytes([
+    encode_csr(mstatus, 0, 0x1U, 0),
+    encode_csr(sstatus, 0, 0x1U, 0),
+    encode_csr(mstatus, 0, 0x2U, 1),
+    encode_csr(sstatus, 0, 0x2U, 2),
+  ])
+  runner.load_program(program, 0U)
+  match runner.run(4) {
+    Running => ()
+    _ => fail("expected status xlen csr program to run")
+  }
+  assert_eq(runner.read_reg_u64(1) & sxl_uxl_64, sxl_uxl_64)
+  assert_eq(runner.read_reg_u64(2) & uxl_64, uxl_64)
+  assert_eq(runner.read_csr_u64(mstatus) & sxl_uxl_64, sxl_uxl_64)
+  assert_eq(runner.read_csr_u64(sstatus) & uxl_64, uxl_64)
 }
 
 ///|

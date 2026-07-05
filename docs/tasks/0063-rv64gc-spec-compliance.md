@@ -117,8 +117,10 @@ official coverage improve.
   plus Direct or Vectored MODE only, with vectored supervisor-timer dispatch
   covered by a focused regression. `mepc` and `sepc` now clear bit 0 on visible
   writes and trap returns, preserving the RV64GC/IALIGN=16 ability to hold bit 1.
+  RV64 `mstatus.SXL`/`mstatus.UXL` and `sstatus.UXL` now expose the fixed
+  SXLEN=UXLEN=64 profile and normalize writes back to that value.
   `mstatus.MPP` now rejects the reserved privilege encoding 2 at the CSR write
-  boundary. The remaining audit is a spec pass over WARL behavior,
+  boundary. The remaining audit is a spec pass over remaining WARL behavior,
   read-only/write-ignored fields, and privilege-visible side effects for every
   CSR currently exposed by `riscv_decode.mbt`.
 - `Zifencei`: `FENCE.I` decodes, flushes the emulator decode cache, official
@@ -334,6 +336,10 @@ official coverage improve.
 - `mstatus.MPP` now treats reserved privilege encoding 2 as a WARL value and
   normalizes it to U-mode on visible `mstatus`/`sstatus` writes. A focused CSR
   regression covers readback of the normalized field.
+- RV64 `mstatus.SXL`/`mstatus.UXL` and `sstatus.UXL` now behave as fixed
+  lower-mode XLEN fields for this emulator profile. Focused regressions cover
+  reset visibility and write normalization through both `mstatus` and
+  `sstatus`, while RV32 status behavior remains unchanged.
 - `MRET` and `SRET` now apply the privileged-spec `MPRV` return rule: when the
   return target is below M-mode, `mstatus.MPRV` is cleared so later data
   accesses cannot continue using the old MPP override. Focused regressions cover

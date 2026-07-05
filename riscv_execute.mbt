@@ -985,9 +985,10 @@ fn Runner::read_csr_visible(self : Runner, csr : Int) -> UInt64 {
     CSR_VXRM => (self.read_vcsr() & VCSR_VXRM_MASK) >> VCSR_VXRM_SHIFT
     CSR_VCSR => self.read_vcsr()
     CSR_VLENB => VLEN_BYTES.to_uint64()
-    CSR_MSTATUS => legalize_mstatus_csr(self.cpu.read_csr(CSR_MSTATUS))
+    CSR_MSTATUS =>
+      legalize_mstatus_csr(self.cpu.read_csr(CSR_MSTATUS), self.config.xlen)
     CSR_SSTATUS =>
-      legalize_mstatus_csr(self.cpu.read_csr(CSR_MSTATUS)) &
+      legalize_mstatus_csr(self.cpu.read_csr(CSR_MSTATUS), self.config.xlen) &
       SSTATUS_VISIBLE_MASK
     CSR_SIP => self.cpu.read_csr(CSR_MIP) & SIP_VISIBLE_MASK
     CSR_SIE => self.cpu.read_csr(CSR_MIE) & SIP_VISIBLE_MASK
@@ -1018,7 +1019,7 @@ fn legalize_epc_csr(value : UInt64) -> UInt64 {
 }
 
 ///|
-fn legalize_mstatus_csr(value : UInt64) -> UInt64 {
+fn legalize_mstatus_csr(value : UInt64, xlen : Xlen) -> UInt64 {
   // SD is a read-only summary bit. For the current RV64GC baseline the modeled
   // dirty extension status is FS=Dirty; future VS/XS modeling should join this
   // summary rather than making SD directly writable.
@@ -1029,13 +1030,22 @@ fn legalize_mstatus_csr(value : UInt64) -> UInt64 {
   } else {
     without_sd
   }
+  // This emulator models fixed-width lower privilege modes. On RV64, expose
+  // SXLEN=UXLEN=64 as read-only WARL values; on RV32 these fields do not exist.
+  let with_xlen = match xlen {
+    Xlen64 =>
+      (summarized & bit_not(MSTATUS_SXL_MASK | MSTATUS_UXL_MASK)) |
+      MSTATUS_SXL_64 |
+      MSTATUS_UXL_64
+    Xlen32 => summarized
+  }
   // MPP is WARL and may hold only implemented privilege modes. This single-hart
   // profile implements U, S, and M, so the reserved encoding 2 normalizes to U.
-  let mpp = (summarized & MSTATUS_MPP_MASK.to_uint64()) >> MSTATUS_MPP_SHIFT
+  let mpp = (with_xlen & MSTATUS_MPP_MASK.to_uint64()) >> MSTATUS_MPP_SHIFT
   if mpp == 2U.to_uint64() {
-    set_mstatus_mpp(summarized, User)
+    set_mstatus_mpp(with_xlen, User)
   } else {
-    summarized
+    with_xlen
   }
 }
 
@@ -1048,7 +1058,8 @@ fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
     CSR_MTVEC | CSR_STVEC =>
       self.cpu.write_csr(csr, legalize_trap_vector_csr(value))
     CSR_MEPC | CSR_SEPC => self.cpu.write_csr(csr, legalize_epc_csr(value))
-    CSR_MSTATUS => self.cpu.write_csr(csr, legalize_mstatus_csr(value))
+    CSR_MSTATUS =>
+      self.cpu.write_csr(csr, legalize_mstatus_csr(value, self.config.xlen))
     CSR_FFLAGS => {
       let fcsr = self.read_fcsr()
       self.write_fcsr(
@@ -1077,7 +1088,10 @@ fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
       let mstatus = self.cpu.read_csr(CSR_MSTATUS)
       let next_mstatus = (mstatus & bit_not(SSTATUS_VISIBLE_MASK)) |
         (value & SSTATUS_VISIBLE_MASK)
-      self.cpu.write_csr(CSR_MSTATUS, legalize_mstatus_csr(next_mstatus))
+      self.cpu.write_csr(
+        CSR_MSTATUS,
+        legalize_mstatus_csr(next_mstatus, self.config.xlen),
+      )
     }
     CSR_SIP => {
       let mip = self.cpu.read_csr(CSR_MIP)

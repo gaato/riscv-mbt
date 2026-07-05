@@ -115,6 +115,9 @@
   The `fflags`, `frm`, and `fcsr` CSR aliases are also FS-gated: read and
   write attempts trap when FS is Off. Writes to absent `fcsr` bits 31:8 are
   now covered by regression as ignored-on-write/read-as-zero.
+- RV64 `mstatus.SXL`/`mstatus.UXL` and `sstatus.UXL` are now visible as fixed
+  64-bit lower-privilege XLEN fields. Writes that try to clear or change them
+  are normalized back to the modeled SXLEN=UXLEN=64 profile.
 
 - The first RV64C reserved/hint correction slice for Task 0063 is in place.
   `EBREAK` and `C.EBREAK` now raise the architectural breakpoint exception,
