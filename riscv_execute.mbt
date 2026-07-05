@@ -1301,6 +1301,33 @@ fn legalize_pmp_csr(_value : UInt64) -> UInt64 {
 }
 
 ///|
+fn legalize_satp_csr(value : UInt64, xlen : Xlen) -> UInt64? {
+  match xlen {
+    Xlen64 => {
+      let mode = (value >> 60) & 0xFU.to_uint64()
+      if mode == 0U.to_uint64() {
+        // Bare mode reserves every remaining RV64 field for future standard
+        // use. Canonicalizing those fields to zero keeps the supported no-MMU
+        // address-space selector stable instead of exposing reserved patterns.
+        Some(0U.to_uint64())
+      } else if mode == 8U.to_uint64() {
+        // The current RV64 Linux path implements Sv39 only. Unsupported paged
+        // modes are rejected by returning None so the caller can preserve the
+        // previous satp value as required for unsupported MODE writes.
+        Some(value)
+      } else {
+        None
+      }
+    }
+    Xlen32 =>
+      // RV32 supervisor/Sv32 is outside the active RV64GC baseline. Preserve
+      // the existing storage behavior there so this spec pass tightens only
+      // the profile currently being claimed.
+      Some(value)
+  }
+}
+
+///|
 fn legalize_mie_csr(value : UInt64) -> UInt64 {
   // The modeled platform can raise the standard machine and supervisor
   // software/timer/external interrupts. Other interrupt-enable bits are WARL
@@ -1445,18 +1472,17 @@ fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
       let visible = self.delegated_s_interrupt_mask()
       self.cpu.write_csr(CSR_MIE, (mie & bit_not(visible)) | (value & visible))
     }
-    CSR_SATP => {
-      // WARL: satp.MODE field. Only mode=0 (Bare) and mode=8 (Sv39) are
-      // supported. The privileged spec says writes with unsupported MODE have
-      // no effect at all, so preserve the previous address-space selector.
-      let mode = (value >> 60) & 0xFU.to_uint64()
-      if mode == 0U.to_uint64() || mode == 8U.to_uint64() {
-        self.cpu.write_csr(CSR_SATP, value)
-        self.flush_translate_cache()
-      } else {
-        ()
+    CSR_SATP =>
+      // satp is WARL as a whole address-space selector. Legal supported writes
+      // may normalize fields, while unsupported MODE writes leave all fields
+      // unchanged.
+      match legalize_satp_csr(value, self.config.xlen) {
+        Some(next) => {
+          self.cpu.write_csr(CSR_SATP, next)
+          self.flush_translate_cache()
+        }
+        None => ()
       }
-    }
     _ => self.cpu.write_csr(csr, value)
   }
 }

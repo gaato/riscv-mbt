@@ -3324,6 +3324,35 @@ test "satp write with unsupported mode preserves previous value" {
 }
 
 ///|
+test "satp bare mode write canonicalizes reserved fields" {
+  let runner = make_runner(rv64_machine_config())
+  let csr_satp = 0x180
+  let bare_with_reserved_fields = 0x00ff000000000001UL
+  let sv39 = exec_test_sv39_satp(0x456U.to_uint64())
+  runner.cpu.write_reg(1, bare_with_reserved_fields)
+  runner.cpu.write_reg(2, sv39)
+  runner.load_program(
+    words_to_bytes([
+      encode_csr(csr_satp, 1, 0x1U, 0),
+      encode_csr(csr_satp, 0, 0x2U, 3),
+      encode_csr(csr_satp, 2, 0x1U, 0),
+      encode_csr(csr_satp, 0, 0x2U, 4),
+    ]),
+    0U,
+  )
+  match runner.run(4) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected satp Bare normalization and Sv39 write to retire, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_reg_u64(3), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(4), sv39)
+  assert_eq(runner.read_csr_u64(csr_satp), sv39)
+}
+
+///|
 test "wfi traps as illegal from user mode" {
   let program = words_to_bytes([
     encode_i(20, 0, 0x0U, 5, 0x13U),

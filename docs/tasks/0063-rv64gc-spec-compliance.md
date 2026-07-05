@@ -275,6 +275,9 @@ official coverage improve.
   `time` counter.
   `satp` writes with unsupported MODE values now preserve the previous CSR
   value, matching the privileged WARL rule that the whole write has no effect.
+  RV64 Bare-mode `satp` writes now also canonicalize bits 59:0 to zero, so the
+  supported no-translation mode does not expose reserved future-standard
+  patterns as ordinary stored state.
   `mstatus.MPP` now treats reserved privilege encoding 2 as a WARL value and
   normalizes it to U-mode in this implemented U/S/M profile. Optional vector
   CSRs are also pinned as absent from the non-`V` RV64FD/RV64GC baseline: the
@@ -634,6 +637,9 @@ official coverage improve.
   RV64 regression seeds a valid Sv39 `satp`, attempts to write unsupported
   Sv48 MODE on the current Sv39-only implementation, and verifies the old value
   is still visible.
+- RV64 Bare-mode `satp` writes now normalize the remaining fields to zero.
+  This gives the emulator a deterministic WARL choice for the spec's reserved
+  Bare encodings instead of leaking nonzero ASID/PPN fields into readback.
 - `WFI` now enforces the modeled privilege/TW legality rule before applying the
   interpreter's CLINT timer fast-forward hint: U-mode raises illegal
   instruction, and S-mode raises illegal instruction when `mstatus.TW` is set.
