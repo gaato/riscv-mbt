@@ -1762,6 +1762,32 @@ test "rv64fd fused multiply-add double paths honor non-rne rounding modes" {
 }
 
 ///|
+test "rv64fd fused multiply-add double path does not round intermediate product" {
+  let runner = make_runner(rv64fd_machine_config())
+  let csr_fcsr = 0x003
+  // This mirrors the single-precision fused-contract regression at binary64
+  // precision. Separately rounding the product gives exactly 1.0, which would
+  // cancel with -1.0. The fused operation keeps the exact product through the
+  // addend and produces the exact positive double just below 2^-53.
+  runner.cpu.write_freg(1, 0x3ff0000000000001UL)
+  runner.cpu.write_freg(2, 0x3fefffffffffffffUL)
+  runner.cpu.write_freg(3, exec_test_f64_bits(-1.0))
+  runner.load_program(
+    words_to_bytes([encode_fp_r4(3, 0x1U, 2, 1, 0x0U, 4, 0x43U)]),
+    0U,
+  )
+  match runner.step() {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected fused single-rounding FMADD.D to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_freg_u64(4), 0x3c9ffffffffffffeUL)
+  assert_eq(runner.read_csr(csr_fcsr) & 0x1fU, 0U)
+}
+
+///|
 test "rv64fd fused multiply-add double paths preserve exact zero signs" {
   let runner = make_runner(rv64fd_machine_config())
   runner.cpu.write_freg(1, exec_test_f64_bits(1.0))
