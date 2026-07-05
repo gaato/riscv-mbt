@@ -968,12 +968,14 @@ fn f64_div_by_zero_bits(lhs : UInt64, rhs : UInt64) -> Bool {
 
 ///|
 fn f32_sqrt_is_invalid_bits(value : UInt) -> Bool {
-  f32_sign_bit(value) && !f32_is_zero_bits(value)
+  // FSQRT invalid-operation is for negative numeric inputs other than -0.
+  // NaNs follow the normal NaN path: signaling NaNs set NV, quiet NaNs do not.
+  f32_sign_bit(value) && !f32_is_zero_bits(value) && !f32_is_nan_bits(value)
 }
 
 ///|
 fn f64_sqrt_is_invalid_bits(value : UInt64) -> Bool {
-  f64_sign_bit(value) && !f64_is_zero_bits(value)
+  f64_sign_bit(value) && !f64_is_zero_bits(value) && !f64_is_nan_bits(value)
 }
 
 ///|

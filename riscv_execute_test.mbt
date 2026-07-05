@@ -1562,6 +1562,34 @@ test "rv64fd scalar arithmetic accrues invalid and divide by zero flags" {
 }
 
 ///|
+test "rv64fd sqrt does not accrue invalid for quiet nan" {
+  let csr_fcsr = 0x003
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, exec_test_nan_box_single(0xffc00000U))
+  runner.cpu.write_freg(2, 0xfff8000000000000UL)
+  runner.load_program(
+    words_to_bytes([
+      encode_fsqrt_s(1, 0x0U, 10),
+      encode_csr(csr_fcsr, 0, 0x2U, 11),
+      encode_fsqrt_d(2, 0x0U, 12),
+      encode_csr(csr_fcsr, 0, 0x2U, 13),
+    ]),
+    0U,
+  )
+  match runner.run(4) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected quiet-nan sqrt to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_freg_u64(10), exec_test_nan_box_single(0x7fc00000U))
+  assert_eq(runner.read_reg_u64(11), 0U.to_uint64())
+  assert_eq(runner.read_freg_u64(12), exec_test_f64_canonical_nan_bits())
+  assert_eq(runner.read_reg_u64(13), 0U.to_uint64())
+}
+
+///|
 test "rv64fd single arithmetic accrues inexact flag" {
   let csr_fcsr = 0x003
   let runner = make_runner(rv64fd_machine_config())

@@ -245,10 +245,12 @@ official coverage improve.
 - Scalar `F/D` arithmetic now accrues the first spec-shaped exception flags:
   `FADD`/`FSUB` set NV for opposite-signed infinity addition, `FMUL` and FMA set
   NV for infinity-times-zero, `FDIV` sets NV for zero-over-zero and
-  infinity-over-infinity, `FSQRT` sets NV for negative nonzero operands, all
-  covered arithmetic paths set NV for signaling NaN inputs, and `FDIV` sets DZ
-  for finite nonzero division by zero. Deeper NaN payload behavior, broader
-  flag corner cases, and full official-suite promotion remain open.
+  infinity-over-infinity, `FSQRT` sets NV for negative nonzero numeric
+  operands, all covered arithmetic paths set NV for signaling NaN inputs, and
+  `FDIV` sets DZ for finite nonzero division by zero. Quiet NaN `FSQRT.S/D`
+  inputs now produce canonical NaNs without accruing NV. Deeper NaN payload
+  behavior, broader flag corner cases, and full official-suite promotion remain
+  open.
 - `FADD.S`, `FSUB.S`, and `FMUL.S` now round their exact single-precision
   operand results through the emulator-side double-to-single helper. Legal
   static non-RNE modes are accepted where they change the result, reserved
