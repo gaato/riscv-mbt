@@ -335,7 +335,8 @@ official coverage improve.
   directly: `CSRRW[I]` with `rd=x0` skips the CSR read path, while
   `CSRRS/CSRRC[I]` with a zero register or immediate mask skips the CSR write
   path. Regression coverage keeps zero-mask set/clear legal for read-only CSRs
-  and keeps actual write forms illegal for read-only CSRs.
+  and keeps all nonzero-source write forms (`CSRRW[I]`, `CSRRS[I]`, and
+  `CSRRC[I]`) illegal for read-only CSRs.
 - `A` decode now treats reserved AMO `funct5` values and the reserved
   nonzero-`rs2` LR encoding as illegal, while still accepting the `aq`/`rl`
   ordering bits. AMO W/D execution is also profile-gated on `MISA.A`, and the
@@ -439,7 +440,8 @@ official coverage improve.
 - Zicsr write-side privilege checks now run even when the instruction form
   suppresses the CSR read. This closes the `CSRRW rd=x0` hole where a lower
   privilege mode could otherwise write a higher-privilege CSR because no read
-  was attempted first.
+  was attempted first. The same read-only CSR coverage now spans nonzero-source
+  `CSRRS[I]` and `CSRRC[I]`, while zero-mask variants remain legal pure reads.
 - Trap-vector CSR writes now normalize `mtvec` and `stvec` at the visible CSR
   boundary. The modeled WARL surface preserves the aligned BASE, stores MODE=1
   for Vectored, maps Direct and reserved MODE values to MODE=0, and keeps

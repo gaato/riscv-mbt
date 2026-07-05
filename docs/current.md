@@ -210,6 +210,9 @@
   mode to `mstatus`, preventing lower privilege modes from writing
   higher-privilege CSRs just because the instruction form avoids reading the old
   CSR value.
+  Read-only CSR coverage now spans all write-attempting standard forms:
+  `CSRRW[I]`, `CSRRS[I]`, and `CSRRC[I]` with a nonzero source all trap, while
+  zero-mask `CSRRS[I]` / `CSRRC[I]` remain legal pure reads.
 - Trap-vector CSR writes now normalize `mtvec` and `stvec` to the modeled WARL
   surface: aligned BASE plus Direct or Vectored MODE only. A delegated
   supervisor-timer regression covers Vectored `stvec` dispatch to

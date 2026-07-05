@@ -4016,8 +4016,14 @@ test "mstatus mpp rejects reserved privilege encoding" {
 ///|
 test "csr write forms still trap on read-only csrs even when old value is suppressed" {
   let csrrw_misa = encode_csr(0x301, 1, 0x1U, 0)
+  let csrrs_misa = encode_csr(0x301, 1, 0x2U, 0)
+  let csrrc_misa = encode_csr(0x301, 1, 0x3U, 0)
   let csrrwi_misa = encode_csr(0x301, 1, 0x5U, 0)
-  let words = [csrrw_misa, csrrwi_misa]
+  let csrrsi_misa = encode_csr(0x301, 1, 0x6U, 0)
+  let csrrci_misa = encode_csr(0x301, 1, 0x7U, 0)
+  let words = [
+    csrrw_misa, csrrs_misa, csrrc_misa, csrrwi_misa, csrrsi_misa, csrrci_misa,
+  ]
   for raw in words {
     let runner = make_runner(default_machine_config())
     runner.cpu.write_reg(1, 0U.to_uint64())
@@ -4033,6 +4039,30 @@ test "csr write forms still trap on read-only csrs even when old value is suppre
       _ => fail("expected read-only csr write to trap")
     }
   }
+}
+
+///|
+test "csr read forms may read read-only csrs without writing them" {
+  let read_misa_csrrs = encode_csr(0x301, 0, 0x2U, 2)
+  let read_misa_csrrc = encode_csr(0x301, 0, 0x3U, 3)
+  let read_misa_csrrsi = encode_csr(0x301, 0, 0x6U, 4)
+  let read_misa_csrrci = encode_csr(0x301, 0, 0x7U, 5)
+  let runner = make_runner(default_machine_config())
+  runner.load_program(
+    words_to_bytes([
+      read_misa_csrrs, read_misa_csrrc, read_misa_csrrsi, read_misa_csrrci,
+    ]),
+    0U,
+  )
+  match runner.run(4) {
+    Running => ()
+    _ => fail("expected read-only csr read forms to run")
+  }
+  let misa = runner.read_csr_u64(0x301)
+  assert_eq(runner.read_reg_u64(2), misa)
+  assert_eq(runner.read_reg_u64(3), misa)
+  assert_eq(runner.read_reg_u64(4), misa)
+  assert_eq(runner.read_reg_u64(5), misa)
 }
 
 ///|

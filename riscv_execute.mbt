@@ -1476,6 +1476,8 @@ fn Runner::execute_csr_read_write_checked(
   // not write. Keep those checks explicit so trap behavior follows the
   // instruction form rather than a generic always-read/read-modify-write path.
   // Suppressing the read does not suppress write-side privilege or legality.
+  // Conversely, CSRRS/CSRRC with x0 or uimm=0 are pure reads: even read-only
+  // CSRs are legal there because no architectural write is attempted.
   let old_value = if should_read {
     match self.read_csr_checked(csr) {
       Some(value) => value
