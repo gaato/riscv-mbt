@@ -6367,6 +6367,34 @@ test "counteren csrs expose only base counter enable bits" {
 }
 
 ///|
+test "hpm counter csrs trap when hpm counters are not implemented" {
+  // mcounteren/scounteren expose HPM enable bits as read-only zero because the
+  // matching hpmcounter, mhpmcounter, and mhpmevent CSR surface is absent in
+  // this RV64GC profile. Keep that as an absent-CSR contract rather than
+  // silently creating zero-valued compatibility storage.
+  let representative_hpm_csrs = [
+    0xC03, // hpmcounter3
+     0xB03, // mhpmcounter3
+     0x323, // mhpmevent3
+  ]
+  for csr in representative_hpm_csrs {
+    let read_raw = encode_csr(csr, 0, 0x2U, 1)
+    let write_raw = encode_csr(csr, 1, 0x1U, 0)
+    for raw in [read_raw, write_raw] {
+      let runner = make_runner(rv64_machine_config())
+      runner.cpu.write_reg(1, 1U.to_uint64())
+      runner.load_program(words_to_bytes([raw]), 0U)
+      expect_step_trap(
+        runner,
+        "illegal instruction",
+        raw.to_uint64(),
+        "expected absent HPM CSR access to trap",
+      )
+    }
+  }
+}
+
+///|
 test "mcountinhibit gates cycle and instret but not time" {
   let mcountinhibit = 0x320
   let program = words_to_bytes([

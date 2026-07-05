@@ -310,9 +310,11 @@ official coverage improve.
   (`0x222`).
   `mcounteren` and `scounteren` now expose only the implemented base counter
   enables CY/TM/IR (`0x7`); HPM counter enables are read-only zero because the
-  corresponding counter CSRs are absent. In an M+U profile without S-mode,
-  `mcounteren` gates U-mode counter reads directly because there is no
-  supervisor `scounteren` layer.
+  corresponding counter CSRs are absent. Focused coverage now also pins
+  representative `hpmcounter3`, `mhpmcounter3`, and `mhpmevent3` accesses as
+  illegal-instruction traps rather than zero-valued compatibility storage. In
+  an M+U profile without S-mode, `mcounteren` gates U-mode counter reads
+  directly because there is no supervisor `scounteren` layer.
   `mcountinhibit` now controls the exposed architectural counters: CY inhibits
   `cycle`, IR inhibits `instret`, HPM inhibit bits are read-only zero because
   no HPM counters are modeled, and `time` continues to reflect CLINT `mtime`
