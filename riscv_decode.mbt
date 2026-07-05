@@ -1922,9 +1922,19 @@ fn decode_c_q1_cb(raw : UInt, xlen : Int) -> Instruction {
   let rs2 = c_rs2_prime(raw)
   match c_funct2_cb(raw) {
     // C.SRLI: 6-bit unsigned shift (bit12||bits[6:2]). RV64 allows shamt 32-63.
-    0x0U => Srli(rd, rd, c_shamt6(raw))
+    0x0U =>
+      if xlen == XLEN_32 && ((raw >> 12) & 0x1U) != 0U {
+        Unknown(raw)
+      } else {
+        Srli(rd, rd, c_shamt6(raw))
+      }
     // C.SRAI: 6-bit unsigned shift. RV64 allows shamt 32-63.
-    0x1U => Srai(rd, rd, c_shamt6(raw))
+    0x1U =>
+      if xlen == XLEN_32 && ((raw >> 12) & 0x1U) != 0U {
+        Unknown(raw)
+      } else {
+        Srai(rd, rd, c_shamt6(raw))
+      }
     0x2U => Andi(rd, rd, c_imm_ci(raw))
     0x3U =>
       if ((raw >> 12) & 0x1U) != 0U {
@@ -2027,6 +2037,8 @@ fn decode_c_q2(raw : UInt, xlen : Int) -> Instruction {
       let rd = c_rd_rs1(raw)
       if rd == 0 {
         Addi(0, 0, 0)
+      } else if xlen == XLEN_32 && ((raw >> 12) & 0x1U) != 0U {
+        Unknown(raw)
       } else {
         Slli(rd, rd, c_shamt6(raw))
       }

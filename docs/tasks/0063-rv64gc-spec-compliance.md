@@ -105,9 +105,10 @@ official coverage improve.
   `riscv_compressed_test.mbt`, and the upstream `rv64uc-p-rvc` binary is now
   part of the gating manifest. The RV64C reserved/hint audit now covers
   `C.EBREAK`, `C.ADDIW rd=x0`, `C.LUI rd=x0`, `C.SLLI rd=x0`, 6-bit RV64
-  `C.SLLI` shift amounts, and `C.FLDSP f0`. The remaining audit is broader
-  reserved/hint behavior beyond those focused cases and the official aggregate
-  compressed test.
+  `C.SLLI` shift amounts, `C.FLDSP f0`, and the RV32C custom-extension
+  `shamt[5]=1` space for `C.SLLI`, `C.SRLI`, and `C.SRAI`. The remaining audit
+  is broader reserved/hint behavior beyond those focused cases and the official
+  aggregate compressed test.
 - `Zicsr`: CSR decode, read-side and write-side privilege checks,
   `fcsr`/`fflags` views, and explicit read/write suppression for the standard
   CSR instruction forms are covered by focused execute tests. The write-side
@@ -362,6 +363,9 @@ official coverage improve.
   `C.SLLI rd=x0` execute as ignored hints, `C.SLLI` uses the unsigned 6-bit
   RV64 shift amount, and `C.FLDSP` can target valid floating-point register
   `f0`. Focused decode/execute regressions cover each case.
+- RV32C compressed shift decode now rejects the standard-reserved/custom
+  `shamt[5]=1` code points for `C.SLLI`, `C.SRLI`, and `C.SRAI`, while
+  preserving the existing RV64C 6-bit shift behavior.
 - Zicsr write-side privilege checks now run even when the instruction form
   suppresses the CSR read. This closes the `CSRRW rd=x0` hole where a lower
   privilege mode could otherwise write a higher-privilege CSR because no read

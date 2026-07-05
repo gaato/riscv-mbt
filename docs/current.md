@@ -149,8 +149,10 @@
   `EBREAK` and `C.EBREAK` now raise the architectural breakpoint exception,
   `C.ADDIW rd=x0` is rejected as reserved on RV64C, `C.LUI rd=x0` and
   `C.SLLI rd=x0` execute as ignored hints, `C.SLLI` uses the unsigned 6-bit
-  RV64 shift amount, and `C.FLDSP` can target valid FP register `f0`. Focused
-  regressions cover the decode and execute behavior.
+  RV64 shift amount, and `C.FLDSP` can target valid FP register `f0`. RV32C
+  now rejects `C.SLLI`, `C.SRLI`, and `C.SRAI` forms with `shamt[5]=1` because
+  those code points are reserved for custom extensions in the 32-bit profile.
+  Focused regressions cover the decode and execute behavior.
 
 - Zicsr write-side privilege checks now run even when a CSR instruction
   suppresses the read side. The regression covers `CSRRW rd=x0` from supervisor

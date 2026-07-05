@@ -524,6 +524,28 @@ test "rv64c slli uses six bit unsigned shift amount" {
 }
 
 ///|
+test "rv32c compressed shifts reserve high shamt bit" {
+  let cases = [encode_c_slli(9, 32), encode_c_srli(9, 32), encode_c_srai(9, 32)]
+  for raw in cases {
+    let runner = make_runner(default_machine_config())
+    runner.load_program(
+      mixed_program_bytes([(2, raw.reinterpret_as_uint())]),
+      0U,
+    )
+    match runner.step() {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected illegal instruction trap")
+        }
+        assert_eq(info.trap_value, raw.reinterpret_as_uint().to_uint64())
+      }
+      _ => fail("expected illegal instruction trap")
+    }
+  }
+}
+
+///|
 test "compressed jump-register forms use jalr semantics with a 2-byte link address" {
   let runner = make_runner(default_machine_config())
   runner.load_program(
