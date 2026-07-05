@@ -5323,6 +5323,29 @@ test "mstatus tsr traps supervisor sret as illegal instruction" {
 }
 
 ///|
+test "machine mode sret is not intercepted by tsr" {
+  let sret_raw = encode_sret()
+  let runner = make_runner(default_machine_config())
+  runner.cpu.write_csr(0x300, 0x400000U.to_uint64()) // mstatus.TSR=1
+  runner.cpu.write_csr(0x141, 4U.to_uint64()) // sepc after SRET
+  runner.load_program(
+    words_to_bytes([sret_raw, encode_i(1, 0, 0x0U, 2, 0x13U)]),
+    0U,
+  )
+  match runner.run(2) {
+    Running => ()
+    _ => fail("expected M-mode sret with TSR set to run")
+  }
+  assert_eq(runner.read_reg(2), 1U)
+  assert_eq(runner.read_csr(0x100), 0x20U)
+  assert_eq(runner.pc(), 8U)
+  match runner.privilege_mode() {
+    User => ()
+    _ => fail("expected M-mode sret to restore SPP=0 target")
+  }
+}
+
+///|
 test "mret sets mie from mpie, sets mpie to 1, and clears mpp" {
   let program = words_to_bytes([
     encode_u(0U, 5, 0x17U),

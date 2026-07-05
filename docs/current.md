@@ -366,7 +366,8 @@
   `SRET` traps when `mstatus.TSR` is set. `SRET` status restoration now also
   has explicit zero-`SPIE` coverage, pinning the `SIE <- SPIE`, `SPIE <- 1`,
   and `SPP <- least-privileged-mode` side effects separately from the existing
-  supervisor-return path.
+  supervisor-return path. M-mode `SRET` with `TSR=1` is pinned as legal,
+  keeping the interception rule scoped to S-mode execution.
 - `SFENCE.VMA` now enforces privilege legality before flushing the translation
   cache: U-mode traps, and S-mode traps when `mstatus.TVM` is set.
 - Supervisor-mode resources are now conditional on `MISA.S`, not just on the

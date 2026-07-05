@@ -907,7 +907,10 @@ official coverage improve.
   to M-mode with the raw SRET instruction recorded in `mtval`. `SRET` status
   restoration now also has focused zero-`SPIE` coverage, pinning
   `SIE <- SPIE`, `SPIE <- 1`, and `SPP` reset to the least-privileged
-  implemented mode independently of the ordinary S-mode return target.
+  implemented mode independently of the ordinary S-mode return target. A
+  separate M-mode regression keeps `TSR` interception scoped to S-mode
+  execution by allowing M-mode `SRET` to return through `sepc` even when
+  `mstatus.TSR` is set.
 - Supervisor profile resources now obey `MISA.S` instead of only the current
   Linux-oriented default configs. White-box profile coverage removes `S` from
   the RV64 config and pins supervisor CSR reads/writes, `SRET`, and
