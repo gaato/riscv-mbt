@@ -62,3 +62,22 @@ shows it is needed.
   797,000,000 guest steps. The run installs `iputils` through standard
   `/sbin/apk`, resolves local repository dependencies, verifies package DB
   entries, checks `bin/ping`, and runs `/bin/ping -V`.
+- Auto-root package persistence now uses the current standard `/sbin/apk`
+  command path. After copying `_build/alpine-rootfs-riscv64.ext4` to
+  `_build/alpine-rootfs-riscv64-apk-auto-root-persist-probe.ext4`,
+  `moon run --target native cmd/alpine_probe xlong --auto-root-handoff --virtio-blk-disk _build/alpine-rootfs-riscv64-apk-auto-root-persist-probe.ext4 --post-init-command-step-budget 180000000 --post-init-apk-persistence-write-smoke --write-back-virtio-blk-disk`
+  reaches `outcome=console-command`, `auto_root_handoff=true`,
+  `shell_command_sent=false`, `post_init_apk_persistence_write_smoke=true`,
+  `post_init_command_index=2`, and `apk-persistence-write-ok` at
+  719,000,000 guest steps. The run writes the mutated virtio-blk image back to
+  the host only after the guest-visible success marker.
+- Rebooting that saved image with
+  `moon run --target native cmd/alpine_probe xlong --auto-root-handoff --virtio-blk-disk _build/alpine-rootfs-riscv64-apk-auto-root-persist-probe.ext4 --post-init-command-step-budget 120000000 --post-init-apk-persistence-read-smoke`
+  reaches `outcome=console-command`, `auto_root_handoff=true`,
+  `shell_command_sent=false`, `post_init_apk_persistence_read_smoke=true`,
+  `post_init_command_index=1`, and `apk-persistence-read-ok` at
+  681,000,000 guest steps after ext4 journal recovery. The UART tail shows
+  `/sbin/apk info -e iputils`, `/sbin/apk info -e iputils-ping`,
+  `/sbin/apk info -e libcap2`, `bin/ping`, and
+  `apk-persistence-read-ok`, proving installed package DB state and package
+  file listings survive a host-saved virtio-blk image reboot.
