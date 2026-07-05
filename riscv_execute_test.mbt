@@ -5809,23 +5809,32 @@ test "rv64fdv vector csr visible surface mirrors vcsr state" {
 
 ///|
 test "rv64fdv rejects writes to read-only vector csrs" {
-  let raws = [
-    encode_csr(0xC20, 1, 0x1U, 0),
-    encode_csr(0xC21, 1, 0x1U, 0),
-    encode_csr(0xC22, 1, 0x1U, 0),
-  ]
-  for raw in raws {
-    let runner = make_runner(rv64fdv_machine_config())
-    runner.load_program(words_to_bytes([raw]), 0U)
-    match runner.step() {
-      Trap(info) => {
-        match info.cause {
-          IllegalInstruction => ()
-          _ => fail("expected illegal instruction cause")
+  // `vl`, `vtype`, and `vlenb` are read-only in the vector CSR surface.
+  // CSRRW is not the only write form: nonzero CSRRS/CSRRC masks also attempt
+  // to modify the destination CSR and must be rejected after read legality.
+  let read_only_vector_csrs = [0xC20, 0xC21, 0xC22]
+  for csr in read_only_vector_csrs {
+    let raws = [
+      encode_csr(csr, 1, 0x1U, 0), // CSRRW
+      encode_csr(csr, 1, 0x2U, 2), // CSRRS with rs1=x1
+      encode_csr(csr, 1, 0x3U, 2), // CSRRC with rs1=x1
+      encode_csr(csr, 1, 0x6U, 2), // CSRRSI with uimm=1
+      encode_csr(csr, 1, 0x7U, 2), // CSRRCI with uimm=1
+    ]
+    for raw in raws {
+      let runner = make_runner(rv64fdv_machine_config())
+      runner.cpu.write_reg(1, 1U.to_uint64())
+      runner.load_program(words_to_bytes([raw]), 0U)
+      match runner.step() {
+        Trap(info) => {
+          match info.cause {
+            IllegalInstruction => ()
+            _ => fail("expected illegal instruction cause")
+          }
+          assert_eq(info.trap_value, raw.to_uint64())
         }
-        assert_eq(info.trap_value, raw.to_uint64())
+        _ => fail("expected write to read-only vector csr to trap")
       }
-      _ => fail("expected write to read-only vector csr to trap")
     }
   }
 }

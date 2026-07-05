@@ -301,6 +301,8 @@ official coverage improve.
   CSRs are also pinned as absent from the non-`V` RV64FD/RV64GC baseline: the
   modeled `vstart`, `vxsat`, `vxrm`, `vcsr`, `vl`, `vtype`, and `vlenb`
   addresses all trap unless the configured profile advertises `MISA.V`.
+  In the optional vector profile, the read-only `vl`, `vtype`, and `vlenb`
+  CSRs now reject both direct write and nonzero set/clear CSR forms.
   The remaining audit is a spec pass over remaining WARL behavior,
   read-only/write-ignored fields, and privilege-visible side effects for every
   CSR currently exposed by `riscv_decode.mbt`.
