@@ -929,7 +929,9 @@ official coverage improve.
 - `WFI` now enforces the modeled privilege/TW legality rule before applying the
   interpreter's CLINT timer fast-forward hint: U-mode raises illegal
   instruction, and S-mode raises illegal instruction when `mstatus.TW` is set.
-  Legal WFI keeps the existing timer fast-forward behavior.
+  The illegal-path regressions now also arm a CLINT timer compare and verify
+  that the legal-WFI fast-forward side effect does not run before the
+  privilege/TW trap. Legal WFI keeps the existing timer fast-forward behavior.
 - `SRET` now has focused `mstatus.TSR` coverage. A regression enters S-mode via
   `MRET`, attempts `SRET` with TSR set, and verifies an illegal-instruction trap
   to M-mode with the raw SRET instruction recorded in `mtval`. `SRET` status

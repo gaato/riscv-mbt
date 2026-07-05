@@ -4467,25 +4467,27 @@ test "satp bare mode write canonicalizes reserved fields" {
 
 ///|
 test "wfi traps as illegal from user mode" {
-  let program = words_to_bytes([
-    encode_i(20, 0, 0x0U, 5, 0x13U),
-    encode_csr(0x341, 5, 0x1U, 0),
-    encode_i(128, 0, 0x0U, 1, 0x13U),
-    encode_csr(0x300, 1, 0x1U, 0),
-    encode_mret(),
-    encode_wfi(),
-  ])
-  let runner = make_runner(default_machine_config())
-  runner.load_program(program, 0U)
-  match runner.run(6) {
-    Trap(info) =>
+  let wfi_raw = encode_wfi()
+  let base = 0x80000000U.to_uint64()
+  let runner = make_runner(virt_machine_config())
+  runner.cpu.write_csr(0x341, base + 4U.to_uint64()) // mepc after MRET
+  runner.cpu.write_csr(0x300, 0U.to_uint64()) // mstatus.MPP=U
+  runner.all_mtimecmp[0] = 100U.to_uint64()
+  runner.load_program_u64(words_to_bytes([encode_mret(), wfi_raw]), base)
+  match runner.run(2) {
+    Trap(info) => {
       match info.cause {
         IllegalInstruction => ()
         _ => fail("expected illegal instruction for wfi from user mode")
       }
+      assert_eq(info.trap_value, wfi_raw.to_uint64())
+    }
     _ => fail("expected wfi from user mode to trap")
   }
-  assert_eq(runner.pc(), 20U)
+  // The privilege failure must happen before the interpreter's legal-WFI timer
+  // fast-forward hint; only the normal per-step timer ticks are visible.
+  assert_eq(runner.clint_mtime(), 2U.to_uint64())
+  assert_eq(runner.pc_u64(), base + 4U.to_uint64())
   match runner.privilege_mode() {
     Machine => ()
     _ => fail("expected illegal wfi trap to enter machine mode")
@@ -4494,26 +4496,25 @@ test "wfi traps as illegal from user mode" {
 
 ///|
 test "wfi traps as illegal from supervisor mode when tw is set" {
-  let program = words_to_bytes([
-    encode_i(24, 0, 0x0U, 5, 0x13U),
-    encode_csr(0x341, 5, 0x1U, 0),
-    encode_u(0x00201000U, 1, 0x37U),
-    encode_i(-1920, 1, 0x0U, 1, 0x13U),
-    encode_csr(0x300, 1, 0x1U, 0),
-    encode_mret(),
-    encode_wfi(),
-  ])
-  let runner = make_runner(default_machine_config())
-  runner.load_program(program, 0U)
-  match runner.run(7) {
-    Trap(info) =>
+  let wfi_raw = encode_wfi()
+  let base = 0x80000000U.to_uint64()
+  let runner = make_runner(virt_machine_config())
+  runner.cpu.write_csr(0x341, base + 4U.to_uint64()) // mepc after MRET
+  runner.cpu.write_csr(0x300, 0x800U.to_uint64() | 0x200000U.to_uint64()) // mstatus.MPP=S, TW=1
+  runner.all_mtimecmp[0] = 100U.to_uint64()
+  runner.load_program_u64(words_to_bytes([encode_mret(), wfi_raw]), base)
+  match runner.run(2) {
+    Trap(info) => {
       match info.cause {
         IllegalInstruction => ()
         _ => fail("expected illegal instruction for wfi with tw")
       }
+      assert_eq(info.trap_value, wfi_raw.to_uint64())
+    }
     _ => fail("expected wfi with tw to trap")
   }
-  assert_eq(runner.pc(), 24U)
+  assert_eq(runner.clint_mtime(), 2U.to_uint64())
+  assert_eq(runner.pc_u64(), base + 4U.to_uint64())
   match runner.privilege_mode() {
     Machine => ()
     _ => fail("expected illegal wfi trap to enter machine mode")
