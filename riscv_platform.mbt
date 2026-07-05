@@ -958,21 +958,24 @@ fn Runner::update_timer(self : Runner) -> Unit {
   }
   let machine_external_pending = self.config.plic_base != 0U.to_uint64() &&
     self.plic_external_claimable_for_context(0)
-  let supervisor_external_pending = self.config.plic_base != 0U.to_uint64() &&
-    self.plic_external_claimable_for_context(1)
   let new_mip3 = if machine_external_pending {
     new_mip2 | mip_meip_bit
   } else {
     new_mip2 & bit_not(mip_meip_bit)
   }
-  let new_mip4 = if supervisor_external_pending {
-    new_mip3 | mip_seip_bit
-  } else {
-    new_mip3 & bit_not(mip_seip_bit)
+  // Supervisor external pending has unusual CSR semantics: mip.SEIP reads as
+  // the OR of this external signal and a software-writable bit, but CSR writes
+  // update only the software bit. Keep the PLIC signal out of stored mip here;
+  // visible CSR reads and interrupt delivery merge it back in.
+  if new_mip3 != mip {
+    self.cpu.write_csr(CSR_MIP, new_mip3)
   }
-  if new_mip4 != mip {
-    self.cpu.write_csr(CSR_MIP, new_mip4)
-  }
+}
+
+///|
+fn Runner::supervisor_external_interrupt_pending(self : Runner) -> Bool {
+  self.config.plic_base != 0U.to_uint64() &&
+  self.plic_external_claimable_for_context(1)
 }
 
 ///|

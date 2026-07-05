@@ -8362,10 +8362,11 @@ test "virtio-blk read request copies disk bytes and raises plic interrupt" {
     encode_s(0x50, 0, 5, 0x2U, 0x23U),
     encode_i(0x60, 5, 0x2U, 6, 0x03U),
     encode_u(0x0c201000U, 7, 0x37U),
+    encode_csr(0x344, 0, 0x2U, 9),
     encode_i(4, 7, 0x2U, 8, 0x03U),
   ])
   runner.load_program_u64(program, 0x80000000U.to_uint64())
-  match runner.run(11) {
+  match runner.run(12) {
     Running => ()
     _ => fail("expected running after virtio-blk request sequence")
   }
@@ -8377,7 +8378,8 @@ test "virtio-blk read request copies disk bytes and raises plic interrupt" {
   assert_eq(runner.bus.load_u32(used_base + 8U.to_uint64()), 513U.to_uint64())
   assert_eq(runner.bus.load_u16(used_base + 2U.to_uint64()), 1U.to_uint64())
   assert_eq(runner.virtio_blk_state[6], 1U.to_uint64())
-  assert_eq(runner.read_csr_u64(0x344) & 0xa00U.to_uint64(), 0x200U.to_uint64())
+  assert_eq(runner.read_reg_u64(9) & 0xa00U.to_uint64(), 0x200U.to_uint64())
+  assert_eq(runner.read_csr_u64(0x344) & 0xa00U.to_uint64(), 0U.to_uint64())
   assert_eq(runner.read_reg_u64(6), 1U.to_uint64())
   assert_eq(runner.read_reg_u64(8), 1U.to_uint64())
   assert_eq(runner.virtio_blk_read_request_count(), 1U.to_uint64())
@@ -8857,6 +8859,56 @@ test "SIP writes affect only delegated SSIP through supervisor view" {
   assert_eq(runner.read_reg_u64(2), 0U.to_uint64())
   assert_eq(runner.read_reg_u64(3), 0x2U.to_uint64())
   assert_eq(runner.read_reg_u64(4) & 0x222U.to_uint64(), 0x2U.to_uint64())
+}
+
+///|
+test "mip software SEIP survives platform interrupt refresh" {
+  let program = words_to_bytes([
+    encode_i(0x200, 0, 0x0U, 1, 0x13U),
+    encode_csr(0x344, 1, 0x1U, 0),
+    encode_csr(0x344, 0, 0x2U, 2),
+  ])
+  let runner = make_runner(virt_machine_config())
+  runner.load_program_u64(program, 0x80000000U.to_uint64())
+  match runner.run(3) {
+    Running => ()
+    _ => fail("expected software SEIP program to run")
+  }
+  assert_eq(runner.read_reg_u64(2) & 0x200U.to_uint64(), 0x200U.to_uint64())
+  assert_eq(runner.cpu.read_csr(0x344) & 0x200U.to_uint64(), 0x200U.to_uint64())
+}
+
+///|
+test "mip CSRRS does not copy external SEIP into software SEIP" {
+  let program = words_to_bytes([
+    encode_i(2, 0, 0x0U, 1, 0x13U),
+    encode_csr(0x344, 1, 0x2U, 2),
+    encode_csr(0x344, 0, 0x2U, 3),
+  ])
+  let runner = make_runner(virtio_blk_machine_config())
+  // Source 1 is virtio-blk. Keep it claimable for supervisor context 1 so
+  // visible mip.SEIP reads as B||E while the CSRRS write side should update
+  // only the software bit B.
+  runner.plic_regs[4] = 1U.to_byte()
+  runner.plic_regs[0x2080] = 2U.to_byte()
+  runner.virtio_blk_state[6] = 1U.to_uint64()
+  runner.load_program_u64(program, 0x80000000U.to_uint64())
+  match runner.step() {
+    Running => ()
+    _ => fail("expected addi before mip CSRRS")
+  }
+  match runner.step() {
+    Running => ()
+    _ => fail("expected mip CSRRS with external SEIP")
+  }
+  assert_eq(runner.read_reg_u64(2) & 0x200U.to_uint64(), 0x200U.to_uint64())
+  runner.virtio_blk_state[6] = 0U.to_uint64()
+  match runner.step() {
+    Running => ()
+    _ => fail("expected mip read after external SEIP clears")
+  }
+  assert_eq(runner.read_reg_u64(3) & 0x202U.to_uint64(), 0x2U.to_uint64())
+  assert_eq(runner.cpu.read_csr(0x344) & 0x200U.to_uint64(), 0U.to_uint64())
 }
 
 ///|

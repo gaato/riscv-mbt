@@ -199,7 +199,11 @@ official coverage improve.
   MSI/MTI/MEI and SSI/STI/SEI (`0xaaa`), while `mip` readback is masked to the
   same implemented pending-bit surface. Writes to `mip` affect only the
   software-writable S-level pending bits; machine-level pending bits are
-  supplied by CLINT/PLIC state.
+  supplied by CLINT/PLIC state. `mip.SEIP` now keeps the privileged spec's
+  software/external split: the stored CSR bit is the M-mode software-pending
+  bit, visible `mip` and delegated `sip` reads OR in the PLIC supervisor
+  external signal, and CSRRS/CSRRC use the stored CSR value as their write base
+  so the external signal is not copied into the software bit.
   `mstatus` now clears unsupported status storage before applying the modeled
   WARL rules. User-interrupt, VS, XS, and other WPRI/reserved bits read back as
   zero, while the implemented interrupt, return, privilege, FP-status,
@@ -511,6 +515,10 @@ official coverage improve.
 - `mip`/`mie` no longer retain arbitrary interrupt bits. Focused regressions
   cover write-all-ones `mie` readback, `mip` writes limited to S-level pending
   bits, and the existing delegated `sie`/`sip` view behavior after masking.
+- `mip.SEIP` now separates the software-writable pending bit from the PLIC
+  supervisor external interrupt signal. Focused regressions cover software
+  `SEIP` surviving platform refresh with no external interrupt and CSRRS
+  reading `B||E` while writing back only `B||source`.
 - `MRET` and `SRET` now apply the privileged-spec `MPRV` return rule: when the
   return target is below M-mode, `mstatus.MPRV` is cleared so later data
   accesses cannot continue using the old MPP override. Focused regressions cover

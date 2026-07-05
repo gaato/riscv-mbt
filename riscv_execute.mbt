@@ -1108,11 +1108,41 @@ fn Runner::read_csr_visible(self : Runner, csr : Int) -> UInt64 {
       legalize_mcountinhibit_csr(self.cpu.read_csr(CSR_MCOUNTINHIBIT))
     CSR_MENVCFG | CSR_SENVCFG => legalize_envcfg_csr(self.cpu.read_csr(csr))
     CSR_PMPCFG0 | CSR_PMPADDR0 => legalize_pmp_csr(self.cpu.read_csr(csr))
-    CSR_MIP => legalize_mip_csr(self.cpu.read_csr(CSR_MIP))
+    CSR_MIP => self.read_mip_visible()
     CSR_MIE => legalize_mie_csr(self.cpu.read_csr(CSR_MIE))
-    CSR_SIP => self.cpu.read_csr(CSR_MIP) & self.delegated_s_interrupt_mask()
+    CSR_SIP => self.read_mip_visible() & self.delegated_s_interrupt_mask()
     CSR_SIE => self.cpu.read_csr(CSR_MIE) & self.delegated_s_interrupt_mask()
     _ => self.cpu.read_csr(csr)
+  }
+}
+
+///|
+fn Runner::read_mip_visible(self : Runner) -> UInt64 {
+  let stored = legalize_mip_csr(self.cpu.read_csr(CSR_MIP))
+  // The privileged spec defines mip.SEIP as a visible OR of the
+  // software-writable bit B and the external interrupt-controller signal E.
+  // The stored CSR holds only B; platform PLIC state supplies E at read time.
+  if self.supervisor_external_interrupt_pending() {
+    stored | mip_seip_bit
+  } else {
+    stored
+  }
+}
+
+///|
+fn Runner::csr_rmw_write_base(
+  self : Runner,
+  csr : Int,
+  visible_old : UInt64,
+) -> UInt64 {
+  // CSRRS/CSRRC normally write from the value read into rd. mip.SEIP is the
+  // architectural exception: reads include the external PLIC signal E, but the
+  // read-modify-write sequence updates only the software bit B. Use the stored
+  // CSR value as the write base for mip so E is never copied into B.
+  if csr == CSR_MIP {
+    legalize_mip_csr(self.cpu.read_csr(CSR_MIP))
+  } else {
+    visible_old
   }
 }
 
@@ -1546,10 +1576,11 @@ fn Runner::execute_system(
             raw.to_uint64(),
           )
       }
+      let write_base = self.csr_rmw_write_base(csr, old_value)
       self.execute_csr_read_write_checked(
         rd,
         csr,
-        old_value | self.cpu.read_reg(rs1),
+        write_base | self.cpu.read_reg(rs1),
         true,
         rs1 != 0,
         next_pc,
@@ -1567,10 +1598,11 @@ fn Runner::execute_system(
             raw.to_uint64(),
           )
       }
+      let write_base = self.csr_rmw_write_base(csr, old_value)
       self.execute_csr_read_write_checked(
         rd,
         csr,
-        old_value & bit_not(self.cpu.read_reg(rs1)),
+        write_base & bit_not(self.cpu.read_reg(rs1)),
         true,
         rs1 != 0,
         next_pc,
@@ -1599,10 +1631,11 @@ fn Runner::execute_system(
             raw.to_uint64(),
           )
       }
+      let write_base = self.csr_rmw_write_base(csr, old_value)
       self.execute_csr_read_write_checked(
         rd,
         csr,
-        old_value | uimm.to_uint64(),
+        write_base | uimm.to_uint64(),
         true,
         uimm != 0U,
         next_pc,
@@ -1620,10 +1653,11 @@ fn Runner::execute_system(
             raw.to_uint64(),
           )
       }
+      let write_base = self.csr_rmw_write_base(csr, old_value)
       self.execute_csr_read_write_checked(
         rd,
         csr,
-        old_value & bit_not(uimm.to_uint64()),
+        write_base & bit_not(uimm.to_uint64()),
         true,
         uimm != 0U,
         next_pc,
@@ -1720,7 +1754,8 @@ fn Runner::execute_sret(
 
 ///|
 fn Runner::wfi_resume_interrupt_pending(self : Runner) -> Bool {
-  (self.cpu.read_csr(CSR_MIP) & self.cpu.read_csr(CSR_MIE)) != 0U.to_uint64()
+  (self.read_csr_visible(CSR_MIP) & self.read_csr_visible(CSR_MIE)) !=
+  0U.to_uint64()
 }
 
 ///|
