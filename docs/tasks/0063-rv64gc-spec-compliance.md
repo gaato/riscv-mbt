@@ -82,9 +82,11 @@ official coverage improve.
   `fcsr` writes also mark FS Dirty, making the visible `SD` summary track
   modeled FP state changes. The `fflags`, `frm`, and `fcsr` CSR aliases are
   now governed by the same FS state, so both read and write attempts trap when
-  FS=Off. The corrected official-test harness now advertises manifest arch FP
-  bits, and the passing `rv64uf`/`rv64ud` classification, compare, conversion,
-  min/max, load/store, move, recoding, and structural rows are gated. The
+  FS=Off. Writes to absent `fcsr` bits 31:8 are covered as
+  ignored-on-write/read-as-zero. The corrected official-test harness now
+  advertises manifest arch FP bits, and the passing `rv64uf`/`rv64ud`
+  classification, compare, conversion, min/max, load/store, move, recoding,
+  and structural rows are gated. The
   `rv64uf` arithmetic rows are also gated after adding single-precision NX
   accrual, and the `rv64ud` arithmetic rows are gated after adding
   exact-rational double-precision NX checks. The remaining strict-spec gaps are
@@ -220,6 +222,9 @@ official coverage improve.
   read forms and write-only `CSRRW rd=x0` forms for `fflags`, `frm`, and
   `fcsr`, preserving Zicsr read suppression while still trapping writes to
   FS-governed state when FS=Off.
+- `fcsr` reserved high bits now have focused regression coverage. A CSR write
+  of all ones leaves only visible bits 7:0 readable, matching the F extension
+  rule for absent standard-extension fields in bits 31:8.
 - `Zifencei` now has an execute regression for the key same-hart contract:
   fetch and decode an instruction, store a different instruction to the same
   address, execute `FENCE.I`, jump back, and require the replacement instruction

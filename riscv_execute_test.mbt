@@ -917,6 +917,25 @@ test "rv64f fcsr frm and fflags views share one visible register" {
 }
 
 ///|
+test "rv64f fcsr reserved high bits read as zero" {
+  let csr_fcsr = 0x003
+  let program = words_to_bytes([
+    encode_u(0xfffff000U, 1, 0x37U),
+    encode_i(-1, 1, 0x0U, 1, 0x13U),
+    encode_csr(csr_fcsr, 1, 0x1U, 0),
+    encode_csr(csr_fcsr, 0, 0x2U, 2),
+  ])
+  let runner = make_runner(rv64f_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(4) {
+    Running => ()
+    _ => fail("expected fcsr reserved-bit program to run")
+  }
+  assert_eq(runner.read_reg(2), 0xffU)
+  assert_eq(runner.read_csr(csr_fcsr), 0xffU)
+}
+
+///|
 test "rv64f traps floating-point csr access when mstatus fs is off" {
   let fp_csrs = [0x001, 0x002, 0x003]
   for csr in fp_csrs {
