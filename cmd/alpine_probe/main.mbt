@@ -554,6 +554,37 @@ fn alpine_post_init_apk_local_deps_markers() -> Array[String] {
 }
 
 ///|
+fn alpine_post_init_iputils_loopback_commands() -> Array[String] {
+  // Package-runtime proof. Dependency resolution alone only proves that apk can
+  // install files; this command sequence proves an installed iputils binary can
+  // exercise the guest kernel's loopback network path.
+  [
+    "test -x /sbin/apk && " +
+    "test -r /root/riscv-mbt-apks/APKINDEX.tar.gz && " +
+    "ls /root/riscv-mbt-apks/iputils-*.apk && " +
+    "ls /root/riscv-mbt-apks/iputils-ping-*.apk && " +
+    "printf '\\151\\160\\165\\164\\151\\154\\163\\055\\154\\157\\157\\160\\142\\141\\143\\153\\055\\146\\151\\154\\145\\163\\055\\157\\153\\012'",
+    "/sbin/apk --no-network --allow-untrusted --repository /root/riscv-mbt-apks add iputils && " +
+    "/sbin/apk info -e iputils-ping && " +
+    "test -x /bin/ping && " +
+    "printf '\\151\\160\\165\\164\\151\\154\\163\\055\\154\\157\\157\\160\\142\\141\\143\\153\\055\\141\\144\\144\\055\\157\\153\\012'",
+    "ifconfig lo up && " +
+    "ifconfig lo | grep '127.0.0.1' && " +
+    "printf '\\151\\160\\165\\164\\151\\154\\163\\055\\154\\157\\157\\160\\142\\141\\143\\153\\055\\154\\157\\055\\157\\153\\012'",
+    "/bin/ping -c 1 -W 1 127.0.0.1 && " +
+    "printf '\\160\\157\\163\\164\\055\\151\\156\\151\\164\\055\\151\\160\\165\\164\\151\\154\\163\\055\\154\\157\\157\\160\\142\\141\\143\\153\\055\\157\\153\\012'",
+  ]
+}
+
+///|
+fn alpine_post_init_iputils_loopback_markers() -> Array[String] {
+  [
+    "iputils-loopback-files-ok", "iputils-loopback-add-ok", "iputils-loopback-lo-ok",
+    "post-init-iputils-loopback-ok",
+  ]
+}
+
+///|
 fn alpine_post_init_shell_commands() -> Array[String] {
   // This is intentionally about shell behavior rather than individual applets:
   // script execution from the rootfs, env/argv propagation, background jobs,
@@ -737,6 +768,9 @@ async fn main {
   let post_init_apk_local_deps_smoke = parse_flag(
     args, "--post-init-apk-local-deps-smoke",
   )
+  let post_init_iputils_loopback_smoke = parse_flag(
+    args, "--post-init-iputils-loopback-smoke",
+  )
   let post_init_shell_smoke = parse_flag(args, "--post-init-shell-smoke")
   let post_init_system_smoke = parse_flag(args, "--post-init-system-smoke")
   let post_init_storage_smoke = parse_flag(args, "--post-init-storage-smoke")
@@ -773,6 +807,7 @@ async fn main {
     post_init_apk_install_smoke ||
     post_init_apk_local_repo_smoke ||
     post_init_apk_local_deps_smoke ||
+    post_init_iputils_loopback_smoke ||
     post_init_shell_smoke ||
     post_init_system_smoke ||
     post_init_storage_smoke ||
@@ -858,6 +893,8 @@ async fn main {
     Some("post-init-apk-local-repo-ok")
   } else if post_init_apk_local_deps_smoke {
     Some("post-init-apk-local-deps-ok")
+  } else if post_init_iputils_loopback_smoke {
+    Some("post-init-iputils-loopback-ok")
   } else if post_init_shell_smoke {
     Some("post-init-shell-ok")
   } else if post_init_system_smoke {
@@ -891,6 +928,8 @@ async fn main {
     alpine_post_init_apk_local_repo_commands()
   } else if post_init_apk_local_deps_smoke {
     alpine_post_init_apk_local_deps_commands()
+  } else if post_init_iputils_loopback_smoke {
+    alpine_post_init_iputils_loopback_commands()
   } else if post_init_shell_smoke {
     alpine_post_init_shell_commands()
   } else if post_init_system_smoke {
@@ -928,6 +967,8 @@ async fn main {
     alpine_post_init_apk_local_repo_markers()
   } else if post_init_apk_local_deps_smoke {
     alpine_post_init_apk_local_deps_markers()
+  } else if post_init_iputils_loopback_smoke {
+    alpine_post_init_iputils_loopback_markers()
   } else if post_init_shell_smoke {
     alpine_post_init_shell_markers()
   } else if post_init_system_smoke {
@@ -1194,6 +1235,10 @@ async fn main {
   println(
     "post_init_apk_local_deps_smoke=" +
     post_init_apk_local_deps_smoke.to_string(),
+  )
+  println(
+    "post_init_iputils_loopback_smoke=" +
+    post_init_iputils_loopback_smoke.to_string(),
   )
   println("post_init_shell_smoke=" + post_init_shell_smoke.to_string())
   println("post_init_system_smoke=" + post_init_system_smoke.to_string())

@@ -40,6 +40,18 @@ test "post-init command trace reports per-command durations" {
 }
 
 ///|
+test "iputils loopback smoke keeps commands and markers aligned" {
+  let commands = alpine_post_init_iputils_loopback_commands()
+  let markers = alpine_post_init_iputils_loopback_markers()
+  assert_eq(commands.length(), 4)
+  assert_eq(markers.length(), 4)
+  assert_true(commands[1].contains("add iputils"))
+  assert_true(commands[2].contains("ifconfig lo up"))
+  assert_true(commands[3].contains("/bin/ping -c 1 -W 1 127.0.0.1"))
+  assert_eq(markers[3], "post-init-iputils-loopback-ok")
+}
+
+///|
 test "auto-root handoff selects auto-root artifacts by default" {
   let args = ["alpine_probe", "xlong", "--auto-root-handoff"]
   assert_eq(select_dtb_path(args, true, true), auto_root_virtio_dtb_path)

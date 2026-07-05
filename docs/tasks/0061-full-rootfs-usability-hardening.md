@@ -85,3 +85,20 @@ shows it is needed.
   now reports `post_init_command_trace` with each post-init command's injection
   step, marker-observed step, and duration. This keeps the next long run tied
   to a concrete question about which rootfs command phase is slow or stuck.
+- Added `cmd/alpine_probe --post-init-iputils-loopback-smoke` as the next
+  ordinary-Linux usability question: after standard offline `apk add iputils`,
+  can a package-provided `/bin/ping` run against the guest kernel loopback
+  device rather than merely print its version. The proof is intentionally
+  staged so the trace distinguishes package installation, loopback setup, and
+  ICMP execution.
+- The first auto-root loopback proof passed:
+  `moon run --target native cmd/alpine_probe xlong --auto-root-handoff --post-init-iputils-loopback-smoke --post-init-command-step-budget 180000000`
+  reaches `outcome=console-command`,
+  `post_init_iputils_loopback_smoke=true`, `post_init_command_index=4`, and
+  `post-init-iputils-loopback-ok` at 721,000,000 guest steps. The UART tail
+  shows offline `/sbin/apk add iputils`, `ifconfig lo up`,
+  `inet addr:127.0.0.1`, `/bin/ping -c 1 -W 1 127.0.0.1`, one received ICMP
+  reply, and `0% packet loss`. The command trace is:
+  `cmd1:start=590000000,marker=600000000,duration=10000000; cmd2:start=600000000,marker=704000000,duration=104000000; cmd3:start=704000000,marker=714000000,duration=10000000; cmd4:start=714000000,marker=721000000,duration=7000000`.
+  The expensive phase is still package installation rather than loopback ICMP
+  execution.
