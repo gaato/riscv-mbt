@@ -10487,6 +10487,36 @@ test "LR.W/SC.W pair succeeds on single hart" {
 }
 
 ///|
+test "LR.D/SC.D pair succeeds on single hart" {
+  // Doubleword LR/SC is part of RV64A. Pin both the 64-bit load-reserved value
+  // and the successful store-conditional status/result path.
+  let runner = make_runner(virt_machine_config())
+  let addr = runner.cpu.pc + 0x100U.to_uint64()
+  let original = 0x1122334455667788UL
+  let replacement = 0x8877665544332211UL
+  runner.bus.store_u64(addr, original)
+  runner.cpu.write_reg(1, addr)
+  runner.cpu.write_reg(5, replacement)
+  let pc0 = runner.cpu.pc
+  runner.bus.store_u32(pc0, encode_amo(0x02U, 0, 1, 0x3U, 3).to_uint64())
+  runner.bus.store_u32(
+    pc0 + 4U.to_uint64(),
+    encode_amo(0x03U, 5, 1, 0x3U, 4).to_uint64(),
+  )
+  match runner.step() {
+    Running => ()
+    _ => fail("expected lr.d to run")
+  }
+  assert_eq(runner.read_reg_u64(3), original)
+  match runner.step() {
+    Running => ()
+    _ => fail("expected sc.d to run")
+  }
+  assert_eq(runner.read_reg_u64(4), 0U.to_uint64())
+  assert_eq(runner.bus.load_u64(addr), replacement)
+}
+
+///|
 test "SC.W without a live reservation fails and does not store" {
   let runner = make_runner(virt_machine_config())
   let addr = runner.cpu.pc + 0x100U.to_uint64()

@@ -371,9 +371,10 @@
   the upper half of an LR.D reservation makes the original hart's later SC
   fail. Virtio-blk guest-visible DMA/status/used-ring writes now use the same
   reservation-aware device-store path, so device writes to bytes accessed by LR
-  also make the later SC fail. Failed `SC.W` and `SC.D` without a live
-  reservation are now both covered as nonzero-status, no-store operations. The
-  remaining A-extension audit is true `aq`/`rl` ordering behavior and
+  also make the later SC fail. Successful `LR.W`/`SC.W` and `LR.D`/`SC.D`
+  pairs are covered, and failed `SC.W`/`SC.D` without a live reservation are
+  both covered as nonzero-status, no-store operations. The remaining
+  A-extension audit is true `aq`/`rl` ordering behavior and
   forward-progress/eventual-success behavior beyond the current interpreter
   scheduler.
 
