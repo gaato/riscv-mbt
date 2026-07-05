@@ -78,3 +78,7 @@ or more OpenRC-specific probing.
   multiplicand case, including the spec-called-out path where the addend is a
   quiet NaN. The arithmetic result still follows the current host-IEEE boundary
   and exact fused single-rounding remains open.
+- The existing official `rv64ui` and `rv64um` manifest rows have been promoted
+  from `survey` to `gating`, alongside the older RV32 gating rows. This makes
+  the already-integrated upstream `riscv-tests` path part of the always-green
+  regression floor for the RV64I/M portion of RV64GC.

@@ -1,8 +1,9 @@
-// Official rv32ui gating tests that keep the refactored execute path honest
-// against upstream-style pass/fail binaries.
+// Official riscv-tests gating rows keep the execute path honest against
+// upstream-style pass/fail binaries. The manifest decides which RV32/RV64 rows
+// are ready to be always-green.
 
 ///|
-async test "refactored execute path keeps official rv32ui gating subset green" {
+async test "refactored execute path keeps official riscv-tests gating subset green" {
   let cases = load_official_riscv_test_cases().filter(fn(test_case) {
     test_case.tier == "gating"
   })
