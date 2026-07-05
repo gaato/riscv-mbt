@@ -1951,6 +1951,9 @@ fn Runner::execute_system(
       Running
     }
     Ecall => {
+      // ECALL raises the environment-call exception for the current privilege
+      // mode. It does not advance PC here; trap entry owns the next control
+      // transfer, and Runner::step only increments minstret for Running.
       let cause = match self.cpu.privilege {
         User => EnvironmentCallFromUMode
         Supervisor => EnvironmentCallFromSMode
@@ -1958,7 +1961,11 @@ fn Runner::execute_system(
       }
       self.raise_trap(cause, current_pc, 0U.to_uint64())
     }
-    Ebreak => self.raise_trap(Breakpoint, current_pc, 0U.to_uint64())
+    Ebreak =>
+      // EBREAK follows the same synchronous-exception retirement rule as
+      // ECALL: report the breakpoint trap and leave retirement accounting to
+      // the top-level step result.
+      self.raise_trap(Breakpoint, current_pc, 0U.to_uint64())
     Mret => self.execute_mret(current_pc, raw)
     Sret => self.execute_sret(current_pc, raw)
     Unknown(_) =>

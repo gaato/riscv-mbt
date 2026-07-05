@@ -318,7 +318,8 @@ official coverage improve.
   because the privileged spec excludes `mtime` from mcountinhibit. The
   unprivileged `cycle` and `instret` CSRs now shadow writable machine `mcycle`
   and `minstret` state instead of aliasing CLINT `mtime`; focused coverage also
-  pins that synchronous traps do not retire into `instret`.
+  pins that illegal instructions, `ECALL`, and `EBREAK` are synchronous traps
+  that do not retire into `instret`.
   RV32-only high-half counter CSRs are now filtered by the shared CSR support
   classifier on RV64: `cycleh`, `timeh`, `instreth`, `mcycleh`, and
   `minstreth` are readable where modeled for RV32 but absent from the RV64GC
@@ -866,8 +867,8 @@ official coverage improve.
   coverage writes all ones, verifies only CY/IR read back, proves inhibited
   `cycle` and `instret` stay stable, proves `time` still advances, and verifies
   writable `mcycle`/`minstret` back the unprivileged counter shadows. A separate
-  regression verifies that an illegal-instruction synchronous trap updates trap
-  state without incrementing `instret`.
+  regression verifies that illegal-instruction, `ECALL`, and `EBREAK`
+  synchronous traps update trap state without incrementing `instret`.
 - RV32-only high-half counter CSR legality is now centralized in the CSR
   support classifier. Focused coverage keeps `cycleh`, `timeh`, and `instreth`
   readable on RV32, and verifies `cycleh`, `timeh`, `instreth`, `mcycleh`, and

@@ -6235,20 +6235,20 @@ test "mcountinhibit gates cycle and instret but not time" {
 ///|
 test "synchronous traps do not retire into instret" {
   let instret = 0xC02
-  let runner = make_runner(virt_machine_config())
-  runner.load_program_u64(
+  let illegal_runner = make_runner(virt_machine_config())
+  illegal_runner.load_program_u64(
     words_to_bytes([
       encode_i(1, 0, 0x0U, 1, 0x13U),
       0x0000000bU, // Unknown 32-bit instruction: traps before retirement.
     ]),
     0x80000000U.to_uint64(),
   )
-  match runner.step() {
+  match illegal_runner.step() {
     Running => ()
     _ => fail("expected first instruction to retire")
   }
-  assert_eq(runner.read_csr_u64(instret), 1U.to_uint64())
-  match runner.step() {
+  assert_eq(illegal_runner.read_csr_u64(instret), 1U.to_uint64())
+  match illegal_runner.step() {
     Trap(info) => {
       match info.cause {
         IllegalInstruction => ()
@@ -6258,9 +6258,59 @@ test "synchronous traps do not retire into instret" {
     }
     _ => fail("expected illegal instruction trap")
   }
-  // minstret counts retired instructions only; the trapping instruction updates
-  // trap CSRs and control flow, but it does not itself retire.
-  assert_eq(runner.read_csr_u64(instret), 1U.to_uint64())
+  // minstret counts retired instructions only; a synchronous exception updates
+  // trap CSRs and control flow, but the faulting instruction does not retire.
+  assert_eq(illegal_runner.read_csr_u64(instret), 1U.to_uint64())
+
+  let ecall_runner = make_runner(virt_machine_config())
+  ecall_runner.load_program_u64(
+    words_to_bytes([
+      encode_i(1, 0, 0x0U, 1, 0x13U),
+      0x00000073U, // ECALL is a synchronous environment-call exception.
+    ]),
+    0x80000000U.to_uint64(),
+  )
+  match ecall_runner.step() {
+    Running => ()
+    _ => fail("expected first instruction before ecall to retire")
+  }
+  assert_eq(ecall_runner.read_csr_u64(instret), 1U.to_uint64())
+  match ecall_runner.step() {
+    Trap(info) => {
+      match info.cause {
+        EnvironmentCallFromMMode => ()
+        _ => fail("expected machine environment-call trap")
+      }
+      assert_eq(info.trap_value, 0U.to_uint64())
+    }
+    _ => fail("expected ecall trap")
+  }
+  assert_eq(ecall_runner.read_csr_u64(instret), 1U.to_uint64())
+
+  let ebreak_runner = make_runner(virt_machine_config())
+  ebreak_runner.load_program_u64(
+    words_to_bytes([
+      encode_i(1, 0, 0x0U, 1, 0x13U),
+      0x00100073U, // EBREAK is a synchronous breakpoint exception.
+    ]),
+    0x80000000U.to_uint64(),
+  )
+  match ebreak_runner.step() {
+    Running => ()
+    _ => fail("expected first instruction before ebreak to retire")
+  }
+  assert_eq(ebreak_runner.read_csr_u64(instret), 1U.to_uint64())
+  match ebreak_runner.step() {
+    Trap(info) => {
+      match info.cause {
+        Breakpoint => ()
+        _ => fail("expected breakpoint trap")
+      }
+      assert_eq(info.trap_value, 0U.to_uint64())
+    }
+    _ => fail("expected ebreak trap")
+  }
+  assert_eq(ebreak_runner.read_csr_u64(instret), 1U.to_uint64())
 }
 
 ///|
