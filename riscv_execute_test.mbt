@@ -4576,6 +4576,40 @@ test "misa writes preserve the fixed WARL ISA profile" {
 }
 
 ///|
+test "cause csrs keep modeled WLRL interrupt and exception-code bits" {
+  let mcause = 0x342
+  let scause = 0x142
+  let interrupt_software_external = (1U.to_uint64() << 63) | 9U.to_uint64()
+  let modeled_all_ones = (1U.to_uint64() << 63) | 0x1fU.to_uint64()
+  let runner = make_runner(virt_machine_config())
+  runner.cpu.write_reg(4, interrupt_software_external)
+  runner.load_program_u64(
+    words_to_bytes([
+      encode_i(-1, 0, 0x0U, 1, 0x13U),
+      encode_csr(mcause, 1, 0x1U, 0),
+      encode_csr(mcause, 0, 0x2U, 2),
+      encode_csr(scause, 1, 0x1U, 0),
+      encode_csr(scause, 0, 0x2U, 3),
+      encode_csr(mcause, 4, 0x1U, 0),
+      encode_csr(mcause, 0, 0x2U, 5),
+      encode_csr(scause, 4, 0x1U, 0),
+      encode_csr(scause, 0, 0x2U, 6),
+    ]),
+    0x80000000U.to_uint64(),
+  )
+  match runner.run(9) {
+    Running => ()
+    _ => fail("expected cause CSR WLRL writes to retire")
+  }
+  assert_eq(runner.read_reg_u64(2), modeled_all_ones)
+  assert_eq(runner.read_reg_u64(3), modeled_all_ones)
+  assert_eq(runner.read_reg_u64(5), interrupt_software_external)
+  assert_eq(runner.read_reg_u64(6), interrupt_software_external)
+  assert_eq(runner.read_csr_u64(mcause), interrupt_software_external)
+  assert_eq(runner.read_csr_u64(scause), interrupt_software_external)
+}
+
+///|
 test "csr read forms may read read-only csrs without writing them" {
   let read_misa_csrrs = encode_csr(0x301, 0, 0x2U, 2)
   let read_misa_csrrc = encode_csr(0x301, 0, 0x3U, 3)

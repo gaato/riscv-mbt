@@ -1170,6 +1170,7 @@ fn Runner::read_csr_visible(self : Runner, csr : Int) -> UInt64 {
       SSTATUS_VISIBLE_MASK
     CSR_MEPC | CSR_SEPC =>
       visible_epc_csr(self.cpu.read_csr(csr), self.config.extensions)
+    CSR_MCAUSE | CSR_SCAUSE => legalize_cause_csr(self.cpu.read_csr(csr))
     CSR_MEDELEG => legalize_medeleg_csr(self.cpu.read_csr(CSR_MEDELEG))
     CSR_MIDELEG => legalize_mideleg_csr(self.cpu.read_csr(CSR_MIDELEG))
     CSR_MCOUNTEREN => legalize_counteren_csr(self.cpu.read_csr(CSR_MCOUNTEREN))
@@ -1261,6 +1262,14 @@ fn visible_epc_csr(value : UInt64, extensions : UInt64) -> UInt64 {
   } else {
     base
   }
+}
+
+///|
+fn legalize_cause_csr(value : UInt64) -> UInt64 {
+  // xcause stores an interrupt flag plus a WLRL Exception Code field. This
+  // baseline RV64GC platform guarantees the architectural low cause bits and
+  // does not claim custom/platform-specific high cause-code storage.
+  (value & (1U.to_uint64() << 63)) | (value & 0x1fU.to_uint64())
 }
 
 ///|
@@ -1403,6 +1412,8 @@ fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
     CSR_MTVEC | CSR_STVEC =>
       self.cpu.write_csr(csr, legalize_trap_vector_csr(value))
     CSR_MEPC | CSR_SEPC => self.cpu.write_csr(csr, legalize_epc_csr(value))
+    CSR_MCAUSE | CSR_SCAUSE =>
+      self.cpu.write_csr(csr, legalize_cause_csr(value))
     CSR_MEDELEG => self.cpu.write_csr(csr, legalize_medeleg_csr(value))
     CSR_MIDELEG => self.cpu.write_csr(csr, legalize_mideleg_csr(value))
     CSR_MCOUNTEREN | CSR_SCOUNTEREN =>

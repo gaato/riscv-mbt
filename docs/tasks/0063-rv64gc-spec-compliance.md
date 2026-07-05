@@ -274,6 +274,10 @@ official coverage improve.
   machine-information CSR trap coverage samples the exposed read-only set:
   `mvendorid`, `marchid`, `mimpid`, `mhartid`, `mconfigptr`, and the read-only
   `time` counter.
+  `mcause` and `scause` now expose the modeled WLRL cause surface on explicit
+  CSR writes and reads: the interrupt flag and low five exception-code bits are
+  retained, while unsupported high platform/custom cause-code storage is masked
+  away.
   `satp` writes with unsupported MODE values now preserve the previous CSR
   value, matching the privileged WARL rule that the whole write has no effect.
   RV64 Bare-mode `satp` writes now also canonicalize bits 59:0 to zero, so the
