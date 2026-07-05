@@ -4203,6 +4203,63 @@ test "rv64fd word conversions clip exact upper rne boundaries" {
 }
 
 ///|
+test "rv64fd signed word conversion checks range after rounding" {
+  let csr_fcsr = 0x003
+  let invalid = 0x10U.to_uint64()
+  let inexact = 0x01U.to_uint64()
+  let runner = make_runner(rv64fd_machine_config())
+  // These double inputs sit exactly half a unit outside the signed 32-bit
+  // integer endpoints. The RISC-V conversion rule checks the integer after
+  // rounding, so the same source bit pattern can be either valid+NX or
+  // invalid+NV depending on rm.
+  runner.cpu.write_freg(1, 0x41dfffffffe00000UL) // +2^31 - 0.5.
+  runner.cpu.write_freg(2, 0xc1e0000000100000UL) // -2^31 - 0.5.
+  runner.load_program(
+    words_to_bytes([
+      encode_fcvt_w_d(1, 0x1U, 10), // RTZ: +2^31 - 1, valid.
+      encode_csr(csr_fcsr, 0, 0x2U, 11),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_w_d(1, 0x0U, 12), // RNE: ties to +2^31, invalid.
+      encode_csr(csr_fcsr, 0, 0x2U, 13),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_w_d(1, 0x2U, 14), // RDN: +2^31 - 1, valid.
+      encode_csr(csr_fcsr, 0, 0x2U, 15),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_w_d(1, 0x3U, 16), // RUP: +2^31, invalid.
+      encode_csr(csr_fcsr, 0, 0x2U, 17),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_w_d(2, 0x0U, 18), // RNE: ties to -2^31, valid.
+      encode_csr(csr_fcsr, 0, 0x2U, 19),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_w_d(2, 0x2U, 20), // RDN: -2^31 - 1, invalid.
+      encode_csr(csr_fcsr, 0, 0x2U, 21),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_w_d(2, 0x3U, 22), // RUP: -2^31, valid.
+      encode_csr(csr_fcsr, 0, 0x2U, 23),
+    ]),
+    0U,
+  )
+  match runner.run(20) {
+    Running => ()
+    _ => fail("expected mode-dependent fcvt.w.d signed-boundary path to run")
+  }
+  assert_eq(runner.read_reg_u64(10), 0x7fffffffU.to_uint64())
+  assert_eq(runner.read_reg_u64(11) & 0x1fU.to_uint64(), inexact)
+  assert_eq(runner.read_reg_u64(12), 0x7fffffffU.to_uint64())
+  assert_eq(runner.read_reg_u64(13) & 0x1fU.to_uint64(), invalid)
+  assert_eq(runner.read_reg_u64(14), 0x7fffffffU.to_uint64())
+  assert_eq(runner.read_reg_u64(15) & 0x1fU.to_uint64(), inexact)
+  assert_eq(runner.read_reg_u64(16), 0x7fffffffU.to_uint64())
+  assert_eq(runner.read_reg_u64(17) & 0x1fU.to_uint64(), invalid)
+  assert_eq(runner.read_reg_u64(18), test_sign_extend_word64(0x80000000U))
+  assert_eq(runner.read_reg_u64(19) & 0x1fU.to_uint64(), inexact)
+  assert_eq(runner.read_reg_u64(20), test_sign_extend_word64(0x80000000U))
+  assert_eq(runner.read_reg_u64(21) & 0x1fU.to_uint64(), invalid)
+  assert_eq(runner.read_reg_u64(22), test_sign_extend_word64(0x80000000U))
+  assert_eq(runner.read_reg_u64(23) & 0x1fU.to_uint64(), inexact)
+}
+
+///|
 test "rv64fd unsigned word conversion checks range after rounding" {
   let csr_fcsr = 0x003
   let invalid = 0x10U.to_uint64()

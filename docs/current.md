@@ -141,6 +141,8 @@
   valid high-bit result `0x80000000`, not only the all-ones edge.
   Float-to-integer conversions now also reject reserved static and dynamic
   rounding-mode encodings before executing representative word and long forms.
+  `FCVT.W.D` now checks signed half-unit boundary cases around `-2^31` and
+  `+2^31`, proving the valid-vs-invalid decision is made after rounding.
   `FCVT.WU.D` now also checks the mode-dependent upper edge where
   `+2^32 - 0.5` stays valid/inexact under RTZ but rounds out of range and sets
   NV under RNE/RUP, plus the lower S/D `-0.5` edge where RNE/RTZ produce valid
