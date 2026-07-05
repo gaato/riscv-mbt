@@ -96,16 +96,15 @@
   mask for zero, subnormal, normal, infinity, signaling-NaN, and quiet-NaN
   values. Double FMA now uses exact-rational fused products for finite nonzero
   results under legal non-RNE modes, while exact-zero sign auditing remains
-  open. Double `FSQRT.D` is now the remaining host-IEEE RNE-only arithmetic
-  boundary. Scalar `F/D` arithmetic now accrues NV for
+  open. Double `FSQRT.D` now accepts legal non-RNE modes and derives directed
+  finite results from exact operand/candidate comparisons. Scalar `F/D`
+  arithmetic now accrues NV for
   signaling NaNs and the obvious invalid-operation cases, and FDIV accrues DZ
   for finite nonzero division by zero. This is emulator-body hardening for the
   ordinary C floating-point paths that Alpine userspace can exercise; exact
-  non-RNE arithmetic, OF/UF/NX for rounded arithmetic, and exact fused
-  single-rounding remain later spec-compliance work. The subsequent
-  arithmetic flag pass added RNE NX accrual for the current single/double
-  arithmetic and FMA paths; broader non-RNE arithmetic, OF/UF, and deeper
-  fused-rounding audits remain open. Exact widening `FCVT.D.S` and exact
+  zero signs for fused operations, deeper NaN payload/flag behavior, and full
+  official-suite promotion remain later spec-compliance work. Exact widening
+  `FCVT.D.S` and exact
   RV32-width-to-double `FCVT.D.W[U]` now validate the otherwise unaffected `rm`
   field for legal/reserved static and dynamic encodings, so legal non-RNE forms
   execute and reserved forms trap instead of being silently accepted.

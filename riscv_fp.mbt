@@ -294,11 +294,11 @@ fn fp_exact_rational_div(
 }
 
 ///|
-fn fp_exact_rational_equal(
+fn fp_exact_rational_compare(
   lhs : FpExactRational,
   rhs : FpExactRational,
-) -> Bool {
-  lhs.num * rhs.den == rhs.num * lhs.den
+) -> Int {
+  (lhs.num * rhs.den).compare(rhs.num * lhs.den)
 }
 
 ///|
@@ -556,20 +556,75 @@ fn fp_round_rational_to_f64_bits(
 }
 
 ///|
-fn f64_sqrt_finite_inexact_from_result(
+fn f64_next_up_positive_finite(bits : UInt64) -> UInt64 {
+  if bits == 0x7ff0000000000000UL {
+    bits
+  } else {
+    bits + 1UL
+  }
+}
+
+///|
+fn f64_next_down_positive_finite(bits : UInt64) -> UInt64 {
+  if bits == 0UL {
+    bits
+  } else {
+    bits - 1UL
+  }
+}
+
+///|
+fn f64_sqrt_rounded_bits(
   operand_bits : UInt64,
-  result_bits : UInt64,
-) -> Bool {
-  match
-    (
-      fp_exact_rational_from_f64_bits(operand_bits),
-      fp_exact_rational_from_f64_bits(result_bits),
-    ) {
-    (Some(operand), Some(result)) => {
-      let squared = fp_exact_rational_mul(result, result)
-      !fp_exact_rational_equal(operand, squared)
+  mode : UInt,
+) -> FpRoundedDoubleBits {
+  let host_bits = f64_bits_from_host(f64_from_bits(operand_bits).sqrt())
+  match fp_exact_rational_from_f64_bits(operand_bits) {
+    Some(operand) => {
+      if operand.num <= BigInt::from_int(0) {
+        return { bits: host_bits, flags: 0UL }
+      }
+      match fp_exact_rational_from_f64_bits(host_bits) {
+        Some(host) => {
+          let squared = fp_exact_rational_mul(host, host)
+          let square_compare = fp_exact_rational_compare(squared, operand)
+          if square_compare == 0 {
+            return { bits: host_bits, flags: 0UL }
+          }
+          let (lower_bits, upper_bits) = if square_compare < 0 {
+            (host_bits, f64_next_up_positive_finite(host_bits))
+          } else {
+            (f64_next_down_positive_finite(host_bits), host_bits)
+          }
+          let bits = match mode {
+            // The square root of a positive finite value is non-negative, so
+            // RTZ and RDN both choose the representable value below the exact
+            // root while RUP chooses the value above it.
+            1 => lower_bits
+            2 => lower_bits
+            3 => upper_bits
+            4 => {
+              let lower = fp_exact_rational_from_f64_bits(lower_bits).unwrap()
+              let upper = fp_exact_rational_from_f64_bits(upper_bits).unwrap()
+              let midpoint = fp_exact_rational_div(
+                fp_exact_rational_add(lower, upper),
+                { num: BigInt::from_int(2), den: fp_bigint_one() },
+              ).unwrap()
+              let midpoint_squared = fp_exact_rational_mul(midpoint, midpoint)
+              if fp_exact_rational_compare(operand, midpoint_squared) < 0 {
+                lower_bits
+              } else {
+                upper_bits
+              }
+            }
+            _ => host_bits
+          }
+          { bits, flags: fp_fflag_nx }
+        }
+        None => { bits: host_bits, flags: 0UL }
+      }
     }
-    _ => false
+    None => { bits: host_bits, flags: 0UL }
   }
 }
 
@@ -845,20 +900,6 @@ fn Runner::set_fflags(self : Runner, flags : UInt64) -> Unit {
 ///|
 fn Runner::read_frm(self : Runner) -> UInt {
   ((self.read_fcsr() & FCSR_FRM_MASK) >> FCSR_FRM_SHIFT).to_uint()
-}
-
-///|
-fn Runner::fp_rounding_mode_supported(self : Runner, rm : UInt) -> Bool {
-  // Current practical FP scope: arithmetic and int-to-float conversions support
-  // RNE only. Other modes trap instead of silently producing host-default
-  // results that look architectural but are not.
-  if rm == 0U {
-    true
-  } else if rm == 7U {
-    self.read_frm() == 0U
-  } else {
-    false
-  }
 }
 
 ///|
@@ -2104,19 +2145,23 @@ fn Runner::execute_fp(
       Running
     }
     FSqrtD(rd, rs1, rm) => {
-      if !self.fp_rounding_mode_supported(rm) {
-        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      let mode = match self.fp_effective_rounding_mode(rm) {
+        Some(mode) => mode
+        None =>
+          return self.raise_trap(
+            IllegalInstruction,
+            current_pc,
+            raw.to_uint64(),
+          )
       }
       let operand_bits = self.read_freg_double_bits(rs1)
       if f64_is_signaling_nan_bits(operand_bits) ||
         f64_sqrt_is_invalid_bits(operand_bits) {
         self.set_fflags(fp_fflag_nv)
       }
-      let result_bits = f64_bits_from_host(f64_from_bits(operand_bits).sqrt())
-      if f64_sqrt_finite_inexact_from_result(operand_bits, result_bits) {
-        self.set_fflags(fp_fflag_nx)
-      }
-      self.write_freg_double_bits(rd, result_bits)
+      let rounded = f64_sqrt_rounded_bits(operand_bits, mode)
+      self.set_fflags(rounded.flags)
+      self.write_freg_double_bits(rd, rounded.bits)
       self.cpu.pc = next_pc
       Running
     }

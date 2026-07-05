@@ -1263,6 +1263,27 @@ test "rv64fd div preserves exact zero signs" {
 }
 
 ///|
+test "rv64fd sqrt honors non-rne rounding modes" {
+  let runner = make_runner(rv64fd_machine_config())
+  let csr_fcsr = 0x003
+  runner.cpu.write_freg(1, exec_test_f64_bits(2.0))
+  runner.load_program(
+    words_to_bytes([encode_fsqrt_d(1, 0x1U, 2), encode_fsqrt_d(1, 0x3U, 3)]),
+    0U,
+  )
+  match runner.run(2) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected non-RNE rv64fd sqrt to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_freg_u64(2), 0x3ff6a09e667f3bccUL)
+  assert_eq(runner.read_freg_u64(3), 0x3ff6a09e667f3bcdUL)
+  assert_eq(runner.read_csr(csr_fcsr) & 0x1U, 0x1U)
+}
+
+///|
 test "rv64fd fused multiply-add accrues invalid for infinity times zero" {
   let csr_fcsr = 0x003
   let runner = make_runner(rv64fd_machine_config())

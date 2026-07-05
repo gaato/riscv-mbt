@@ -195,6 +195,10 @@ official coverage improve.
   exact-rational-to-double helper. This covers `FMADD.D`, `FMSUB.D`,
   `FNMSUB.D`, and `FNMADD.D` without using an intermediate rounded product;
   exact-zero result signs remain a separate follow-up audit.
+- `FSQRT.D` now accepts legal static/dynamic non-RNE modes. For finite positive
+  operands it uses the host square root only as an RNE candidate, compares the
+  candidate square against the exact operand, and selects the adjacent lower or
+  upper double for directed rounding while accruing NX for inexact roots.
 - `Zifencei` now has an execute regression for the key same-hart contract:
   fetch and decode an instruction, store a different instruction to the same
   address, execute `FENCE.I`, jump back, and require the replacement instruction
@@ -275,6 +279,9 @@ official coverage improve.
 - Double-precision FMA now has matching non-RNE coverage for finite nonzero
   exact results. Focused regressions cover all four FMA opcodes at `2^53 + 1`,
   where RTZ and RUP select adjacent double-precision results and accrue NX.
+- Double-precision sqrt now has matching non-RNE coverage. A focused regression
+  covers `FSQRT.D sqrt(2.0)`, where RTZ and RUP select adjacent
+  double-precision results and accrue NX.
 - The first RV64C reserved/hint correction slice is in place. `EBREAK` and
   `C.EBREAK` now trap as architectural breakpoint exceptions instead of illegal
   instructions, RV64C rejects reserved `C.ADDIW rd=x0`, `C.LUI rd=x0` and
