@@ -159,7 +159,8 @@ official coverage improve.
   the architectural dependency that `D` implies `F`, so white-box configs cannot
   expose or execute an impossible `misa.D`-without-`misa.F` profile. Focused
   `FMIN/FMAX` coverage now pins signed-zero selection in S and D, numeric
-  selection against quiet NaNs in S and D, and the all-NaN
+  selection against quiet NaNs in S and D, signaling-NaN-with-numeric cases
+  that still return the numeric operand while accruing NV, and the all-NaN
   minimumNumber/maximumNumber split: quiet all-NaN inputs produce the canonical
   NaN without NV, while signaling all-NaN inputs produce the canonical NaN and
   accrue NV for both S and D. The remaining strict-spec gaps are broader than

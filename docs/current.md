@@ -139,7 +139,8 @@
   Invalid scalar arithmetic coverage now checks both NV and canonical-NaN
   results for representative add, multiply, and divide cases.
   `FMIN/FMAX` result-selection coverage now includes the D path for signed
-  zeros and quiet NaNs, matching the existing single-precision coverage.
+  zeros and quiet NaNs, plus S/D signaling-NaN-with-numeric cases that return
+  the numeric operand while accruing NV.
   Scalar `FSGNJ.S/D`, `FSGNJN.S/D`, and `FSGNJX.S/D` now have focused
   regressions that valid NaN payloads, including signaling-NaN payloads, are
   preserved without accruing `fflags`; malformed D-present single NaN boxes

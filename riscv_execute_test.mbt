@@ -878,6 +878,56 @@ test "rv64fd min and max handle double signed zero and canonical nan fallback" {
 }
 
 ///|
+test "rv64fd min and max select numeric operand but flag signaling nan" {
+  let csr_fcsr = 0x003
+  let invalid_only = 0x10U.to_uint64()
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, exec_test_nan_box_single(exec_test_f32_bits(1.0)))
+  runner.cpu.write_freg(2, exec_test_nan_box_single(0x7f800001U))
+  runner.cpu.write_freg(3, exec_test_f64_bits(1.0))
+  runner.cpu.write_freg(4, 0x7ff0000000000001UL)
+  runner.load_program(
+    words_to_bytes([
+      encode_fp_r(0x14U, 2, 1, 0x0U, 5),
+      encode_csr(csr_fcsr, 0, 0x2U, 6),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x14U, 1, 2, 0x1U, 7),
+      encode_csr(csr_fcsr, 0, 0x2U, 8),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x15U, 4, 3, 0x0U, 9),
+      encode_csr(csr_fcsr, 0, 0x2U, 10),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x15U, 3, 4, 0x1U, 11),
+      encode_csr(csr_fcsr, 0, 0x2U, 12),
+    ]),
+    0U,
+  )
+  match runner.run(11) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected min/max signaling-NaN numeric-selection paths to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  // FMIN/FMAX result selection is separate from exception accrual: a numeric
+  // operand beats a NaN operand, but a signaling NaN still raises NV.
+  assert_eq(
+    runner.read_freg_u64(5),
+    exec_test_nan_box_single(exec_test_f32_bits(1.0)),
+  )
+  assert_eq(runner.read_reg_u64(6) & 0x1fU.to_uint64(), invalid_only)
+  assert_eq(
+    runner.read_freg_u64(7),
+    exec_test_nan_box_single(exec_test_f32_bits(1.0)),
+  )
+  assert_eq(runner.read_reg_u64(8) & 0x1fU.to_uint64(), invalid_only)
+  assert_eq(runner.read_freg_u64(9), exec_test_f64_bits(1.0))
+  assert_eq(runner.read_reg_u64(10) & 0x1fU.to_uint64(), invalid_only)
+  assert_eq(runner.read_freg_u64(11), exec_test_f64_bits(1.0))
+  assert_eq(runner.read_reg_u64(12) & 0x1fU.to_uint64(), invalid_only)
+}
+
+///|
 test "rv64f single comparisons write integer results" {
   let runner = make_runner(rv64f_machine_config())
   runner.cpu.write_freg(1, exec_test_f32_bits(1.0).to_uint64())
