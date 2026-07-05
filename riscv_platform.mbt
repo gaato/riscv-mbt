@@ -263,6 +263,31 @@ fn Runner::plic_context_threshold(self : Runner, context : Int) -> UInt64 {
 }
 
 ///|
+fn Runner::plic_source_claimed(self : Runner, source : Int) -> Bool {
+  source > 0 && source < self.plic_claimed.length() && self.plic_claimed[source]
+}
+
+///|
+fn Runner::plic_mark_source_claimed(self : Runner, source : Int) -> Unit {
+  if source > 0 && source < self.plic_claimed.length() {
+    self.plic_claimed[source] = true
+  }
+}
+
+///|
+fn Runner::plic_complete_source(
+  self : Runner,
+  context : Int,
+  source : Int,
+) -> Unit {
+  if source > 0 &&
+    source < self.plic_claimed.length() &&
+    self.plic_context_enabled(context, source) {
+    self.plic_claimed[source] = false
+  }
+}
+
+///|
 fn Runner::plic_uart_claimable_with_priority(
   self : Runner,
   context : Int,
@@ -272,6 +297,7 @@ fn Runner::plic_uart_claimable_with_priority(
   // the pending bitmap, because receive-data availability changes when the
   // guest reads RBR.
   priority > self.plic_context_threshold(context) &&
+  !self.plic_source_claimed(plic_uart_source) &&
   self.plic_context_enabled(context, plic_uart_source)
 }
 
@@ -293,6 +319,7 @@ fn Runner::plic_uart_enabled_pending_for_context(
   context : Int,
 ) -> Bool {
   self.uart_interrupt_pending() &&
+  !self.plic_source_claimed(plic_uart_source) &&
   self.plic_context_enabled(context, plic_uart_source)
 }
 
@@ -309,6 +336,7 @@ fn Runner::plic_virtio_blk_claimable_for_context(
   context : Int,
 ) -> Bool {
   self.plic_virtio_blk_pending() &&
+  !self.plic_source_claimed(plic_virtio_blk_source) &&
   self.plic_context_enabled(context, plic_virtio_blk_source) &&
   self.plic_source_priority(plic_virtio_blk_source) >
   self.plic_context_threshold(context)
@@ -320,6 +348,7 @@ fn Runner::plic_virtio_blk_enabled_pending_for_context(
   context : Int,
 ) -> Bool {
   self.plic_virtio_blk_pending() &&
+  !self.plic_source_claimed(plic_virtio_blk_source) &&
   self.plic_context_enabled(context, plic_virtio_blk_source)
 }
 
@@ -391,10 +420,14 @@ fn Runner::plic_read_u8(self : Runner, off : UInt64) -> UInt64 {
     let source_byte = plic_uart_source / 8
     let virtio_source_byte = plic_virtio_blk_source / 8
     let mut pending = 0U.to_uint64()
-    if idx == 0x1000 + source_byte && self.uart_interrupt_pending() {
+    if idx == 0x1000 + source_byte &&
+      self.uart_interrupt_pending() &&
+      !self.plic_source_claimed(plic_uart_source) {
       pending = pending | (1U.to_uint64() << (plic_uart_source % 8))
     }
-    if idx == 0x1000 + virtio_source_byte && self.plic_virtio_blk_pending() {
+    if idx == 0x1000 + virtio_source_byte &&
+      self.plic_virtio_blk_pending() &&
+      !self.plic_source_claimed(plic_virtio_blk_source) {
       pending = pending | (1U.to_uint64() << (plic_virtio_blk_source % 8))
     }
     if pending != 0U.to_uint64() {
@@ -413,10 +446,12 @@ fn Runner::plic_read_u32(self : Runner, off : UInt64) -> UInt64 {
   let idx = off.to_int()
   if idx == 0x1000 {
     let mut pending = 0U.to_uint64()
-    if self.uart_interrupt_pending() {
+    if self.uart_interrupt_pending() &&
+      !self.plic_source_claimed(plic_uart_source) {
       pending = pending | (1U.to_uint64() << plic_uart_source)
     }
-    if self.plic_virtio_blk_pending() {
+    if self.plic_virtio_blk_pending() &&
+      !self.plic_source_claimed(plic_virtio_blk_source) {
       pending = pending | (1U.to_uint64() << plic_virtio_blk_source)
     }
     return self.plic_regs[idx].to_uint64() |
@@ -429,10 +464,9 @@ fn Runner::plic_read_u32(self : Runner, off : UInt64) -> UInt64 {
   let ctx_off = idx - 0x200000
   if ctx_off >= 0 && ctx_off % 0x1000 == 4 {
     let context = ctx_off / 0x1000
-    return self
-      .plic_claim_source_for_context(context)
-      .reinterpret_as_uint()
-      .to_uint64()
+    let source = self.plic_claim_source_for_context(context)
+    self.plic_mark_source_claimed(source)
+    return source.reinterpret_as_uint().to_uint64()
   }
   if idx + 3 < self.plic_regs.length() {
     self.plic_regs[idx].to_uint64() |
@@ -456,12 +490,11 @@ fn Runner::plic_write_u8(self : Runner, off : UInt64, value : UInt64) -> Unit {
 ///|
 fn Runner::plic_write_u32(self : Runner, off : UInt64, value : UInt64) -> Unit {
   let idx = off.to_int()
-  // Complete register: same offset as claim (0x200004+ctx*0x1000), write ignored
+  // Complete register: same offset as claim (0x200004+ctx*0x1000).
   let ctx_off = idx - 0x200000
   if ctx_off >= 0 && ctx_off % 0x1000 == 4 {
-    // UART pending is derived from live UART state, and virtio-blk clears via
-    // its InterruptACK register. The PLIC complete write therefore has no
-    // separate queue to drain in the current device model.
+    let context = ctx_off / 0x1000
+    self.plic_complete_source(context, (value & 0x3ffU.to_uint64()).to_int())
     return
   }
   if idx + 3 < self.plic_regs.length() {

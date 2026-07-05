@@ -1621,6 +1621,50 @@ test "PLIC claim chooses highest priority and lower source ID on ties" {
 }
 
 ///|
+test "PLIC claim clears pending until completion" {
+  let claim_twice_then_complete = words_to_bytes([
+    encode_u(0x0c201000U, 1, 0x37U),
+    encode_i(4, 1, 0x2U, 2, 0x03U),
+    encode_i(4, 1, 0x2U, 3, 0x03U),
+    encode_s(4, 2, 1, 0x2U, 0x23U),
+    encode_i(4, 1, 0x2U, 4, 0x03U),
+  ])
+  let runner = make_runner(virtio_blk_machine_config())
+  runner.plic_regs[4] = 1U.to_byte()
+  runner.plic_regs[0x2080] = 2U.to_byte()
+  runner.virtio_blk_state[6] = 1U.to_uint64()
+  runner.load_program_u64(claim_twice_then_complete, 0x80000000U.to_uint64())
+  match runner.run(5) {
+    Running => ()
+    _ => fail("expected running after PLIC claim/complete sequence")
+  }
+  assert_eq(runner.read_reg_u64(2), 1U.to_uint64())
+  assert_eq(runner.read_reg_u64(3), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(4), 1U.to_uint64())
+  let wrong_context_complete = words_to_bytes([
+    encode_u(0x0c201000U, 1, 0x37U),
+    encode_i(4, 1, 0x2U, 2, 0x03U),
+    encode_u(0x0c200000U, 3, 0x37U),
+    encode_s(4, 2, 3, 0x2U, 0x23U),
+    encode_i(4, 1, 0x2U, 4, 0x03U),
+  ])
+  let context_runner = make_runner(virtio_blk_machine_config())
+  context_runner.plic_regs[4] = 1U.to_byte()
+  context_runner.plic_regs[0x2080] = 2U.to_byte()
+  context_runner.virtio_blk_state[6] = 1U.to_uint64()
+  context_runner.load_program_u64(
+    wrong_context_complete,
+    0x80000000U.to_uint64(),
+  )
+  match context_runner.run(5) {
+    Running => ()
+    _ => fail("expected running after wrong-context PLIC completion")
+  }
+  assert_eq(context_runner.read_reg_u64(2), 1U.to_uint64())
+  assert_eq(context_runner.read_reg_u64(4), 0U.to_uint64())
+}
+
+///|
 test "sret restores user mode from delegated supervisor trap and resumes at sepc" {
   let program = words_to_bytes([
     encode_i(33, 0, 0x0U, 6, 0x13U),

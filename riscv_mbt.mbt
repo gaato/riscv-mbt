@@ -432,6 +432,7 @@ pub struct Runner {
   clint_msip : Array[Bool] // [hart_id] = MSIP bit; shared across SMP harts
   all_mtimecmp : Array[UInt64] // [hart_id] = mtimecmp; shared across SMP harts
   plic_regs : Array[Byte] // flat PLIC register file (4 MB); shared across SMP harts
+  plic_claimed : Array[Bool] // [source] claimed IP bits awaiting completion
   virtio_blk_state : Array[UInt64]
   virtio_blk_disk : Array[Byte]
   mut virtio_blk_read_cache_base : UInt64
@@ -1246,6 +1247,11 @@ pub fn make_runner(config : MachineConfig) -> Runner {
     } else {
       []
     },
+    plic_claimed: if config.plic_base != 0U.to_uint64() {
+      Array::make(1024, false)
+    } else {
+      []
+    },
     virtio_blk_state: Array::make(16, 0U.to_uint64()),
     virtio_blk_disk: [],
     virtio_blk_read_cache_base: bit_not(0U.to_uint64()),
@@ -1310,6 +1316,11 @@ pub fn make_smp_runners(
   } else {
     []
   }
+  let shared_plic_claimed : Array[Bool] = if config.plic_base != 0U.to_uint64() {
+    Array::make(1024, false)
+  } else {
+    []
+  }
   let shared_mtime : Array[UInt64] = [0U.to_uint64()]
   let shared_msip : Array[Bool] = Array::make(num_harts, false)
   let shared_mtimecmp : Array[UInt64] = Array::make(
@@ -1350,6 +1361,7 @@ pub fn make_smp_runners(
       clint_msip: shared_msip,
       all_mtimecmp: shared_mtimecmp,
       plic_regs: shared_plic,
+      plic_claimed: shared_plic_claimed,
       virtio_blk_state: shared_virtio_blk_state,
       virtio_blk_disk: shared_virtio_blk_disk,
       virtio_blk_read_cache_base: bit_not(0U.to_uint64()),

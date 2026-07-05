@@ -406,6 +406,7 @@ pub struct Runner {
   clint_msip : Array[Bool]
   all_mtimecmp : Array[UInt64]
   plic_regs : Array[Byte]
+  plic_claimed : Array[Bool]
   virtio_blk_state : Array[UInt64]
   virtio_blk_disk : Array[Byte]
   mut virtio_blk_read_cache_base : UInt64
