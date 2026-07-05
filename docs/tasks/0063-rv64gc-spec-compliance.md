@@ -321,7 +321,8 @@ official coverage improve.
   pins that illegal instructions, `ECALL`, `EBREAK`, and `C.EBREAK` are
   synchronous traps that do not retire into `instret`; machine-timer
   interrupts are also covered as between-instruction events that leave
-  `instret` unchanged.
+  `instret` unchanged, and instruction-fetch faults are covered as pre-decode
+  traps that do not retire.
   RV32-only high-half counter CSRs are now filtered by the shared CSR support
   classifier on RV64: `cycleh`, `timeh`, `instreth`, `mcycleh`, and
   `minstreth` are readable where modeled for RV32 but absent from the RV64GC
@@ -873,7 +874,8 @@ official coverage improve.
   `C.EBREAK` synchronous traps update trap state without incrementing
   `instret`. Another regression verifies that a pending machine-timer
   interrupt enters the trap path before fetching the next instruction and does
-  not increment `instret`.
+  not increment `instret`. Instruction-fetch fault coverage also pins the
+  pre-decode fault path as non-retiring.
 - RV32-only high-half counter CSR legality is now centralized in the CSR
   support classifier. Focused coverage keeps `cycleh`, `timeh`, and `instreth`
   readable on RV32, and verifies `cycleh`, `timeh`, `instreth`, `mcycleh`, and

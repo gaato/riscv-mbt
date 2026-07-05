@@ -6345,6 +6345,33 @@ test "interrupts do not retire into instret" {
 }
 
 ///|
+test "instruction fetch faults do not retire into instret" {
+  let fault_pc = 0x10000U.to_uint64()
+  let instret = 0xC02
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(words_to_bytes([encode_j(0x10000, 0, 0x6fU)]), 0U)
+  match runner.step() {
+    Running => ()
+    _ => fail("expected jump to retire before fetch fault")
+  }
+  assert_eq(runner.pc_u64(), fault_pc)
+  assert_eq(runner.read_csr_u64(instret), 1U.to_uint64())
+  match runner.step() {
+    Trap(info) => {
+      match info.cause {
+        InstructionAccessFault => ()
+        _ => fail("expected instruction access fault")
+      }
+      assert_eq(info.faulting_pc, fault_pc)
+      assert_eq(info.trap_value, fault_pc)
+    }
+    _ => fail("expected instruction fetch fault")
+  }
+  // The jump retired, but the failed fetch at the target did not.
+  assert_eq(runner.read_csr_u64(instret), 1U.to_uint64())
+}
+
+///|
 test "machine counter csrs back unprivileged counter shadows" {
   let mcountinhibit = 0x320
   let mcycle = 0xB00

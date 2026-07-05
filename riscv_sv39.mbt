@@ -426,6 +426,8 @@ fn Runner::fetch_instruction(
   // Fetch the low halfword first to determine instruction length. If the
   // instruction is 32-bit, translate pc+2 independently; a 32-bit instruction
   // can cross a virtual page boundary and land on a different physical page.
+  // Faults returned from this helper occur before decode/execute, so the
+  // top-level step path must leave minstret unchanged.
   let low_pa = match self.translate_address(addr, Fetch, self.cpu.privilege) {
     TranslatedAddr(pa) => pa
     TranslateFault(cause) =>
