@@ -120,8 +120,9 @@
   and for the obvious invalid-operation cases,
   while quiet NaN `FSQRT.S/D` inputs stay quiet and do not set NV. `FDIV`
   NaN coverage now includes both dividend and divisor positions, and `FDIV`
-  accrues DZ for finite nonzero division by zero. This is emulator-body
-  hardening for the
+  accrues DZ for finite nonzero division by zero. Focused arithmetic coverage
+  now also proves that S/D NX, DZ, and NV flags are accrued state until an
+  explicit software `fcsr` clear. This is emulator-body hardening for the
   ordinary C floating-point paths that Alpine userspace can exercise; deeper
   NaN payload/flag behavior and full official-suite promotion remain later
   spec-compliance work. Exact widening

@@ -1318,6 +1318,59 @@ test "rv64f fcsr frm and fflags views share one visible register" {
 }
 
 ///|
+test "rv64fd arithmetic exception flags accrue until software clears them" {
+  let csr_fcsr = 0x003
+  let nx = 0x01U.to_uint64()
+  let dz = 0x08U.to_uint64()
+  let nv = 0x10U.to_uint64()
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, exec_test_nan_box_single(exec_test_f32_bits(1.0)))
+  runner.cpu.write_freg(
+    2,
+    exec_test_nan_box_single(exec_test_f32_bits(16777216.0)),
+  )
+  runner.cpu.write_freg(3, exec_test_nan_box_single(exec_test_f32_bits(0.0)))
+  runner.cpu.write_freg(4, exec_test_nan_box_single(0x7f800000U))
+  runner.cpu.write_freg(5, exec_test_nan_box_single(0xff800000U))
+  runner.cpu.write_freg(6, exec_test_f64_bits(1.0))
+  runner.cpu.write_freg(7, exec_test_f64_bits(9007199254740992.0))
+  runner.cpu.write_freg(8, exec_test_f64_bits(0.0))
+  runner.cpu.write_freg(9, 0x7ff0000000000000UL)
+  runner.cpu.write_freg(10, 0xfff0000000000000UL)
+  runner.load_program(
+    words_to_bytes([
+      encode_fp_r(0x00U, 2, 1, 0x0U, 20),
+      encode_csr(csr_fcsr, 0, 0x2U, 11),
+      encode_fp_r(0x0cU, 3, 1, 0x0U, 21),
+      encode_csr(csr_fcsr, 0, 0x2U, 12),
+      encode_fp_r(0x00U, 5, 4, 0x0U, 22),
+      encode_csr(csr_fcsr, 0, 0x2U, 13),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x01U, 7, 6, 0x0U, 23),
+      encode_csr(csr_fcsr, 0, 0x2U, 14),
+      encode_fp_r(0x0dU, 8, 6, 0x0U, 24),
+      encode_csr(csr_fcsr, 0, 0x2U, 15),
+      encode_fp_r(0x01U, 10, 9, 0x0U, 25),
+      encode_csr(csr_fcsr, 0, 0x2U, 16),
+    ]),
+    0U,
+  )
+  match runner.run(13) {
+    Running => ()
+    _ => fail("expected arithmetic fflags accumulation path to run")
+  }
+  // fflags are accrued state, not a per-instruction result register. These
+  // reads pin that NX, DZ, and NV remain set until the explicit fcsr write.
+  assert_eq(runner.read_reg_u64(11) & 0x1fU.to_uint64(), nx)
+  assert_eq(runner.read_reg_u64(12) & 0x1fU.to_uint64(), nx | dz)
+  assert_eq(runner.read_reg_u64(13) & 0x1fU.to_uint64(), nx | dz | nv)
+  assert_eq(runner.read_reg_u64(14) & 0x1fU.to_uint64(), nx)
+  assert_eq(runner.read_reg_u64(15) & 0x1fU.to_uint64(), nx | dz)
+  assert_eq(runner.read_reg_u64(16) & 0x1fU.to_uint64(), nx | dz | nv)
+  assert_eq(runner.read_csr(csr_fcsr) & 0x1fU, (nx | dz | nv).to_uint())
+}
+
+///|
 test "rv64f floating-point csr pure reads do not dirty fs" {
   let csr_fflags = 0x001
   let csr_frm = 0x002

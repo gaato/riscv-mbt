@@ -167,10 +167,12 @@ official coverage improve.
   that still return the numeric operand while accruing NV, and the all-NaN
   minimumNumber/maximumNumber split: quiet all-NaN inputs produce the canonical
   NaN without NV, while signaling all-NaN inputs produce the canonical NaN and
-  accrue NV for both S and D. The remaining strict-spec gaps are broader than
-  the current official rows:
-  deeper fused-rounding audits and exception-flag corner cases beyond the
-  current `riscv-tests` surface.
+  accrue NV for both S and D. Focused S/D arithmetic coverage now also pins
+  that `fflags` are accrued state across independent FP instructions: NX, DZ,
+  and NV remain set until software explicitly clears `fcsr`. The remaining
+  strict-spec gaps are broader than the current official rows: deeper
+  fused-rounding audits and exception-flag corner cases beyond the current
+  `riscv-tests` surface.
 - `A`: `riscv_decode.mbt` rejects reserved AMO operations and reserved
   `LR.W`/`LR.D` encodings with nonzero `rs2`, gates AMO execution on `MISA.A`,
   keeps `AMO.D` RV64-only, and preserves the two-bit `aq`/`rl` ordering field
@@ -582,8 +584,10 @@ official coverage improve.
   negated before detecting opposite-infinity fused additions, and the
   all-opcode S/D quiet-vs-signaling NaN default-result split for addends.
   Multiplicand NaN regressions now separately pin that quiet NaNs are
-  flag-clean while signaling NaNs accrue NV. Deeper NaN payload behavior,
-  broader flag corner cases, and full official-suite
+  flag-clean while signaling NaNs accrue NV. S/D arithmetic now also has a
+  direct sticky-flag regression proving that NX, DZ, and NV accumulate across
+  separate FP instructions until a software `fcsr` write clears them. Deeper
+  NaN payload behavior, broader flag corner cases, and full official-suite
   promotion remain open.
 - `FADD.S`, `FSUB.S`, and `FMUL.S` now round their exact single-precision
   operand results through the emulator-side exact-rational helper. Legal
