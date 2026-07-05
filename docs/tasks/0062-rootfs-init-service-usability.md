@@ -71,3 +71,22 @@ but it is not the same as a more ordinary Alpine service environment.
   steps. The command trace is
   `cmd1:start=590000000,marker=605000000,duration=15000000; cmd2:start=605000000,marker=620000000,duration=15000000; cmd3:start=620000000,marker=632000000,duration=12000000`,
   so the service-style workflow itself is small compared with boot time.
+- Service configuration persistence now has a host-image proof pair. After
+  copying `_build/alpine-rootfs-riscv64.ext4` to
+  `_build/alpine-rootfs-riscv64-service-persist-probe.ext4`, the write half
+  runs
+  `moon run --target native cmd/alpine_probe xlong --auto-root-handoff --virtio-blk-disk _build/alpine-rootfs-riscv64-service-persist-probe.ext4 --post-init-command-step-budget 120000000 --post-init-service-persistence-write-smoke --write-back-virtio-blk-disk`.
+  It reaches `outcome=console-command`,
+  `post_init_service_persistence_write_smoke=true`,
+  `write_back_virtio_blk_disk=true`, and `service-persistence-write-ok` at
+  616,000,000 guest steps, writing the mutated image back only after the
+  guest-visible success marker.
+- Rebooting the saved service image with
+  `moon run --target native cmd/alpine_probe xlong --auto-root-handoff --virtio-blk-disk _build/alpine-rootfs-riscv64-service-persist-probe.ext4 --post-init-command-step-budget 120000000 --post-init-service-persistence-read-smoke`
+  reaches `outcome=console-command`,
+  `post_init_service_persistence_read_smoke=true`,
+  `post_init_command_index=1`, and `service-persistence-read-ok` at
+  618,000,000 guest steps after ext4 journal recovery. The UART tail shows the
+  persisted `/etc/init.d/riscv-mbt-service`, `service-started` from the script
+  and runtime log, successful `status`, `stop`, pidfile removal, and
+  `service-persistence-read-ok`.

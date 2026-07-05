@@ -690,6 +690,44 @@ fn alpine_post_init_service_markers() -> Array[String] {
 }
 
 ///|
+fn alpine_post_init_service_persistence_write_commands() -> Array[String] {
+  // First half of service persistence: put an init.d-shaped script on the
+  // rootfs, sync it, then let the host save the mutated virtio-blk image.
+  [
+    "mkdir -p /etc/init.d /run && " +
+    "printf '#!/bin/sh\\ncase \"$1\" in\\nstart)\\n  printf service-started\\\\n > /run/riscv-mbt-service.log\\n  sleep 1000 &\\n  echo $! > /run/riscv-mbt-service.pid\\n  ;;\\nstatus)\\n  test -s /run/riscv-mbt-service.pid && kill -0 $(cat /run/riscv-mbt-service.pid)\\n  ;;\\nstop)\\n  if test -s /run/riscv-mbt-service.pid; then kill $(cat /run/riscv-mbt-service.pid); fi\\n  rm -f /run/riscv-mbt-service.pid\\n  ;;\\n*) exit 2 ;;\\nesac\\n' > /etc/init.d/riscv-mbt-service && " +
+    "chmod 755 /etc/init.d/riscv-mbt-service && " +
+    "test -x /etc/init.d/riscv-mbt-service && " +
+    "printf '\\163\\145\\162\\166\\151\\143\\145\\055\\160\\145\\162\\163\\151\\163\\164\\145\\156\\143\\145\\055\\146\\151\\154\\145\\163\\055\\157\\153\\012'",
+    "grep service-started /etc/init.d/riscv-mbt-service && " +
+    "sync && " +
+    "printf '\\163\\145\\162\\166\\151\\143\\145\\055\\160\\145\\162\\163\\151\\163\\164\\145\\156\\143\\145\\055\\167\\162\\151\\164\\145\\055\\157\\153\\012'",
+  ]
+}
+
+///|
+fn alpine_post_init_service_persistence_write_markers() -> Array[String] {
+  ["service-persistence-files-ok", "service-persistence-write-ok"]
+}
+
+///|
+fn alpine_post_init_service_persistence_read_command() -> String {
+  // Second half: boot from the host-saved image and run the persisted service
+  // script without recreating it in this emulator run.
+  "test -x /etc/init.d/riscv-mbt-service && " +
+  "grep service-started /etc/init.d/riscv-mbt-service && " +
+  "/etc/init.d/riscv-mbt-service start && " +
+  "test -s /run/riscv-mbt-service.pid && " +
+  "/etc/init.d/riscv-mbt-service status && " +
+  "test -s /run/riscv-mbt-service.log && " +
+  "grep service-started /run/riscv-mbt-service.log && " +
+  "/etc/init.d/riscv-mbt-service stop && " +
+  "! test -e /run/riscv-mbt-service.pid && " +
+  "rm -f /run/riscv-mbt-service.log && " +
+  "printf '\\163\\145\\162\\166\\151\\143\\145\\055\\160\\145\\162\\163\\151\\163\\164\\145\\156\\143\\145\\055\\162\\145\\141\\144\\055\\157\\153\\012'"
+}
+
+///|
 fn alpine_post_init_storage_commands() -> Array[String] {
   // This smoke is about the block-backed rootfs path, not applet breadth:
   // write a file, force writeback, then read and compare it through a second
@@ -806,6 +844,12 @@ async fn main {
   let post_init_shell_smoke = parse_flag(args, "--post-init-shell-smoke")
   let post_init_system_smoke = parse_flag(args, "--post-init-system-smoke")
   let post_init_service_smoke = parse_flag(args, "--post-init-service-smoke")
+  let post_init_service_persistence_write_smoke = parse_flag(
+    args, "--post-init-service-persistence-write-smoke",
+  )
+  let post_init_service_persistence_read_smoke = parse_flag(
+    args, "--post-init-service-persistence-read-smoke",
+  )
   let post_init_storage_smoke = parse_flag(args, "--post-init-storage-smoke")
   let post_init_persistence_write_smoke = parse_flag(
     args, "--post-init-persistence-write-smoke",
@@ -844,6 +888,8 @@ async fn main {
     post_init_shell_smoke ||
     post_init_system_smoke ||
     post_init_service_smoke ||
+    post_init_service_persistence_write_smoke ||
+    post_init_service_persistence_read_smoke ||
     post_init_storage_smoke ||
     post_init_persistence_write_smoke ||
     post_init_persistence_read_smoke ||
@@ -935,6 +981,10 @@ async fn main {
     Some("post-init-system-ok")
   } else if post_init_service_smoke {
     Some("post-init-service-ok")
+  } else if post_init_service_persistence_write_smoke {
+    Some("service-persistence-write-ok")
+  } else if post_init_service_persistence_read_smoke {
+    Some("service-persistence-read-ok")
   } else if post_init_storage_smoke {
     Some("post-init-storage-ok")
   } else if post_init_persistence_write_smoke {
@@ -972,6 +1022,10 @@ async fn main {
     alpine_post_init_system_commands()
   } else if post_init_service_smoke {
     alpine_post_init_service_commands()
+  } else if post_init_service_persistence_write_smoke {
+    alpine_post_init_service_persistence_write_commands()
+  } else if post_init_service_persistence_read_smoke {
+    [alpine_post_init_service_persistence_read_command()]
   } else if post_init_storage_smoke {
     alpine_post_init_storage_commands()
   } else if post_init_persistence_write_smoke {
@@ -1013,6 +1067,10 @@ async fn main {
     alpine_post_init_system_markers()
   } else if post_init_service_smoke {
     alpine_post_init_service_markers()
+  } else if post_init_service_persistence_write_smoke {
+    alpine_post_init_service_persistence_write_markers()
+  } else if post_init_service_persistence_read_smoke {
+    ["service-persistence-read-ok"]
   } else if post_init_storage_smoke {
     alpine_post_init_storage_markers()
   } else if post_init_persistence_write_smoke {
@@ -1283,6 +1341,14 @@ async fn main {
   println("post_init_shell_smoke=" + post_init_shell_smoke.to_string())
   println("post_init_system_smoke=" + post_init_system_smoke.to_string())
   println("post_init_service_smoke=" + post_init_service_smoke.to_string())
+  println(
+    "post_init_service_persistence_write_smoke=" +
+    post_init_service_persistence_write_smoke.to_string(),
+  )
+  println(
+    "post_init_service_persistence_read_smoke=" +
+    post_init_service_persistence_read_smoke.to_string(),
+  )
   println("post_init_storage_smoke=" + post_init_storage_smoke.to_string())
   println(
     "post_init_persistence_write_smoke=" +

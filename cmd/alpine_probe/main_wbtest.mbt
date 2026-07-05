@@ -74,6 +74,21 @@ test "service smoke keeps init.d-style start and stop aligned" {
 }
 
 ///|
+test "service persistence smoke writes and reruns service script" {
+  let write_commands = alpine_post_init_service_persistence_write_commands()
+  let write_markers = alpine_post_init_service_persistence_write_markers()
+  assert_eq(write_commands.length(), 2)
+  assert_eq(write_markers.length(), 2)
+  assert_true(write_commands[0].contains("/etc/init.d/riscv-mbt-service"))
+  assert_true(write_commands[1].contains("sync"))
+  let read_command = alpine_post_init_service_persistence_read_command()
+  assert_true(read_command.contains("test -x /etc/init.d/riscv-mbt-service"))
+  assert_true(read_command.contains("riscv-mbt-service start"))
+  assert_true(read_command.contains("riscv-mbt-service stop"))
+  assert_true(read_command.contains("printf"))
+}
+
+///|
 test "auto-root handoff selects auto-root artifacts by default" {
   let args = ["alpine_probe", "xlong", "--auto-root-handoff"]
   assert_eq(select_dtb_path(args, true, true), auto_root_virtio_dtb_path)
