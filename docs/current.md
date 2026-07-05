@@ -211,7 +211,7 @@
   `C.LWSP` and `C.LDSP`, while adjacent stack stores from `x0` remain legal.
   Immediate-form HINTs now cover nonzero `C.NOP`, zero-immediate
   `C.ADDI rd!=x0`, and `C.LI rd=x0` as no-ops.
-  Right-shift HINTs now cover zero-shift `C.SRLI` and `C.SRAI` as no-ops.
+  Zero-shift HINTs now cover `C.SLLI`, `C.SRLI`, and `C.SRAI` as no-ops.
   Register-based RV64C integer double load/store forms `C.LD`/`C.SD` now have
   focused round-trip coverage, paired with RV32C rejection of the same integer
   double aliases.

@@ -646,20 +646,23 @@ test "rv64c right shift zero-shamt forms execute as hints" {
   let runner = make_runner(rv64_machine_config())
   runner.cpu.write_reg(8, 0x80000000U.to_uint64())
   runner.cpu.write_reg(9, 0x80000000U.to_uint64())
+  runner.cpu.write_reg(10, 0x12345678U.to_uint64())
   runner.load_program(
     mixed_program_bytes([
       (2, encode_c_srli(8, 0).reinterpret_as_uint()),
       (2, encode_c_srai(9, 0).reinterpret_as_uint()),
+      (2, encode_c_slli(10, 0).reinterpret_as_uint()),
     ]),
     0U,
   )
-  match runner.run(2) {
+  match runner.run(3) {
     Running => ()
-    _ => fail("expected compressed right-shift hints to execute as no-ops")
+    _ => fail("expected compressed zero-shift hints to execute as no-ops")
   }
-  assert_eq(runner.pc_u64(), 4U.to_uint64())
+  assert_eq(runner.pc_u64(), 6U.to_uint64())
   assert_eq(runner.read_reg_u64(8), 0x80000000U.to_uint64())
   assert_eq(runner.read_reg_u64(9), 0x80000000U.to_uint64())
+  assert_eq(runner.read_reg_u64(10), 0x12345678U.to_uint64())
 }
 
 ///|

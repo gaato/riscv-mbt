@@ -2052,6 +2052,9 @@ fn decode_c_q2(raw : UInt, xlen : Int) -> Instruction {
       } else if rd == 0 {
         Addi(0, 0, 0)
       } else {
+        // C.SLLI with shamt=0 is an architectural HINT. Expanding it to
+        // SLLI rd, rd, 0 gives the same no-op register effect while keeping
+        // the normal RV64 six-bit shift-amount path for nonzero shifts.
         Slli(rd, rd, c_shamt6(raw))
       }
     }
