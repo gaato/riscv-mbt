@@ -1316,6 +1316,49 @@ test "rv64fd double to unsigned word conversion sign extends on rv64" {
 }
 
 ///|
+test "rv64fd float to word conversions clip invalid inputs and set flags" {
+  let csr_fcsr = 0x003
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, exec_test_nan_box_single(0x7fc00000U))
+  runner.cpu.write_freg(2, exec_test_nan_box_single(0xff800000U))
+  runner.cpu.write_freg(3, exec_test_nan_box_single(exec_test_f32_bits(-1.0)))
+  runner.cpu.write_freg(4, 0x7ff0000000000000UL)
+  runner.cpu.write_freg(5, exec_test_f64_bits(1.5))
+  runner.cpu.write_freg(6, exec_test_f64_bits(2.0))
+  runner.load_program(
+    words_to_bytes([
+      encode_fcvt_w_s(1, 0x1U, 10),
+      encode_csr(csr_fcsr, 0, 0x2U, 11),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_w_s(2, 0x1U, 12),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_wu_s(3, 0x1U, 13),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_wu_d(4, 0x1U, 14),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_w_d(5, 0x1U, 15),
+      encode_csr(csr_fcsr, 0, 0x2U, 16),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_w_d(6, 0x1U, 17),
+    ]),
+    0U,
+  )
+  match runner.run(13) {
+    Running => ()
+    _ => fail("expected fcvt word flag path to run")
+  }
+  assert_eq(runner.read_reg_u64(10), 0x7fffffffU.to_uint64())
+  assert_eq(runner.read_reg_u64(11) & 0x10U.to_uint64(), 0x10U.to_uint64())
+  assert_eq(runner.read_reg_u64(12), test_sign_extend_word64(0x80000000U))
+  assert_eq(runner.read_reg_u64(13), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(14), test_sign_extend_word64(0xffffffffU))
+  assert_eq(runner.read_reg_u64(15), 1U.to_uint64())
+  assert_eq(runner.read_reg_u64(16) & 0x01U.to_uint64(), 0x01U.to_uint64())
+  assert_eq(runner.read_reg_u64(17), 2U.to_uint64())
+  assert_eq(runner.read_csr(csr_fcsr), 0U)
+}
+
+///|
 test "rv64fd double to signed long conversion uses rtz" {
   let runner = make_runner(rv64fd_machine_config())
   runner.cpu.write_freg(1, exec_test_f64_bits(1024.75))

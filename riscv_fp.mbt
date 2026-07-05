@@ -6,6 +6,9 @@
 let fp_fflag_nv : UInt64 = 0x10U.to_uint64()
 
 ///|
+let fp_fflag_nx : UInt64 = 0x01U.to_uint64()
+
+///|
 fn Runner::fp_has_d(self : Runner) -> Bool {
   (self.config.extensions & MISA_EXT_D) != 0U.to_uint64()
 }
@@ -413,6 +416,48 @@ fn fp_round_to_integer(value : Double, mode : UInt) -> Double {
     4U => if value < 0.0 { (value - 0.5).ceil() } else { (value + 0.5).floor() }
     _ => value.trunc()
   }
+}
+
+///|
+fn Runner::write_fcvt_word_result(
+  self : Runner,
+  rd : Int,
+  value : Double,
+  mode : UInt,
+  source_nan : Bool,
+  unsigned : Bool,
+) -> Unit {
+  // FCVT.W[U] produces a 32-bit integer result that is sign-extended to XLEN
+  // on RV64. RISC-V specifies clipped output and NV for NaN/out-of-range
+  // inputs, so avoid host integer conversion until the value is known valid.
+  let rounded = fp_round_to_integer(value, mode)
+  let min_value = if unsigned { 0.0 } else { -2147483648.0 }
+  let max_value = if unsigned { 4294967295.0 } else { 2147483647.0 }
+  let invalid = source_nan || rounded < min_value || rounded > max_value
+  let result_bits = if invalid {
+    self.set_fflags(fp_fflag_nv)
+    if source_nan || rounded > max_value {
+      if unsigned {
+        0xffffffffU.to_uint64()
+      } else {
+        0x7fffffffU.to_uint64()
+      }
+    } else if unsigned {
+      0U.to_uint64()
+    } else {
+      0x80000000U.to_uint64()
+    }
+  } else {
+    if rounded != value {
+      self.set_fflags(fp_fflag_nx)
+    }
+    if unsigned {
+      UInt64::trunc_double(rounded) & 0xffffffffU.to_uint64()
+    } else {
+      rounded.to_int64().reinterpret_as_uint64() & 0xffffffffU.to_uint64()
+    }
+  }
+  self.write_xlen_reg(rd, sign_extend_64(result_bits, 32))
 }
 
 ///|
@@ -1059,13 +1104,13 @@ fn Runner::execute_fp(
             raw.to_uint64(),
           )
       }
-      let result = fp_round_to_integer(
-        f32_from_bits(self.read_freg_single_value_bits(rs1)).to_double(),
-        mode,
-      ).to_int64()
-      self.write_xlen_reg(
+      let bits = self.read_freg_single_value_bits(rs1)
+      self.write_fcvt_word_result(
         rd,
-        sign_extend_64(result.reinterpret_as_uint64(), 32),
+        f32_from_bits(bits).to_double(),
+        mode,
+        f32_is_nan_bits(bits),
+        false,
       )
       self.cpu.pc = next_pc
       Running
@@ -1080,13 +1125,14 @@ fn Runner::execute_fp(
             raw.to_uint64(),
           )
       }
-      let result = UInt64::trunc_double(
-        fp_round_to_integer(
-          f32_from_bits(self.read_freg_single_value_bits(rs1)).to_double(),
-          mode,
-        ),
+      let bits = self.read_freg_single_value_bits(rs1)
+      self.write_fcvt_word_result(
+        rd,
+        f32_from_bits(bits).to_double(),
+        mode,
+        f32_is_nan_bits(bits),
+        true,
       )
-      self.write_xlen_reg(rd, sign_extend_64(result, 32))
       self.cpu.pc = next_pc
       Running
     }
@@ -1138,13 +1184,13 @@ fn Runner::execute_fp(
             raw.to_uint64(),
           )
       }
-      let result = fp_round_to_integer(
-        f64_from_bits(self.read_freg_double_bits(rs1)),
-        mode,
-      ).to_int64()
-      self.write_xlen_reg(
+      let bits = self.read_freg_double_bits(rs1)
+      self.write_fcvt_word_result(
         rd,
-        sign_extend_64(result.reinterpret_as_uint64(), 32),
+        f64_from_bits(bits),
+        mode,
+        f64_is_nan_bits(bits),
+        false,
       )
       self.cpu.pc = next_pc
       Running
@@ -1159,13 +1205,14 @@ fn Runner::execute_fp(
             raw.to_uint64(),
           )
       }
-      let result = UInt64::trunc_double(
-        fp_round_to_integer(
-          f64_from_bits(self.read_freg_double_bits(rs1)),
-          mode,
-        ),
+      let bits = self.read_freg_double_bits(rs1)
+      self.write_fcvt_word_result(
+        rd,
+        f64_from_bits(bits),
+        mode,
+        f64_is_nan_bits(bits),
+        true,
       )
-      self.write_xlen_reg(rd, sign_extend_64(result, 32))
       self.cpu.pc = next_pc
       Running
     }

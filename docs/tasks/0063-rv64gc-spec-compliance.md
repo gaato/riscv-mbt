@@ -82,3 +82,9 @@ or more OpenRC-specific probing.
   from `survey` to `gating`, alongside the older RV32 gating rows. This makes
   the already-integrated upstream `riscv-tests` path part of the always-green
   regression floor for the RV64I/M portion of RV64GC.
+- `FCVT.W.S`, `FCVT.WU.S`, `FCVT.W.D`, and `FCVT.WU.D` now use a shared
+  spec-shaped result helper for NaN/out-of-range clipping and accrued flags.
+  The helper sets NV for invalid conversions, sets NX when the rounded valid
+  result differs from the source value, and preserves the RV64 rule that
+  32-bit conversion results are sign-extended to XLEN. The `L/LU` conversion
+  families still need the same treatment.
