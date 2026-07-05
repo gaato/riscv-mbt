@@ -85,10 +85,11 @@ official coverage improve.
   part of the RV64GC gating floor. The remaining audit is RV64C-specific
   reserved/hint behavior and official `rv64uc` promotion once the decoded shape
   is fully reviewed.
-- `Zicsr`: CSR decode, privilege checks, and `fcsr`/`fflags` views are covered
-  by focused execute tests. The remaining audit is a spec pass over
-  read/write suppression, read-only/write-ignored fields, and privilege-visible
-  side effects for every CSR currently exposed by `riscv_decode.mbt`.
+- `Zicsr`: CSR decode, privilege checks, `fcsr`/`fflags` views, and explicit
+  read/write suppression for the standard CSR instruction forms are covered by
+  focused execute tests. The remaining audit is a spec pass over WARL behavior,
+  read-only/write-ignored fields, and privilege-visible side effects for every
+  CSR currently exposed by `riscv_decode.mbt`.
 - `Zifencei`: `FENCE.I` decodes, flushes the emulator decode cache, official
   `fence_i` rows are in the gating subset, and
   `riscv_execute_test.mbt` now covers same-hart self-modified instruction
@@ -142,3 +143,8 @@ official coverage improve.
   address, execute `FENCE.I`, jump back, and require the replacement instruction
   to execute. The test also asserts that the emulator-side decode cache was
   flushed by `FENCE.I`.
+- `Zicsr` execution now models the architectural read/write suppression table
+  directly: `CSRRW[I]` with `rd=x0` skips the CSR read path, while
+  `CSRRS/CSRRC[I]` with a zero register or immediate mask skips the CSR write
+  path. Regression coverage keeps zero-mask set/clear legal for read-only CSRs
+  and keeps actual write forms illegal for read-only CSRs.

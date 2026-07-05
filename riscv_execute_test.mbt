@@ -2282,10 +2282,12 @@ test "csr instruction families enforce the supported surface and no-write semant
     encode_csr(0x305, 1, 0x7U, 7),
     encode_csr(0x301, 0, 0x2U, 8),
     encode_csr(0x301, 0, 0x3U, 9),
+    encode_csr(0x301, 0, 0x6U, 10),
+    encode_csr(0x301, 0, 0x7U, 11),
   ])
   let runner = make_runner(default_machine_config())
   runner.load_program(program, 0U)
-  match runner.run(9) {
+  match runner.run(11) {
     Running => ()
     _ => fail("expected running")
   }
@@ -2297,7 +2299,31 @@ test "csr instruction families enforce the supported surface and no-write semant
   assert_eq(runner.read_reg(7), 7U)
   assert_eq(runner.read_reg(8), 0x40141105U)
   assert_eq(runner.read_reg(9), 0x40141105U)
+  assert_eq(runner.read_reg(10), 0x40141105U)
+  assert_eq(runner.read_reg(11), 0x40141105U)
   assert_eq(runner.read_csr(0x305), 6U)
+}
+
+///|
+test "csr write forms still trap on read-only csrs even when old value is suppressed" {
+  let csrrw_misa = encode_csr(0x301, 1, 0x1U, 0)
+  let csrrwi_misa = encode_csr(0x301, 1, 0x5U, 0)
+  let words = [csrrw_misa, csrrwi_misa]
+  for raw in words {
+    let runner = make_runner(default_machine_config())
+    runner.cpu.write_reg(1, 0U.to_uint64())
+    runner.load_program(words_to_bytes([raw]), 0U)
+    match runner.step() {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected illegal instruction cause")
+        }
+        assert_eq(info.trap_value, raw.to_uint64())
+      }
+      _ => fail("expected read-only csr write to trap")
+    }
+  }
 }
 
 ///|

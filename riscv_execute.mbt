@@ -1132,15 +1132,24 @@ fn Runner::execute_csr_read_write_checked(
   rd : Int,
   csr : Int,
   write_value : UInt64,
+  should_read : Bool,
   should_write : Bool,
   next_pc : UInt64,
   current_pc : UInt64,
   raw : UInt,
 ) -> StepResult {
-  let old_value = match self.read_csr_checked(csr) {
-    Some(value) => value
-    None =>
-      return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+  // Zicsr makes read and write suppression part of the architectural contract:
+  // CSRRW[I] with rd=x0 must not read, and CSRRS/CSRRC[I] with a zero mask must
+  // not write. Keep those checks explicit so trap behavior follows the
+  // instruction form rather than a generic always-read/read-modify-write path.
+  let old_value = if should_read {
+    match self.read_csr_checked(csr) {
+      Some(value) => value
+      None =>
+        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+    }
+  } else {
+    0U.to_uint64()
   }
   if should_write {
     if !is_supported_rw_csr(csr, self.config.extensions) {
@@ -1170,6 +1179,7 @@ fn Runner::execute_system(
         rd,
         csr,
         self.cpu.read_reg(rs1),
+        rd != 0,
         true,
         next_pc,
         current_pc,
@@ -1189,6 +1199,7 @@ fn Runner::execute_system(
         rd,
         csr,
         old_value | self.cpu.read_reg(rs1),
+        true,
         rs1 != 0,
         next_pc,
         current_pc,
@@ -1209,6 +1220,7 @@ fn Runner::execute_system(
         rd,
         csr,
         old_value & bit_not(self.cpu.read_reg(rs1)),
+        true,
         rs1 != 0,
         next_pc,
         current_pc,
@@ -1220,6 +1232,7 @@ fn Runner::execute_system(
         rd,
         csr,
         uimm.to_uint64(),
+        rd != 0,
         true,
         next_pc,
         current_pc,
@@ -1239,6 +1252,7 @@ fn Runner::execute_system(
         rd,
         csr,
         old_value | uimm.to_uint64(),
+        true,
         uimm != 0U,
         next_pc,
         current_pc,
@@ -1259,6 +1273,7 @@ fn Runner::execute_system(
         rd,
         csr,
         old_value & bit_not(uimm.to_uint64()),
+        true,
         uimm != 0U,
         next_pc,
         current_pc,
