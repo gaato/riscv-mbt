@@ -1027,12 +1027,16 @@ fn is_supported_rw_csr(csr : Int, extensions : UInt64, xlen : Xlen) -> Bool {
     Xlen64 => if is_rv32_only_csr(csr) { return false }
     Xlen32 => ()
   }
+  let has_s = (extensions & MISA_EXT_S) != 0U.to_uint64()
   let has_fp = (extensions & (MISA_EXT_F | MISA_EXT_D)) != 0U.to_uint64()
   let has_v = (extensions & MISA_EXT_V) != 0U.to_uint64()
   (is_modeled_machine_csr(csr) && !is_read_only_csr(csr)) ||
   (has_fp && is_modeled_fp_csr(csr)) ||
   (has_v && is_modeled_vector_csr(csr) && !is_read_only_csr(csr)) ||
-  is_modeled_supervisor_csr(csr) ||
+  // Supervisor CSRs are an extension-provided address surface, not generic
+  // machine storage. The Linux configs advertise S, but profile tests can
+  // deliberately remove it and must see these addresses as absent.
+  (has_s && is_modeled_supervisor_csr(csr)) ||
   is_compatibility_storage_csr(csr)
 }
 
@@ -1071,6 +1075,7 @@ fn instruction_supported_for_current_config(
   let has_f = (extensions & MISA_EXT_F) != 0U.to_uint64()
   let has_d = (extensions & MISA_EXT_D) != 0U.to_uint64()
   let has_m = (extensions & MISA_EXT_M) != 0U.to_uint64()
+  let has_s = (extensions & MISA_EXT_S) != 0U.to_uint64()
   let has_v = (extensions & MISA_EXT_V) != 0U.to_uint64()
   if length == 2 && !has_c {
     return false
@@ -1105,6 +1110,8 @@ fn instruction_supported_for_current_config(
     Sd(_, _, _) => xlen == XLEN_64
     AmoW(_, _, _, _, _) => has_a
     AmoD(_, _, _, _, _) => has_a && xlen == XLEN_64
+    SfenceVma(_, _) => has_s
+    Sret => has_s
     Flw(_, _, _) => has_f
     Fld(_, _, _) => has_d
     Fsw(_, _, _) => has_f

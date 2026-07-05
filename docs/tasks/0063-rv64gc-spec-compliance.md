@@ -364,6 +364,10 @@ official coverage improve.
   Zicsr suppression is also pinned against absent CSRs: `CSRRW[I] rd=x0`
   still traps when the write side names an unsupported CSR, and zero-mask
   `CSRRS/CSRRC[I]` still traps when the read side names an unsupported CSR.
+  Profile legality now also makes supervisor state conditional on `MISA.S`:
+  no-`S` profiles reject supervisor CSRs, `SRET`, and `SFENCE.VMA`, and
+  `mstatus` WARL normalization clears supervisor return state instead of
+  accepting `MPP=S` or `SPP=1`.
   The remaining audit is a spec pass over remaining WARL behavior,
   read-only/write-ignored fields, and privilege-visible side effects for every
   CSR currently exposed by `riscv_decode.mbt`.
@@ -875,6 +879,11 @@ official coverage improve.
 - `SRET` now has focused `mstatus.TSR` coverage. A regression enters S-mode via
   `MRET`, attempts `SRET` with TSR set, and verifies an illegal-instruction trap
   to M-mode with the raw SRET instruction recorded in `mtval`.
+- Supervisor profile resources now obey `MISA.S` instead of only the current
+  Linux-oriented default configs. White-box profile coverage removes `S` from
+  the RV64 config and pins supervisor CSR reads/writes, `SRET`, and
+  `SFENCE.VMA` as illegal, while `mstatus` writes normalize away supervisor
+  return state in that profile.
 - `sstatus` now exposes and writes the shared `mstatus.FS` field. This keeps
   the RV64GC F/D context-status control path visible through the supervisor
   status CSR instead of only through machine `mstatus`.

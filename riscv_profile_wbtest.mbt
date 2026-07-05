@@ -38,6 +38,24 @@ fn wb_rv64_without_m_machine_config() -> MachineConfig {
 }
 
 ///|
+fn wb_rv64_without_s_machine_config() -> MachineConfig {
+  let config = rv64_machine_config()
+  {
+    xlen: config.xlen,
+    extensions: config.extensions & bit_not(MISA_EXT_S),
+    ram_base: config.ram_base,
+    ram_size: config.ram_size,
+    entry_point: config.entry_point,
+    hart_id: config.hart_id,
+    uart0_base: config.uart0_base,
+    clint_base: config.clint_base,
+    plic_base: config.plic_base,
+    virtio_blk_base: config.virtio_blk_base,
+    dtb_addr: config.dtb_addr,
+  }
+}
+
+///|
 fn wb_rv64_d_only_requested_machine_config() -> MachineConfig {
   let config = rv64_machine_config()
   {
@@ -347,6 +365,54 @@ test "multiply instruction traps when M extension is not advertised" {
     }
     _ => fail("expected M instruction trap without MISA.M")
   }
+}
+
+///|
+test "supervisor profile resources trap when S extension is not advertised" {
+  let supervisor_resources = [
+    wb_encode_csr(CSR_SSTATUS, 0, 0x2U, 1), // CSRRS x1, sstatus, x0
+    wb_encode_csr(CSR_SSTATUS, 1, 0x1U, 0), // CSRRW x0, sstatus, x1
+    0x12000073U, // sfence.vma x0, x0
+    wb_encode_sret(),
+  ]
+  for raw in supervisor_resources {
+    let runner = make_runner(wb_rv64_without_s_machine_config())
+    runner.cpu.write_reg(1, 1U.to_uint64())
+    runner.load_program(wb_word_program(raw), 0U)
+    match runner.step() {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected absent supervisor resource to trap")
+        }
+        assert_eq(info.faulting_pc, 0U.to_uint64())
+        assert_eq(info.trap_value, raw.to_uint64())
+      }
+      _ => fail("expected absent supervisor resource trap")
+    }
+  }
+}
+
+///|
+test "mstatus write cannot expose supervisor return state without S" {
+  let runner = make_runner(wb_rv64_without_s_machine_config())
+  let mpp_s_and_spp = (1U.to_uint64() << MSTATUS_MPP_SHIFT) |
+    MSTATUS_SPP_BIT.to_uint64()
+  runner.cpu.write_reg(1, mpp_s_and_spp)
+  runner.load_program(
+    words_to_bytes([
+      wb_encode_csr(CSR_MSTATUS, 1, 0x1U, 0), // CSRRW x0, mstatus, x1
+      wb_encode_csr(CSR_MSTATUS, 0, 0x2U, 2), // CSRRS x2, mstatus, x0
+    ]),
+    0U,
+  )
+  match runner.run(2) {
+    Running => ()
+    _ => fail("expected no-S mstatus WARL program to run")
+  }
+  let visible = runner.read_reg_u64(2)
+  assert_eq(visible & MSTATUS_MPP_MASK.to_uint64(), 0U.to_uint64())
+  assert_eq(visible & MSTATUS_SPP_BIT.to_uint64(), 0U.to_uint64())
 }
 
 ///|

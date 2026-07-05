@@ -1184,9 +1184,17 @@ fn Runner::read_csr_visible(self : Runner, csr : Int) -> UInt64 {
     CSR_VCSR => self.read_vcsr()
     CSR_VLENB => VLEN_BYTES.to_uint64()
     CSR_MSTATUS =>
-      legalize_mstatus_csr(self.cpu.read_csr(CSR_MSTATUS), self.config.xlen)
+      legalize_mstatus_csr(
+        self.cpu.read_csr(CSR_MSTATUS),
+        self.config.xlen,
+        self.config.extensions,
+      )
     CSR_SSTATUS =>
-      legalize_mstatus_csr(self.cpu.read_csr(CSR_MSTATUS), self.config.xlen) &
+      legalize_mstatus_csr(
+        self.cpu.read_csr(CSR_MSTATUS),
+        self.config.xlen,
+        self.config.extensions,
+      ) &
       SSTATUS_VISIBLE_MASK
     CSR_MEPC | CSR_SEPC =>
       visible_epc_csr(self.cpu.read_csr(csr), self.config.extensions)
@@ -1386,11 +1394,40 @@ fn legalize_mip_csr(value : UInt64) -> UInt64 {
 }
 
 ///|
-fn legalize_mstatus_csr(value : UInt64, xlen : Xlen) -> UInt64 {
+fn legalize_mstatus_csr(
+  value : UInt64,
+  xlen : Xlen,
+  extensions : UInt64,
+) -> UInt64 {
   // The interpreter models a fixed privileged ISA surface, not arbitrary
   // future mstatus bits. Drop unsupported user-interrupt, VS, XS, and WPRI
   // storage before applying the fields that have profile-specific WARL rules.
-  let implemented = value & MSTATUS_IMPLEMENTED_MASK
+  let has_s = (extensions & MISA_EXT_S) != 0U.to_uint64()
+  let has_u = (extensions & MISA_EXT_U) != 0U.to_uint64()
+  let without_absent_s = if has_s {
+    value
+  } else {
+    // Without S-mode, supervisor interrupt-enable, saved-privilege, XLEN,
+    // endian, and memory-management control fields are not architecturally
+    // writable state. Keep TW separately because it also constrains WFI below
+    // machine mode when U is present.
+    let s_mode_status_bits = MSTATUS_SIE_BIT.to_uint64() |
+      MSTATUS_SPIE_BIT.to_uint64() |
+      MSTATUS_SPP_BIT.to_uint64() |
+      MSTATUS_SXL_MASK |
+      MSTATUS_SBE_BIT |
+      MSTATUS_SUM_BIT |
+      MSTATUS_MXR_BIT |
+      MSTATUS_TVM_BIT |
+      MSTATUS_TSR_BIT
+    value & bit_not(s_mode_status_bits)
+  }
+  let without_absent_u = if has_u {
+    without_absent_s
+  } else {
+    without_absent_s & bit_not(MSTATUS_UXL_MASK | MSTATUS_UBE_BIT)
+  }
+  let implemented = without_absent_u & MSTATUS_IMPLEMENTED_MASK
   // SD is a read-only summary bit. For the current RV64GC baseline the modeled
   // dirty extension status is FS=Dirty; future VS/XS modeling should join this
   // summary rather than making SD directly writable.
@@ -1407,17 +1444,33 @@ fn legalize_mstatus_csr(value : UInt64, xlen : Xlen) -> UInt64 {
   // This emulator models fixed-width lower privilege modes. On RV64, expose
   // SXLEN=UXLEN=64 as read-only WARL values; on RV32 these fields do not exist.
   let with_xlen = match xlen {
-    Xlen64 =>
+    Xlen64 => {
+      let fixed_sxl = if has_s { MSTATUS_SXL_64 } else { 0U.to_uint64() }
+      let fixed_uxl = if has_u { MSTATUS_UXL_64 } else { 0U.to_uint64() }
       (little_endian_status & bit_not(MSTATUS_SXL_MASK | MSTATUS_UXL_MASK)) |
-      MSTATUS_SXL_64 |
-      MSTATUS_UXL_64
+      fixed_sxl |
+      fixed_uxl
+    }
     Xlen32 => little_endian_status
   }
-  // MPP is WARL and may hold only implemented privilege modes. This single-hart
-  // profile implements U, S, and M, so the reserved encoding 2 normalizes to U.
+  // MPP is WARL and may hold only implemented privilege modes. Normalize an
+  // absent S target, absent U target, or the reserved encoding 2 to the least
+  // privileged implemented mode for this profile.
   let mpp = (with_xlen & MSTATUS_MPP_MASK.to_uint64()) >> MSTATUS_MPP_SHIFT
-  if mpp == 2U.to_uint64() {
-    set_mstatus_mpp(with_xlen, User)
+  if mpp == 1U.to_uint64() && !has_s {
+    if has_u {
+      set_mstatus_mpp(with_xlen, User)
+    } else {
+      set_mstatus_mpp(with_xlen, Machine)
+    }
+  } else if mpp == 0U.to_uint64() && !has_u {
+    set_mstatus_mpp(with_xlen, Machine)
+  } else if mpp == 2U.to_uint64() {
+    if has_u {
+      set_mstatus_mpp(with_xlen, User)
+    } else {
+      set_mstatus_mpp(with_xlen, Machine)
+    }
   } else {
     with_xlen
   }
@@ -1469,7 +1522,10 @@ fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
       )
     }
     CSR_MSTATUS =>
-      self.cpu.write_csr(csr, legalize_mstatus_csr(value, self.config.xlen))
+      self.cpu.write_csr(
+        csr,
+        legalize_mstatus_csr(value, self.config.xlen, self.config.extensions),
+      )
     CSR_FFLAGS => {
       let fcsr = self.read_fcsr()
       self.write_fcsr(
@@ -1500,7 +1556,11 @@ fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
         (value & SSTATUS_VISIBLE_MASK)
       self.cpu.write_csr(
         CSR_MSTATUS,
-        legalize_mstatus_csr(next_mstatus, self.config.xlen),
+        legalize_mstatus_csr(
+          next_mstatus,
+          self.config.xlen,
+          self.config.extensions,
+        ),
       )
     }
     CSR_SIP => {
