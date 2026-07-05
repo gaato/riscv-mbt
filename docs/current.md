@@ -368,6 +368,9 @@
   `S` depends on `U`. Requested no-`U` configs clear both bits, and `mstatus`
   reads keep user-mode return state absent by clearing `UXL` and normalizing
   `MPP=U` back to M-mode.
+- Compatibility CSR classification now follows those mode dependencies:
+  `satp`, `medeleg`, `mideleg`, `scounteren`, and `senvcfg` are absent without
+  `S`, while `mcounteren` is absent without `U`.
 - `satp` CSR reads and writes now use the same `TVM` interception rule: S-mode
   access traps when `mstatus.TVM` is set, while M-mode remains allowed.
 - `satp` writes with unsupported MODE values now follow the privileged WARL

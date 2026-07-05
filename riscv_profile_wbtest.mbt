@@ -390,6 +390,11 @@ test "supervisor profile resources trap when S extension is not advertised" {
   let supervisor_resources = [
     wb_encode_csr(CSR_SSTATUS, 0, 0x2U, 1), // CSRRS x1, sstatus, x0
     wb_encode_csr(CSR_SSTATUS, 1, 0x1U, 0), // CSRRW x0, sstatus, x1
+    wb_encode_csr(CSR_SATP, 0, 0x2U, 1), // CSRRS x1, satp, x0
+    wb_encode_csr(CSR_MEDELEG, 0, 0x2U, 1), // CSRRS x1, medeleg, x0
+    wb_encode_csr(CSR_MIDELEG, 0, 0x2U, 1), // CSRRS x1, mideleg, x0
+    wb_encode_csr(CSR_SCOUNTEREN, 0, 0x2U, 1), // CSRRS x1, scounteren, x0
+    wb_encode_csr(CSR_SENVCFG, 0, 0x2U, 1), // CSRRS x1, senvcfg, x0
     0x12000073U, // sfence.vma x0, x0
     wb_encode_sret(),
   ]
@@ -441,6 +446,24 @@ test "requesting no-U profile canonicalizes away S as well" {
   assert_eq(misa & MISA_EXT_S, 0U.to_uint64())
   assert_eq(runner.config.extensions & MISA_EXT_U, 0U.to_uint64())
   assert_eq(runner.config.extensions & MISA_EXT_S, 0U.to_uint64())
+}
+
+///|
+test "user-mode counter delegation csr traps when U is not advertised" {
+  let raw = wb_encode_csr(CSR_MCOUNTEREN, 0, 0x2U, 1) // CSRRS x1, mcounteren, x0
+  let runner = make_runner(wb_rv64_without_u_machine_config())
+  runner.load_program(wb_word_program(raw), 0U)
+  match runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected absent mcounteren to trap without MISA.U")
+      }
+      assert_eq(info.faulting_pc, 0U.to_uint64())
+      assert_eq(info.trap_value, raw.to_uint64())
+    }
+    _ => fail("expected absent mcounteren trap without MISA.U")
+  }
 }
 
 ///|

@@ -974,17 +974,37 @@ fn is_modeled_counter_csr(csr : Int) -> Bool {
 }
 
 ///|
-fn is_compatibility_storage_csr(csr : Int) -> Bool {
+fn is_unconditional_compatibility_storage_csr(csr : Int) -> Bool {
+  match csr {
+    CSR_PMPCFG0 => true
+    CSR_PMPADDR0 => true
+    CSR_MENVCFG => true
+    _ => false
+  }
+}
+
+///|
+fn is_supervisor_dependent_compatibility_csr(csr : Int) -> Bool {
+  // These CSRs either delegate traps to S-mode or configure S-mode execution.
+  // They are not part of an M-only profile, even though the Linux-oriented
+  // default configs always advertise S.
   match csr {
     CSR_SATP => true
     CSR_MEDELEG => true
     CSR_MIDELEG => true
-    CSR_PMPCFG0 => true
-    CSR_PMPADDR0 => true
-    CSR_MCOUNTEREN => true
     CSR_SCOUNTEREN => true
-    CSR_MENVCFG => true
     CSR_SENVCFG => true
+    _ => false
+  }
+}
+
+///|
+fn is_user_dependent_machine_csr(csr : Int) -> Bool {
+  // mcounteren only controls lower-privilege counter reads. Without U-mode
+  // there is no unprivileged counter surface to enable, so this CSR should be
+  // absent rather than readable zero.
+  match csr {
+    CSR_MCOUNTEREN => true
     _ => false
   }
 }
@@ -1028,6 +1048,7 @@ fn is_supported_rw_csr(csr : Int, extensions : UInt64, xlen : Xlen) -> Bool {
     Xlen32 => ()
   }
   let has_s = (extensions & MISA_EXT_S) != 0U.to_uint64()
+  let has_u = (extensions & MISA_EXT_U) != 0U.to_uint64()
   let has_fp = (extensions & (MISA_EXT_F | MISA_EXT_D)) != 0U.to_uint64()
   let has_v = (extensions & MISA_EXT_V) != 0U.to_uint64()
   (is_modeled_machine_csr(csr) && !is_read_only_csr(csr)) ||
@@ -1037,7 +1058,9 @@ fn is_supported_rw_csr(csr : Int, extensions : UInt64, xlen : Xlen) -> Bool {
   // machine storage. The Linux configs advertise S, but profile tests can
   // deliberately remove it and must see these addresses as absent.
   (has_s && is_modeled_supervisor_csr(csr)) ||
-  is_compatibility_storage_csr(csr)
+  is_unconditional_compatibility_storage_csr(csr) ||
+  (has_s && is_supervisor_dependent_compatibility_csr(csr)) ||
+  (has_u && is_user_dependent_machine_csr(csr))
 }
 
 ///|

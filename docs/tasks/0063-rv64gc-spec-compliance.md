@@ -370,6 +370,9 @@ official coverage improve.
   accepting `MPP=S` or `SPP=1`. `misa` profile canonicalization now also
   applies the privileged dependency that `S` depends on `U`, and no-`U`
   profiles clear `mstatus.UXL` and normalize `MPP=U` back to M-mode.
+  Supervisor-dependent compatibility CSRs now follow the same profile surface:
+  no-`S` profiles reject `satp`, `medeleg`, `mideleg`, `scounteren`, and
+  `senvcfg`, while no-`U` profiles reject `mcounteren`.
   The remaining audit is a spec pass over remaining WARL behavior,
   read-only/write-ignored fields, and privilege-visible side effects for every
   CSR currently exposed by `riscv_decode.mbt`.
@@ -890,6 +893,9 @@ official coverage improve.
   clearing `U` from a requested RV64 config also clears `S`, and focused
   coverage pins no-`U` `mstatus` writes so `UXL` reads as zero and `MPP=U`
   normalizes to the only implemented return target, M-mode.
+- Compatibility CSR classification is now split by the privilege mode it
+  serves. `satp`, `medeleg`, `mideleg`, `scounteren`, and `senvcfg` are absent
+  when `S` is absent, while `mcounteren` is absent when `U` is absent.
 - `sstatus` now exposes and writes the shared `mstatus.FS` field. This keeps
   the RV64GC F/D context-status control path visible through the supervisor
   status CSR instead of only through machine `mstatus`.
