@@ -116,6 +116,24 @@ fn encode_c_sw(rs2 : Int, rs1 : Int, imm : Int) -> Int {
 }
 
 ///|
+fn encode_c_ld(rd : Int, rs1 : Int, imm : Int) -> Int {
+  0x6000 |
+  (((imm >> 3) & 0x7) << 10) |
+  (((rs1 - 8) & 0x7) << 7) |
+  (((imm >> 6) & 0x3) << 5) |
+  (((rd - 8) & 0x7) << 2)
+}
+
+///|
+fn encode_c_sd(rs2 : Int, rs1 : Int, imm : Int) -> Int {
+  0xe000 |
+  (((imm >> 3) & 0x7) << 10) |
+  (((rs1 - 8) & 0x7) << 7) |
+  (((imm >> 6) & 0x3) << 5) |
+  (((rs2 - 8) & 0x7) << 2)
+}
+
+///|
 fn encode_c_fld(rd : Int, rs1 : Int, imm : Int) -> Int {
   0x2000 |
   (((imm >> 3) & 0x7) << 10) |
@@ -338,6 +356,48 @@ test "compressed load and store reuse the normal memory execute path" {
   }
   assert_eq(runner.read_reg(11), 7U)
   assert_eq(runner.pc(), 10U)
+}
+
+///|
+test "rv64c compressed double load and store keep rv32c aliases reserved" {
+  let raw_value = (0x11223344U.to_uint64() << 32) | 0x55667788U.to_uint64()
+  let runner = make_runner(rv64_machine_config())
+  runner.cpu.write_reg(10, 32U.to_uint64())
+  runner.cpu.write_reg(9, raw_value)
+  runner.load_program(
+    mixed_program_bytes([
+      (2, encode_c_sd(9, 10, 16).reinterpret_as_uint()),
+      (2, encode_c_ld(11, 10, 16).reinterpret_as_uint()),
+    ]),
+    0U,
+  )
+  match runner.run(2) {
+    Running => ()
+    _ => fail("expected rv64c compressed double memory round trip")
+  }
+  assert_eq(runner.read_reg_u64(11), raw_value)
+  assert_eq(runner.pc_u64(), 4U.to_uint64())
+
+  // The same quadrant-0 integer double forms are RV64C-only. RV32C may reuse
+  // these code points for floating-point forms when the matching F profile is
+  // present, but this integer-only RV32 profile must not decode them as LD/SD.
+  for raw_int in [encode_c_ld(11, 10, 16), encode_c_sd(9, 10, 16)] {
+    let rv32_runner = make_runner(default_machine_config())
+    rv32_runner.load_program(
+      mixed_program_bytes([(2, raw_int.reinterpret_as_uint())]),
+      0U,
+    )
+    match rv32_runner.step() {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected illegal instruction trap")
+        }
+        assert_eq(info.trap_value, raw_int.reinterpret_as_uint().to_uint64())
+      }
+      _ => fail("expected rv32c register double form to trap")
+    }
+  }
 }
 
 ///|

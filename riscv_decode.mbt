@@ -2045,7 +2045,6 @@ fn decode_c_q2_cr(raw : UInt) -> Instruction {
 
 ///|
 fn decode_c_q2(raw : UInt, xlen : Int) -> Instruction {
-  ignore(xlen)
   match c_funct3(raw) {
     0x0U => {
       let rd = c_rd_rs1(raw)

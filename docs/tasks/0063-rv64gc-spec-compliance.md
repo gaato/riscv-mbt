@@ -149,6 +149,9 @@ official coverage improve.
   `C.ADDI rd!=x0`, and `C.LI rd=x0` as no-ops.
   Right-shift HINT coverage now pins zero-shift `C.SRLI` and `C.SRAI` as
   no-ops.
+  Register-based RV64C integer double load/store coverage now pins
+  `C.LD`/`C.SD` as legal RV64C aliases and rejects those integer double aliases
+  in the RV32C profile.
   RV32C now rejects the quadrant-2 integer double stack forms
   `C.LDSP`/`C.SDSP`, preserving those encodings as RV64C-only load/store
   aliases instead of widening the 32-bit compressed profile.
@@ -456,6 +459,9 @@ official coverage improve.
   zero-immediate `C.ADDI rd!=x0`, and `C.LI rd=x0` as no-ops.
 - RV64C right-shift HINT coverage now executes `C.SRLI shamt=0` and
   `C.SRAI shamt=0` as no-ops.
+- RV64C register-based integer double memory coverage now round-trips
+  `C.SD`/`C.LD`, while the same integer double aliases trap in the RV32C
+  profile.
 - RV32C quadrant-2 integer double stack coverage now keeps `C.LDSP` and
   `C.SDSP` reserved in the 32-bit profile while preserving their RV64C
   expansion path.

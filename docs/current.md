@@ -201,6 +201,9 @@
   Immediate-form HINTs now cover nonzero `C.NOP`, zero-immediate
   `C.ADDI rd!=x0`, and `C.LI rd=x0` as no-ops.
   Right-shift HINTs now cover zero-shift `C.SRLI` and `C.SRAI` as no-ops.
+  Register-based RV64C integer double load/store forms `C.LD`/`C.SD` now have
+  focused round-trip coverage, paired with RV32C rejection of the same integer
+  double aliases.
   RV32C now also rejects quadrant-2 integer double stack forms
   `C.LDSP`/`C.SDSP`, keeping those RV64C-only encodings from expanding into
   RV64 load/store operations in the 32-bit profile.
