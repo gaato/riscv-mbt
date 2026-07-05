@@ -2959,6 +2959,44 @@ test "rv64fd word conversions clip exact upper rne boundaries" {
 }
 
 ///|
+test "rv64fd word conversions clip exact lower rne boundaries" {
+  let csr_fcsr = 0x003
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, 0xc1e0000000200000UL) // double -2^31 - 1.
+  runner.cpu.write_freg(2, 0xbff0000000000000UL) // double -1, invalid for unsigned word.
+  runner.cpu.write_freg(3, exec_test_nan_box_single(0xcf000001U)) // single just below -2^31.
+  runner.cpu.write_freg(4, exec_test_nan_box_single(0xbf800000U)) // single -1.
+  runner.load_program(
+    words_to_bytes([
+      encode_fcvt_w_d(1, 0x0U, 10),
+      encode_csr(csr_fcsr, 0, 0x2U, 11),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_wu_d(2, 0x0U, 12),
+      encode_csr(csr_fcsr, 0, 0x2U, 13),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_w_s(3, 0x0U, 14),
+      encode_csr(csr_fcsr, 0, 0x2U, 15),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_wu_s(4, 0x0U, 16),
+      encode_csr(csr_fcsr, 0, 0x2U, 17),
+    ]),
+    0U,
+  )
+  match runner.run(11) {
+    Running => ()
+    _ => fail("expected exact lower-bound fcvt word path to run")
+  }
+  assert_eq(runner.read_reg_u64(10), test_sign_extend_word64(0x80000000U))
+  assert_eq(runner.read_reg_u64(11) & 0x10U.to_uint64(), 0x10U.to_uint64())
+  assert_eq(runner.read_reg_u64(12), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(13) & 0x10U.to_uint64(), 0x10U.to_uint64())
+  assert_eq(runner.read_reg_u64(14), test_sign_extend_word64(0x80000000U))
+  assert_eq(runner.read_reg_u64(15) & 0x10U.to_uint64(), 0x10U.to_uint64())
+  assert_eq(runner.read_reg_u64(16), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(17) & 0x10U.to_uint64(), 0x10U.to_uint64())
+}
+
+///|
 test "rv64fd double to signed long conversion uses rtz" {
   let runner = make_runner(rv64fd_machine_config())
   runner.cpu.write_freg(1, exec_test_f64_bits(1024.75))

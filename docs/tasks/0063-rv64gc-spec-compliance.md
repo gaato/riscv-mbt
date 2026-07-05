@@ -100,9 +100,10 @@ official coverage improve.
 - `F/D`: `riscv_fp.mbt` now covers instruction availability, NaN-boxing,
   comparisons, min/max, FMA availability, conversion clipping, integer-to-float
   rounding modes, and the first NV/DZ arithmetic flags. The conversion
-  regressions now include exact RNE invalid boundaries for `FCVT.W.S/D` at
-  `+2^31`, `FCVT.WU.S/D` at `+2^32`, `FCVT.L.D` at `+2^63`, and `FCVT.LU.D`
-  at `+2^64`, plus RNE NaN/infinity clipping before any host integer cast.
+  regressions now include exact RNE invalid boundaries for `FCVT.W.S/D` around
+  `-2^31` and `+2^31`, `FCVT.WU.S/D` at negative inputs and `+2^32`,
+  `FCVT.L.D` at `+2^63`, and `FCVT.LU.D` at `+2^64`, plus RNE NaN/infinity
+  clipping before any host integer cast.
   Invalid scalar arithmetic coverage now checks both NV and canonical-NaN
   results for representative add, multiply, and divide cases.
   Invalid fused multiply-add coverage now also checks canonical-NaN results for
@@ -355,8 +356,9 @@ official coverage improve.
   The helper sets NV for invalid conversions, sets NX when the rounded valid
   result differs from the source value, and preserves the RV64 rule that
   32-bit conversion results are sign-extended to XLEN. Focused coverage now
-  also pins the exact RNE upper invalid boundaries for `FCVT.W.S/D` at `+2^31`
-  and `FCVT.WU.S/D` at `+2^32`.
+  also pins exact RNE invalid boundaries for `FCVT.W.S/D` below `-2^31` and at
+  `+2^31`, plus unsigned negative-input clipping and the `FCVT.WU.S/D`
+  `+2^32` upper boundary.
 - `FCVT.L.S`, `FCVT.LU.S`, `FCVT.L.D`, and `FCVT.LU.D` now use the same
   spec-shaped conversion policy for RV64-width results. The helper clips
   invalid signed results to `INT64_MIN`/`INT64_MAX`, invalid unsigned results to
