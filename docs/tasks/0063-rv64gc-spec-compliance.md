@@ -114,8 +114,9 @@ official coverage improve.
   `FCVT.WU.D` also has mode-dependent upper-edge coverage for `+2^32 - 0.5`:
   RTZ remains a valid inexact all-ones result, while RNE and RUP round to
   `+2^32` and then take the invalid-conversion path. The symmetric `-0.5`
-  edge is also pinned: RNE/RTZ produce valid inexact zero, while RDN rounds to
-  `-1` and takes the invalid-conversion path.
+  edge is also pinned for both `FCVT.WU.S` and `FCVT.WU.D`: RNE/RTZ produce
+  valid inexact zero, while RDN rounds to `-1` and takes the
+  invalid-conversion path.
   Invalid scalar arithmetic coverage now checks both NV and canonical-NaN
   results for representative add, multiply, and divide cases.
   Invalid fused multiply-add coverage now also checks canonical-NaN results for
@@ -545,7 +546,7 @@ official coverage improve.
   The unsigned double-to-word upper edge now also checks validity after
   rounding, proving that `+2^32 - 0.5` is valid with NX under RTZ but invalid
   with NV under RNE/RUP. The lower edge likewise checks that `-0.5` is valid
-  with NX under RNE/RTZ but invalid with NV under RDN.
+  with NX under RNE/RTZ but invalid with NV under RDN for both S and D sources.
   Float-to-integer conversions now also have explicit reserved-rounding
   regressions for representative word, unsigned-word, and long forms,
   including dynamic `rm=111` with a reserved `frm`.

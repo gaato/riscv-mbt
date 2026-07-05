@@ -4274,6 +4274,41 @@ test "rv64fd unsigned word conversion checks negative half after rounding" {
 }
 
 ///|
+test "rv64f unsigned word conversion checks negative half after rounding" {
+  let csr_fcsr = 0x003
+  let invalid = 0x10U.to_uint64()
+  let inexact = 0x01U.to_uint64()
+  let runner = make_runner(rv64f_machine_config())
+  // Keep the same lower-boundary contract covered for the F-only profile.
+  // NaN-boxing is still required because single-precision values live in the
+  // low 32 bits of the architectural floating-point register.
+  runner.cpu.write_freg(1, exec_test_nan_box_single(0xbf000000U))
+  runner.load_program(
+    words_to_bytes([
+      encode_fcvt_wu_s(1, 0x0U, 10),
+      encode_csr(csr_fcsr, 0, 0x2U, 11),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_wu_s(1, 0x1U, 12),
+      encode_csr(csr_fcsr, 0, 0x2U, 13),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_wu_s(1, 0x2U, 14),
+      encode_csr(csr_fcsr, 0, 0x2U, 15),
+    ]),
+    0U,
+  )
+  match runner.run(8) {
+    Running => ()
+    _ => fail("expected F-only negative-half fcvt.wu.s boundary path to run")
+  }
+  assert_eq(runner.read_reg_u64(10), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(11) & 0x1fU.to_uint64(), inexact)
+  assert_eq(runner.read_reg_u64(12), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(13) & 0x1fU.to_uint64(), inexact)
+  assert_eq(runner.read_reg_u64(14), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(15) & 0x1fU.to_uint64(), invalid)
+}
+
+///|
 test "rv64fd word conversions clip exact lower rne boundaries" {
   let csr_fcsr = 0x003
   let runner = make_runner(rv64fd_machine_config())
