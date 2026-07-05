@@ -95,6 +95,9 @@
   canonical NaNs directly while accruing NV for `infinity * zero` and
   signaling-NaN operands, and they also accrue NV for an infinite product
   fused with an opposite-signed infinite addend across the FMA opcode variants.
+  The focused coverage now pins that behavior for `FMADD`, `FMSUB`, `FNMSUB`,
+  and `FNMADD` in both single and double precision, including the
+  RISC-V-specific rule that `FNMSUB`/`FNMADD` negate only the product term.
   `FADD.D`, `FSUB.D`, `FMUL.D`, and `FDIV.D` now round exact-rational finite
   results back to double precision for legal non-RNE modes, including NX/OF/UF
   result flags. `FCLASS.S` /`FCLASS.D`

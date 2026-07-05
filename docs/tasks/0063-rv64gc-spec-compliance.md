@@ -104,7 +104,8 @@ official coverage improve.
   those results directly instead of depending on host NaN propagation. The same
   invalid-FMA path now handles the infinite-product plus opposite-infinity
   fused-add case by applying the effective term signs for each FMA opcode
-  variant before accruing NV.
+  variant before accruing NV, with focused coverage for `FMADD`, `FMSUB`,
+  `FNMSUB`, and `FNMADD` in both S and D formats.
   Exact widening `FCVT.D.S` and exact
   RV32-width-to-double `FCVT.D.W[U]` now treat the otherwise unaffected `rm`
   field as architecturally significant for legal/reserved static and dynamic
@@ -303,9 +304,11 @@ official coverage improve.
   infinity-over-infinity, `FSQRT` sets NV for negative nonzero numeric
   operands, all covered arithmetic paths set NV for signaling NaN inputs, and
   `FDIV` sets DZ for finite nonzero division by zero. Quiet NaN `FSQRT.S/D`
-  inputs now produce canonical NaNs without accruing NV. Deeper NaN payload
-  behavior, broader flag corner cases, and full official-suite promotion remain
-  open.
+  inputs now produce canonical NaNs without accruing NV. Fused multiply-add
+  regressions also pin the RISC-V-specific `FNMSUB`/`FNMADD` rule that only the
+  product term is negated before detecting opposite-infinity fused additions.
+  Deeper NaN payload behavior, broader flag corner cases, and full
+  official-suite promotion remain open.
 - `FADD.S`, `FSUB.S`, and `FMUL.S` now round their exact single-precision
   operand results through the emulator-side double-to-single helper. Legal
   static non-RNE modes are accepted where they change the result, reserved
