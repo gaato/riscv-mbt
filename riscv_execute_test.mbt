@@ -3190,6 +3190,23 @@ test "epc csrs clear bit zero on write and trap return" {
 }
 
 ///|
+test "mstatus mpp rejects reserved privilege encoding" {
+  let program = words_to_bytes([
+    encode_u(0x00001000U, 1, 0x37U),
+    encode_csr(0x300, 1, 0x1U, 0),
+    encode_csr(0x300, 0, 0x2U, 2),
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(3) {
+    Running => ()
+    _ => fail("expected reserved-mpp csr program to run")
+  }
+  assert_eq(runner.read_reg(2) & 0x1800U, 0U)
+  assert_eq(runner.read_csr(0x300) & 0x1800U, 0U)
+}
+
+///|
 test "csr write forms still trap on read-only csrs even when old value is suppressed" {
   let csrrw_misa = encode_csr(0x301, 1, 0x1U, 0)
   let csrrwi_misa = encode_csr(0x301, 1, 0x5U, 0)

@@ -109,7 +109,8 @@ official coverage improve.
   plus Direct or Vectored MODE only, with vectored supervisor-timer dispatch
   covered by a focused regression. `mepc` and `sepc` now clear bit 0 on visible
   writes and trap returns, preserving the RV64GC/IALIGN=16 ability to hold bit 1.
-  The remaining audit is a spec pass over WARL behavior,
+  `mstatus.MPP` now rejects the reserved privilege encoding 2 at the CSR write
+  boundary. The remaining audit is a spec pass over WARL behavior,
   read-only/write-ignored fields, and privilege-visible side effects for every
   CSR currently exposed by `riscv_decode.mbt`.
 - `Zifencei`: `FENCE.I` decodes, flushes the emulator decode cache, official
@@ -308,3 +309,6 @@ official coverage improve.
   also mask bit 0 when consuming internally prepared EPC values. Focused
   regressions cover visible CSR writes plus return paths while leaving bit 1
   representable for the compressed-instruction baseline.
+- `mstatus.MPP` now treats reserved privilege encoding 2 as a WARL value and
+  normalizes it to U-mode on visible `mstatus`/`sstatus` writes. A focused CSR
+  regression covers readback of the normalized field.

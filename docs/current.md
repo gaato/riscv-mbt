@@ -128,6 +128,8 @@
 - EPC CSR writes now clear hardwired bit 0 for `mepc` and `sepc`, and `MRET` /
   `SRET` mask the same bit when consuming EPC values prepared internally. Bit 1
   remains representable for the RV64GC compressed-instruction baseline.
+- `mstatus.MPP` now normalizes the reserved privilege encoding 2 to U-mode on
+  visible CSR writes, while preserving legal U/S/M return-mode encodings.
 
 ## Known Blockers
 

@@ -1016,6 +1016,18 @@ fn legalize_epc_csr(value : UInt64) -> UInt64 {
 }
 
 ///|
+fn legalize_mstatus_csr(value : UInt64) -> UInt64 {
+  // MPP is WARL and may hold only implemented privilege modes. This single-hart
+  // profile implements U, S, and M, so the reserved encoding 2 normalizes to U.
+  let mpp = (value & MSTATUS_MPP_MASK.to_uint64()) >> MSTATUS_MPP_SHIFT
+  if mpp == 2U.to_uint64() {
+    set_mstatus_mpp(value, User)
+  } else {
+    value
+  }
+}
+
+///|
 fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
   // Writes mirror read_csr_visible: aliases update their backing CSR and WARL
   // fields normalize at the write boundary. Avoid duplicating these rules in
@@ -1024,6 +1036,7 @@ fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
     CSR_MTVEC | CSR_STVEC =>
       self.cpu.write_csr(csr, legalize_trap_vector_csr(value))
     CSR_MEPC | CSR_SEPC => self.cpu.write_csr(csr, legalize_epc_csr(value))
+    CSR_MSTATUS => self.cpu.write_csr(csr, legalize_mstatus_csr(value))
     CSR_FFLAGS => {
       let fcsr = self.read_fcsr()
       self.write_fcsr(
@@ -1052,7 +1065,7 @@ fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
       let mstatus = self.cpu.read_csr(CSR_MSTATUS)
       let next_mstatus = (mstatus & bit_not(SSTATUS_VISIBLE_MASK.to_uint64())) |
         (value & SSTATUS_VISIBLE_MASK.to_uint64())
-      self.cpu.write_csr(CSR_MSTATUS, next_mstatus)
+      self.cpu.write_csr(CSR_MSTATUS, legalize_mstatus_csr(next_mstatus))
     }
     CSR_SIP => {
       let mip = self.cpu.read_csr(CSR_MIP)
