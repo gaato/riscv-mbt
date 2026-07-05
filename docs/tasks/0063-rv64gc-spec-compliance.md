@@ -192,7 +192,8 @@ official coverage improve.
   Immediate-form HINT coverage now pins nonzero `C.NOP`, zero-immediate
   `C.ADDI rd!=x0`, and `C.LI rd=x0` as no-ops.
   Zero-shift HINT coverage now pins `C.SLLI`, `C.SRLI`, and `C.SRAI` with
-  `shamt=0` as no-ops.
+  `shamt=0` as no-ops, including the combined `C.SLLI rd=x0, shamt=0`
+  encoding.
   Register-based RV64C integer double load/store coverage now pins
   `C.LD`/`C.SD` as legal RV64C aliases and rejects those integer double aliases
   in the RV32C profile.
@@ -576,7 +577,8 @@ official coverage improve.
 - RV64C immediate-form HINT coverage now executes nonzero `C.NOP`,
   zero-immediate `C.ADDI rd!=x0`, and `C.LI rd=x0` as no-ops.
 - RV64C zero-shift HINT coverage now executes `C.SLLI shamt=0`,
-  `C.SRLI shamt=0`, and `C.SRAI shamt=0` as no-ops.
+  `C.SRLI shamt=0`, and `C.SRAI shamt=0` as no-ops, including the
+  overlapping `C.SLLI rd=x0, shamt=0` hint spelling.
 - RV64C register-based integer double memory coverage now round-trips
   `C.SD`/`C.LD`, while the same integer double aliases trap in the RV32C
   profile.

@@ -699,15 +699,16 @@ test "rv64c architectural hints execute as no-ops" {
   runner.load_program(
     mixed_program_bytes([
       (2, encode_c_lui(0, 1).reinterpret_as_uint()),
+      (2, encode_c_slli(0, 0).reinterpret_as_uint()),
       (2, encode_c_slli(0, 1).reinterpret_as_uint()),
     ]),
     0U,
   )
-  match runner.run(2) {
+  match runner.run(3) {
     Running => ()
     _ => fail("expected compressed hints to execute as no-ops")
   }
-  assert_eq(runner.pc_u64(), 4U.to_uint64())
+  assert_eq(runner.pc_u64(), 6U.to_uint64())
   assert_eq(runner.read_reg_u64(0), 0U.to_uint64())
 }
 
