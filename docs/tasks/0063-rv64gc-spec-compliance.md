@@ -218,7 +218,7 @@ official coverage improve.
 - `Zicsr`: CSR decode, read-side and write-side privilege checks,
   `fcsr`/`fflags` views, and explicit read/write suppression for the standard
   CSR instruction forms are covered by focused execute tests. The write-side
-  coverage includes suppressed-read `CSRRW rd=x0` forms, so lower privilege
+  coverage includes suppressed-read `CSRRW[I] rd=x0` forms, so lower privilege
   modes cannot write higher-privilege CSRs by avoiding the read. `mtvec` and
   `stvec` writes now normalize to the modeled WARL surface: 4-byte-aligned BASE
   plus Direct or Vectored MODE only, with vectored supervisor-timer dispatch

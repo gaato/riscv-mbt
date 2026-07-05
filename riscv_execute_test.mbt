@@ -5562,6 +5562,7 @@ test "csr address privilege bits gate supervisor and machine csrs" {
   }
 
   let write_mstatus_without_read = encode_csr(0x300, 1, 0x1U, 0)
+  let writei_mstatus_without_read = encode_csr(0x300, 1, 0x5U, 0)
   let supervisor_machine_write_denied = make_runner(rv64_machine_config())
   supervisor_machine_write_denied.load_program(
     words_to_bytes([
@@ -5585,6 +5586,30 @@ test "csr address privilege bits gate supervisor and machine csrs" {
       assert_eq(info.trap_value, write_mstatus_without_read.to_uint64())
     }
     _ => fail("expected suppressed-read machine CSR write trap")
+  }
+
+  let supervisor_machine_writei_denied = make_runner(rv64_machine_config())
+  supervisor_machine_writei_denied.load_program(
+    words_to_bytes([
+      encode_i(24, 0, 0x0U, 5, 0x13U),
+      encode_csr(0x341, 5, 0x1U, 0),
+      encode_u(0x00001000U, 3, 0x37U),
+      encode_i(-2048, 3, 0x0U, 3, 0x13U),
+      encode_csr(0x300, 3, 0x1U, 0),
+      encode_mret(),
+      writei_mstatus_without_read,
+    ]),
+    0U,
+  )
+  match supervisor_machine_writei_denied.run(7) {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected supervisor immediate write to machine CSR to trap")
+      }
+      assert_eq(info.trap_value, writei_mstatus_without_read.to_uint64())
+    }
+    _ => fail("expected suppressed-read immediate machine CSR write trap")
   }
 }
 
