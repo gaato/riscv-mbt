@@ -491,7 +491,8 @@ official coverage improve.
   zero-over-zero and infinity-over-infinity cases now also have focused
   default-result coverage: they write canonical NaNs and accrue NV without DZ.
   `FDIV.S/D` NaN operand coverage now keeps quiet NaNs flag-clean and raises NV
-  only for signaling NaNs while writing canonical NaN results. `FADD.S/D`,
+  only for signaling NaNs while writing canonical NaN results; focused
+  regressions cover both dividend and divisor positions. `FADD.S/D`,
   `FSUB.S/D`, and `FMUL.S/D` now have the same quiet-vs-signaling NaN operand
   regression coverage. `FSQRT.S/D` NaN operands now have matching coverage:
   quiet NaNs produce canonical NaNs without accruing NV, and signaling NaNs

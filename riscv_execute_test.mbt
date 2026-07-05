@@ -2430,6 +2430,51 @@ test "rv64fd divide nan operands canonicalize and flag signaling only" {
 }
 
 ///|
+test "rv64fd divide divisor nan operands canonicalize and flag signaling only" {
+  let csr_fcsr = 0x003
+  let flag_mask = 0x1fU.to_uint64()
+  let invalid_only = 0x10U.to_uint64()
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, exec_test_nan_box_single(0x7fc12345U))
+  runner.cpu.write_freg(2, exec_test_nan_box_single(0x7f800001U))
+  runner.cpu.write_freg(3, exec_test_nan_box_single(exec_test_f32_bits(1.0)))
+  runner.cpu.write_freg(4, 0x7ff8000000000001UL)
+  runner.cpu.write_freg(5, 0x7ff0000000000001UL)
+  runner.cpu.write_freg(6, exec_test_f64_bits(1.0))
+  runner.load_program(
+    words_to_bytes([
+      encode_fp_r(0x0cU, 1, 3, 0x0U, 10),
+      encode_csr(csr_fcsr, 0, 0x2U, 11),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x0cU, 2, 3, 0x0U, 12),
+      encode_csr(csr_fcsr, 0, 0x2U, 13),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x0dU, 4, 6, 0x0U, 14),
+      encode_csr(csr_fcsr, 0, 0x2U, 15),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x0dU, 5, 6, 0x0U, 16),
+      encode_csr(csr_fcsr, 0, 0x2U, 17),
+    ]),
+    0U,
+  )
+  match runner.run(11) {
+    Running => ()
+    _ => fail("expected divide divisor-NaN operand cases to retire")
+  }
+  // Division has asymmetric numeric rules, but NaN canonicalization and
+  // signaling-NaN flagging are independent of whether the NaN is dividend or
+  // divisor.
+  assert_eq(runner.read_freg_u64(10), exec_test_nan_box_single(0x7fc00000U))
+  assert_eq(runner.read_reg_u64(11) & flag_mask, 0U.to_uint64())
+  assert_eq(runner.read_freg_u64(12), exec_test_nan_box_single(0x7fc00000U))
+  assert_eq(runner.read_reg_u64(13) & flag_mask, invalid_only)
+  assert_eq(runner.read_freg_u64(14), exec_test_f64_canonical_nan_bits())
+  assert_eq(runner.read_reg_u64(15) & flag_mask, 0U.to_uint64())
+  assert_eq(runner.read_freg_u64(16), exec_test_f64_canonical_nan_bits())
+  assert_eq(runner.read_reg_u64(17) & flag_mask, invalid_only)
+}
+
+///|
 test "rv64fd add mul nan operands canonicalize and flag signaling only" {
   let csr_fcsr = 0x003
   let flag_mask = 0x1fU.to_uint64()

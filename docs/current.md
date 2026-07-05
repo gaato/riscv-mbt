@@ -118,6 +118,7 @@
   any NaN, while `FEQ` sets NV only for signaling NaNs. Scalar `F/D` arithmetic
   now accrues NV for signaling NaNs and the obvious invalid-operation cases,
   while quiet NaN `FSQRT.S/D` inputs stay quiet and do not set NV. `FDIV`
+  NaN coverage now includes both dividend and divisor positions, and `FDIV`
   accrues DZ for finite nonzero division by zero. This is emulator-body
   hardening for the
   ordinary C floating-point paths that Alpine userspace can exercise; deeper
