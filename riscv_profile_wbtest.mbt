@@ -450,6 +450,34 @@ test "supervisor interrupt bits are absent when S is not advertised" {
 }
 
 ///|
+test "mcounteren permits user counter reads directly when S is absent" {
+  let runner = make_runner(wb_rv64_without_s_machine_config())
+  runner.load_program(
+    words_to_bytes([
+      wb_encode_i(1, 0, 0x0U, 1, 0x13U), // CY bit in mcounteren
+      wb_encode_csr(CSR_MCOUNTEREN, 1, 0x1U, 0),
+      wb_encode_i(24, 0, 0x0U, 5, 0x13U),
+      wb_encode_csr(CSR_MEPC, 5, 0x1U, 0),
+      wb_encode_csr(CSR_MSTATUS, 0, 0x1U, 0), // MPP=U
+      wb_encode_mret(),
+      wb_encode_csr(CSR_CYCLE, 0, 0x2U, 2),
+      wb_encode_i(1, 0, 0x0U, 3, 0x13U),
+    ]),
+    0U,
+  )
+  match runner.run(8) {
+    Running => ()
+    _ => fail("expected no-S U-mode cycle read with mcounteren")
+  }
+  match runner.privilege_mode() {
+    User => ()
+    _ => fail("expected no-S profile to return to U-mode")
+  }
+  assert_true(runner.read_reg_u64(2) > 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(3), 1U.to_uint64())
+}
+
+///|
 test "mstatus write cannot expose supervisor return state without S" {
   let runner = make_runner(wb_rv64_without_s_machine_config())
   let mpp_s_and_spp = (1U.to_uint64() << MSTATUS_MPP_SHIFT) |

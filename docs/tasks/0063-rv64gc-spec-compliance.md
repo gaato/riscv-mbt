@@ -309,7 +309,9 @@ official coverage improve.
   (`0x222`).
   `mcounteren` and `scounteren` now expose only the implemented base counter
   enables CY/TM/IR (`0x7`); HPM counter enables are read-only zero because the
-  corresponding counter CSRs are absent.
+  corresponding counter CSRs are absent. In an M+U profile without S-mode,
+  `mcounteren` gates U-mode counter reads directly because there is no
+  supervisor `scounteren` layer.
   `mcountinhibit` now controls the exposed architectural counters: CY inhibits
   `cycle`, IR inhibits `instret`, HPM inhibit bits are read-only zero because
   no HPM counters are modeled, and `time` continues to reflect CLINT `mtime`
@@ -857,7 +859,9 @@ official coverage improve.
   and an S-mode misaligned LR regression verifies routing through `stvec`.
 - `mcounteren`/`scounteren` are now WARL-filtered to CY/TM/IR. The existing
   privilege-gate tests still cover access behavior, and a new readback
-  regression pins HPM enable bits as read-only zero.
+  regression pins HPM enable bits as read-only zero. A no-`S` profile
+  regression now also proves that `mcounteren` alone permits U-mode `cycle`
+  reads in M+U configurations where `scounteren` is absent.
 - `mcountinhibit` is now modeled for the base architectural counters. Focused
   coverage writes all ones, verifies only CY/IR read back, proves inhibited
   `cycle` and `instret` stay stable, proves `time` still advances, and verifies
@@ -925,7 +929,10 @@ official coverage improve.
   return target, M-mode.
 - Compatibility CSR classification is now split by the privilege mode it
   serves. `satp`, `medeleg`, `mideleg`, `scounteren`, and `senvcfg` are absent
-  when `S` is absent, while `mcounteren` is absent when `U` is absent.
+  when `S` is absent, while `mcounteren` is absent when `U` is absent. Counter
+  access follows the implemented privilege stack, so no-`S` M+U profiles gate
+  U-mode counter reads directly with `mcounteren` instead of consulting absent
+  `scounteren`.
 - `MRET` now resets the saved previous-privilege field to the least
   implemented mode for the active profile. This keeps the raw `mstatus.MPP`
   storage at M after no-`U` MRET-to-M, instead of depending on visible CSR

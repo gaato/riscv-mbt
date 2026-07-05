@@ -193,7 +193,9 @@
   limited to SSI/STI/SEI (`0x222`); machine-only causes remain read-only zero.
 - `mcounteren` and `scounteren` now expose only CY/TM/IR (`0x7`) as writable
   WARL bits. HPM counter-enable bits read back as zero because the matching
-  `hpmcounter` CSRs are not implemented in the current RV64GC profile.
+  `hpmcounter` CSRs are not implemented in the current RV64GC profile. In an
+  M+U profile without S-mode, `mcounteren` gates U-mode counter reads directly
+  because there is no supervisor `scounteren` layer.
 - `mcountinhibit` is now modeled for the exposed architectural counters. CY
   and IR are writable, HPM inhibit bits read back as zero because HPM counters
   are absent, and `time` remains tied to CLINT `mtime` rather than the inhibit
@@ -386,7 +388,9 @@
   status path for supervisor context-status coverage.
 - Compatibility CSR classification now follows those mode dependencies:
   `satp`, `medeleg`, `mideleg`, `scounteren`, and `senvcfg` are absent without
-  `S`, while `mcounteren` is absent without `U`.
+  `S`, while `mcounteren` is absent without `U`. Counter access follows the
+  same implemented-mode stack: no-`S` M+U profiles use `mcounteren` directly
+  for U-mode counter reads instead of requiring absent `scounteren`.
 - `MRET` now resets raw `mstatus.MPP` to the least implemented privilege mode
   for the active profile, so no-`U` MRET-to-M keeps the stored stack-bottom
   field at M instead of relying on read-time WARL normalization.

@@ -1660,9 +1660,19 @@ fn Runner::counter_csr_accessible(self : Runner, csr : Int) -> Bool {
     Machine => true
     Supervisor =>
       (self.read_csr_visible(CSR_MCOUNTEREN) & bit) != 0U.to_uint64()
-    User =>
-      (self.read_csr_visible(CSR_MCOUNTEREN) & bit) != 0U.to_uint64() &&
-      (self.read_csr_visible(CSR_SCOUNTEREN) & bit) != 0U.to_uint64()
+    User => {
+      let machine_enabled = (self.read_csr_visible(CSR_MCOUNTEREN) & bit) !=
+        0U.to_uint64()
+      if (self.config.extensions & MISA_EXT_S) == 0U.to_uint64() {
+        // mcounteren grants access to the next implemented lower privilege
+        // mode. In an M+U profile there is no supervisor layer and scounteren
+        // is absent, so U-mode is gated directly by mcounteren.
+        machine_enabled
+      } else {
+        machine_enabled &&
+        (self.read_csr_visible(CSR_SCOUNTEREN) & bit) != 0U.to_uint64()
+      }
+    }
   }
 }
 
