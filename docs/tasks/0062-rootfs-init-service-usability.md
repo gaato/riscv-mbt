@@ -195,3 +195,7 @@ but it is not the same as a more ordinary Alpine service environment.
   matching `mcounteren` bit, and U-mode reads require matching bits in both
   `mcounteren` and `scounteren`. The regression test drives the S/U cases
   through real `mret` transitions instead of mutating test state directly.
+- Rerunning the same existing auto-root system smoke after the `counteren`
+  gating change still reaches `post-init-system-ok` at 606,000,000 guest steps
+  with the same command trace shape, confirming that the stricter counter CSR
+  access rules do not break the current full-rootfs system path.
