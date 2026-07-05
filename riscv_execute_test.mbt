@@ -2921,6 +2921,32 @@ test "rv64fd float to word conversions clip invalid inputs and set flags" {
 }
 
 ///|
+test "rv64fd word conversions clip exact upper rne boundaries" {
+  let csr_fcsr = 0x003
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, 0x41e0000000000000UL) // +2^31, first invalid signed-word result.
+  runner.cpu.write_freg(2, 0x41f0000000000000UL) // +2^32, first invalid unsigned-word result.
+  runner.load_program(
+    words_to_bytes([
+      encode_fcvt_w_d(1, 0x0U, 10),
+      encode_csr(csr_fcsr, 0, 0x2U, 11),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_wu_d(2, 0x0U, 12),
+      encode_csr(csr_fcsr, 0, 0x2U, 13),
+    ]),
+    0U,
+  )
+  match runner.run(5) {
+    Running => ()
+    _ => fail("expected exact upper-bound fcvt word path to run")
+  }
+  assert_eq(runner.read_reg_u64(10), 0x7fffffffU.to_uint64())
+  assert_eq(runner.read_reg_u64(11) & 0x10U.to_uint64(), 0x10U.to_uint64())
+  assert_eq(runner.read_reg_u64(12), test_sign_extend_word64(0xffffffffU))
+  assert_eq(runner.read_reg_u64(13) & 0x10U.to_uint64(), 0x10U.to_uint64())
+}
+
+///|
 test "rv64fd double to signed long conversion uses rtz" {
   let runner = make_runner(rv64fd_machine_config())
   runner.cpu.write_freg(1, exec_test_f64_bits(1024.75))
