@@ -78,10 +78,12 @@ official coverage improve.
   field as architecturally significant for legal/reserved static and dynamic
   encodings. `mstatus.FS` is now part of the execution contract: FP-capable
   reset profiles start with FS enabled, but scalar F/D load/store and arithmetic
-  instructions trap as illegal when software sets FS=Off. The corrected
-  official-test harness now advertises manifest arch FP bits, and the passing
-  `rv64uf`/`rv64ud` classification, compare, conversion, min/max, load/store,
-  move, recoding, and structural rows are gated. The
+  instructions trap as illegal when software sets FS=Off. FP register and
+  `fcsr` writes also mark FS Dirty, making the visible `SD` summary track
+  modeled FP state changes. The corrected official-test harness now advertises
+  manifest arch FP bits, and the passing `rv64uf`/`rv64ud` classification,
+  compare, conversion, min/max, load/store, move, recoding, and structural rows
+  are gated. The
   `rv64uf` arithmetic rows are also gated after adding single-precision NX
   accrual, and the `rv64ud` arithmetic rows are gated after adding
   exact-rational double-precision NX checks. The remaining strict-spec gaps are
@@ -210,6 +212,9 @@ official coverage improve.
   FP-capable reset and official-test profiles in an enabled FS state, while a
   focused regression clears FS and requires both FP load/store and FP arithmetic
   to raise illegal-instruction traps before touching FP state.
+- FP state writes now dirty `mstatus.FS`. The shared FP register and `fcsr`
+  write helpers perform the transition, and a regression confirms an FP load
+  moves the visible status from FS=Initial to FS=Dirty with `SD` set.
 - `Zifencei` now has an execute regression for the key same-hart contract:
   fetch and decode an instruction, store a different instruction to the same
   address, execute `FENCE.I`, jump back, and require the replacement instruction

@@ -31,11 +31,24 @@ fn Runner::fp_context_enabled(self : Runner) -> Bool {
 }
 
 ///|
+fn Runner::mark_fp_context_dirty(self : Runner) -> Unit {
+  // The emulator models only FS today, so dirtying the FP context is the whole
+  // SD summary source. Keeping this at write boundaries avoids scattering
+  // mstatus knowledge across every individual F/D instruction case.
+  let status = self.cpu.read_csr(CSR_MSTATUS)
+  if (status & MSTATUS_FS_MASK) != MSTATUS_FS_DIRTY {
+    let next = (status & bit_not(MSTATUS_FS_MASK)) | MSTATUS_FS_DIRTY
+    self.cpu.write_csr(CSR_MSTATUS, next)
+  }
+}
+
+///|
 fn Runner::write_freg_single_bits(
   self : Runner,
   rd : Int,
   value : UInt,
 ) -> Unit {
+  self.mark_fp_context_dirty()
   // When D is present, single-precision values must be NaN-boxed in the 64-bit
   // FP register file. Transfer instructions still use the raw low 32 bits.
   let stored = if self.fp_has_d() {
@@ -69,6 +82,7 @@ fn Runner::write_freg_double_bits(
   rd : Int,
   value : UInt64,
 ) -> Unit {
+  self.mark_fp_context_dirty()
   self.cpu.write_freg(rd, value)
 }
 
@@ -1128,6 +1142,7 @@ fn Runner::read_fcsr(self : Runner) -> UInt64 {
 
 ///|
 fn Runner::write_fcsr(self : Runner, value : UInt64) -> Unit {
+  self.mark_fp_context_dirty()
   self.cpu.write_csr(CSR_FCSR, value & FCSR_VISIBLE_MASK)
 }
 

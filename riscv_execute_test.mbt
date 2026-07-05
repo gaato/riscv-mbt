@@ -980,6 +980,24 @@ test "rv64f traps floating-point instructions when mstatus fs is off" {
 }
 
 ///|
+test "rv64f fp register writes mark mstatus fs dirty" {
+  let runner = make_runner(rv64f_machine_config())
+  assert_eq(
+    runner.read_csr_u64(0x300) & 0x6000U.to_uint64(),
+    0x2000U.to_uint64(),
+  )
+  runner.load_program(words_to_bytes([0x3f800000U]), 0x100U)
+  runner.load_program(words_to_bytes([encode_flw(0x100, 0, 1)]), 0U)
+  match runner.step() {
+    Running => ()
+    _ => fail("expected flw to run with FS enabled")
+  }
+  let status = runner.read_csr_u64(0x300)
+  assert_eq(status & 0x6000U.to_uint64(), 0x6000U.to_uint64())
+  assert_eq(status & 0x8000000000000000UL, 0x8000000000000000UL)
+}
+
+///|
 test "rv64fd move path preserves raw double-precision bits" {
   let raw = exec_test_f64_bits(1.5)
   let runner = make_runner(rv64fd_machine_config())
