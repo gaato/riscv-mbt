@@ -1691,6 +1691,46 @@ test "rv64fd invalid scalar arithmetic returns canonical nan results" {
 }
 
 ///|
+test "rv64fd invalid divide cases return canonical nan without divide by zero" {
+  let csr_fcsr = 0x003
+  let invalid_without_dz = 0x10U.to_uint64()
+  let invalid_or_dz = 0x18U.to_uint64()
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, exec_test_nan_box_single(0x00000000U))
+  runner.cpu.write_freg(2, exec_test_nan_box_single(0x7f800000U))
+  runner.cpu.write_freg(3, 0x0000000000000000UL)
+  runner.cpu.write_freg(4, 0x7ff0000000000000UL)
+  runner.load_program(
+    words_to_bytes([
+      encode_fp_r(0x0cU, 1, 1, 0x0U, 10),
+      encode_csr(csr_fcsr, 0, 0x2U, 11),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x0cU, 2, 2, 0x0U, 12),
+      encode_csr(csr_fcsr, 0, 0x2U, 13),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x0dU, 3, 3, 0x0U, 14),
+      encode_csr(csr_fcsr, 0, 0x2U, 15),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x0dU, 4, 4, 0x0U, 16),
+      encode_csr(csr_fcsr, 0, 0x2U, 17),
+    ]),
+    0U,
+  )
+  match runner.run(11) {
+    Running => ()
+    _ => fail("expected invalid divide cases to retire and accrue flags")
+  }
+  assert_eq(runner.read_freg_u64(10), exec_test_nan_box_single(0x7fc00000U))
+  assert_eq(runner.read_reg_u64(11) & invalid_or_dz, invalid_without_dz)
+  assert_eq(runner.read_freg_u64(12), exec_test_nan_box_single(0x7fc00000U))
+  assert_eq(runner.read_reg_u64(13) & invalid_or_dz, invalid_without_dz)
+  assert_eq(runner.read_freg_u64(14), exec_test_f64_canonical_nan_bits())
+  assert_eq(runner.read_reg_u64(15) & invalid_or_dz, invalid_without_dz)
+  assert_eq(runner.read_freg_u64(16), exec_test_f64_canonical_nan_bits())
+  assert_eq(runner.read_reg_u64(17) & invalid_or_dz, invalid_without_dz)
+}
+
+///|
 test "rv64fd sqrt preserves negative zero and canonicalizes negative inputs" {
   let csr_fcsr = 0x003
   let runner = make_runner(rv64fd_machine_config())
