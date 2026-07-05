@@ -1269,6 +1269,85 @@ test "rv64fd f and d conversion paths preserve expected values" {
 }
 
 ///|
+test "rv64fd double to single conversion honors non-rne rounding modes" {
+  let runner = make_runner(rv64fd_machine_config())
+  let csr_fcsr = 0x003
+  runner.cpu.write_freg(1, 0x4170000010000000UL)
+  runner.load_program(
+    words_to_bytes([encode_fcvt_s_d(1, 0x1U, 2), encode_fcvt_s_d(1, 0x3U, 3)]),
+    0U,
+  )
+  match runner.run(2) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected non-RNE fcvt.s.d paths to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_freg_u64(2), exec_test_nan_box_single(0x4b800000U))
+  assert_eq(runner.read_freg_u64(3), exec_test_nan_box_single(0x4b800001U))
+  assert_eq(runner.read_csr(csr_fcsr) & 0x1U, 0x1U)
+}
+
+///|
+test "rv64fd double to single conversion honors dynamic frm" {
+  let runner = make_runner(rv64fd_machine_config())
+  let csr_fcsr = 0x003
+  let fcsr_frm_shift = 5
+  runner.cpu.write_freg(1, 0x3ff0000010000000UL)
+  runner.cpu.write_csr(csr_fcsr, 0x4U.to_uint64() << fcsr_frm_shift)
+  runner.load_program(words_to_bytes([encode_fcvt_s_d(1, 0x7U, 2)]), 0U)
+  match runner.run(1) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected dynamic-RMM fcvt.s.d to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_freg_u64(2), exec_test_nan_box_single(0x3f800001U))
+  assert_eq(runner.read_csr(csr_fcsr) & 0x1U, 0x1U)
+}
+
+///|
+test "rv64fd double to single conversion handles overflow by rounding mode" {
+  let runner = make_runner(rv64fd_machine_config())
+  let csr_fcsr = 0x003
+  runner.cpu.write_freg(1, 0x47f0000000000000UL)
+  runner.load_program(
+    words_to_bytes([encode_fcvt_s_d(1, 0x0U, 2), encode_fcvt_s_d(1, 0x1U, 3)]),
+    0U,
+  )
+  match runner.run(2) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected overflowing fcvt.s.d paths to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_freg_u64(2), exec_test_nan_box_single(0x7f800000U))
+  assert_eq(runner.read_freg_u64(3), exec_test_nan_box_single(0x7f7fffffU))
+  assert_eq(runner.read_csr(csr_fcsr) & 0x5U, 0x5U)
+}
+
+///|
+test "rv64fd double to single conversion rejects reserved rounding modes" {
+  let runner = make_runner(rv64fd_machine_config())
+  let raw = encode_fcvt_s_d(1, 0x5U, 2)
+  runner.cpu.write_freg(1, exec_test_f64_bits(1.0))
+  runner.load_program(words_to_bytes([raw]), 0U)
+  match runner.run(1) {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+      assert_eq(info.trap_value, raw.to_uint64())
+    }
+    _ => fail("expected reserved fcvt.s.d rounding mode to trap")
+  }
+}
+
+///|
 test "rv64fd fcvt.d.s accepts legal unaffected rounding modes" {
   let runner = make_runner(rv64fd_machine_config())
   runner.cpu.write_freg(1, exec_test_nan_box_single(exec_test_f32_bits(1.5)))

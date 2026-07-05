@@ -9,6 +9,12 @@ let fp_fflag_nv : UInt64 = 0x10U.to_uint64()
 let fp_fflag_dz : UInt64 = 0x08U.to_uint64()
 
 ///|
+let fp_fflag_of : UInt64 = 0x04U.to_uint64()
+
+///|
+let fp_fflag_uf : UInt64 = 0x02U.to_uint64()
+
+///|
 let fp_fflag_nx : UInt64 = 0x01U.to_uint64()
 
 ///|
@@ -192,6 +198,12 @@ priv struct FpIntMagnitude {
 priv struct FpRoundedIntegerBits {
   bits : UInt64
   inexact : Bool
+}
+
+///|
+priv struct FpRoundedSingleBits {
+  bits : UInt
+  flags : UInt64
 }
 
 ///|
@@ -853,6 +865,51 @@ fn fp_round_integer_should_increment(
 }
 
 ///|
+fn fp_round_scaled_u64_to_integer(
+  magnitude : UInt64,
+  scale_shift : Int,
+  sign : Bool,
+  mode : UInt,
+) -> FpRoundedIntegerBits {
+  if scale_shift >= 0 {
+    { bits: magnitude << scale_shift, inexact: false }
+  } else {
+    let shift = 0 - scale_shift
+    if shift >= 64 {
+      let increment = match mode {
+        2U => sign && magnitude != 0U.to_uint64()
+        3U => !sign && magnitude != 0U.to_uint64()
+        _ => false
+      }
+      {
+        bits: if increment {
+          1U.to_uint64()
+        } else {
+          0U.to_uint64()
+        },
+        inexact: magnitude != 0U.to_uint64(),
+      }
+    } else {
+      let retained = magnitude >> shift
+      let remainder_mask = (1U.to_uint64() << shift) - 1U.to_uint64()
+      let remainder = magnitude & remainder_mask
+      let half = 1U.to_uint64() << (shift - 1)
+      let increment = fp_round_integer_should_increment(
+        sign, retained, remainder, half, mode,
+      )
+      {
+        bits: if increment {
+          retained + 1U.to_uint64()
+        } else {
+          retained
+        },
+        inexact: remainder != 0U.to_uint64(),
+      }
+    }
+  }
+}
+
+///|
 fn fp_round_u64_to_ieee_bits(
   magnitude : UInt64,
   sign : Bool,
@@ -903,6 +960,117 @@ fn fp_round_u64_to_ieee_bits(
       fraction_bits
     let fraction_mask = (1U.to_uint64() << fraction_bits) - 1U.to_uint64()
     { bits: sign_bits | exponent_bits | (significand & fraction_mask), inexact }
+  }
+}
+
+///|
+fn fp_f32_overflow_bits(sign : Bool, mode : UInt) -> UInt {
+  let use_infinity = match mode {
+    1U => false
+    2U => sign
+    3U => !sign
+    _ => true
+  }
+  if use_infinity {
+    if sign {
+      0xff800000U
+    } else {
+      0x7f800000U
+    }
+  } else if sign {
+    0xff7fffffU
+  } else {
+    0x7f7fffffU
+  }
+}
+
+///|
+fn fp_round_f64_bits_to_f32_bits(
+  bits : UInt64,
+  mode : UInt,
+) -> FpRoundedSingleBits {
+  let sign = f64_sign_bit(bits)
+  let sign_bits = if sign { 0x80000000U } else { 0U }
+  if f64_is_nan_bits(bits) {
+    let flags = if f64_is_signaling_nan_bits(bits) {
+      fp_fflag_nv
+    } else {
+      0U.to_uint64()
+    }
+    { bits: f32_canonical_nan_bits(), flags }
+  } else if f64_is_infinite_bits(bits) {
+    { bits: sign_bits | 0x7f800000U, flags: 0U.to_uint64() }
+  } else {
+    let exponent = ((bits >> 52) & 0x7ffU.to_uint64()).to_int()
+    let fraction = bits & ((1U.to_uint64() << 52) - 1U.to_uint64())
+    let mantissa = if exponent == 0 {
+      fraction
+    } else {
+      (1U.to_uint64() << 52) | fraction
+    }
+    if mantissa == 0U.to_uint64() {
+      { bits: sign_bits, flags: 0U.to_uint64() }
+    } else {
+      let exp2 = if exponent == 0 {
+        1 - 1023 - 52
+      } else {
+        exponent - 1023 - 52
+      }
+      let unbiased = exp2 + fp_u64_msb_index(mantissa)
+      if unbiased > 127 {
+        {
+          bits: fp_f32_overflow_bits(sign, mode),
+          flags: fp_fflag_of | fp_fflag_nx,
+        }
+      } else if unbiased >= -126 {
+        let rounded = fp_round_scaled_u64_to_integer(
+          mantissa,
+          exp2 - (unbiased - 23),
+          sign,
+          mode,
+        )
+        let mut significand = rounded.bits
+        let mut stored_exponent = unbiased + 127
+        if significand == 1U.to_uint64() << 24 {
+          significand = significand >> 1
+          stored_exponent += 1
+        }
+        if stored_exponent >= 255 {
+          {
+            bits: fp_f32_overflow_bits(sign, mode),
+            flags: fp_fflag_of | fp_fflag_nx,
+          }
+        } else {
+          let exponent_bits = stored_exponent.reinterpret_as_uint() << 23
+          let fraction_bits = significand.to_uint() & 0x007fffffU
+          {
+            bits: sign_bits | exponent_bits | fraction_bits,
+            flags: if rounded.inexact {
+              fp_fflag_nx
+            } else {
+              0U.to_uint64()
+            },
+          }
+        }
+      } else {
+        let rounded = fp_round_scaled_u64_to_integer(
+          mantissa,
+          exp2 + 149,
+          sign,
+          mode,
+        )
+        let flags = if rounded.inexact {
+          fp_fflag_uf | fp_fflag_nx
+        } else {
+          0U.to_uint64()
+        }
+        if rounded.bits >= 1U.to_uint64() << 23 {
+          { bits: sign_bits | 0x00800000U, flags }
+        } else {
+          { bits: sign_bits | rounded.bits.to_uint(), flags }
+        }
+      }
+    }
   }
 }
 
@@ -1744,13 +1912,21 @@ fn Runner::execute_fp(
       Running
     }
     FCvtSD(rd, rs1, rm) => {
-      if !self.fp_rounding_mode_supported(rm) {
-        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      let mode = match self.fp_effective_rounding_mode(rm) {
+        Some(mode) => mode
+        None =>
+          return self.raise_trap(
+            IllegalInstruction,
+            current_pc,
+            raw.to_uint64(),
+          )
       }
-      let result = Float::from_double(
-        f64_from_bits(self.read_freg_double_bits(rs1)),
+      let rounded = fp_round_f64_bits_to_f32_bits(
+        self.read_freg_double_bits(rs1),
+        mode,
       )
-      self.write_freg_single_bits(rd, f32_bits_from_host(result))
+      self.set_fflags(rounded.flags)
+      self.write_freg_single_bits(rd, rounded.bits)
       self.cpu.pc = next_pc
       Running
     }

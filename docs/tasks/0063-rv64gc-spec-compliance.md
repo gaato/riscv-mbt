@@ -155,6 +155,10 @@ official coverage improve.
   rounding helper instead of relying on host-default conversion. The helper
   supports RNE, RTZ, RDN, RUP, RMM, valid dynamic `frm`, and NX accrual when
   discarded integer bits make the conversion inexact.
+- `FCVT.S.D` now rounds double-precision source bits to single precision inside
+  the emulator instead of relying on host-default conversion. The helper handles
+  legal static/dynamic rounding modes, canonical NaN results, NX for inexact
+  narrowing, and OF/NX result selection for overflow.
 - Scalar `F/D` arithmetic now accrues the first spec-shaped exception flags:
   `FADD`/`FSUB` set NV for opposite-signed infinity addition, `FMUL` and FMA set
   NV for infinity-times-zero, `FDIV` sets NV for zero-over-zero and
@@ -216,6 +220,10 @@ official coverage improve.
   changes the result: focused regressions cover single-precision rounding at
   `2^24+1`, double-precision rounding at `2^53+1`, dynamic `frm=RMM`, and NX
   accrual for inexact integer inputs.
+- Double-to-single narrowing now supports legal non-RNE rounding where the mode
+  changes the result. Focused regressions cover `FCVT.S.D` at the single
+  precision boundary, dynamic `frm=RMM`, overflow result selection for RNE vs
+  RTZ, OF/NX accrual, and reserved rounding-mode traps.
 - The first RV64C reserved/hint correction slice is in place. `EBREAK` and
   `C.EBREAK` now trap as architectural breakpoint exceptions instead of illegal
   instructions, RV64C rejects reserved `C.ADDIW rd=x0`, `C.LUI rd=x0` and

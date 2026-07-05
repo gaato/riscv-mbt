@@ -85,12 +85,14 @@
   dynamic `frm` for `fcvt.{w,wu,l,lu}.{s,d}`. Integer-to-float conversions now
   use a shared integer-magnitude rounding helper for `fcvt.s.{w,wu,l,lu}` and
   `fcvt.d.{l,lu}`, covering legal static/dynamic modes and NX for inexact
-  inputs. `FCLASS.S`/`FCLASS.D` now decode and execute the architectural 10-bit
-  classification mask for zero, subnormal, normal, infinity, signaling-NaN, and
-  quiet-NaN values. The F/D fused multiply-add family (`FMADD`, `FMSUB`,
-  `FNMSUB`, `FNMADD`) now decodes and executes for both single and double
-  precision under the current host-IEEE RNE-only arithmetic boundary. Scalar
-  `F/D` arithmetic now accrues NV for
+  inputs. `FCVT.S.D` now uses an emulator-side double-to-single rounding helper
+  for legal static/dynamic modes, NX, and overflow result selection. `FCLASS.S`
+  /`FCLASS.D` now decode and execute the architectural 10-bit classification
+  mask for zero, subnormal, normal, infinity, signaling-NaN, and quiet-NaN
+  values. The F/D fused multiply-add family (`FMADD`, `FMSUB`, `FNMSUB`,
+  `FNMADD`) now decodes and executes for both single and double precision under
+  the current host-IEEE RNE-only arithmetic boundary. Scalar `F/D` arithmetic
+  now accrues NV for
   signaling NaNs and the obvious invalid-operation cases, and FDIV accrues DZ
   for finite nonzero division by zero. This is emulator-body hardening for the
   ordinary C floating-point paths that Alpine userspace can exercise; exact
