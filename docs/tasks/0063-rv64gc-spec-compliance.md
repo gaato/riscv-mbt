@@ -132,6 +132,11 @@ official coverage improve.
   `mcounteren` and `scounteren` now expose only the implemented base counter
   enables CY/TM/IR (`0x7`); HPM counter enables are read-only zero because the
   corresponding counter CSRs are absent.
+  `mie` now exposes only the modeled standard interrupt-enable bits
+  MSI/MTI/MEI and SSI/STI/SEI (`0xaaa`), while `mip` readback is masked to the
+  same implemented pending-bit surface. Writes to `mip` affect only the
+  software-writable S-level pending bits; machine-level pending bits are
+  supplied by CLINT/PLIC state.
   `mstatus.MPP` now rejects the reserved privilege encoding 2 at the CSR write
   boundary. The remaining audit is a spec pass over remaining WARL behavior,
   read-only/write-ignored fields, and privilege-visible side effects for every
@@ -365,6 +370,9 @@ official coverage improve.
 - `mcounteren`/`scounteren` are now WARL-filtered to CY/TM/IR. The existing
   privilege-gate tests still cover access behavior, and a new readback
   regression pins HPM enable bits as read-only zero.
+- `mip`/`mie` no longer retain arbitrary interrupt bits. Focused regressions
+  cover write-all-ones `mie` readback, `mip` writes limited to S-level pending
+  bits, and the existing delegated `sie`/`sip` view behavior after masking.
 - `MRET` and `SRET` now apply the privileged-spec `MPRV` return rule: when the
   return target is below M-mode, `mstatus.MPRV` is cleared so later data
   accesses cannot continue using the old MPP override. Focused regressions cover

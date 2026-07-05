@@ -134,6 +134,11 @@
 - `mcounteren` and `scounteren` now expose only CY/TM/IR (`0x7`) as writable
   WARL bits. HPM counter-enable bits read back as zero because the matching
   `hpmcounter` CSRs are not implemented in the current RV64GC profile.
+- `mie` now exposes only the modeled standard interrupt-enable bits
+  MSI/MTI/MEI and SSI/STI/SEI (`0xaaa`), while `mip` readback is masked to the
+  same implemented pending-bit surface. CSR writes to `mip` affect only the
+  software-writable S-level pending bits; machine-level pending bits come from
+  CLINT/PLIC state.
 
 - The first RV64C reserved/hint correction slice for Task 0063 is in place.
   `EBREAK` and `C.EBREAK` now raise the architectural breakpoint exception,

@@ -994,6 +994,8 @@ fn Runner::read_csr_visible(self : Runner, csr : Int) -> UInt64 {
     CSR_MIDELEG => legalize_mideleg_csr(self.cpu.read_csr(CSR_MIDELEG))
     CSR_MCOUNTEREN => legalize_counteren_csr(self.cpu.read_csr(CSR_MCOUNTEREN))
     CSR_SCOUNTEREN => legalize_counteren_csr(self.cpu.read_csr(CSR_SCOUNTEREN))
+    CSR_MIP => legalize_mip_csr(self.cpu.read_csr(CSR_MIP))
+    CSR_MIE => legalize_mie_csr(self.cpu.read_csr(CSR_MIE))
     CSR_SIP => self.cpu.read_csr(CSR_MIP) & self.delegated_s_interrupt_mask()
     CSR_SIE => self.cpu.read_csr(CSR_MIE) & self.delegated_s_interrupt_mask()
     _ => self.cpu.read_csr(csr)
@@ -1060,6 +1062,22 @@ fn legalize_counteren_csr(value : UInt64) -> UInt64 {
 }
 
 ///|
+fn legalize_mie_csr(value : UInt64) -> UInt64 {
+  // The modeled platform can raise the standard machine and supervisor
+  // software/timer/external interrupts. Other interrupt-enable bits are WARL
+  // read-only zero.
+  value & MACHINE_INTERRUPT_MASK
+}
+
+///|
+fn legalize_mip_csr(value : UInt64) -> UInt64 {
+  // Pending bits reflect implemented interrupt sources only. Machine-level
+  // pending bits are supplied by CLINT/PLIC state, while S-level pending bits
+  // can also be written by M-mode software through mip.
+  value & MACHINE_INTERRUPT_MASK
+}
+
+///|
 fn legalize_mstatus_csr(value : UInt64, xlen : Xlen) -> UInt64 {
   // SD is a read-only summary bit. For the current RV64GC baseline the modeled
   // dirty extension status is FS=Dirty; future VS/XS modeling should join this
@@ -1106,6 +1124,14 @@ fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
     CSR_MIDELEG => self.cpu.write_csr(csr, legalize_mideleg_csr(value))
     CSR_MCOUNTEREN | CSR_SCOUNTEREN =>
       self.cpu.write_csr(csr, legalize_counteren_csr(value))
+    CSR_MIE => self.cpu.write_csr(csr, legalize_mie_csr(value))
+    CSR_MIP => {
+      let mip = self.cpu.read_csr(CSR_MIP)
+      self.cpu.write_csr(
+        csr,
+        (mip & bit_not(MIP_WRITABLE_MASK)) | (value & MIP_WRITABLE_MASK),
+      )
+    }
     CSR_MSTATUS =>
       self.cpu.write_csr(csr, legalize_mstatus_csr(value, self.config.xlen))
     CSR_FFLAGS => {
@@ -1592,8 +1618,8 @@ fn Runner::take_pending_interrupt(self : Runner) -> StepResult? {
   // updated. Delegation chooses the target privilege; priority selection is
   // intentionally small and explicit because Linux boot is sensitive to timer
   // and external interrupt ordering.
-  let mip = self.cpu.read_csr(CSR_MIP)
-  let mie = self.cpu.read_csr(CSR_MIE)
+  let mip = self.read_csr_visible(CSR_MIP)
+  let mie = self.read_csr_visible(CSR_MIE)
   let pending = mip & mie
   if pending == 0U.to_uint64() {
     return None

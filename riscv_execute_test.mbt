@@ -3800,9 +3800,9 @@ test "csr write forms still trap on read-only csrs even when old value is suppre
 }
 
 ///|
-test "mip behaves as modeled writable machine-state storage without side effects" {
+test "mip writes affect only supervisor pending software bits" {
   let program = words_to_bytes([
-    encode_i(10, 0, 0x0U, 1, 0x13U),
+    encode_i(-1, 0, 0x0U, 1, 0x13U),
     encode_csr(0x344, 1, 0x1U, 2),
     encode_csr(0x344, 1, 0x2U, 3),
     encode_csr(0x344, 1, 0x3U, 4),
@@ -3816,16 +3816,33 @@ test "mip behaves as modeled writable machine-state storage without side effects
     _ => fail("expected running")
   }
   assert_eq(runner.read_reg(2), 0U)
-  assert_eq(runner.read_reg(3), 10U)
-  assert_eq(runner.read_reg(4), 10U)
+  assert_eq(runner.read_reg(3), 0x222U)
+  assert_eq(runner.read_reg(4), 0x222U)
   assert_eq(runner.read_reg(5), 0U)
-  assert_eq(runner.read_reg(6), 3U)
+  assert_eq(runner.read_reg(6), 2U)
   assert_eq(runner.read_csr(0x344), 2U)
   assert_eq(runner.pc(), 24U)
   match runner.privilege_mode() {
     Machine => ()
     _ => fail("expected privilege mode to remain machine")
   }
+}
+
+///|
+test "mie exposes only modeled interrupt enable bits" {
+  let program = words_to_bytes([
+    encode_i(-1, 0, 0x0U, 1, 0x13U),
+    encode_csr(0x304, 1, 0x1U, 0),
+    encode_csr(0x304, 0, 0x2U, 2),
+  ])
+  let runner = make_runner(virt_machine_config())
+  runner.load_program_u64(program, 0x80000000U.to_uint64())
+  match runner.run(3) {
+    Running => ()
+    _ => fail("expected mie WARL program to run")
+  }
+  assert_eq(runner.read_reg_u64(2), 0xaaaU.to_uint64())
+  assert_eq(runner.read_csr_u64(0x304), 0xaaaU.to_uint64())
 }
 
 ///|
@@ -3841,7 +3858,7 @@ test "csr contract distinguishes modeled, compatibility-only, and unsupported cs
     Running => ()
     _ => fail("expected modeled and compatibility-only writes to run")
   }
-  assert_eq(runner.read_csr(0x344), 5U)
+  assert_eq(runner.read_csr(0x344), 0U)
   assert_eq(runner.read_csr(0x302), 4U)
   let unsupported = encode_csr(0x7A0, 1, 0x1U, 0)
   let trap_runner = make_runner(default_machine_config())
@@ -8271,9 +8288,9 @@ test "SIE is masked by delegated supervisor interrupt bits" {
   }
   assert_eq(runner.read_reg_u64(2), 0U.to_uint64())
   assert_eq(runner.read_reg_u64(3), 0x222U.to_uint64())
-  // MIE should have all bits set
+  // MIE should keep only modeled interrupt-enable bits.
   let mie = runner.cpu.read_csr(0x304)
-  assert_eq(mie & 0xFFFU.to_uint64(), 0xFFFU.to_uint64())
+  assert_eq(mie & 0xFFFU.to_uint64(), 0xAAAU.to_uint64())
 }
 
 ///|
@@ -8299,10 +8316,9 @@ test "CSRRW to SIE only affects bits 1,5,9 of MIE" {
   }
   // x3 = old SIE = 0x222
   assert_eq(runner.read_reg_u64(3), 0x222U.to_uint64())
-  // MIE should have bits 1,5,9 cleared, rest intact
-  // 0xFFF & ~0x222 = 0xDDD
+  // MIE should have bits 1,5,9 cleared, leaving modeled M-level enables.
   let mie = runner.cpu.read_csr(0x304)
-  assert_eq(mie & 0xFFFU.to_uint64(), 0xDDDU.to_uint64())
+  assert_eq(mie & 0xFFFU.to_uint64(), 0x888U.to_uint64())
 }
 
 ///|
