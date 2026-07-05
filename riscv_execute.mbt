@@ -1142,6 +1142,7 @@ fn Runner::execute_csr_read_write_checked(
   // CSRRW[I] with rd=x0 must not read, and CSRRS/CSRRC[I] with a zero mask must
   // not write. Keep those checks explicit so trap behavior follows the
   // instruction form rather than a generic always-read/read-modify-write path.
+  // Suppressing the read does not suppress write-side privilege or legality.
   let old_value = if should_read {
     match self.read_csr_checked(csr) {
       Some(value) => value
@@ -1152,7 +1153,8 @@ fn Runner::execute_csr_read_write_checked(
     0U.to_uint64()
   }
   if should_write {
-    if !is_supported_rw_csr(csr, self.config.extensions) {
+    if !self.csr_privilege_accessible(csr) ||
+      !is_supported_rw_csr(csr, self.config.extensions) {
       return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
     }
     self.write_csr_visible(csr, write_value)

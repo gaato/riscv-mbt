@@ -96,11 +96,14 @@ official coverage improve.
   `C.SLLI` shift amounts, and `C.FLDSP f0`. The remaining audit is broader
   reserved/hint behavior beyond those focused cases and the official aggregate
   compressed test.
-- `Zicsr`: CSR decode, privilege checks, `fcsr`/`fflags` views, and explicit
-  read/write suppression for the standard CSR instruction forms are covered by
-  focused execute tests. The remaining audit is a spec pass over WARL behavior,
-  read-only/write-ignored fields, and privilege-visible side effects for every
-  CSR currently exposed by `riscv_decode.mbt`.
+- `Zicsr`: CSR decode, read-side and write-side privilege checks,
+  `fcsr`/`fflags` views, and explicit read/write suppression for the standard
+  CSR instruction forms are covered by focused execute tests. The write-side
+  coverage includes suppressed-read `CSRRW rd=x0` forms, so lower privilege
+  modes cannot write higher-privilege CSRs by avoiding the read. The remaining
+  audit is a spec pass over WARL behavior, read-only/write-ignored fields, and
+  privilege-visible side effects for every CSR currently exposed by
+  `riscv_decode.mbt`.
 - `Zifencei`: `FENCE.I` decodes, flushes the emulator decode cache, official
   `fence_i` rows are in the gating subset, and
   `riscv_execute_test.mbt` now covers same-hart self-modified instruction
@@ -196,3 +199,7 @@ official coverage improve.
   `C.SLLI rd=x0` execute as ignored hints, `C.SLLI` uses the unsigned 6-bit
   RV64 shift amount, and `C.FLDSP` can target valid floating-point register
   `f0`. Focused decode/execute regressions cover each case.
+- Zicsr write-side privilege checks now run even when the instruction form
+  suppresses the CSR read. This closes the `CSRRW rd=x0` hole where a lower
+  privilege mode could otherwise write a higher-privilege CSR because no read
+  was attempted first.

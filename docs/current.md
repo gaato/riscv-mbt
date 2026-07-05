@@ -104,6 +104,12 @@
   RV64 shift amount, and `C.FLDSP` can target valid FP register `f0`. Focused
   regressions cover the decode and execute behavior.
 
+- Zicsr write-side privilege checks now run even when a CSR instruction
+  suppresses the read side. The regression covers `CSRRW rd=x0` from supervisor
+  mode to `mstatus`, preventing lower privilege modes from writing
+  higher-privilege CSRs just because the instruction form avoids reading the old
+  CSR value.
+
 ## Known Blockers
 
 - Local `moon test` now expects build artifacts under `_build/riscv-tests-src/isa`; run `./scripts/build-riscv-tests-official.sh` first if they are missing.
