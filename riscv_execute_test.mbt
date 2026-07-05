@@ -2656,6 +2656,32 @@ test "satp write traps as illegal from supervisor mode when tvm is set" {
 }
 
 ///|
+test "satp write with unsupported mode preserves previous value" {
+  let runner = make_runner(rv64_machine_config())
+  let csr_satp = 0x180
+  let initial = exec_test_sv39_satp(0x123U.to_uint64())
+  let unsupported_sv48 = (9U.to_uint64() << 60) | 0x456U.to_uint64()
+  runner.cpu.write_csr(csr_satp, initial)
+  runner.cpu.write_reg(1, unsupported_sv48)
+  runner.load_program(
+    words_to_bytes([
+      encode_csr(csr_satp, 1, 0x1U, 0),
+      encode_csr(csr_satp, 0, 0x2U, 2),
+    ]),
+    0U,
+  )
+  match runner.run(2) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected unsupported satp mode write to be ignored, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_reg_u64(2), initial)
+  assert_eq(runner.read_csr_u64(csr_satp), initial)
+}
+
+///|
 test "wfi traps as illegal from user mode" {
   let program = words_to_bytes([
     encode_i(20, 0, 0x0U, 5, 0x13U),

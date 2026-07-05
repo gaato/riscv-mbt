@@ -1340,17 +1340,15 @@ fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
     }
     CSR_SATP => {
       // WARL: satp.MODE field. Only mode=0 (Bare) and mode=8 (Sv39) are
-      // supported. If an unsupported mode is written, store mode=0 (Bare)
-      // with PPN=0 instead, so the kernel's mode-probe sequence detects
-      // that the requested mode is not available.
+      // supported. The privileged spec says writes with unsupported MODE have
+      // no effect at all, so preserve the previous address-space selector.
       let mode = (value >> 60) & 0xFU.to_uint64()
-      let stored = if mode == 0U.to_uint64() || mode == 8U.to_uint64() {
-        value
+      if mode == 0U.to_uint64() || mode == 8U.to_uint64() {
+        self.cpu.write_csr(CSR_SATP, value)
+        self.flush_translate_cache()
       } else {
-        0U.to_uint64()
+        ()
       }
-      self.cpu.write_csr(CSR_SATP, stored)
-      self.flush_translate_cache()
     }
     _ => self.cpu.write_csr(csr, value)
   }

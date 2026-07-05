@@ -178,6 +178,8 @@ official coverage improve.
   `mconfigptr` is now exposed as the mandatory read-only machine information
   CSR and returns zero, indicating that this platform has no standard
   configuration data structure and relies on the existing device-tree path.
+  `satp` writes with unsupported MODE values now preserve the previous CSR
+  value, matching the privileged WARL rule that the whole write has no effect.
   `mstatus.MPP` now rejects the reserved privilege encoding 2 at the CSR write
   boundary. The remaining audit is a spec pass over remaining WARL behavior,
   read-only/write-ignored fields, and privilege-visible side effects for every
@@ -450,6 +452,10 @@ official coverage improve.
   S-mode reads and writes raise illegal instruction when `mstatus.TVM` is set,
   including write forms that suppress the old-value read. Focused regressions
   cover both read and write attempts.
+- Unsupported `satp.MODE` writes are now ignored as a whole write. The focused
+  RV64 regression seeds a valid Sv39 `satp`, attempts to write unsupported
+  Sv48 MODE on the current Sv39-only implementation, and verifies the old value
+  is still visible.
 - `WFI` now enforces the modeled privilege/TW legality rule before applying the
   interpreter's CLINT timer fast-forward hint: U-mode raises illegal
   instruction, and S-mode raises illegal instruction when `mstatus.TW` is set.
