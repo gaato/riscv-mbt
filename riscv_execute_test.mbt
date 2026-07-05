@@ -804,6 +804,44 @@ test "rv64fd single sign injection validates nan boxing" {
 }
 
 ///|
+test "rv64fd sign injection preserves nan payloads without flags" {
+  let csr_fcsr = 0x003
+  let runner = make_runner(rv64fd_machine_config())
+  let single_qnan = 0x7fc12345U
+  let single_snan = 0x7fa12345U
+  let double_qnan = 0x7ff8000000012345UL
+  let double_snan = 0x7ff0000000012345UL
+  runner.cpu.write_freg(1, exec_test_nan_box_single(single_qnan))
+  runner.cpu.write_freg(2, exec_test_nan_box_single(0x80000000U))
+  runner.cpu.write_freg(3, exec_test_nan_box_single(single_snan))
+  runner.cpu.write_freg(4, double_qnan)
+  runner.cpu.write_freg(5, 0x8000000000000000UL)
+  runner.cpu.write_freg(6, double_snan)
+  runner.load_program(
+    words_to_bytes([
+      encode_fsgnj_s(1, 2, 10),
+      encode_fsgnjn_s(3, 2, 11),
+      encode_fsgnjx_s(1, 2, 12),
+      encode_fsgnj_d(4, 5, 13),
+      encode_fsgnjn_d(6, 5, 14),
+      encode_fsgnjx_d(4, 5, 15),
+    ]),
+    0U,
+  )
+  match runner.run(6) {
+    Running => ()
+    _ => fail("expected sign-injection nan-payload path to run")
+  }
+  assert_eq(runner.read_freg_u64(10), exec_test_nan_box_single(0xffc12345U))
+  assert_eq(runner.read_freg_u64(11), exec_test_nan_box_single(single_snan))
+  assert_eq(runner.read_freg_u64(12), exec_test_nan_box_single(0xffc12345U))
+  assert_eq(runner.read_freg_u64(13), 0xfff8000000012345UL)
+  assert_eq(runner.read_freg_u64(14), double_snan)
+  assert_eq(runner.read_freg_u64(15), 0xfff8000000012345UL)
+  assert_eq(runner.read_csr(csr_fcsr) & 0x1fU, 0U)
+}
+
+///|
 test "rv64f integer and single conversion paths preserve expected values" {
   let runner = make_runner(rv64f_machine_config())
   runner.cpu.write_reg(1, 42U.to_uint64())

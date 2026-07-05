@@ -356,6 +356,11 @@ official coverage improve.
   still writing a boxed single result. The focused execute regression and the
   official `rv64ud-p-move` binary both cover this path, so `rv64ud/move` is now
   part of the gating manifest.
+- `FSGNJ.S/D`, `FSGNJN.S/D`, and `FSGNJX.S/D` now also have focused
+  regressions for the sign-injection-specific NaN rule: valid quiet and
+  signaling NaN payload bits are preserved, and signaling NaN operands do not
+  accrue `fflags`. This keeps the sign-injection "do not canonicalize NaNs"
+  rule separate from the D-present malformed NaN-box input rule.
 - Single-precision arithmetic now accrues NX when the rounded `Float` result
   differs from the same operation evaluated in `Double` from exactly
   represented single operands. This covers ordinary RNE inexact behavior for

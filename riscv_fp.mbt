@@ -66,8 +66,9 @@ fn Runner::read_freg_single_transfer_bits(self : Runner, rs : Int) -> UInt {
 
 ///|
 fn Runner::read_freg_single_value_bits(self : Runner, rs : Int) -> UInt {
-  // Arithmetic reads validate NaN boxing. A malformed boxed value becomes the
-  // canonical NaN, which is the Linux-practical behavior pinned by tests.
+  // Non-transfer single-precision operations validate NaN boxing when FLEN is
+  // wider than 32 bits. Valid boxes keep their low payload bits unchanged;
+  // malformed boxes are consumed as the architectural single canonical NaN.
   let slot = self.cpu.read_freg(rs)
   if self.fp_has_d() && slot >> 32 != 0xffffffffU.to_uint64() {
     f32_canonical_nan_bits()
@@ -2130,9 +2131,10 @@ fn Runner::execute_fp(
     }
     FSgnjS(rd, rs1, rs2) => {
       let sign_mask = 0x80000000U
-      // FSGNJ.S is a floating-point operation, not an FMV transfer. With D
-      // present it must validate NaN-boxing on both single-precision operands
-      // before selecting magnitude/sign bits, and write a boxed single result.
+      // FSGNJ.S is not a transfer, so D-present single operands still pass
+      // through the NaN-boxing input rule. Once an operand is a valid box,
+      // sign-injection itself only rewrites sign bits: it does not canonicalize
+      // NaN payloads and does not accrue fflags.
       let magnitude = self.read_freg_single_value_bits(rs1) & sign_mask.lnot()
       let sign = self.read_freg_single_value_bits(rs2) & sign_mask
       self.write_freg_single_bits(rd, magnitude | sign)
