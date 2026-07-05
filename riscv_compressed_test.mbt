@@ -965,15 +965,17 @@ test "rv64c addi nop and li hint forms execute as no-ops" {
       (2, encode_c_addi(0, 0).reinterpret_as_uint()),
       (2, encode_c_addi(0, 7).reinterpret_as_uint()),
       (2, encode_c_addi(5, 0).reinterpret_as_uint()),
+      (2, encode_c_li(0, 0).reinterpret_as_uint()),
+      (2, encode_c_li(0, 31).reinterpret_as_uint()),
       (2, encode_c_li(0, -1).reinterpret_as_uint()),
     ]),
     0U,
   )
-  match runner.run(4) {
+  match runner.run(6) {
     Running => ()
     _ => fail("expected compressed immediate hints to execute as no-ops")
   }
-  assert_eq(runner.pc_u64(), 8U.to_uint64())
+  assert_eq(runner.pc_u64(), 12U.to_uint64())
   assert_eq(runner.read_reg_u64(0), 0U.to_uint64())
   assert_eq(runner.read_reg_u64(5), 0x55U.to_uint64())
 }

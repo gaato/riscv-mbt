@@ -208,7 +208,8 @@ official coverage improve.
   sign-extended stack-pointer adjustments, beyond the zero-immediate reserved
   case.
   Immediate-form HINT coverage now pins canonical `C.NOP`, nonzero `C.NOP`
-  hint encodings, zero-immediate `C.ADDI rd!=x0`, and `C.LI rd=x0` as no-ops.
+  hint encodings, zero-immediate `C.ADDI rd!=x0`, and zero/positive/negative
+  `C.LI rd=x0` forms as no-ops.
   Zero-shift HINT coverage now pins `C.SLLI`, `C.SRLI`, and `C.SRAI` with
   `shamt=0` as no-ops, including the combined `C.SLLI rd=x0, shamt=0`
   encoding.
@@ -660,8 +661,8 @@ official coverage improve.
   `C.LDSP rd=x0` illegal while leaving neighboring stack stores from `x0`
   legal.
 - RV64C immediate-form HINT coverage now executes canonical `C.NOP`, nonzero
-  `C.NOP` hint encodings, zero-immediate `C.ADDI rd!=x0`, and `C.LI rd=x0`
-  as no-ops.
+  `C.NOP` hint encodings, zero-immediate `C.ADDI rd!=x0`, and
+  zero/positive/negative `C.LI rd=x0` forms as no-ops.
 - RV64C zero-shift HINT coverage now executes `C.SLLI shamt=0`,
   `C.SRLI shamt=0`, and `C.SRAI shamt=0` as no-ops, including the
   overlapping `C.SLLI rd=x0, shamt=0` hint spelling.
