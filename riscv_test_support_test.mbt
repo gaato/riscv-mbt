@@ -1177,6 +1177,11 @@ fn encode_fmv_x_w(rs1 : Int, rd : Int) -> UInt {
 }
 
 ///|
+fn encode_fclass_s(rs1 : Int, rd : Int) -> UInt {
+  encode_fp_r(0x70U, 0, rs1, 0x1U, rd)
+}
+
+///|
 fn encode_fmv_w_x(rs1 : Int, rd : Int) -> UInt {
   encode_fp_r(0x78U, 0, rs1, 0x0U, rd)
 }
@@ -1184,6 +1189,11 @@ fn encode_fmv_w_x(rs1 : Int, rd : Int) -> UInt {
 ///|
 fn encode_fmv_x_d(rs1 : Int, rd : Int) -> UInt {
   encode_fp_r(0x71U, 0, rs1, 0x0U, rd)
+}
+
+///|
+fn encode_fclass_d(rs1 : Int, rd : Int) -> UInt {
+  encode_fp_r(0x71U, 0, rs1, 0x1U, rd)
 }
 
 ///|

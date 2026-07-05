@@ -978,6 +978,91 @@ test "rv64fd double sign injection preserves magnitude bits" {
 }
 
 ///|
+test "rv64fd fclass.s writes one class bit" {
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, exec_test_nan_box_single(0xff800000U))
+  runner.cpu.write_freg(2, exec_test_nan_box_single(0x80000001U))
+  runner.cpu.write_freg(3, exec_test_nan_box_single(0x80000000U))
+  runner.cpu.write_freg(4, exec_test_nan_box_single(0x00000000U))
+  runner.cpu.write_freg(5, exec_test_nan_box_single(0x00000001U))
+  runner.cpu.write_freg(6, exec_test_nan_box_single(exec_test_f32_bits(1.0)))
+  runner.cpu.write_freg(7, exec_test_nan_box_single(0x7f800000U))
+  runner.cpu.write_freg(8, exec_test_nan_box_single(0x7f800001U))
+  runner.cpu.write_freg(9, exec_test_nan_box_single(0x7fc00000U))
+  runner.cpu.write_freg(10, 0x000000003f800000UL)
+  runner.load_program(
+    words_to_bytes([
+      encode_fclass_s(1, 11),
+      encode_fclass_s(2, 12),
+      encode_fclass_s(3, 13),
+      encode_fclass_s(4, 14),
+      encode_fclass_s(5, 15),
+      encode_fclass_s(6, 16),
+      encode_fclass_s(7, 17),
+      encode_fclass_s(8, 18),
+      encode_fclass_s(9, 19),
+      encode_fclass_s(10, 20),
+    ]),
+    0U,
+  )
+  match runner.run(10) {
+    Running => ()
+    _ => fail("expected rv64fd fclass.s path to run")
+  }
+  assert_eq(runner.read_reg_u64(11), 0x001U.to_uint64())
+  assert_eq(runner.read_reg_u64(12), 0x004U.to_uint64())
+  assert_eq(runner.read_reg_u64(13), 0x008U.to_uint64())
+  assert_eq(runner.read_reg_u64(14), 0x010U.to_uint64())
+  assert_eq(runner.read_reg_u64(15), 0x020U.to_uint64())
+  assert_eq(runner.read_reg_u64(16), 0x040U.to_uint64())
+  assert_eq(runner.read_reg_u64(17), 0x080U.to_uint64())
+  assert_eq(runner.read_reg_u64(18), 0x100U.to_uint64())
+  assert_eq(runner.read_reg_u64(19), 0x200U.to_uint64())
+  assert_eq(runner.read_reg_u64(20), 0x200U.to_uint64())
+}
+
+///|
+test "rv64fd fclass.d writes one class bit" {
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, 0xfff0000000000000UL)
+  runner.cpu.write_freg(2, 0x8000000000000001UL)
+  runner.cpu.write_freg(3, 0x8000000000000000UL)
+  runner.cpu.write_freg(4, 0x0000000000000000UL)
+  runner.cpu.write_freg(5, 0x0000000000000001UL)
+  runner.cpu.write_freg(6, exec_test_f64_bits(1.0))
+  runner.cpu.write_freg(7, 0x7ff0000000000000UL)
+  runner.cpu.write_freg(8, 0x7ff0000000000001UL)
+  runner.cpu.write_freg(9, 0x7ff8000000000000UL)
+  runner.load_program(
+    words_to_bytes([
+      encode_fclass_d(1, 11),
+      encode_fclass_d(2, 12),
+      encode_fclass_d(3, 13),
+      encode_fclass_d(4, 14),
+      encode_fclass_d(5, 15),
+      encode_fclass_d(6, 16),
+      encode_fclass_d(7, 17),
+      encode_fclass_d(8, 18),
+      encode_fclass_d(9, 19),
+    ]),
+    0U,
+  )
+  match runner.run(9) {
+    Running => ()
+    _ => fail("expected rv64fd fclass.d path to run")
+  }
+  assert_eq(runner.read_reg_u64(11), 0x001U.to_uint64())
+  assert_eq(runner.read_reg_u64(12), 0x004U.to_uint64())
+  assert_eq(runner.read_reg_u64(13), 0x008U.to_uint64())
+  assert_eq(runner.read_reg_u64(14), 0x010U.to_uint64())
+  assert_eq(runner.read_reg_u64(15), 0x020U.to_uint64())
+  assert_eq(runner.read_reg_u64(16), 0x040U.to_uint64())
+  assert_eq(runner.read_reg_u64(17), 0x080U.to_uint64())
+  assert_eq(runner.read_reg_u64(18), 0x100U.to_uint64())
+  assert_eq(runner.read_reg_u64(19), 0x200U.to_uint64())
+}
+
+///|
 test "rv64fd double to signed word conversion uses rtz" {
   let runner = make_runner(rv64fd_machine_config())
   runner.cpu.write_freg(1, exec_test_f64_bits(4.75))

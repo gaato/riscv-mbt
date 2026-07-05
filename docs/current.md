@@ -76,7 +76,15 @@
 
 - The first console-path exercise, `printf ':stats\n:quit\n' | moon run --target native cmd/alpine_probe xlong --interactive-console --interactive-command-step-budget 1000000`, reaches `interactive console ready` at 558,000,000 guest steps and exits cleanly with `outcome=interactive-console-quit`, `interactive_console=true`, and the auto-root/post-init markers present.
 
-- RV64 F/D float-to-integer conversions now honor RNE, RTZ, RDN, RUP, RMM, and valid dynamic `frm` for `fcvt.{w,wu,l,lu}.{s,d}`. This is emulator-body hardening for the ordinary C floating-point paths that Alpine userspace can exercise; `fflags`, signaling-NaN, and exact invalid/overflow flag behavior remain later spec-compliance work.
+- RV64 F/D hardening is currently focused on closing the RV64GC baseline
+  (`RV64IMAFDC_Zicsr_Zifencei`) before returning to optional RVV backlog.
+  Float-to-integer conversions now honor RNE, RTZ, RDN, RUP, RMM, and valid
+  dynamic `frm` for `fcvt.{w,wu,l,lu}.{s,d}`, and `FCLASS.S`/`FCLASS.D` now
+  decode and execute the architectural 10-bit classification mask for zero,
+  subnormal, normal, infinity, signaling-NaN, and quiet-NaN values. This is
+  emulator-body hardening for the ordinary C floating-point paths that Alpine
+  userspace can exercise; `fflags` and exact invalid/overflow flag behavior
+  remain later spec-compliance work.
 
 ## Known Blockers
 

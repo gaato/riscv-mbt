@@ -992,6 +992,7 @@ fn instruction_supported_for_current_config(
     FLeS(_, _, _) => has_f
     FLtS(_, _, _) => has_f
     FEqS(_, _, _) => has_f
+    FClassS(_, _) => has_f
     FAddD(_, _, _, _) => has_d
     FSubD(_, _, _, _) => has_d
     FMulD(_, _, _, _) => has_d
@@ -1005,6 +1006,7 @@ fn instruction_supported_for_current_config(
     FLeD(_, _, _) => has_d
     FLtD(_, _, _) => has_d
     FEqD(_, _, _) => has_d
+    FClassD(_, _) => has_d
     FmvXW(_, _) => has_f
     FmvWX(_, _) => has_f
     FmvXD(_, _) => has_d && xlen == XLEN_64
@@ -1729,14 +1731,22 @@ pub fn decode(raw : UInt) -> Instruction {
             _ => Unknown(raw)
           }
         0x70U =>
-          if rs2(raw) == 0 && funct3(raw) == 0x0U {
-            FmvXW(rd(raw), rs1(raw))
+          if rs2(raw) == 0 {
+            match funct3(raw) {
+              0x0U => FmvXW(rd(raw), rs1(raw))
+              0x1U => FClassS(rd(raw), rs1(raw))
+              _ => Unknown(raw)
+            }
           } else {
             Unknown(raw)
           }
         0x71U =>
-          if rs2(raw) == 0 && funct3(raw) == 0x0U {
-            FmvXD(rd(raw), rs1(raw))
+          if rs2(raw) == 0 {
+            match funct3(raw) {
+              0x0U => FmvXD(rd(raw), rs1(raw))
+              0x1U => FClassD(rd(raw), rs1(raw))
+              _ => Unknown(raw)
+            }
           } else {
             Unknown(raw)
           }

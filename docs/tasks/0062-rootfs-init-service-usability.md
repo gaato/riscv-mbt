@@ -339,3 +339,10 @@ but it is not the same as a more ordinary Alpine service environment.
   floating-point surface exposed by BusyBox/Alpine userspace. Full `fflags`,
   signaling-NaN, and invalid/overflow flag precision remain separate
   spec-compliance work.
+- The same RV64GC body-side pass added `FCLASS.S` and `FCLASS.D`. Decode now
+  accepts the `funct7=0x70/0x71`, `rs2=0`, `funct3=1` encodings, execute writes
+  the architectural 10-bit class mask to the integer destination register, and
+  focused regressions cover negative infinity, subnormal, signed zero, positive
+  normal, positive infinity, signaling NaN, quiet NaN, and the D-present
+  single-precision NaN-boxing path. No Alpine probe was rerun for this slice;
+  this is a direct RV64GC emulator-body closure.

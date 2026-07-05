@@ -134,6 +134,79 @@ fn f64_bits_from_host(value : Double) -> UInt64 {
 }
 
 ///|
+fn f32_class_mask(bits : UInt) -> UInt64 {
+  // FCLASS returns exactly one class bit and never updates fflags.
+  let sign = (bits & 0x80000000U) != 0U
+  let exponent = bits & 0x7f800000U
+  let fraction = bits & 0x007fffffU
+  if exponent == 0x7f800000U {
+    if fraction == 0U {
+      if sign {
+        0x001U.to_uint64()
+      } else {
+        0x080U.to_uint64()
+      }
+    } else if (fraction & 0x00400000U) == 0U {
+      0x100U.to_uint64()
+    } else {
+      0x200U.to_uint64()
+    }
+  } else if exponent == 0U {
+    if fraction == 0U {
+      if sign {
+        0x008U.to_uint64()
+      } else {
+        0x010U.to_uint64()
+      }
+    } else if sign {
+      0x004U.to_uint64()
+    } else {
+      0x020U.to_uint64()
+    }
+  } else if sign {
+    0x002U.to_uint64()
+  } else {
+    0x040U.to_uint64()
+  }
+}
+
+///|
+fn f64_class_mask(bits : UInt64) -> UInt64 {
+  let sign = (bits & (1U.to_uint64() << 63)) != 0U.to_uint64()
+  let exponent = bits & (0x7ffU.to_uint64() << 52)
+  let fraction = bits & ((1U.to_uint64() << 52) - 1U.to_uint64())
+  if exponent == 0x7ffU.to_uint64() << 52 {
+    if fraction == 0U.to_uint64() {
+      if sign {
+        0x001U.to_uint64()
+      } else {
+        0x080U.to_uint64()
+      }
+    } else if (fraction & (1U.to_uint64() << 51)) == 0U.to_uint64() {
+      0x100U.to_uint64()
+    } else {
+      0x200U.to_uint64()
+    }
+  } else if exponent == 0U.to_uint64() {
+    if fraction == 0U.to_uint64() {
+      if sign {
+        0x008U.to_uint64()
+      } else {
+        0x010U.to_uint64()
+      }
+    } else if sign {
+      0x004U.to_uint64()
+    } else {
+      0x020U.to_uint64()
+    }
+  } else if sign {
+    0x002U.to_uint64()
+  } else {
+    0x040U.to_uint64()
+  }
+}
+
+///|
 fn f32_min_bits(lhs : UInt, rhs : UInt) -> UInt {
   // FMIN/FMAX have special zero and NaN rules that ordinary host min/max do
   // not express. Keep the bit-level cases explicit instead of delegating.
@@ -509,6 +582,14 @@ fn Runner::execute_fp(
       self.cpu.pc = next_pc
       Running
     }
+    FClassS(rd, rs1) => {
+      self.write_xlen_reg(
+        rd,
+        f32_class_mask(self.read_freg_single_value_bits(rs1)),
+      )
+      self.cpu.pc = next_pc
+      Running
+    }
     FAddD(rd, rs1, rs2, rm) => {
       if !self.fp_rounding_mode_supported(rm) {
         return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
@@ -656,6 +737,11 @@ fn Runner::execute_fp(
         0U.to_uint64()
       }
       self.write_xlen_reg(rd, result)
+      self.cpu.pc = next_pc
+      Running
+    }
+    FClassD(rd, rs1) => {
+      self.write_xlen_reg(rd, f64_class_mask(self.read_freg_double_bits(rs1)))
       self.cpu.pc = next_pc
       Running
     }

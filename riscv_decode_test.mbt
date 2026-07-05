@@ -162,6 +162,13 @@ test "decode scalar f instructions" {
     }
     _ => fail("expected fmv.x.w")
   }
+  match decode(encode_fclass_s(9, 10)) {
+    FClassS(rd, rs1) => {
+      assert_eq(rd, 10)
+      assert_eq(rs1, 9)
+    }
+    _ => fail("expected fclass.s")
+  }
   match decode(encode_fmv_w_x(11, 12)) {
     FmvWX(rd, rs1) => {
       assert_eq(rd, 12)
@@ -324,6 +331,13 @@ test "decode scalar d instructions" {
       assert_eq(rs1, 9)
     }
     _ => fail("expected fmv.x.d")
+  }
+  match decode(encode_fclass_d(9, 10)) {
+    FClassD(rd, rs1) => {
+      assert_eq(rd, 10)
+      assert_eq(rs1, 9)
+    }
+    _ => fail("expected fclass.d")
   }
   match decode(encode_fmv_d_x(11, 12)) {
     FmvDX(rd, rs1) => {
