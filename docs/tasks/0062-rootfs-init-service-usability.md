@@ -238,3 +238,10 @@ but it is not the same as a more ordinary Alpine service environment.
   `cmd1:start=558000000,marker=576000000,duration=18000000; cmd2:start=576000000,marker=585000000,duration=9000000; cmd3:start=585000000,marker=601000000,duration=16000000`,
   with the same post-init virtio delta shape as before:
   `0 read-req/0 read-bytes` and `65 write-req/66560 write-bytes`.
+- Virtio-blk external interrupt delivery now has an explicit RV64 execution
+  regression through the platform PLIC path. The test marks the virtio-blk
+  interrupt-status bit pending, enables PLIC source 1 for the S-mode context,
+  returns to S-mode with `mret`, and verifies that the pending external
+  interrupt reaches the S-mode handler before the interrupted body instruction
+  executes. This complements the synthetic `SIP.SEIP` regression and covers the
+  device/PLIC reflection that the full-rootfs virtio-blk path depends on.

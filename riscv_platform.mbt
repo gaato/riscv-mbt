@@ -212,7 +212,9 @@ fn Runner::uart_write(self : Runner, off : UInt64, value : UInt64) -> Unit {
 }
 
 // ---------------------------------------------------------------------------
-// PLIC register read/write (flat register file, claim always returns 0)
+// PLIC register read/write. Claim is synthesized from live UART and virtio-blk
+// state; priority, enable, and threshold registers live in the flat register
+// file below.
 // Layout: priority 0x000000, pending 0x001000, enable 0x002000,
 //         threshold 0x200000+ctx*0x1000, claim 0x200004+ctx*0x1000
 // ---------------------------------------------------------------------------

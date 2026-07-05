@@ -1494,6 +1494,44 @@ test "delegated supervisor external interrupt traps to stvec from supervisor mod
 }
 
 ///|
+test "virtio-blk plic external interrupt traps to supervisor mode" {
+  let runner = make_runner(virtio_blk_machine_config())
+  let base = 0x80000000U.to_uint64()
+  runner.cpu.write_csr(0x105, base + 8U.to_uint64())
+  runner.cpu.write_csr(0x303, 512U.to_uint64())
+  runner.cpu.write_csr(0x304, 512U.to_uint64())
+  runner.cpu.write_csr(0x300, 0x802U.to_uint64())
+  runner.cpu.write_csr(0x341, base + 4U.to_uint64())
+  runner.plic_regs[4] = 1U.to_byte()
+  runner.plic_regs[0x2080] = 2U.to_byte()
+  runner.virtio_blk_state[6] = 1U.to_uint64()
+  runner.load_program_u64(
+    words_to_bytes([
+      encode_mret(),
+      encode_i(99, 0, 0x0U, 10, 0x13U),
+      encode_csr(0x142, 0, 0x2U, 7),
+      encode_i(1, 0, 0x0U, 8, 0x13U),
+    ]),
+    base,
+  )
+  let expected_scause = (1U.to_uint64() << 63) | 9U.to_uint64()
+  match runner.run(4) {
+    Running => ()
+    _ => fail("expected virtio-blk PLIC external handler to run")
+  }
+  assert_eq(runner.read_csr_u64(0x141), base + 4U.to_uint64())
+  assert_eq(runner.read_csr_u64(0x142), expected_scause)
+  assert_eq(runner.read_reg_u64(7), expected_scause)
+  assert_eq(runner.read_reg_u64(8), 1U.to_uint64())
+  assert_eq(runner.read_reg_u64(10), 0U.to_uint64())
+  assert_eq(runner.cpu.pc, base + 16U.to_uint64())
+  match runner.privilege_mode() {
+    Supervisor => ()
+    _ => fail("expected supervisor mode in virtio-blk external handler")
+  }
+}
+
+///|
 test "sret restores user mode from delegated supervisor trap and resumes at sepc" {
   let program = words_to_bytes([
     encode_i(33, 0, 0x0U, 6, 0x13U),
