@@ -211,6 +211,10 @@ official coverage improve.
   RV64C CA funct2 slots.
   The permanently illegal all-ones halfword is now treated as a 16-bit illegal
   sentinel instead of being widened into an ordinary 32-bit fetch.
+  Compressed `C.J`, `C.BEQZ`, and `C.BNEZ` control transfers now have focused
+  RV64C coverage for taken targets at halfword-only addresses, preserving the
+  C extension's IALIGN=16 contract rather than treating those targets as
+  misaligned.
   `C.ADD rd=x0, rs2!=x0` forms now execute as
   ignored hints, including the `rs2=x2..x5` compressed Zihintntl non-temporal
   locality hint subrange. CR-format coverage now also pins `C.MV rd=x0,
@@ -333,7 +337,8 @@ official coverage improve.
 - Control-flow execution now checks taken branch, `JAL`, and `JALR` targets
   against the active profile's IALIGN. Non-C profiles raise
   instruction-address-misaligned on 2-byte-only targets and report the branch or
-  jump as the faulting PC; RV64GC with C keeps those targets legal. Jump-link
+  jump as the faulting PC; RV64GC with C keeps those targets legal, including
+  taken compressed `C.J`, `C.BEQZ`, and `C.BNEZ` halfword targets. Jump-link
   writeback is ordered after that target check, preserving the non-retirement
   side-effect rule for misaligned `JAL`/`JALR` traps. `JALR` now also has
   focused coverage that the computed `rs1 + imm` target clears bit 0 before

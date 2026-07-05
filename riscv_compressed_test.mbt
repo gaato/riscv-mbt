@@ -357,6 +357,70 @@ test "compressed jumps and branches cross mixed-width boundaries correctly" {
 }
 
 ///|
+test "rv64c compressed control transfers allow halfword targets" {
+  // RVC control-transfer immediates are scaled in 2-byte units. Under IALIGN=16
+  // a taken C.J/C.B* target at pc % 4 == 2 is a normal target, not an
+  // instruction-address-misaligned trap.
+  let jump = make_runner(rv64_machine_config())
+  jump.load_program(
+    mixed_program_bytes([
+      (2, encode_c_j(6).reinterpret_as_uint()),
+      (2, encode_c_li(8, 31).reinterpret_as_uint()),
+      (2, encode_c_li(9, 31).reinterpret_as_uint()),
+      (2, encode_c_li(10, 1).reinterpret_as_uint()),
+    ]),
+    0U,
+  )
+  match jump.run(2) {
+    Running => ()
+    _ => fail("expected c.j to a halfword target to run")
+  }
+  assert_eq(jump.read_reg_u64(8), 0U.to_uint64())
+  assert_eq(jump.read_reg_u64(9), 0U.to_uint64())
+  assert_eq(jump.read_reg_u64(10), 1U.to_uint64())
+  assert_eq(jump.pc_u64(), 8U.to_uint64())
+
+  let branch_eq = make_runner(rv64_machine_config())
+  branch_eq.load_program(
+    mixed_program_bytes([
+      (2, encode_c_beqz(8, 6).reinterpret_as_uint()),
+      (2, encode_c_li(9, 31).reinterpret_as_uint()),
+      (2, encode_c_li(10, 31).reinterpret_as_uint()),
+      (2, encode_c_li(11, 1).reinterpret_as_uint()),
+    ]),
+    0U,
+  )
+  match branch_eq.run(2) {
+    Running => ()
+    _ => fail("expected c.beqz to a halfword target to run")
+  }
+  assert_eq(branch_eq.read_reg_u64(9), 0U.to_uint64())
+  assert_eq(branch_eq.read_reg_u64(10), 0U.to_uint64())
+  assert_eq(branch_eq.read_reg_u64(11), 1U.to_uint64())
+  assert_eq(branch_eq.pc_u64(), 8U.to_uint64())
+
+  let branch_ne = make_runner(rv64_machine_config())
+  branch_ne.cpu.write_reg(8, 1U.to_uint64())
+  branch_ne.load_program(
+    mixed_program_bytes([
+      (2, encode_c_bnez(8, 6).reinterpret_as_uint()),
+      (2, encode_c_li(9, 31).reinterpret_as_uint()),
+      (2, encode_c_li(10, 31).reinterpret_as_uint()),
+      (2, encode_c_li(12, 1).reinterpret_as_uint()),
+    ]),
+    0U,
+  )
+  match branch_ne.run(2) {
+    Running => ()
+    _ => fail("expected c.bnez to a halfword target to run")
+  }
+  assert_eq(branch_ne.read_reg_u64(9), 0U.to_uint64())
+  assert_eq(branch_ne.read_reg_u64(10), 0U.to_uint64())
+  assert_eq(branch_ne.read_reg_u64(12), 1U.to_uint64())
+  assert_eq(branch_ne.pc_u64(), 8U.to_uint64())
+}
+
+///|
 test "compressed load and store reuse the normal memory execute path" {
   let runner = make_runner(default_machine_config())
   runner.load_program(
