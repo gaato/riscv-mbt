@@ -2048,10 +2048,10 @@ fn decode_c_q2(raw : UInt, xlen : Int) -> Instruction {
   match c_funct3(raw) {
     0x0U => {
       let rd = c_rd_rs1(raw)
-      if rd == 0 {
-        Addi(0, 0, 0)
-      } else if xlen == XLEN_32 && ((raw >> 12) & 0x1U) != 0U {
+      if xlen == XLEN_32 && ((raw >> 12) & 0x1U) != 0U {
         Unknown(raw)
+      } else if rd == 0 {
+        Addi(0, 0, 0)
       } else {
         Slli(rd, rd, c_shamt6(raw))
       }

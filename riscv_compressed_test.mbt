@@ -525,7 +525,12 @@ test "rv64c slli uses six bit unsigned shift amount" {
 
 ///|
 test "rv32c compressed shifts reserve high shamt bit" {
-  let cases = [encode_c_slli(9, 32), encode_c_srli(9, 32), encode_c_srai(9, 32)]
+  let cases = [
+    encode_c_slli(0, 32),
+    encode_c_slli(9, 32),
+    encode_c_srli(9, 32),
+    encode_c_srai(9, 32),
+  ]
   for raw in cases {
     let runner = make_runner(default_machine_config())
     runner.load_program(

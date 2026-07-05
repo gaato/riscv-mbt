@@ -157,8 +157,9 @@
   `C.ADDIW rd=x0` is rejected as reserved on RV64C, `C.LUI rd=x0` and
   `C.SLLI rd=x0` execute as ignored hints, `C.SLLI` uses the unsigned 6-bit
   RV64 shift amount, and `C.FLDSP` can target valid FP register `f0`. RV32C
-  now rejects `C.SLLI`, `C.SRLI`, and `C.SRAI` forms with `shamt[5]=1` because
-  those code points are reserved for custom extensions in the 32-bit profile.
+  now rejects `C.SLLI`, `C.SRLI`, and `C.SRAI` forms with `shamt[5]=1`,
+  including `C.SLLI rd=x0`, because those code points are reserved for custom
+  extensions in the 32-bit profile.
   `C.ADD rd=x0, rs2!=x0` forms now execute as ignored hints, including the
   `rs2=x2..x5` compressed Zihintntl non-temporal locality hint subrange.
   Focused regressions cover the decode and execute behavior. Post-decode
