@@ -142,6 +142,8 @@
 - `WFI` now enforces the modeled privilege/TW legality rule before using the
   existing CLINT timer fast-forward: U-mode traps, and S-mode traps when
   `mstatus.TW` is set.
+- `sstatus` now exposes and writes the shared `mstatus.FS` field, matching the
+  RV64GC F/D context-status path used by supervisor software.
 
 ## Known Blockers
 

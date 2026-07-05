@@ -863,7 +863,10 @@ const MSTATUS_MPP_SHIFT : Int = 11
 const MSTATUS_MPP_MASK : UInt = 0x1800U
 
 ///|
-const SSTATUS_VISIBLE_MASK : UInt = 0xC0122U
+const MSTATUS_FS_MASK : UInt = 0x6000U
+
+///|
+const SSTATUS_VISIBLE_MASK : UInt = 0xC0122U | MSTATUS_FS_MASK
 // SIP/SIE visible mask: SSIP(bit 1) | STIP(bit 5) | SEIP(bit 9)
 
 ///|

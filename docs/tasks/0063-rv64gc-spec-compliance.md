@@ -332,3 +332,6 @@ official coverage improve.
   interpreter's CLINT timer fast-forward hint: U-mode raises illegal
   instruction, and S-mode raises illegal instruction when `mstatus.TW` is set.
   Legal WFI keeps the existing timer fast-forward behavior.
+- `sstatus` now exposes and writes the shared `mstatus.FS` field. This keeps
+  the RV64GC F/D context-status control path visible through the supervisor
+  status CSR instead of only through machine `mstatus`.

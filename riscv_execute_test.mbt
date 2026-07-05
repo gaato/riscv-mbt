@@ -2807,6 +2807,27 @@ test "sstatus exposes and writes SUM and MXR bits through the alias mask" {
 }
 
 ///|
+test "sstatus exposes and writes FS bits through the alias mask" {
+  let program = words_to_bytes([
+    encode_i(3, 0, 0x0U, 1, 0x13U),
+    encode_i(13, 1, 0x1U, 1, 0x13U),
+    encode_csr(0x100, 1, 0x1U, 0),
+    encode_csr(0x100, 0, 0x2U, 2),
+    encode_csr(0x300, 0, 0x2U, 3),
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(5) {
+    Running => ()
+    _ => fail("expected sstatus FS aliasing program to run")
+  }
+  assert_eq(runner.read_reg(2), 0x6000U)
+  assert_eq(runner.read_reg(3), 0x6000U)
+  assert_eq(runner.read_csr(0x100), 0x6000U)
+  assert_eq(runner.read_csr(0x300), 0x6000U)
+}
+
+///|
 test "delegated user ecall traps to stvec with supervisor trap state" {
   let program = words_to_bytes([
     encode_i(33, 0, 0x0U, 6, 0x13U),
