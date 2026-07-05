@@ -5032,6 +5032,37 @@ test "mcountinhibit gates cycle and instret but not time" {
 }
 
 ///|
+test "synchronous traps do not retire into instret" {
+  let instret = 0xC02
+  let runner = make_runner(virt_machine_config())
+  runner.load_program_u64(
+    words_to_bytes([
+      encode_i(1, 0, 0x0U, 1, 0x13U),
+      0xffffffffU, // Unknown 32-bit instruction: traps before retirement.
+    ]),
+    0x80000000U.to_uint64(),
+  )
+  match runner.step() {
+    Running => ()
+    _ => fail("expected first instruction to retire")
+  }
+  assert_eq(runner.read_csr_u64(instret), 1U.to_uint64())
+  match runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction trap")
+      }
+      assert_eq(info.trap_value, 0xffffffffU.to_uint64())
+    }
+    _ => fail("expected illegal instruction trap")
+  }
+  // minstret counts retired instructions only; the trapping instruction updates
+  // trap CSRs and control flow, but it does not itself retire.
+  assert_eq(runner.read_csr_u64(instret), 1U.to_uint64())
+}
+
+///|
 test "machine counter csrs back unprivileged counter shadows" {
   let mcountinhibit = 0x320
   let mcycle = 0xB00

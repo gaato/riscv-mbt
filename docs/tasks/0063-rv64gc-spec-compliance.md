@@ -239,7 +239,8 @@ official coverage improve.
   no HPM counters are modeled, and `time` continues to reflect CLINT `mtime`
   because the privileged spec excludes `mtime` from mcountinhibit. The
   unprivileged `cycle` and `instret` CSRs now shadow writable machine `mcycle`
-  and `minstret` state instead of aliasing CLINT `mtime`.
+  and `minstret` state instead of aliasing CLINT `mtime`; focused coverage also
+  pins that synchronous traps do not retire into `instret`.
   RV32-only high-half counter CSRs are now filtered by the shared CSR support
   classifier on RV64: `cycleh`, `timeh`, `instreth`, `mcycleh`, and
   `minstreth` are readable where modeled for RV32 but absent from the RV64GC
@@ -614,7 +615,9 @@ official coverage improve.
 - `mcountinhibit` is now modeled for the base architectural counters. Focused
   coverage writes all ones, verifies only CY/IR read back, proves inhibited
   `cycle` and `instret` stay stable, proves `time` still advances, and verifies
-  writable `mcycle`/`minstret` back the unprivileged counter shadows.
+  writable `mcycle`/`minstret` back the unprivileged counter shadows. A separate
+  regression verifies that an illegal-instruction synchronous trap updates trap
+  state without incrementing `instret`.
 - RV32-only high-half counter CSR legality is now centralized in the CSR
   support classifier. Focused coverage keeps `cycleh`, `timeh`, and `instreth`
   readable on RV32, and verifies `cycleh`, `timeh`, `instreth`, `mcycleh`, and
