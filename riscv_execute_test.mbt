@@ -1848,6 +1848,23 @@ test "rv64fd fcvt.d.s accepts legal unaffected rounding modes" {
 }
 
 ///|
+test "rv64fd fcvt.d.s accrues invalid for signaling nan" {
+  let runner = make_runner(rv64fd_machine_config())
+  let csr_fcsr = 0x003
+  runner.cpu.write_freg(1, exec_test_nan_box_single(0x7f800001U))
+  runner.load_program(words_to_bytes([encode_fcvt_d_s(1, 0x0U, 2)]), 0U)
+  match runner.run(1) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected signaling-nan fcvt.d.s to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_freg_u64(2), exec_test_f64_canonical_nan_bits())
+  assert_eq(runner.read_csr(csr_fcsr) & 0x10U, 0x10U)
+}
+
+///|
 test "rv64fd fcvt.d.s rejects reserved static rounding modes" {
   let runner = make_runner(rv64fd_machine_config())
   let raw = encode_fcvt_d_s(1, 0x5U, 2)

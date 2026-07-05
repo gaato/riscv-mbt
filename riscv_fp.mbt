@@ -2527,12 +2527,17 @@ fn Runner::execute_fp(
       Running
     }
     FCvtDS(rd, rs1, rm) => {
-      // FCVT.D.S widens exactly and never rounds, but the F/D specs still
-      // require normal rm legality checks for static and dynamic encodings.
+      // FCVT.D.S widens finite values exactly and never rounds. It is still a
+      // floating-point operation: reserved rm encodings trap, and signaling
+      // single-precision NaNs accrue NV before producing the canonical NaN.
       if !self.fp_rounding_mode_legal(rm) {
         return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
       }
-      let result = f32_from_bits(self.read_freg_single_value_bits(rs1)).to_double()
+      let bits = self.read_freg_single_value_bits(rs1)
+      if f32_is_signaling_nan_bits(bits) {
+        self.set_fflags(fp_fflag_nv)
+      }
+      let result = f32_from_bits(bits).to_double()
       self.write_freg_double_bits(rd, f64_bits_from_host(result))
       self.cpu.pc = next_pc
       Running

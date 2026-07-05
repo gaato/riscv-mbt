@@ -96,10 +96,9 @@ official coverage improve.
   exact-rational double-precision NX checks. Machine profiles now canonicalize
   the architectural dependency that `D` implies `F`, so white-box configs cannot
   expose or execute an impossible `misa.D`-without-`misa.F` profile. The
-  remaining strict-spec gaps are
-  broader than the current official rows: non-RNE arithmetic, deeper
-  fused-rounding audits, and exception-flag corner cases beyond the current
-  `riscv-tests` surface.
+  remaining strict-spec gaps are broader than the current official rows:
+  deeper fused-rounding audits and exception-flag corner cases beyond the
+  current `riscv-tests` surface.
 - `A`: `riscv_decode.mbt` rejects reserved AMO operations and reserved
   `LR.W`/`LR.D` encodings with nonzero `rs2`, gates AMO execution on `MISA.A`,
   and accepts `aq`/`rl` encodings for the current single-hart interpreter.
@@ -340,6 +339,8 @@ official coverage improve.
   while reserved static `rm=101/110` and dynamic `rm=111` with reserved `frm`
   trap as illegal instructions. This follows the F/D spec rule that unaffected
   rounding-mode fields still participate in legal-vs-reserved encoding checks.
+  `FCVT.D.S` also accrues NV for signaling single-precision NaNs before writing
+  the canonical double-precision NaN result.
 - `FCVT.D.W` and `FCVT.D.WU` now use the same legal-vs-reserved `rm` check
   instead of the current RNE-only rounded-arithmetic support gate. Signed and
   unsigned 32-bit integer inputs are exactly representable in double precision,

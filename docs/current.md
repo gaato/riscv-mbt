@@ -107,7 +107,9 @@
   `FCVT.D.S` and exact
   RV32-width-to-double `FCVT.D.W[U]` now validate the otherwise unaffected `rm`
   field for legal/reserved static and dynamic encodings, so legal non-RNE forms
-  execute and reserved forms trap instead of being silently accepted.
+  execute and reserved forms trap instead of being silently accepted. Exact
+  widening `FCVT.D.S` also now accrues NV for signaling single-precision NaNs
+  before writing the canonical double-precision NaN result.
   FP-capable runner profiles now start with `mstatus.FS=Initial`, and scalar
   F/D load/store plus arithmetic execution now traps as illegal when software
   sets `mstatus.FS=Off`. FP register and `fcsr` writes now mark FS Dirty, so
