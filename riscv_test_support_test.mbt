@@ -1374,6 +1374,7 @@ fn encode_fcvt_lu_d(rs1 : Int, rm : UInt, rd : Int) -> UInt {
 ///|
 fn trap_cause_name(cause : TrapCause) -> String {
   match cause {
+    InstructionAddressMisaligned => "instruction address misaligned"
     InstructionAccessFault => "instruction access fault"
     IllegalInstruction => "illegal instruction"
     Breakpoint => "breakpoint"

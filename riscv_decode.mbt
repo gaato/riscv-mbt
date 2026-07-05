@@ -713,6 +713,7 @@ fn trap_cause_code(cause : TrapCause) -> UInt64 {
   // Interrupt bit: bit 63 set for interrupts
   let irq_bit : UInt64 = 1U.to_uint64() << 63
   match cause {
+    InstructionAddressMisaligned => 0U.to_uint64()
     InstructionAccessFault => 1U.to_uint64()
     IllegalInstruction => 2U.to_uint64()
     Breakpoint => 3U.to_uint64()

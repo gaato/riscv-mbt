@@ -39,6 +39,35 @@ fn Runner::step_next_pc(self : Runner, delta : Int) -> UInt64 {
 }
 
 ///|
+fn Runner::instruction_alignment_bytes(self : Runner) -> UInt64 {
+  // RVC lowers IALIGN from 32 bits to 16 bits. Taken branches and jumps use
+  // this profile rule; sequential fetch alignment is checked by the fetch path.
+  if (self.config.extensions & MISA_EXT_C) != 0U.to_uint64() {
+    2U.to_uint64()
+  } else {
+    4U.to_uint64()
+  }
+}
+
+///|
+fn Runner::instruction_target_aligned(self : Runner, target : UInt64) -> Bool {
+  target % self.instruction_alignment_bytes() == 0U.to_uint64()
+}
+
+///|
+fn Runner::jump_to_instruction_target(
+  self : Runner,
+  target : UInt64,
+  current_pc : UInt64,
+) -> StepResult {
+  if !self.instruction_target_aligned(target) {
+    return self.raise_trap(InstructionAddressMisaligned, current_pc, target)
+  }
+  self.cpu.pc = target
+  Running
+}
+
+///|
 pub(all) enum AccessType {
   Fetch
   Load
@@ -445,78 +474,73 @@ fn Runner::execute_op_m(
 fn Runner::execute_branch(
   self : Runner,
   instruction : Instruction,
+  current_pc : UInt64,
   next_pc : UInt64,
 ) -> StepResult {
   let xlen = self.xlen_bits()
   match instruction {
-    Beq(rs1, rs2, imm) => {
-      self.cpu.pc = if self.cpu.read_reg(rs1) == self.cpu.read_reg(rs2) {
-        self.step_next_pc(imm)
+    Beq(rs1, rs2, imm) =>
+      if self.cpu.read_reg(rs1) == self.cpu.read_reg(rs2) {
+        self.jump_to_instruction_target(self.step_next_pc(imm), current_pc)
       } else {
-        next_pc
+        self.cpu.pc = next_pc
+        Running
       }
-      Running
-    }
-    Bne(rs1, rs2, imm) => {
-      self.cpu.pc = if self.cpu.read_reg(rs1) != self.cpu.read_reg(rs2) {
-        self.step_next_pc(imm)
+    Bne(rs1, rs2, imm) =>
+      if self.cpu.read_reg(rs1) != self.cpu.read_reg(rs2) {
+        self.jump_to_instruction_target(self.step_next_pc(imm), current_pc)
       } else {
-        next_pc
+        self.cpu.pc = next_pc
+        Running
       }
-      Running
-    }
-    Blt(rs1, rs2, imm) => {
-      self.cpu.pc = if xlen_compare_signed(
+    Blt(rs1, rs2, imm) =>
+      if xlen_compare_signed(
           self.cpu.read_reg(rs1),
           self.cpu.read_reg(rs2),
           xlen,
         ) <
         0 {
-        self.step_next_pc(imm)
+        self.jump_to_instruction_target(self.step_next_pc(imm), current_pc)
       } else {
-        next_pc
+        self.cpu.pc = next_pc
+        Running
       }
-      Running
-    }
-    Bge(rs1, rs2, imm) => {
-      self.cpu.pc = if xlen_compare_signed(
+    Bge(rs1, rs2, imm) =>
+      if xlen_compare_signed(
           self.cpu.read_reg(rs1),
           self.cpu.read_reg(rs2),
           xlen,
         ) >=
         0 {
-        self.step_next_pc(imm)
+        self.jump_to_instruction_target(self.step_next_pc(imm), current_pc)
       } else {
-        next_pc
+        self.cpu.pc = next_pc
+        Running
       }
-      Running
-    }
-    Bltu(rs1, rs2, imm) => {
-      self.cpu.pc = if xlen_compare_unsigned(
+    Bltu(rs1, rs2, imm) =>
+      if xlen_compare_unsigned(
           self.cpu.read_reg(rs1),
           self.cpu.read_reg(rs2),
           xlen,
         ) <
         0 {
-        self.step_next_pc(imm)
+        self.jump_to_instruction_target(self.step_next_pc(imm), current_pc)
       } else {
-        next_pc
+        self.cpu.pc = next_pc
+        Running
       }
-      Running
-    }
-    Bgeu(rs1, rs2, imm) => {
-      self.cpu.pc = if xlen_compare_unsigned(
+    Bgeu(rs1, rs2, imm) =>
+      if xlen_compare_unsigned(
           self.cpu.read_reg(rs1),
           self.cpu.read_reg(rs2),
           xlen,
         ) >=
         0 {
-        self.step_next_pc(imm)
+        self.jump_to_instruction_target(self.step_next_pc(imm), current_pc)
       } else {
-        next_pc
+        self.cpu.pc = next_pc
+        Running
       }
-      Running
-    }
     _ => abort("unexpected branch dispatch")
   }
 }
@@ -1029,20 +1053,19 @@ fn Runner::execute_amo(
 fn Runner::execute_jump(
   self : Runner,
   instruction : Instruction,
+  current_pc : UInt64,
   next_pc : UInt64,
 ) -> StepResult {
   match instruction {
     Jal(rd, imm) => {
       self.write_xlen_reg(rd, next_pc)
-      self.cpu.pc = self.step_next_pc(imm)
-      Running
+      self.jump_to_instruction_target(self.step_next_pc(imm), current_pc)
     }
     Jalr(rd, rs1, imm) => {
       let target = (self.cpu.read_reg(rs1) + int_to_uint64_bits(imm)) &
         bit_not(1U.to_uint64())
       self.write_xlen_reg(rd, next_pc)
-      self.cpu.pc = target
-      Running
+      self.jump_to_instruction_target(target, current_pc)
     }
     _ => abort("unexpected jump dispatch")
   }
@@ -1972,12 +1995,12 @@ pub fn Runner::step(self : Runner) -> StepResult {
     Sraw(_, _, _) => self.execute_op(instruction, next_pc)
     Or(_, _, _) => self.execute_op(instruction, next_pc)
     And(_, _, _) => self.execute_op(instruction, next_pc)
-    Beq(_, _, _) => self.execute_branch(instruction, next_pc)
-    Bne(_, _, _) => self.execute_branch(instruction, next_pc)
-    Blt(_, _, _) => self.execute_branch(instruction, next_pc)
-    Bge(_, _, _) => self.execute_branch(instruction, next_pc)
-    Bltu(_, _, _) => self.execute_branch(instruction, next_pc)
-    Bgeu(_, _, _) => self.execute_branch(instruction, next_pc)
+    Beq(_, _, _) => self.execute_branch(instruction, current_pc, next_pc)
+    Bne(_, _, _) => self.execute_branch(instruction, current_pc, next_pc)
+    Blt(_, _, _) => self.execute_branch(instruction, current_pc, next_pc)
+    Bge(_, _, _) => self.execute_branch(instruction, current_pc, next_pc)
+    Bltu(_, _, _) => self.execute_branch(instruction, current_pc, next_pc)
+    Bgeu(_, _, _) => self.execute_branch(instruction, current_pc, next_pc)
     Lb(_, _, _) => self.execute_load(instruction, next_pc)
     Lh(_, _, _) => self.execute_load(instruction, next_pc)
     Lw(_, _, _) => self.execute_load(instruction, next_pc)
@@ -1997,8 +2020,8 @@ pub fn Runner::step(self : Runner) -> StepResult {
       self.execute_fp_load_store(instruction, current_pc, next_pc, raw)
     Fsd(_, _, _) =>
       self.execute_fp_load_store(instruction, current_pc, next_pc, raw)
-    Jal(_, _) => self.execute_jump(instruction, next_pc)
-    Jalr(_, _, _) => self.execute_jump(instruction, next_pc)
+    Jal(_, _) => self.execute_jump(instruction, current_pc, next_pc)
+    Jalr(_, _, _) => self.execute_jump(instruction, current_pc, next_pc)
     Csrrw(_, _, _) => self.execute_system(instruction, current_pc, next_pc, raw)
     Csrrs(_, _, _) => self.execute_system(instruction, current_pc, next_pc, raw)
     Csrrc(_, _, _) => self.execute_system(instruction, current_pc, next_pc, raw)

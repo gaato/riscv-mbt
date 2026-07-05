@@ -165,7 +165,10 @@
   Focused regressions cover the decode and execute behavior. Post-decode
   profile legality now also rejects all 16-bit compressed encodings when
   `MISA.C` is not advertised, keeping the permissive decoder while making the
-  executing profile authoritative.
+  executing profile authoritative. Control-flow target alignment now follows
+  the same profile boundary: non-C profiles trap taken branches and jumps to
+  2-byte-only targets with instruction-address-misaligned, while RV64GC/C
+  profiles use IALIGN=16 and allow those halfword targets.
 
 - Zicsr write-side privilege checks now run even when a CSR instruction
   suppresses the read side. The regression covers `CSRRW rd=x0` from supervisor

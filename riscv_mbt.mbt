@@ -367,6 +367,7 @@ pub enum TrapCause {
   // TrapCause is the architectural cause before it is encoded into mcause or
   // scause. Keep it cause-centric, not handler-centric: delegation decides
   // which privilege mode receives the same underlying event.
+  InstructionAddressMisaligned
   InstructionAccessFault
   IllegalInstruction
   Breakpoint

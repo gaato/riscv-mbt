@@ -104,6 +104,7 @@ fn official_riscv_tests_isa_dir_for_arch(arch : String) -> String {
 ///|
 fn trap_cause_name(cause : @riscv.TrapCause) -> String {
   match cause {
+    @riscv.InstructionAddressMisaligned => "instruction address misaligned"
     @riscv.InstructionAccessFault => "instruction access fault"
     @riscv.IllegalInstruction => "illegal instruction"
     @riscv.Breakpoint => "breakpoint"
