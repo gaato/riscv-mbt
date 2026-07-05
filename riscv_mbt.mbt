@@ -1067,10 +1067,11 @@ fn canonical_machine_extensions(extensions : UInt64) -> UInt64 {
   // exposing misa or executing gates so impossible profiles cannot leak into
   // later profile checks.
   let mut normalized = extensions
-  if (normalized & MISA_EXT_D) != 0U.to_uint64() {
-    // D depends on F: double-precision instructions reuse the scalar FP state
-    // and instruction families from the single-precision extension.
-    normalized = normalized | MISA_EXT_F
+  if (normalized & MISA_EXT_F) == 0U.to_uint64() {
+    // D depends on F. When a profile requests D while disabling F, the
+    // privileged misa dependency rule says the unsupported pair canonicalizes
+    // by clearing the dependent feature as well, not by silently enabling F.
+    normalized = normalized & bit_not(MISA_EXT_D)
   }
   if (normalized & MISA_EXT_U) == 0U.to_uint64() {
     // The privileged spec treats S-without-U as an unsupported dependency

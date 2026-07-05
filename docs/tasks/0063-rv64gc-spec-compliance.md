@@ -159,7 +159,8 @@ official coverage improve.
   `rv64uf` arithmetic rows are also gated after adding single-precision NX
   accrual, and the `rv64ud` arithmetic rows are gated after adding
   exact-rational double-precision NX checks. Machine profiles now canonicalize
-  the architectural dependency that `D` implies `F`, so white-box configs cannot
+  the architectural dependency that `D` depends on `F`: a requested
+  `D`-without-`F` profile clears both F/D bits, so white-box configs cannot
   expose or execute an impossible `misa.D`-without-`misa.F` profile. Focused
   `FMIN/FMAX` coverage now pins signed-zero selection in S and D, numeric
   selection against quiet NaNs in S and D, signaling-NaN-with-numeric cases

@@ -599,20 +599,25 @@ test "mret resets MPP to least implemented mode without U" {
 }
 
 ///|
-test "requesting D-only profile canonicalizes to include F" {
+test "requesting D without F canonicalizes both extensions away" {
   let runner = make_runner(wb_rv64_d_only_requested_machine_config())
   let misa = runner.cpu.read_csr(CSR_MISA)
-  assert_true((misa & MISA_EXT_D) != 0U.to_uint64())
-  assert_true((misa & MISA_EXT_F) != 0U.to_uint64())
-  assert_true((runner.config.extensions & MISA_EXT_F) != 0U.to_uint64())
+  assert_eq(misa & (MISA_EXT_D | MISA_EXT_F), 0U.to_uint64())
+  assert_eq(
+    runner.config.extensions & (MISA_EXT_D | MISA_EXT_F),
+    0U.to_uint64(),
+  )
 
   let raw = wb_encode_r(0x00U, 2, 1, 0x0U, 3, 0x53U) // fadd.s f3, f1, f2
   runner.load_program(wb_word_program(raw), 0U)
   match runner.step() {
-    Running => ()
-    Trap(info) =>
-      fail(
-        "expected D-implies-F profile to accept fadd.s, got trap value=\{info.trap_value}",
-      )
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected F instruction to trap after D/F canonicalization")
+      }
+      assert_eq(info.trap_value, raw.to_uint64())
+    }
+    _ => fail("expected F instruction to trap after D/F canonicalization")
   }
 }

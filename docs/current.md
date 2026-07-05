@@ -175,8 +175,9 @@
   The current focused coverage includes 16-bit compressed encodings without
   `MISA.C` and multiply/divide/remainder instructions without `MISA.M`.
   Machine profiles now also canonicalize the architectural extension
-  dependency that `D` implies `F`, so internal test configs cannot expose or
-  execute an impossible `misa.D`-without-`misa.F` profile.
+  dependency that `D` depends on `F`: a requested `D`-without-`F` profile clears
+  both F/D bits, so internal test configs cannot expose or execute an
+  impossible `misa.D`-without-`misa.F` profile.
 - The status endian-control fields now match the emulator's little-endian-only
   memory system: `mstatus.MBE`, `mstatus.SBE`, and `mstatus.UBE`, plus
   `sstatus.UBE`, are visible where appropriate but normalize to read-only zero
