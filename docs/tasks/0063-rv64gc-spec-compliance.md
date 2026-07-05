@@ -99,8 +99,10 @@ official coverage improve.
   `riscv_execute.mbt` implements LR/SC and AMO W/D behavior with shared
   per-hart physical byte-range reservations, with regressions for
   reservation success/failure, same-hart store invalidation, cross-hart store
-  invalidation, overlapping LR.D reservation invalidation, and RV64 AMO.W
-  sign-extension. The upstream `rv64ua` AMO/LRSC cases are now part of the
+  invalidation, overlapping LR.D reservation invalidation, device writes to
+  bytes accessed by LR, and RV64 AMO.W sign-extension. Virtio-blk
+  guest-visible DMA/status/used-ring writes now use reservation-aware device
+  store helpers. The upstream `rv64ua` AMO/LRSC cases are now part of the
   gating manifest. The remaining audit is true `aq`/`rl` memory-ordering
   semantics and broader forward-progress/eventual-success behavior beyond the
   current interpreter scheduling model.

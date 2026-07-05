@@ -124,7 +124,7 @@ fn Runner::virtio_blk_write_status(
   status : UInt64,
 ) -> Unit {
   if self.bus.contains_range(addr, 1) {
-    self.bus.store_u8(addr, status)
+    self.device_store_u8(addr, status)
   }
 }
 
@@ -205,7 +205,7 @@ fn Runner::virtio_blk_copy_sector_to_guest(
   match self.virtio_blk_cached_read_offset(disk_byte_offset, len) {
     Some(cache_offset) => {
       self.virtio_blk_read_cache_hits += 1U.to_uint64()
-      self.bus.write_bytes_from(
+      self.device_write_bytes_from(
         guest_addr,
         self.virtio_blk_read_cache_bytes,
         cache_offset,
@@ -215,7 +215,7 @@ fn Runner::virtio_blk_copy_sector_to_guest(
     None => {
       self.virtio_blk_read_cache_misses += 1U.to_uint64()
       self.virtio_blk_fill_read_cache(disk_byte_offset, len)
-      self.bus.write_bytes_from(
+      self.device_write_bytes_from(
         guest_addr,
         self.virtio_blk_read_cache_bytes,
         0,
@@ -324,9 +324,9 @@ fn Runner::virtio_blk_finish_used(
     4U.to_uint64() +
     (slot * 8).reinterpret_as_uint().to_uint64()
   if self.bus.contains_range(elem_addr, 8) {
-    self.bus.store_u32(elem_addr, head)
-    self.bus.store_u32(elem_addr + 4U.to_uint64(), written_len)
-    self.bus.store_u16(
+    self.device_store_u32(elem_addr, head)
+    self.device_store_u32(elem_addr + 4U.to_uint64(), written_len)
+    self.device_store_u16(
       used_base + 2U.to_uint64(),
       (used_idx + 1U.to_uint64()) & 0xffffU.to_uint64(),
     )

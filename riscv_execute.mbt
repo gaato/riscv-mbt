@@ -746,6 +746,39 @@ fn Runner::lr_sc_reservation_matches(
 }
 
 ///|
+fn Runner::device_store_u8(self : Runner, pa : UInt64, value : UInt64) -> Unit {
+  self.bus.store_u8(pa, value)
+  self.invalidate_lr_sc_reservations(pa, 1)
+}
+
+///|
+fn Runner::device_store_u16(self : Runner, pa : UInt64, value : UInt64) -> Unit {
+  self.bus.store_u16(pa, value)
+  self.invalidate_lr_sc_reservations(pa, 2)
+}
+
+///|
+fn Runner::device_store_u32(self : Runner, pa : UInt64, value : UInt64) -> Unit {
+  self.bus.store_u32(pa, value)
+  self.invalidate_lr_sc_reservations(pa, 4)
+}
+
+///|
+fn Runner::device_write_bytes_from(
+  self : Runner,
+  pa : UInt64,
+  bytes : Bytes,
+  source_offset : Int,
+  len : Int,
+) -> Int {
+  let copied = self.bus.write_bytes_from(pa, bytes, source_offset, len)
+  if copied > 0 {
+    self.invalidate_lr_sc_reservations(pa, copied)
+  }
+  copied
+}
+
+///|
 fn Runner::execute_store(
   self : Runner,
   instruction : Instruction,
