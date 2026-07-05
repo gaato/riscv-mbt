@@ -214,8 +214,8 @@
   and `C.SLLI rd=x0` execute as ignored hints, `C.SLLI` uses the unsigned
   6-bit RV64 shift amount, and `C.FLDSP` can target valid FP register `f0`.
   RV32C now rejects `C.SLLI`, `C.SRLI`, and `C.SRAI` forms with `shamt[5]=1`,
-  including `C.SLLI rd=x0`, because those code points are reserved for custom
-  extensions in the 32-bit profile.
+  including `C.SLLI rd=x0`, while RV64C keeps the high-shamt `C.SLLI rd=x0`
+  space as ignored hints.
   RV64C coverage now also pins the zero-immediate reserved space for
   `C.LUI` and `C.ADDI16SP`, keeping those traps distinct from the positive and
   negative nonzero `rd=x0` hint encodings.

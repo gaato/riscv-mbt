@@ -1014,14 +1014,15 @@ test "rv64c architectural hints execute as no-ops" {
       (2, encode_c_lui(0, -1).reinterpret_as_uint()),
       (2, encode_c_slli(0, 0).reinterpret_as_uint()),
       (2, encode_c_slli(0, 1).reinterpret_as_uint()),
+      (2, encode_c_slli(0, 63).reinterpret_as_uint()),
     ]),
     0U,
   )
-  match runner.run(5) {
+  match runner.run(6) {
     Running => ()
     _ => fail("expected compressed hints to execute as no-ops")
   }
-  assert_eq(runner.pc_u64(), 10U.to_uint64())
+  assert_eq(runner.pc_u64(), 12U.to_uint64())
   assert_eq(runner.read_reg_u64(0), 0U.to_uint64())
 }
 

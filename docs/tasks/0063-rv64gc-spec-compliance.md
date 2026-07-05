@@ -189,7 +189,8 @@ official coverage improve.
   6-bit RV64 `C.SLLI` shift amounts, legal `C.ADDIW imm=0` sign-extension
   behavior, `C.FLDSP f0`, and the RV32C custom-extension `shamt[5]=1` space for
   `C.SLLI`, `C.SRLI`, and `C.SRAI`, including the `C.SLLI rd=x0` hint-looking
-  form. The zero-immediate reserved space for
+  form, while RV64C keeps high-shamt `C.SLLI rd=x0` forms as hints. The
+  zero-immediate reserved space for
   `C.LUI` and `C.ADDI16SP` is now pinned by focused RV64C regressions, keeping
   reserved traps distinct from the nearby positive and negative nonzero
   `rd=x0` hint encodings.
@@ -671,6 +672,9 @@ official coverage improve.
 - RV64C high-shift coverage now executes `C.SLLI`, `C.SRLI`, and `C.SRAI`
   with `shamt[5]=1` as legal six-bit shifts, while the RV32C profile keeps the
   same encodings reserved.
+- RV64C high-shamt hint coverage now keeps `C.SLLI rd=x0, shamt[5]=1` as a
+  no-op, paired with the existing RV32C rejection of the same custom-extension
+  code points.
 - RV64C register-based integer double memory coverage now round-trips
   `C.SD`/`C.LD`, while the same integer double aliases trap in the RV32C
   profile. High-offset coverage now pins the unsigned `uimm=248` path through
