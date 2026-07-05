@@ -751,6 +751,40 @@ test "rv64f add sub mul honor non-rne rounding modes" {
 }
 
 ///|
+test "rv64f add sub mul honor dynamic rounding mode" {
+  let runner = make_runner(rv64f_machine_config())
+  let csr_fcsr = 0x003
+  let fcsr_frm_shift = 5
+  // Dynamic RDN reuses the same directed-rounding choices as the static
+  // non-RNE test, but proves that rm=111 actually consults frm for ordinary
+  // arithmetic and not only for conversions or division/square-root paths.
+  runner.cpu.write_csr(csr_fcsr, 0x2U.to_uint64() << fcsr_frm_shift)
+  runner.cpu.write_freg(1, 0x4b800000U.to_uint64())
+  runner.cpu.write_freg(2, exec_test_f32_bits(1.0).to_uint64())
+  runner.cpu.write_freg(3, exec_test_f32_bits(-1.0).to_uint64())
+  runner.cpu.write_freg(4, 0x3f800001U.to_uint64())
+  runner.load_program(
+    words_to_bytes([
+      encode_fp_r(0x00U, 2, 1, 0x7U, 5),
+      encode_fp_r(0x04U, 3, 1, 0x7U, 6),
+      encode_fp_r(0x08U, 4, 4, 0x7U, 7),
+    ]),
+    0U,
+  )
+  match runner.run(3) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected dynamic-RDN rv64f add/sub/mul to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_freg_u64(5), 0x4b800000U.to_uint64())
+  assert_eq(runner.read_freg_u64(6), 0x4b800000U.to_uint64())
+  assert_eq(runner.read_freg_u64(7), 0x3f800002U.to_uint64())
+  assert_eq(runner.read_csr(csr_fcsr) & 0x1U, 0x1U)
+}
+
+///|
 test "rv64f div sqrt honor non-rne rounding modes" {
   let runner = make_runner(rv64f_machine_config())
   let csr_fcsr = 0x003
@@ -1901,6 +1935,39 @@ test "rv64fd add sub mul honor non-rne rounding modes" {
   assert_eq(runner.read_freg_u64(8), 0x4340000000000001UL)
   assert_eq(runner.read_freg_u64(9), 0x3ff0000000000002UL)
   assert_eq(runner.read_freg_u64(10), 0x3ff0000000000003UL)
+  assert_eq(runner.read_csr(csr_fcsr) & 0x1U, 0x1U)
+}
+
+///|
+test "rv64fd add sub mul honor dynamic rounding mode" {
+  let runner = make_runner(rv64fd_machine_config())
+  let csr_fcsr = 0x003
+  let fcsr_frm_shift = 5
+  // Dynamic RDN must select the lower adjacent double result for each ordinary
+  // arithmetic operation when rm=111 delegates the choice to frm.
+  runner.cpu.write_csr(csr_fcsr, 0x2U.to_uint64() << fcsr_frm_shift)
+  runner.cpu.write_freg(1, 0x4340000000000000UL)
+  runner.cpu.write_freg(2, exec_test_f64_bits(1.0))
+  runner.cpu.write_freg(3, exec_test_f64_bits(-1.0))
+  runner.cpu.write_freg(4, 0x3ff0000000000001UL)
+  runner.load_program(
+    words_to_bytes([
+      encode_fp_r(0x01U, 2, 1, 0x7U, 5),
+      encode_fp_r(0x05U, 3, 1, 0x7U, 6),
+      encode_fp_r(0x09U, 4, 4, 0x7U, 7),
+    ]),
+    0U,
+  )
+  match runner.run(3) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected dynamic-RDN rv64fd add/sub/mul to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_freg_u64(5), 0x4340000000000000UL)
+  assert_eq(runner.read_freg_u64(6), 0x4340000000000000UL)
+  assert_eq(runner.read_freg_u64(7), 0x3ff0000000000002UL)
   assert_eq(runner.read_csr(csr_fcsr) & 0x1U, 0x1U)
 }
 

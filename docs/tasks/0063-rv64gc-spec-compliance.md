@@ -734,10 +734,11 @@ official coverage improve.
   and reserved rounding-mode traps.
 - Single-precision add/sub/mul now support legal non-RNE arithmetic rounding.
   Focused regressions cover positive inexact `FADD.S`, `FSUB.S`, and `FMUL.S`
-  cases where RTZ and RUP select adjacent single-precision results, plus
-  reserved arithmetic rounding-mode traps. A separate regression now pins
-  exact-zero signs for `FADD.S`, `FSUB.S`, and `FMUL.S`, including the
-  round-down cancellation case.
+  cases where RTZ and RUP select adjacent single-precision results. Dynamic
+  `rm=111` coverage now also verifies that `frm=RDN` selects the lower adjacent
+  single for the same arithmetic family, plus reserved arithmetic rounding-mode
+  traps. A separate regression now pins exact-zero signs for `FADD.S`,
+  `FSUB.S`, and `FMUL.S`, including the round-down cancellation case.
 - Single-precision div/sqrt now have the same first non-RNE coverage. Focused
   regressions cover `FDIV.S` `1.0 / 3.0` and `FSQRT.S` `sqrt(2.0)` cases where
   directed rounding selects adjacent single-precision results and accrues NX.
@@ -756,8 +757,10 @@ official coverage improve.
 - Double-precision add/sub/mul now have corresponding non-RNE coverage.
   Focused regressions cover `2^53 + 1` add/sub and `(1 + 2^-52)^2` multiply,
   where RTZ and RUP select adjacent double-precision results and accrue NX.
-  A separate regression pins exact-zero signs for `FADD.D`, `FSUB.D`, and
-  `FMUL.D`, including the round-down cancellation case.
+  Dynamic `rm=111` coverage now verifies that `frm=RDN` selects the lower
+  adjacent double for the same arithmetic family. A separate regression pins
+  exact-zero signs for `FADD.D`, `FSUB.D`, and `FMUL.D`, including the
+  round-down cancellation case.
 - Double-precision division now has matching non-RNE coverage. Focused
   regressions cover `1.0 / 3.0`, where RTZ and RUP select adjacent
   double-precision quotients and accrue NX. A dynamic `rm=111` regression now
