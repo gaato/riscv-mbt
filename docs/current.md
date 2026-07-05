@@ -130,7 +130,9 @@
   evenness cast, keeping large exact boundary values on the safe path.
   Integer-to-double conversion coverage now also pins dynamic-`frm`
   long-to-double rounding at the binary64 precision boundary, including signed
-  negative RDN and unsigned positive RMM halfway cases with NX.
+  negative RDN and unsigned positive RMM halfway cases with NX. Rounded
+  integer-to-float conversions now also reject reserved static and dynamic
+  rounding-mode encodings before executing representative S and D forms.
   Invalid scalar arithmetic coverage now checks both NV and canonical-NaN
   results for representative add, multiply, and divide cases.
   `FMIN/FMAX` result-selection coverage now includes the D path for signed

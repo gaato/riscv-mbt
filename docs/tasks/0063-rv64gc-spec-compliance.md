@@ -464,7 +464,10 @@ official coverage improve.
   discarded integer bits make the conversion inexact. The RV64 long-to-double
   path now also has dynamic-`frm` coverage at the binary64 precision boundary:
   signed negative RDN and unsigned positive RMM halfway cases select the
-  directed result and accrue NX.
+  directed result and accrue NX. Rounded integer-to-float conversions now also
+  have explicit reserved-rounding regressions: static `rm=101/110` and dynamic
+  `rm=111` with reserved `frm` trap before executing `FCVT.S.W`,
+  `FCVT.S.LU`, or `FCVT.D.L`.
 - `FCVT.S.D` now rounds double-precision source bits to single precision inside
   the emulator instead of relying on host-default conversion. The helper handles
   legal static/dynamic rounding modes, canonical NaN results, NX for inexact

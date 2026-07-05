@@ -1083,6 +1083,58 @@ test "rv64f int to single conversion honors dynamic frm" {
 }
 
 ///|
+test "rv64fd integer to float conversions reject reserved rounding modes" {
+  let csr_fcsr = 0x003
+  let fcsr_frm_shift = 5
+  let reserved_static_single = encode_fcvt_s_w(1, 0x5U, 2)
+  let reserved_dynamic_single = encode_fcvt_s_lu(1, 0x7U, 3)
+  let reserved_static_double = encode_fcvt_d_l(1, 0x6U, 4)
+
+  let single_static = make_runner(rv64f_machine_config())
+  single_static.cpu.write_reg(1, 42U.to_uint64())
+  single_static.load_program(words_to_bytes([reserved_static_single]), 0U)
+  match single_static.run(1) {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+      assert_eq(info.trap_value, reserved_static_single.to_uint64())
+    }
+    _ => fail("expected reserved static fcvt.s.w rounding mode to trap")
+  }
+
+  let single_dynamic = make_runner(rv64f_machine_config())
+  single_dynamic.cpu.write_reg(1, 42U.to_uint64())
+  single_dynamic.cpu.write_csr(csr_fcsr, 0x6U.to_uint64() << fcsr_frm_shift)
+  single_dynamic.load_program(words_to_bytes([reserved_dynamic_single]), 0U)
+  match single_dynamic.run(1) {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+      assert_eq(info.trap_value, reserved_dynamic_single.to_uint64())
+    }
+    _ => fail("expected reserved dynamic fcvt.s.lu rounding mode to trap")
+  }
+
+  let double_static = make_runner(rv64fd_machine_config())
+  double_static.cpu.write_reg(1, 42U.to_uint64())
+  double_static.load_program(words_to_bytes([reserved_static_double]), 0U)
+  match double_static.run(1) {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected illegal instruction cause")
+      }
+      assert_eq(info.trap_value, reserved_static_double.to_uint64())
+    }
+    _ => fail("expected reserved static fcvt.d.l rounding mode to trap")
+  }
+}
+
+///|
 test "rv64f fcsr frm and fflags views share one visible register" {
   let csr_fflags = 0x001
   let csr_frm = 0x002
