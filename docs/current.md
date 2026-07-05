@@ -156,9 +156,9 @@
   writes affect only delegated SSIP; STIP/SEIP pending state is supplied through
   the machine/platform path.
 - `medeleg` and `mideleg` now apply WARL masks on read, write, and trap routing.
-  The modeled delegatable exception surface is `0xb3ae`, and delegated
-  interrupts are limited to SSI/STI/SEI (`0x222`); machine-only causes remain
-  read-only zero.
+  The modeled delegatable exception surface is `0xb3fe`, including
+  load/store/AMO address-misaligned causes, and delegated interrupts are
+  limited to SSI/STI/SEI (`0x222`); machine-only causes remain read-only zero.
 - `mcounteren` and `scounteren` now expose only CY/TM/IR (`0x7`) as writable
   WARL bits. HPM counter-enable bits read back as zero because the matching
   `hpmcounter` CSRs are not implemented in the current RV64GC profile.

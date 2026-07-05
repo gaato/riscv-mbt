@@ -4230,10 +4230,47 @@ test "delegation csrs expose only supported writable bits" {
     Running => ()
     _ => fail("expected delegation WARL program to run")
   }
-  assert_eq(runner.read_reg_u64(2), 0xb3aeU.to_uint64())
+  assert_eq(runner.read_reg_u64(2), 0xb3feU.to_uint64())
   assert_eq(runner.read_reg_u64(3), 0x222U.to_uint64())
-  assert_eq(runner.read_csr_u64(medeleg), 0xb3aeU.to_uint64())
+  assert_eq(runner.read_csr_u64(medeleg), 0xb3feU.to_uint64())
   assert_eq(runner.read_csr_u64(mideleg), 0x222U.to_uint64())
+}
+
+///|
+test "delegated atomic address-misaligned traps enter supervisor mode" {
+  let program = words_to_bytes([
+    encode_i(52, 0, 0x0U, 6, 0x13U), // handler address
+    encode_csr(0x105, 6, 0x1U, 0), // stvec
+    encode_i(0x50, 0, 0x0U, 1, 0x13U), // delegate causes 4 and 6
+    encode_csr(0x302, 1, 0x1U, 0), // medeleg
+    encode_i(40, 0, 0x0U, 5, 0x13U), // S-mode entry
+    encode_csr(0x341, 5, 0x1U, 0), // mepc
+    encode_u(0x00001000U, 3, 0x37U),
+    encode_i(-2048, 3, 0x0U, 3, 0x13U),
+    encode_csr(0x300, 3, 0x1U, 0), // mstatus.MPP=S
+    encode_mret(),
+    encode_i(0x102, 0, 0x0U, 1, 0x13U), // misaligned word address
+    encode_amo(0x02U, 0, 1, 0x2U, 3), // lr.w x3, (x1)
+    encode_i(99, 0, 0x0U, 9, 0x13U),
+    encode_csr(0x142, 0, 0x2U, 7), // scause
+    encode_i(1, 0, 0x0U, 8, 0x13U),
+  ])
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(14) {
+    Running => ()
+    _ => fail("expected delegated misaligned atomic handler to run")
+  }
+  assert_eq(runner.read_reg_u64(7), 4U.to_uint64())
+  assert_eq(runner.read_reg_u64(8), 1U.to_uint64())
+  assert_eq(runner.read_reg_u64(9), 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(0x141), 44U.to_uint64())
+  assert_eq(runner.read_csr_u64(0x142), 4U.to_uint64())
+  assert_eq(runner.read_csr_u64(0x143), 0x102U.to_uint64())
+  match runner.privilege_mode() {
+    Supervisor => ()
+    _ => fail("expected delegated atomic misalignment to enter supervisor mode")
+  }
 }
 
 ///|

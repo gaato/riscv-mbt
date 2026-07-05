@@ -728,7 +728,7 @@ const CSR_MEDELEG : Int = 0x302
 const CSR_MIDELEG : Int = 0x303
 
 ///|
-const MEDELEG_WRITABLE_MASK : UInt64 = 0xb3ae
+const MEDELEG_WRITABLE_MASK : UInt64 = 0xb3fe
 
 ///|
 const MIDELEG_WRITABLE_MASK : UInt64 = 0x222

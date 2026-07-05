@@ -198,7 +198,9 @@ official coverage improve.
   by the machine/platform path.
   `medeleg` and `mideleg` now apply WARL masks on read, write, and internal
   trap-routing paths. `medeleg` exposes the modeled delegatable exception
-  causes (`0xb3ae`), while `mideleg` exposes only SSI/STI/SEI (`0x222`).
+  causes (`0xb3fe`), including the modeled load/store/AMO
+  address-misaligned causes, while `mideleg` exposes only SSI/STI/SEI
+  (`0x222`).
   `mcounteren` and `scounteren` now expose only the implemented base counter
   enables CY/TM/IR (`0x7`); HPM counter enables are read-only zero because the
   corresponding counter CSRs are absent.
@@ -531,6 +533,8 @@ official coverage improve.
 - `medeleg`/`mideleg` no longer store arbitrary compatibility bits. Focused
   coverage writes all ones and verifies the supported delegatable exception and
   interrupt bit surfaces are the only values that read back or affect routing.
+  The exception surface now includes load/store/AMO address-misaligned causes,
+  and an S-mode misaligned LR regression verifies routing through `stvec`.
 - `mcounteren`/`scounteren` are now WARL-filtered to CY/TM/IR. The existing
   privilege-gate tests still cover access behavior, and a new readback
   regression pins HPM enable bits as read-only zero.
