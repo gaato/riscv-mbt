@@ -450,6 +450,10 @@ pub struct Runner {
   mut virtio_blk_read_sequential_requests : UInt64
   mut virtio_blk_read_forward_gap_requests : UInt64
   mut virtio_blk_read_backward_requests : UInt64
+  // Single-hart LR/SC reservation, tracked in physical-address space after
+  // translation. This keeps Linux lock/futex loops from seeing impossible SC
+  // success without modeling the full multi-hart reservation set yet.
+  mut lr_sc_reserved_pa : UInt64?
   // Decode cache keys by physical fetch address plus raw bits. This avoids
   // mixing Sv39 virtual aliases and keeps cache invalidation tied to fence.i.
   decode_cache_tags : Array[UInt64]
@@ -1242,6 +1246,7 @@ pub fn make_runner(config : MachineConfig) -> Runner {
     virtio_blk_read_sequential_requests: 0U.to_uint64(),
     virtio_blk_read_forward_gap_requests: 0U.to_uint64(),
     virtio_blk_read_backward_requests: 0U.to_uint64(),
+    lr_sc_reserved_pa: None,
     decode_cache_tags: Array::make(decode_cache_sets, decode_cache_invalid_tag),
     decode_cache_raws: Array::make(decode_cache_sets, 0U),
     decode_cache_lengths: Array::make(decode_cache_sets, 0),
@@ -1345,6 +1350,7 @@ pub fn make_smp_runners(
       virtio_blk_read_sequential_requests: 0U.to_uint64(),
       virtio_blk_read_forward_gap_requests: 0U.to_uint64(),
       virtio_blk_read_backward_requests: 0U.to_uint64(),
+      lr_sc_reserved_pa: None,
       decode_cache_tags: Array::make(
         decode_cache_sets, decode_cache_invalid_tag,
       ),

@@ -672,9 +672,28 @@ fn Runner::store_and_commit(
     Some(result) => result
     None => {
       store(pa)
+      self.clear_lr_sc_reservation()
       self.cpu.pc = next_pc
       Running
     }
+  }
+}
+
+///|
+fn Runner::set_lr_sc_reservation(self : Runner, pa : UInt64) -> Unit {
+  self.lr_sc_reserved_pa = Some(pa)
+}
+
+///|
+fn Runner::clear_lr_sc_reservation(self : Runner) -> Unit {
+  self.lr_sc_reserved_pa = None
+}
+
+///|
+fn Runner::lr_sc_reservation_matches(self : Runner, pa : UInt64) -> Bool {
+  match self.lr_sc_reserved_pa {
+    Some(reserved_pa) => reserved_pa == pa
+    None => false
   }
 }
 
@@ -691,6 +710,7 @@ fn Runner::execute_store(
         Some(result) => result
         None => {
           self.phy_store_u8(pa, self.cpu.read_reg(rs2))
+          self.clear_lr_sc_reservation()
           self.cpu.pc = next_pc
           Running
         }
@@ -702,6 +722,7 @@ fn Runner::execute_store(
         Some(result) => result
         None => {
           self.phy_store_u16(pa, self.cpu.read_reg(rs2))
+          self.clear_lr_sc_reservation()
           self.cpu.pc = next_pc
           Running
         }
@@ -713,6 +734,7 @@ fn Runner::execute_store(
         Some(result) => result
         None => {
           self.phy_store_u32(pa, self.cpu.read_reg(rs2))
+          self.clear_lr_sc_reservation()
           self.cpu.pc = next_pc
           Running
         }
@@ -724,6 +746,7 @@ fn Runner::execute_store(
         Some(result) => result
         None => {
           self.phy_store_u64(pa, self.cpu.read_reg(rs2))
+          self.clear_lr_sc_reservation()
           self.cpu.pc = next_pc
           Running
         }
@@ -829,19 +852,25 @@ fn Runner::execute_amo(
         }
         let loaded = self.phy_load_u32(pa)
         let sign_extended = xlen_sign_extend(loaded, 32, self.xlen_bits())
+        self.set_lr_sc_reservation(pa)
         self.write_xlen_reg(rd, sign_extended)
         self.cpu.pc = next_pc
         return Running
       }
-      // SC.W — always succeeds on single-hart
+      // SC.W succeeds only against a live matching reservation.
       if funct5_val == 0x03U {
         let (pa, check) = self.store_check(addr, 4)
         match check {
           Some(result) => return result
           None => ()
         }
-        self.phy_store_u32(pa, self.cpu.read_reg(rs2))
-        self.write_xlen_reg(rd, 0U.to_uint64()) // 0 = success
+        if self.lr_sc_reservation_matches(pa) {
+          self.phy_store_u32(pa, self.cpu.read_reg(rs2))
+          self.write_xlen_reg(rd, 0U.to_uint64()) // 0 = success
+        } else {
+          self.write_xlen_reg(rd, 1U.to_uint64())
+        }
+        self.clear_lr_sc_reservation()
         self.cpu.pc = next_pc
         return Running
       }
@@ -856,6 +885,7 @@ fn Runner::execute_amo(
       let src = self.cpu.read_reg(rs2)
       let new_val = amo_w_op(funct5_val, old_raw, src)
       self.phy_store_u32(pa, new_val)
+      self.clear_lr_sc_reservation()
       self.write_xlen_reg(rd, old_val)
       self.cpu.pc = next_pc
       Running
@@ -870,19 +900,25 @@ fn Runner::execute_amo(
           None => ()
         }
         let loaded = self.phy_load_u64(pa)
+        self.set_lr_sc_reservation(pa)
         self.write_xlen_reg(rd, loaded)
         self.cpu.pc = next_pc
         return Running
       }
-      // SC.D — always succeeds on single-hart
+      // SC.D succeeds only against a live matching reservation.
       if funct5_val == 0x03U {
         let (pa, check) = self.store_check(addr, 8)
         match check {
           Some(result) => return result
           None => ()
         }
-        self.phy_store_u64(pa, self.cpu.read_reg(rs2))
-        self.write_xlen_reg(rd, 0U.to_uint64())
+        if self.lr_sc_reservation_matches(pa) {
+          self.phy_store_u64(pa, self.cpu.read_reg(rs2))
+          self.write_xlen_reg(rd, 0U.to_uint64())
+        } else {
+          self.write_xlen_reg(rd, 1U.to_uint64())
+        }
+        self.clear_lr_sc_reservation()
         self.cpu.pc = next_pc
         return Running
       }
@@ -896,6 +932,7 @@ fn Runner::execute_amo(
       let src = self.cpu.read_reg(rs2)
       let new_val = amo_op(funct5_val, old_val, src, self.xlen_bits())
       self.phy_store_u64(pa, new_val)
+      self.clear_lr_sc_reservation()
       self.write_xlen_reg(rd, old_val)
       self.cpu.pc = next_pc
       Running

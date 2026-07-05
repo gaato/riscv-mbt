@@ -424,6 +424,7 @@ pub struct Runner {
   mut virtio_blk_read_sequential_requests : UInt64
   mut virtio_blk_read_forward_gap_requests : UInt64
   mut virtio_blk_read_backward_requests : UInt64
+  mut lr_sc_reserved_pa : UInt64?
   decode_cache_tags : Array[UInt64]
   decode_cache_raws : Array[UInt]
   decode_cache_lengths : Array[Int]

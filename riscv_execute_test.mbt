@@ -6027,6 +6027,59 @@ test "LR.W/SC.W pair succeeds on single hart" {
 }
 
 ///|
+test "SC.W without a live reservation fails and does not store" {
+  let runner = make_runner(virt_machine_config())
+  let addr = runner.cpu.pc + 0x100U.to_uint64()
+  runner.bus.store_u32(addr, 77U.to_uint64())
+  runner.cpu.write_reg(1, addr)
+  runner.cpu.write_reg(5, 88U.to_uint64())
+  runner.bus.store_u32(
+    runner.cpu.pc,
+    encode_amo(0x03U, 5, 1, 0x2U, 4).to_uint64(),
+  )
+  match runner.step() {
+    Running => ()
+    _ => fail("expected running")
+  }
+  assert_eq(runner.read_reg_u64(4), 1U.to_uint64())
+  assert_eq(runner.bus.load_u32(addr), 77U.to_uint64())
+}
+
+///|
+test "store between LR.W and SC.W invalidates the reservation" {
+  let runner = make_runner(virt_machine_config())
+  let addr = runner.cpu.pc + 0x100U.to_uint64()
+  runner.bus.store_u32(addr, 77U.to_uint64())
+  runner.cpu.write_reg(1, addr)
+  runner.cpu.write_reg(5, 88U.to_uint64())
+  runner.cpu.write_reg(6, 99U.to_uint64())
+  let pc0 = runner.cpu.pc
+  runner.bus.store_u32(pc0, encode_amo(0x02U, 0, 1, 0x2U, 3).to_uint64())
+  runner.bus.store_u32(
+    pc0 + 4U.to_uint64(),
+    encode_s(0, 6, 1, 0x2U, 0x23U).to_uint64(),
+  )
+  runner.bus.store_u32(
+    pc0 + 8U.to_uint64(),
+    encode_amo(0x03U, 5, 1, 0x2U, 4).to_uint64(),
+  )
+  match runner.step() {
+    Running => ()
+    _ => fail("expected LR.W to run")
+  }
+  match runner.step() {
+    Running => ()
+    _ => fail("expected SW to run")
+  }
+  match runner.step() {
+    Running => ()
+    _ => fail("expected SC.W to run")
+  }
+  assert_eq(runner.read_reg_u64(4), 1U.to_uint64())
+  assert_eq(runner.bus.load_u32(addr), 99U.to_uint64())
+}
+
+///|
 fn write_u64_le(runner : Runner, addr : UInt64, value : UInt64) -> Unit {
   runner.bus.store_u64(addr, value)
 }
