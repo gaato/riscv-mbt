@@ -4904,6 +4904,38 @@ test "csr read forms may read read-only csrs without writing them" {
 }
 
 ///|
+test "zero-mask set and clear forms read address-read-only csrs" {
+  // CSRRS/CSRRC with x0, and their immediate forms with uimm=0, suppress the
+  // write side entirely. Address-encoded read-only CSRs are therefore legal
+  // operands for these pure-read forms even though every nonzero mask traps.
+  let mhartid = 0xF14
+  let mconfigptr = 0xF15
+  let time = 0xC01
+  let runner = make_runner(virt_machine_config())
+  runner.load_program_u64(
+    words_to_bytes([
+      encode_csr(mhartid, 0, 0x2U, 2),
+      encode_csr(mhartid, 0, 0x3U, 3),
+      encode_csr(mconfigptr, 0, 0x6U, 4),
+      encode_csr(mconfigptr, 0, 0x7U, 5),
+      encode_csr(time, 0, 0x2U, 6),
+      encode_csr(time, 0, 0x7U, 7),
+    ]),
+    0x80000000U.to_uint64(),
+  )
+  match runner.run(6) {
+    Running => ()
+    _ => fail("expected zero-mask read-only CSR forms to run")
+  }
+  assert_eq(runner.read_reg_u64(2), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(3), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(4), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(5), 0U.to_uint64())
+  assert_true(runner.read_reg_u64(6) > 0U.to_uint64())
+  assert_true(runner.read_reg_u64(7) >= runner.read_reg_u64(6))
+}
+
+///|
 test "mip writes affect only supervisor pending software bits" {
   let program = words_to_bytes([
     encode_i(-1, 0, 0x0U, 1, 0x13U),

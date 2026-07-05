@@ -468,11 +468,12 @@ official coverage improve.
 - `Zicsr` execution now models the architectural read/write suppression table
   directly: `CSRRW[I]` with `rd=x0` skips the CSR read path, while
   `CSRRS/CSRRC[I]` with a zero register or immediate mask skips the CSR write
-  path. Regression coverage keeps zero-mask set/clear legal for read-only CSRs
-  and keeps all nonzero-source write forms (`CSRRW[I]`, `CSRRS[I]`, and
-  `CSRRC[I]`) illegal for read-only CSRs. The read-only set/clear coverage now
-  explicitly exercises both register-source and immediate-source nonzero masks
-  across the exposed machine-information CSRs and the read-only `time` counter.
+  path. Regression coverage keeps zero-mask set/clear legal for
+  address-encoded read-only CSRs and keeps all nonzero-source write forms
+  (`CSRRW[I]`, `CSRRS[I]`, and `CSRRC[I]`) illegal for read-only CSRs. The
+  read-only set/clear coverage now explicitly exercises both register-source
+  and immediate-source zero and nonzero masks across the exposed
+  machine-information CSRs and the read-only `time` counter.
 - `A` decode now treats reserved AMO `funct5` values and the reserved
   nonzero-`rs2` LR encoding as illegal, while preserving the `aq`/`rl` ordering
   bits in the decoded instruction value. AMO W/D execution is also
