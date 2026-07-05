@@ -728,11 +728,14 @@ fn alpine_post_init_apk_persistence_write_markers() -> Array[String] {
 ///|
 fn alpine_post_init_apk_persistence_read_command() -> String {
   // Second half: boot from the host-saved image and prove the installed
-  // packages are still present without running `apk add` again.
+  // packages are still present and runnable without running `apk add` again.
   "/sbin/apk info -e iputils && " +
   "/sbin/apk info -e iputils-ping && " +
   "/sbin/apk info -e libcap2 && " +
   "/sbin/apk info -L iputils-ping | grep '^bin/ping$' && " +
+  "ifconfig lo up && " +
+  "ifconfig lo | grep '127.0.0.1' && " +
+  "/bin/ping -c 1 -W 1 127.0.0.1 && " +
   "printf '\\141\\160\\153\\055\\160\\145\\162\\163\\151\\163\\164\\145\\156\\143\\145\\055\\162\\145\\141\\144\\055\\157\\153\\012'"
 }
 

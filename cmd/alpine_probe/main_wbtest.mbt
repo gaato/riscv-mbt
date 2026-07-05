@@ -52,6 +52,15 @@ test "iputils loopback smoke keeps commands and markers aligned" {
 }
 
 ///|
+test "apk persistence read smoke runs installed ping after reboot" {
+  let command = alpine_post_init_apk_persistence_read_command()
+  assert_true(command.contains("/sbin/apk info -e iputils-ping"))
+  assert_true(command.contains("ifconfig lo up"))
+  assert_true(command.contains("/bin/ping -c 1 -W 1 127.0.0.1"))
+  assert_true(command.contains("printf"))
+}
+
+///|
 test "auto-root handoff selects auto-root artifacts by default" {
   let args = ["alpine_probe", "xlong", "--auto-root-handoff"]
   assert_eq(select_dtb_path(args, true, true), auto_root_virtio_dtb_path)

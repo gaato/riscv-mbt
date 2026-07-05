@@ -76,11 +76,13 @@ shows it is needed.
   reaches `outcome=console-command`, `auto_root_handoff=true`,
   `shell_command_sent=false`, `post_init_apk_persistence_read_smoke=true`,
   `post_init_command_index=1`, and `apk-persistence-read-ok` at
-  681,000,000 guest steps after ext4 journal recovery. The UART tail shows
+  690,000,000 guest steps after ext4 journal recovery. The UART tail shows
   `/sbin/apk info -e iputils`, `/sbin/apk info -e iputils-ping`,
-  `/sbin/apk info -e libcap2`, `bin/ping`, and
-  `apk-persistence-read-ok`, proving installed package DB state and package
-  file listings survive a host-saved virtio-blk image reboot.
+  `/sbin/apk info -e libcap2`, `bin/ping`, `ifconfig lo up`,
+  `inet addr:127.0.0.1`, `/bin/ping -c 1 -W 1 127.0.0.1`, one received ICMP
+  reply, `0% packet loss`, and `apk-persistence-read-ok`. This proves
+  installed package DB state, package file listings, and package-provided
+  binary execution survive a host-saved virtio-blk image reboot.
 - To avoid turning future long probes into blind waiting, `cmd/alpine_probe`
   now reports `post_init_command_trace` with each post-init command's injection
   step, marker-observed step, and duration. This keeps the next long run tied
