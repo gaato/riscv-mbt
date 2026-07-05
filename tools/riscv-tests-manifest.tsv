@@ -95,10 +95,17 @@ rv64ui	xor	rv64i	gating
 rv64ui	xori	rv64i	gating
 rv64um	mul	rv64im	gating
 rv64um	div	rv64im	gating
+rv64um	divu	rv64im	gating
 rv64um	rem	rv64im	gating
+rv64um	remu	rv64im	gating
+rv64um	mulh	rv64im	gating
+rv64um	mulhsu	rv64im	gating
+rv64um	mulhu	rv64im	gating
 rv64um	mulw	rv64im	gating
 rv64um	divw	rv64im	gating
+rv64um	divuw	rv64im	gating
 rv64um	remw	rv64im	gating
+rv64um	remuw	rv64im	gating
 rv64ua	amoadd_w	rv64ia	gating
 rv64ua	amoand_w	rv64ia	gating
 rv64ua	amomax_w	rv64ia	gating

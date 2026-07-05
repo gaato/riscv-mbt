@@ -170,7 +170,10 @@
   The remaining local `rv64ui` branch and memory-combination rows (`bge`,
   `bgeu`, `blt`, `bne`, `ld_st`, `st_ld`, `simple`, and `ma_data`) now also
   pass and are gated, so every `rv64ui` source row currently built from the
-  local official-test checkout is in the regression floor.
+  local official-test checkout is in the regression floor. The remaining local
+  `rv64um` unsigned divide/remainder and high-half multiply rows (`divu`,
+  `divuw`, `remu`, `remuw`, `mulh`, `mulhsu`, and `mulhu`) also pass and are
+  gated, completing the local official `rv64um` source rows.
 
 - The first RV64C reserved/hint correction slice for Task 0063 is in place.
   `EBREAK` and `C.EBREAK` now raise the architectural breakpoint exception,

@@ -83,7 +83,10 @@ official coverage improve.
   memory-combination rows (`bge`, `bgeu`, `blt`, `bne`, `ld_st`, `st_ld`,
   `simple`, and `ma_data`) now also pass and are gated, so every `rv64ui`
   source row currently built from the local official-test checkout is in the
-  regression floor.
+  regression floor. The remaining local `rv64um` unsigned divide/remainder and
+  high-half multiply rows (`divu`, `divuw`, `remu`, `remuw`, `mulh`, `mulhsu`,
+  and `mulhu`) also pass and are gated, completing the local official `rv64um`
+  source rows.
   Taken branch and jump target alignment now follows the active IALIGN:
   non-C profiles trap halfword-only targets as instruction-address-misaligned,
   while C/RV64GC profiles allow them under IALIGN=16.
