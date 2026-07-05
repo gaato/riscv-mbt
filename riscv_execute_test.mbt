@@ -9327,6 +9327,82 @@ test "SC.W without a live reservation fails and does not store" {
 }
 
 ///|
+test "atomic operations require natural address alignment" {
+  fn expect_atomic_misaligned_trap(
+    name : String,
+    raw : UInt,
+    offset : UInt,
+    expect_load_cause : Bool,
+  ) raise {
+    let runner = make_runner(virt_machine_config())
+    let addr = runner.cpu.pc + offset.to_uint64()
+    runner.cpu.write_reg(1, addr)
+    runner.cpu.write_reg(5, 0xa5a5U.to_uint64())
+    runner.bus.store_u64(runner.cpu.pc + 0x100U.to_uint64(), 0U.to_uint64())
+    runner.bus.store_u32(runner.cpu.pc, raw.to_uint64())
+    match runner.step() {
+      Trap(info) => {
+        if expect_load_cause {
+          match info.cause {
+            LoadAddressMisaligned => ()
+            _ =>
+              fail(
+                "expected \{name} to trap with load address misaligned, got \{trap_cause_name(info.cause)}",
+              )
+          }
+        } else {
+          match info.cause {
+            StoreAddressMisaligned => ()
+            _ =>
+              fail(
+                "expected \{name} to trap with store address misaligned, got \{trap_cause_name(info.cause)}",
+              )
+          }
+        }
+        assert_eq(info.trap_value, addr)
+      }
+      _ => fail("expected \{name} to trap on a misaligned atomic address")
+    }
+  }
+  expect_atomic_misaligned_trap(
+    "lr.w",
+    encode_amo(0x02U, 0, 1, 0x2U, 3),
+    0x102U,
+    true,
+  )
+  expect_atomic_misaligned_trap(
+    "sc.w",
+    encode_amo(0x03U, 5, 1, 0x2U, 4),
+    0x102U,
+    false,
+  )
+  expect_atomic_misaligned_trap(
+    "amoadd.w",
+    encode_amo(0x00U, 5, 1, 0x2U, 4),
+    0x102U,
+    false,
+  )
+  expect_atomic_misaligned_trap(
+    "lr.d",
+    encode_amo(0x02U, 0, 1, 0x3U, 3),
+    0x104U,
+    true,
+  )
+  expect_atomic_misaligned_trap(
+    "sc.d",
+    encode_amo(0x03U, 5, 1, 0x3U, 4),
+    0x104U,
+    false,
+  )
+  expect_atomic_misaligned_trap(
+    "amoadd.d",
+    encode_amo(0x00U, 5, 1, 0x3U, 4),
+    0x104U,
+    false,
+  )
+}
+
+///|
 test "store between LR.W and SC.W invalidates the reservation" {
   let runner = make_runner(virt_machine_config())
   let addr = runner.cpu.pc + 0x100U.to_uint64()

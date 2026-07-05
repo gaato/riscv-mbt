@@ -371,7 +371,9 @@ pub enum TrapCause {
   InstructionAccessFault
   IllegalInstruction
   Breakpoint
+  LoadAddressMisaligned
   LoadAccessFault
+  StoreAddressMisaligned
   StoreAccessFault
   InstructionPageFault
   LoadPageFault

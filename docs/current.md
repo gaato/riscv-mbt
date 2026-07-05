@@ -199,6 +199,12 @@
   `SLLI`/`SRLI`/`SRAI shamt[5]=1` rather than executing those encodings as
   six-bit shifts.
 
+- A-extension LR/SC and AMO W/D operations now enforce the natural address
+  alignment required by the atomic extension before translation or memory side
+  effects. Misaligned LR raises load-address-misaligned; misaligned SC and AMO
+  raise store-address-misaligned. Ordinary non-atomic load/store misalignment
+  is intentionally left on the existing EEI path.
+
 - The first RV64C reserved/hint correction slice for Task 0063 is in place.
   `EBREAK` and `C.EBREAK` now raise the architectural breakpoint exception,
   `C.ADDIW rd=x0` is rejected as reserved on RV64C, `C.LUI rd=x0` and

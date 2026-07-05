@@ -762,6 +762,31 @@ fn physical_ranges_overlap(
 }
 
 ///|
+fn atomic_address_aligned(addr : UInt64, width : Int) -> Bool {
+  addr % width.to_uint64() == 0U.to_uint64()
+}
+
+///|
+fn Runner::atomic_alignment_check(
+  self : Runner,
+  addr : UInt64,
+  width : Int,
+  load_side : Bool,
+) -> StepResult? {
+  // The A extension is stricter than this emulator's ordinary load/store EEI:
+  // LR/SC and AMO addresses must be naturally aligned unless a misaligned
+  // atomicity granule PMA is modeled. No such PMA exists here, so reject the
+  // effective address before translation or memory side effects.
+  if atomic_address_aligned(addr, width) {
+    None
+  } else if load_side {
+    Some(self.raise_trap(LoadAddressMisaligned, self.cpu.pc, addr))
+  } else {
+    Some(self.raise_trap(StoreAddressMisaligned, self.cpu.pc, addr))
+  }
+}
+
+///|
 fn Runner::invalidate_lr_sc_reservations(
   self : Runner,
   pa : UInt64,
@@ -971,6 +996,10 @@ fn Runner::execute_amo(
       let addr = self.cpu.read_reg(rs1)
       // LR.W
       if funct5_val == 0x02U {
+        match self.atomic_alignment_check(addr, 4, true) {
+          Some(result) => return result
+          None => ()
+        }
         let (pa, check) = self.load_check(addr, 4)
         match check {
           Some(result) => return result
@@ -985,6 +1014,10 @@ fn Runner::execute_amo(
       }
       // SC.W succeeds only against a live matching reservation.
       if funct5_val == 0x03U {
+        match self.atomic_alignment_check(addr, 4, false) {
+          Some(result) => return result
+          None => ()
+        }
         let (pa, check) = self.store_check(addr, 4)
         match check {
           Some(result) => return result
@@ -1002,6 +1035,10 @@ fn Runner::execute_amo(
         return Running
       }
       // Other AMO.W: load-op-store
+      match self.atomic_alignment_check(addr, 4, false) {
+        Some(result) => return result
+        None => ()
+      }
       let (pa, check) = self.store_check(addr, 4)
       match check {
         Some(result) => return result
@@ -1021,6 +1058,10 @@ fn Runner::execute_amo(
       let addr = self.cpu.read_reg(rs1)
       // LR.D
       if funct5_val == 0x02U {
+        match self.atomic_alignment_check(addr, 8, true) {
+          Some(result) => return result
+          None => ()
+        }
         let (pa, check) = self.load_check(addr, 8)
         match check {
           Some(result) => return result
@@ -1034,6 +1075,10 @@ fn Runner::execute_amo(
       }
       // SC.D succeeds only against a live matching reservation.
       if funct5_val == 0x03U {
+        match self.atomic_alignment_check(addr, 8, false) {
+          Some(result) => return result
+          None => ()
+        }
         let (pa, check) = self.store_check(addr, 8)
         match check {
           Some(result) => return result
@@ -1051,6 +1096,10 @@ fn Runner::execute_amo(
         return Running
       }
       // Other AMO.D: load-op-store
+      match self.atomic_alignment_check(addr, 8, false) {
+        Some(result) => return result
+        None => ()
+      }
       let (pa, check) = self.store_check(addr, 8)
       match check {
         Some(result) => return result
