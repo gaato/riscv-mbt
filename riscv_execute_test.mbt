@@ -2800,6 +2800,28 @@ test "rv64fd fclass.d writes one class bit" {
 }
 
 ///|
+test "rv64fd fclass does not update fflags for signaling nan inputs" {
+  let fflags = 0x001
+  let fcsr = 0x003
+  let existing_nx = 0x1U.to_uint64()
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_csr(fcsr, existing_nx)
+  runner.cpu.write_freg(1, exec_test_nan_box_single(0x7f800001U))
+  runner.cpu.write_freg(2, 0x7ff0000000000001UL)
+  runner.load_program(
+    words_to_bytes([encode_fclass_s(1, 3), encode_fclass_d(2, 4)]),
+    0U,
+  )
+  match runner.run(2) {
+    Running => ()
+    _ => fail("expected signaling-nan FCLASS instructions to run")
+  }
+  assert_eq(runner.read_reg_u64(3), 0x100U.to_uint64())
+  assert_eq(runner.read_reg_u64(4), 0x100U.to_uint64())
+  assert_eq(runner.read_csr_u64(fflags), existing_nx)
+}
+
+///|
 test "rv64fd double to signed word conversion uses rtz" {
   let runner = make_runner(rv64fd_machine_config())
   runner.cpu.write_freg(1, exec_test_f64_bits(4.75))

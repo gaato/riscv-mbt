@@ -342,7 +342,9 @@ official coverage improve.
   walker descends to the next page-table level.
 - `FCLASS.S` and `FCLASS.D` now decode and execute the architectural 10-bit
   classification mask for zero, subnormal, normal, infinity, signaling NaN,
-  quiet NaN, and the D-present single-precision NaN-boxing path.
+  quiet NaN, and the D-present single-precision NaN-boxing path. Focused
+  coverage now also pins the spec rule that FCLASS does not update `fflags`,
+  including when classifying signaling NaNs.
 - `FMADD.S/D`, `FMSUB.S/D`, `FNMSUB.S/D`, and `FNMADD.S/D` now decode and
   execute with exact-rational finite fused results and explicit exact-zero sign
   handling. Full `fflags` and NaN behavior remain open spec-compliance work.
