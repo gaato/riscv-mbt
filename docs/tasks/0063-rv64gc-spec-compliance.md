@@ -418,7 +418,9 @@ official coverage improve.
   including when classifying signaling NaNs.
 - `FMADD.S/D`, `FMSUB.S/D`, `FNMSUB.S/D`, and `FNMADD.S/D` now decode and
   execute with exact-rational finite fused results and explicit exact-zero sign
-  handling. Full `fflags` and NaN behavior remain open spec-compliance work.
+  handling. Quiet and signaling NaN operands are covered for addends and
+  multiplicands, with canonical default NaN results and NV only for signaling
+  NaNs.
 - Scalar `F/D` comparisons and min/max now accrue the invalid-operation flag
   for the NaN cases required by the F specification: `FLT`/`FLE` set NV for any
   NaN input, `FEQ` sets NV only for signaling NaNs, and `FMIN`/`FMAX` set NV for
@@ -496,8 +498,10 @@ official coverage improve.
   produce canonical NaNs with NV. Fused multiply-add regressions now pin both
   the RISC-V-specific `FNMSUB`/`FNMADD` rule that only the product term is
   negated before detecting opposite-infinity fused additions, and the
-  all-opcode S/D quiet-vs-signaling NaN default-result split. Deeper NaN
-  payload behavior, broader flag corner cases, and full official-suite
+  all-opcode S/D quiet-vs-signaling NaN default-result split for addends.
+  Multiplicand NaN regressions now separately pin that quiet NaNs are
+  flag-clean while signaling NaNs accrue NV. Deeper NaN payload behavior,
+  broader flag corner cases, and full official-suite
   promotion remain open.
 - `FADD.S`, `FSUB.S`, and `FMUL.S` now round their exact single-precision
   operand results through the emulator-side exact-rational helper. Legal
