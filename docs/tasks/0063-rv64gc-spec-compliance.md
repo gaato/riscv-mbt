@@ -515,8 +515,8 @@ official coverage improve.
   quotient signs explicitly. `FSQRT.S` now selects finite square-root results by
   exact candidate comparison for RNE, RTZ, RDN, RUP, and RMM instead of
   inheriting host double-to-single rounding.
-- The single-precision fused multiply-add family now accepts legal static
-  non-RNE modes and rounds finite nonzero fused results through an exact
+- The single-precision fused multiply-add family now accepts legal static and
+  dynamic non-RNE modes and rounds finite nonzero fused results through an exact
   rational-to-single helper. This closes the old RNE-only legality boundary for
   `FMADD.S`, `FMSUB.S`, `FNMSUB.S`, and `FNMADD.S` without introducing a
   rounded host-Double product-plus-addend. Exact-zero result signs are now
@@ -542,8 +542,8 @@ official coverage improve.
   an exact +0 addend: the tests isolate the fused single-rounding path while
   requiring the same subnormal tiny-product UF and NX sticky flags for
   `FMADD`, `FMSUB`, `FNMSUB`, and `FNMADD` in both S and D formats.
-- The double-precision fused multiply-add family now accepts legal static
-  non-RNE modes and routes finite nonzero exact fused results through the
+- The double-precision fused multiply-add family now accepts legal static and
+  dynamic non-RNE modes and routes finite nonzero exact fused results through the
   exact-rational-to-double helper. This covers `FMADD.D`, `FMSUB.D`,
   `FNMSUB.D`, and `FNMADD.D` without using an intermediate rounded product.
   Exact-zero result signs are also handled explicitly for finite cancellation
@@ -669,6 +669,7 @@ official coverage improve.
 - Single-precision FMA now has matching non-RNE coverage for finite nonzero
   exact results. Focused regressions cover all four FMA opcodes at `2^24 + 1`,
   where RTZ and RUP select adjacent single-precision results and accrue NX.
+  Dynamic `rm=111` with `frm=RUP` is also covered for a representative FMA.
   A separate regression pins exact-zero signs for finite cancellation and
   negative-zero product/addend inputs.
 - Double-precision add/sub/mul now have corresponding non-RNE coverage.
@@ -682,6 +683,7 @@ official coverage improve.
 - Double-precision FMA now has matching non-RNE coverage for finite nonzero
   exact results. Focused regressions cover all four FMA opcodes at `2^53 + 1`,
   where RTZ and RUP select adjacent double-precision results and accrue NX.
+  Dynamic `rm=111` with `frm=RTZ` is also covered for a representative FMA.
   A separate regression pins exact-zero signs for finite cancellation and
   negative-zero product/addend inputs.
 - Double-precision sqrt now has matching non-RNE coverage. A focused regression

@@ -94,9 +94,9 @@
   including exact-zero quotient signs, and `FSQRT.S` now selects finite
   single-precision square-root results by exact candidate comparison for legal
   rounding modes and NX. Single and double fused multiply-add now use
-  exact-rational fused products for finite nonzero results under legal non-RNE
-  modes, reject reserved static/dynamic rounding encodings, and handle
-  exact-zero fused result signs explicitly. NaN fused operations now write
+  exact-rational fused products for finite nonzero results under legal static
+  and dynamic non-RNE modes, reject reserved static/dynamic rounding encodings,
+  and handle exact-zero fused result signs explicitly. NaN fused operations now write
   canonical NaNs for quiet/signaling addend and multiplicand cases, accruing NV
   only for signaling NaNs. Invalid fused operations also accrue NV for
   `infinity * zero` and

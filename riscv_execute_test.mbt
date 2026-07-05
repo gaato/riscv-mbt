@@ -1482,6 +1482,56 @@ test "rv64fd fused multiply-add single paths honor non-rne rounding modes" {
 }
 
 ///|
+test "rv64fd fused multiply-add honors dynamic rounding mode" {
+  let csr_fcsr = 0x003
+  let fcsr_frm_shift = 5
+
+  let single_rup = make_runner(rv64fd_machine_config())
+  single_rup.cpu.write_csr(csr_fcsr, 0x3U.to_uint64() << fcsr_frm_shift)
+  single_rup.cpu.write_freg(1, exec_test_nan_box_single(0x4b800000U))
+  single_rup.cpu.write_freg(
+    2,
+    exec_test_nan_box_single(exec_test_f32_bits(1.0)),
+  )
+  single_rup.cpu.write_freg(
+    3,
+    exec_test_nan_box_single(exec_test_f32_bits(1.0)),
+  )
+  single_rup.load_program(
+    words_to_bytes([encode_fp_r4(3, 0x0U, 2, 1, 0x7U, 4, 0x43U)]),
+    0U,
+  )
+  match single_rup.run(1) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected dynamic-RUP single FMA to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(single_rup.read_freg_u64(4), exec_test_nan_box_single(0x4b800001U))
+  assert_eq(single_rup.read_csr(csr_fcsr) & 0x1U, 0x1U)
+
+  let double_rtz = make_runner(rv64fd_machine_config())
+  double_rtz.cpu.write_csr(csr_fcsr, 0x1U.to_uint64() << fcsr_frm_shift)
+  double_rtz.cpu.write_freg(1, 0x4340000000000000UL)
+  double_rtz.cpu.write_freg(2, exec_test_f64_bits(1.0))
+  double_rtz.cpu.write_freg(3, exec_test_f64_bits(1.0))
+  double_rtz.load_program(
+    words_to_bytes([encode_fp_r4(3, 0x1U, 2, 1, 0x7U, 4, 0x43U)]),
+    0U,
+  )
+  match double_rtz.run(1) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected dynamic-RTZ double FMA to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(double_rtz.read_freg_u64(4), 0x4340000000000000UL)
+  assert_eq(double_rtz.read_csr(csr_fcsr) & 0x1U, 0x1U)
+}
+
+///|
 test "rv64fd fused multiply-add rejects reserved rounding modes" {
   let csr_fcsr = 0x003
   let fcsr_frm_shift = 5
