@@ -98,7 +98,7 @@
 
 - Local `moon test` now expects build artifacts under `_build/riscv-tests-src/isa`; run `./scripts/build-riscv-tests-official.sh` first if they are missing.
 - The built upstream `*-p-*` survey currently stands above the original RV32
-  checkpoint. Curated `rv64ui` and `rv64um` rows are now part of the
+  checkpoint. Curated `rv64ui`, `rv64um`, and `rv64ua` rows are now part of the
   always-green gating subset, while broader official coverage remains
   survey-only until each extension family is ready.
 - The official QEMU cross-check path remains RV32-only; RV64 system-emulator cross-checking is still deferred.
