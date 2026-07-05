@@ -2068,7 +2068,9 @@ fn decode_c_q2(raw : UInt, xlen : Int) -> Instruction {
     }
     0x3U => {
       let rd = c_rd_rs1(raw)
-      if rd == 0 {
+      if xlen != XLEN_64 {
+        Unknown(raw)
+      } else if rd == 0 {
         Unknown(raw)
       } else {
         Ld(rd, 2, c_uimm_ldsp(raw))
@@ -2077,7 +2079,12 @@ fn decode_c_q2(raw : UInt, xlen : Int) -> Instruction {
     0x4U => decode_c_q2_cr(raw)
     0x5U => Fsd(2, c_rs2(raw), c_uimm_sdsp(raw))
     0x6U => Sw(2, c_rs2(raw), c_uimm_swsp(raw))
-    0x7U => Sd(2, c_rs2(raw), c_uimm_sdsp(raw))
+    0x7U =>
+      if xlen == XLEN_64 {
+        Sd(2, c_rs2(raw), c_uimm_sdsp(raw))
+      } else {
+        Unknown(raw)
+      }
     _ => Unknown(raw)
   }
 }

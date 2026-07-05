@@ -201,6 +201,9 @@
   Immediate-form HINTs now cover nonzero `C.NOP`, zero-immediate
   `C.ADDI rd!=x0`, and `C.LI rd=x0` as no-ops.
   Right-shift HINTs now cover zero-shift `C.SRLI` and `C.SRAI` as no-ops.
+  RV32C now also rejects quadrant-2 integer double stack forms
+  `C.LDSP`/`C.SDSP`, keeping those RV64C-only encodings from expanding into
+  RV64 load/store operations in the 32-bit profile.
   `C.ADD rd=x0, rs2!=x0` forms now execute as ignored hints, including the
   `rs2=x2..x5` compressed Zihintntl non-temporal locality hint subrange.
   CR-format coverage now also pins `C.MV rd=x0, rs2!=x0` as an ignored hint,

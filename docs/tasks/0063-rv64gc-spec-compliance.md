@@ -149,6 +149,9 @@ official coverage improve.
   `C.ADDI rd!=x0`, and `C.LI rd=x0` as no-ops.
   Right-shift HINT coverage now pins zero-shift `C.SRLI` and `C.SRAI` as
   no-ops.
+  RV32C now rejects the quadrant-2 integer double stack forms
+  `C.LDSP`/`C.SDSP`, preserving those encodings as RV64C-only load/store
+  aliases instead of widening the 32-bit compressed profile.
   `C.ADD rd=x0, rs2!=x0` forms now execute as
   ignored hints, including the `rs2=x2..x5` compressed Zihintntl non-temporal
   locality hint subrange. CR-format coverage now also pins `C.MV rd=x0,
@@ -453,6 +456,9 @@ official coverage improve.
   zero-immediate `C.ADDI rd!=x0`, and `C.LI rd=x0` as no-ops.
 - RV64C right-shift HINT coverage now executes `C.SRLI shamt=0` and
   `C.SRAI shamt=0` as no-ops.
+- RV32C quadrant-2 integer double stack coverage now keeps `C.LDSP` and
+  `C.SDSP` reserved in the 32-bit profile while preserving their RV64C
+  expansion path.
 - Compressed `C.ADD rd=x0, rs2!=x0` now executes as an architectural hint
   across the whole nonzero source range. The `rs2=x2..x5` encodings are the
   compressed Zihintntl locality hints, so they remain no-ops in this RV64GC

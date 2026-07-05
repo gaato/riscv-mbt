@@ -665,6 +665,30 @@ test "rv32c compressed shifts reserve high shamt bit" {
 }
 
 ///|
+test "rv32c compressed double stack integer forms remain reserved" {
+  // Quadrant-2 funct3=011/111 spell LDSP/SDSP only in RV64C. Keep the RV32C
+  // decoder from expanding them into RV64 integer memory operations.
+  let cases = [encode_c_ldsp(9, 8), encode_c_sdsp(9, 8)]
+  for raw in cases {
+    let runner = make_runner(default_machine_config())
+    runner.load_program(
+      mixed_program_bytes([(2, raw.reinterpret_as_uint())]),
+      0U,
+    )
+    match runner.step() {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected illegal instruction trap")
+        }
+        assert_eq(info.trap_value, raw.reinterpret_as_uint().to_uint64())
+      }
+      _ => fail("expected rv32c ldsp/sdsp reserved form to trap")
+    }
+  }
+}
+
+///|
 test "compressed add rd x0 forms execute as hints" {
   for rs2 in 1..<=31 {
     let raw = encode_c_add(0, rs2)
