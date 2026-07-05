@@ -779,6 +779,28 @@ test "rv64f div preserves exact zero signs" {
 }
 
 ///|
+test "rv64f sqrt exact squares stay flag clean" {
+  let runner = make_runner(rv64f_machine_config())
+  let csr_fcsr = 0x003
+  runner.cpu.write_freg(1, exec_test_f32_bits(4.0).to_uint64())
+  runner.cpu.write_freg(2, exec_test_f32_bits(0.25).to_uint64())
+  runner.load_program(
+    words_to_bytes([encode_fsqrt_s(1, 0x0U, 3), encode_fsqrt_s(2, 0x4U, 4)]),
+    0U,
+  )
+  match runner.run(2) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected exact single square roots to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(runner.read_freg_u64(3), exec_test_f32_bits(2.0).to_uint64())
+  assert_eq(runner.read_freg_u64(4), exec_test_f32_bits(0.5).to_uint64())
+  assert_eq(runner.read_csr(csr_fcsr) & 0x1fU, 0U)
+}
+
+///|
 test "rv64f min and max handle signed zero and canonical nan fallback" {
   let neg_zero = exec_test_f32_bits(-0.0)
   let pos_zero = exec_test_f32_bits(0.0)

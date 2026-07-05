@@ -833,6 +833,24 @@ fn f64_next_down_positive_finite(bits : UInt64) -> UInt64 {
 }
 
 ///|
+fn f32_next_up_positive_finite(bits : UInt) -> UInt {
+  if bits == 0x7f800000U {
+    bits
+  } else {
+    bits + 1U
+  }
+}
+
+///|
+fn f32_next_down_positive_finite(bits : UInt) -> UInt {
+  if bits == 0U {
+    bits
+  } else {
+    bits - 1U
+  }
+}
+
+///|
 fn f64_sqrt_rounded_bits(
   operand_bits : UInt64,
   mode : UInt,
@@ -876,6 +894,80 @@ fn f64_sqrt_rounded_bits(
                 upper_bits
               }
             }
+            _ => host_bits
+          }
+          { bits, flags: fp_fflag_nx }
+        }
+        None => { bits: host_bits, flags: 0UL }
+      }
+    }
+    None => { bits: host_bits, flags: 0UL }
+  }
+}
+
+///|
+fn f32_sqrt_midpoint_choice(
+  lower_bits : UInt,
+  upper_bits : UInt,
+  operand : FpExactRational,
+  mode : UInt,
+) -> UInt {
+  let lower = fp_exact_rational_from_f32_bits(lower_bits).unwrap()
+  let upper = fp_exact_rational_from_f32_bits(upper_bits).unwrap()
+  let midpoint = fp_exact_rational_div(fp_exact_rational_add(lower, upper), {
+    num: BigInt::from_int(2),
+    den: fp_bigint_one(),
+  }).unwrap()
+  let midpoint_squared = fp_exact_rational_mul(midpoint, midpoint)
+  let compare = fp_exact_rational_compare(operand, midpoint_squared)
+  if compare < 0 {
+    lower_bits
+  } else if compare > 0 {
+    upper_bits
+  } else if mode == 4U {
+    // RMM chooses the larger magnitude on a tie. Square roots of positive
+    // finite operands are non-negative, so that is the upper candidate.
+    upper_bits
+  } else if (lower_bits & 1U) == 0U {
+    lower_bits
+  } else {
+    upper_bits
+  }
+}
+
+///|
+fn f32_sqrt_rounded_bits(
+  operand_bits : UInt,
+  mode : UInt,
+) -> FpRoundedSingleBits {
+  let host_result_bits = f32_from_bits(operand_bits)
+    .to_double()
+    .sqrt()
+    .reinterpret_as_uint64()
+  let host_bits = fp_round_f64_bits_to_f32_bits(host_result_bits, 0U).bits
+  match fp_exact_rational_from_f32_bits(operand_bits) {
+    Some(operand) => {
+      if operand.num <= BigInt::from_int(0) {
+        return { bits: host_bits, flags: 0UL }
+      }
+      match fp_exact_rational_from_f32_bits(host_bits) {
+        Some(host) => {
+          let squared = fp_exact_rational_mul(host, host)
+          let square_compare = fp_exact_rational_compare(squared, operand)
+          if square_compare == 0 {
+            return { bits: host_bits, flags: 0UL }
+          }
+          let (lower_bits, upper_bits) = if square_compare < 0 {
+            (host_bits, f32_next_up_positive_finite(host_bits))
+          } else {
+            (f32_next_down_positive_finite(host_bits), host_bits)
+          }
+          let bits = match mode {
+            0 => f32_sqrt_midpoint_choice(lower_bits, upper_bits, operand, mode)
+            1 => lower_bits
+            2 => lower_bits
+            3 => upper_bits
+            4 => f32_sqrt_midpoint_choice(lower_bits, upper_bits, operand, mode)
             _ => host_bits
           }
           { bits, flags: fp_fflag_nx }
@@ -2321,10 +2413,7 @@ fn Runner::execute_fp(
         f32_sqrt_is_invalid_bits(operand_bits) {
         self.set_fflags(fp_fflag_nv)
       }
-      let rounded = fp_round_f64_bits_to_f32_bits(
-        f32_from_bits(operand_bits).to_double().sqrt().reinterpret_as_uint64(),
-        mode,
-      )
+      let rounded = f32_sqrt_rounded_bits(operand_bits, mode)
       self.set_fflags(rounded.flags)
       self.write_freg_single_bits(rd, rounded.bits)
       self.cpu.pc = next_pc

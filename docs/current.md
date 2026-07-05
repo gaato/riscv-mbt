@@ -91,11 +91,11 @@
   round exact single-precision operand results inside the emulator, including
   explicit signed-zero selection for exact cancellation and multiplication by
   zero. `FDIV.S` now uses the same exact-rational finite quotient path,
-  including exact-zero quotient signs, while `FSQRT.S` still uses the
-  double-to-single rounding helper for legal non-RNE arithmetic and NX. Single
-  and double fused multiply-add now use exact-rational fused products for
-  finite nonzero results under legal non-RNE modes, and exact-zero fused result
-  signs are handled explicitly. Invalid
+  including exact-zero quotient signs, and `FSQRT.S` now selects finite
+  single-precision square-root results by exact candidate comparison for legal
+  rounding modes and NX. Single and double fused multiply-add now use
+  exact-rational fused products for finite nonzero results under legal non-RNE
+  modes, and exact-zero fused result signs are handled explicitly. Invalid
   fused operations now write canonical NaNs directly while accruing NV for
   `infinity * zero` and
   signaling-NaN operands, and they also accrue NV for an infinite product
