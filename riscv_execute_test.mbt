@@ -1945,31 +1945,48 @@ test "rv64fd sqrt preserves negative zero and canonicalizes negative inputs" {
 }
 
 ///|
-test "rv64fd sqrt does not accrue invalid for quiet nan" {
+test "rv64fd sqrt nan operands canonicalize and flag signaling only" {
   let csr_fcsr = 0x003
+  let flag_mask = 0x1fU.to_uint64()
+  let invalid_only = 0x10U.to_uint64()
   let runner = make_runner(rv64fd_machine_config())
   runner.cpu.write_freg(1, exec_test_nan_box_single(0xffc00000U))
-  runner.cpu.write_freg(2, 0xfff8000000000000UL)
+  runner.cpu.write_freg(2, exec_test_nan_box_single(0x7f800001U))
+  runner.cpu.write_freg(3, 0xfff8000000000000UL)
+  runner.cpu.write_freg(4, 0x7ff0000000000001UL)
   runner.load_program(
     words_to_bytes([
       encode_fsqrt_s(1, 0x0U, 10),
       encode_csr(csr_fcsr, 0, 0x2U, 11),
-      encode_fsqrt_d(2, 0x0U, 12),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fsqrt_s(2, 0x0U, 12),
       encode_csr(csr_fcsr, 0, 0x2U, 13),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fsqrt_d(3, 0x0U, 14),
+      encode_csr(csr_fcsr, 0, 0x2U, 15),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fsqrt_d(4, 0x0U, 16),
+      encode_csr(csr_fcsr, 0, 0x2U, 17),
     ]),
     0U,
   )
-  match runner.run(4) {
+  match runner.run(11) {
     Running => ()
     Trap(info) =>
       fail(
-        "expected quiet-nan sqrt to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+        "expected nan sqrt cases to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
       )
   }
+  // NaN square roots follow the normal NaN rule, not the negative-number
+  // invalid rule: quiet NaNs are flag-clean, signaling NaNs accrue NV.
   assert_eq(runner.read_freg_u64(10), exec_test_nan_box_single(0x7fc00000U))
-  assert_eq(runner.read_reg_u64(11), 0U.to_uint64())
-  assert_eq(runner.read_freg_u64(12), exec_test_f64_canonical_nan_bits())
-  assert_eq(runner.read_reg_u64(13), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(11) & flag_mask, 0U.to_uint64())
+  assert_eq(runner.read_freg_u64(12), exec_test_nan_box_single(0x7fc00000U))
+  assert_eq(runner.read_reg_u64(13) & flag_mask, invalid_only)
+  assert_eq(runner.read_freg_u64(14), exec_test_f64_canonical_nan_bits())
+  assert_eq(runner.read_reg_u64(15) & flag_mask, 0U.to_uint64())
+  assert_eq(runner.read_freg_u64(16), exec_test_f64_canonical_nan_bits())
+  assert_eq(runner.read_reg_u64(17) & flag_mask, invalid_only)
 }
 
 ///|

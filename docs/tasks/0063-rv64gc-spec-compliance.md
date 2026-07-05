@@ -126,7 +126,9 @@ official coverage improve.
   arithmetic flag-clean while requiring NV for signaling NaNs and canonical
   results for both cases. `FSQRT.S/D` coverage now also pins negative finite
   inputs to canonical NaN plus NV, while `sqrt(-0)` remains an exact
-  negative-zero result without flags. `mstatus.FS`
+  negative-zero result without flags. The NaN `FSQRT.S/D` path is covered
+  separately: quiet NaNs canonicalize without flags, while signaling NaNs
+  canonicalize and accrue NV. `mstatus.FS`
   is now part of the execution contract: FP-capable reset profiles start with
   FS enabled, but scalar F/D load/store and arithmetic instructions trap as
   illegal when software sets FS=Off. FP register and `fcsr` writes also mark FS
@@ -364,8 +366,9 @@ official coverage improve.
   `FDIV.S/D` NaN operand coverage now keeps quiet NaNs flag-clean and raises NV
   only for signaling NaNs while writing canonical NaN results. `FADD.S/D`,
   `FSUB.S/D`, and `FMUL.S/D` now have the same quiet-vs-signaling NaN operand
-  regression coverage. Quiet NaN `FSQRT.S/D` inputs now produce canonical NaNs
-  without accruing NV. Fused multiply-add regressions also pin the
+  regression coverage. `FSQRT.S/D` NaN operands now have matching coverage:
+  quiet NaNs produce canonical NaNs without accruing NV, and signaling NaNs
+  produce canonical NaNs with NV. Fused multiply-add regressions also pin the
   RISC-V-specific `FNMSUB`/`FNMADD` rule that only the product term is negated
   before detecting opposite-infinity fused additions. Deeper NaN payload
   behavior, broader flag corner cases, and full official-suite promotion remain
