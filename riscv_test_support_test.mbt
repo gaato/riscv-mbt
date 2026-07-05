@@ -228,8 +228,33 @@ fn encode_fence() -> UInt {
 }
 
 ///|
+fn encode_fence_fields(
+  fm : UInt,
+  pred : UInt,
+  succ : UInt,
+  rs1 : Int,
+  rd : Int,
+) -> UInt {
+  ((fm & 0xfU) << 28) |
+  ((pred & 0xfU) << 24) |
+  ((succ & 0xfU) << 20) |
+  (rs1.reinterpret_as_uint() << 15) |
+  (rd.reinterpret_as_uint() << 7) |
+  0x0fU
+}
+
+///|
 fn encode_fence_i() -> UInt {
   0x0000100fU
+}
+
+///|
+fn encode_fence_i_fields(imm : UInt, rs1 : Int, rd : Int) -> UInt {
+  ((imm & 0xfffU) << 20) |
+  (rs1.reinterpret_as_uint() << 15) |
+  (0x1U << 12) |
+  (rd.reinterpret_as_uint() << 7) |
+  0x0fU
 }
 
 ///|

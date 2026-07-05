@@ -276,6 +276,10 @@
 - `satp` writes with unsupported MODE values now follow the privileged WARL
   rule that the whole write has no effect; the previous address-space selector
   is preserved instead of being cleared to Bare.
+- FENCE reserved-field behavior is now pinned by decode and execute coverage:
+  `FENCE.TSO` and future-reserved `fm`/pred/succ combinations retire as
+  conservative base fences, and FENCE.I ignores its unused imm/rs1/rd fields
+  while still flushing the local decode/fetch state.
 - `WFI` now enforces the modeled privilege/TW legality rule before using the
   existing CLINT timer fast-forward: U-mode traps, and S-mode traps when
   `mstatus.TW` is set.

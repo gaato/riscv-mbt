@@ -4792,6 +4792,45 @@ test "fence.i makes same-hart self-modified instruction fetch visible" {
 }
 
 ///|
+test "fence reserved fields retire as conservative fences" {
+  let program = words_to_bytes([
+    encode_i(11, 0, 0x0U, 2, 0x13U),
+    encode_fence_fields(0x8U, 0x3U, 0x3U, 2, 3),
+    encode_fence_fields(0x7U, 0x5U, 0xaU, 4, 5),
+    encode_i(13, 0, 0x0U, 6, 0x13U),
+  ])
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(4) {
+    Running => ()
+    _ => fail("expected reserved fence field sequence to retire")
+  }
+  assert_eq(runner.read_reg_u64(2), 11U.to_uint64())
+  assert_eq(runner.read_reg_u64(3), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(5), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(6), 13U.to_uint64())
+  assert_eq(runner.pc_u64(), 16U.to_uint64())
+}
+
+///|
+test "fence.i unused fields are ignored while flushing fetch state" {
+  let raw = encode_fence_i_fields(0xfffU, 1, 2)
+  let runner = make_runner(rv64_machine_config())
+  runner.cpu.write_reg(1, 0x1234U.to_uint64())
+  runner.cpu.write_reg(2, 0x5678U.to_uint64())
+  runner.load_program(words_to_bytes([raw]), 0U)
+  let flushes_before = runner.decode_cache_flush_count()
+  match runner.step() {
+    Running => ()
+    _ => fail("expected fence.i with unused fields to retire")
+  }
+  assert_eq(runner.read_reg_u64(1), 0x1234U.to_uint64())
+  assert_eq(runner.read_reg_u64(2), 0x5678U.to_uint64())
+  assert_eq(runner.pc_u64(), 4U.to_uint64())
+  assert_eq(runner.decode_cache_flush_count(), flushes_before + 1U.to_uint64())
+}
+
+///|
 test "sfence.vma decodes as explicit supervisor barrier and executes as no-op" {
   let program = words_to_bytes([
     encode_i(1, 0, 0x0U, 1, 0x13U),

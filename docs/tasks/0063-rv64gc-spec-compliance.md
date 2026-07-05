@@ -252,8 +252,11 @@ official coverage improve.
   `fence_i` rows are in the gating subset, and
   `riscv_execute_test.mbt` now covers same-hart self-modified instruction
   visibility after an old instruction at the same address was fetched once. The
-  remaining audit is broader official coverage and any future instruction-cache
-  model beyond the current fetch/decode-cache shape.
+  base FENCE/Zifencei reserved-field contract is also pinned: reserved
+  `FENCE` fm/pred/succ configurations retire as conservative base fences, and
+  `FENCE.I` ignores its unused imm/rs1/rd fields while still flushing local
+  fetch state. The remaining audit is broader official coverage and any future
+  instruction-cache model beyond the current fetch/decode-cache shape.
 
 ## Progress Notes
 
@@ -380,6 +383,10 @@ official coverage improve.
   address, execute `FENCE.I`, jump back, and require the replacement instruction
   to execute. The test also asserts that the emulator-side decode cache was
   flushed by `FENCE.I`.
+- Base FENCE and Zifencei reserved-field behavior now has focused decode and
+  execute coverage. This protects the spec rule that base implementations
+  treat reserved `FENCE` configurations as normal fences and ignore FENCE.I's
+  unused fields for forward compatibility.
 - `Zicsr` execution now models the architectural read/write suppression table
   directly: `CSRRW[I]` with `rd=x0` skips the CSR read path, while
   `CSRRS/CSRRC[I]` with a zero register or immediate mask skips the CSR write

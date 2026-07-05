@@ -91,9 +91,21 @@ test "decode fence and fence.i distinctly" {
     Fence => ()
     _ => fail("expected fence")
   }
+  match decode(encode_fence_fields(0x8U, 0x3U, 0x3U, 1, 2)) {
+    Fence => ()
+    _ => fail("expected fence.tso encoding to decode as fence")
+  }
+  match decode(encode_fence_fields(0x7U, 0x5U, 0xaU, 3, 4)) {
+    Fence => ()
+    _ => fail("expected reserved fence fields to remain a normal fence")
+  }
   match decode(encode_fence_i()) {
     FenceI => ()
     _ => fail("expected fence.i")
+  }
+  match decode(encode_fence_i_fields(0xfffU, 5, 6)) {
+    FenceI => ()
+    _ => fail("expected fence.i unused fields to be ignored")
   }
 }
 
