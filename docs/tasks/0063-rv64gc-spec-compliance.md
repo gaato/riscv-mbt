@@ -184,7 +184,10 @@ official coverage improve.
   and the architectural rule that a failed, non-trapping SC still consumes the
   hart reservation before any later matching SC can observe it. A later LR also
   replaces the previous hart reservation, so SC cannot pair with an older LR in
-  program order. Virtio-blk
+  program order. The reservation-set model is documented as the exact physical
+  byte range loaded by the most recent LR, and mixed-width SC attempts at the
+  same address now have focused regression coverage for deterministic failure.
+  Virtio-blk
   guest-visible DMA/status/used-ring writes now use reservation-aware device
   store helpers. The upstream `rv64ua` AMO/LRSC cases are now part of the
   gating manifest. The remaining audit is true `aq`/`rl` visibility ordering
@@ -399,6 +402,9 @@ official coverage improve.
 - A-extension successful LR/SC coverage now includes both `LR.W`/`SC.W` and
   `LR.D`/`SC.D`, proving full-width load-reserved results, zero success status,
   and the committed store-conditional value.
+- A-extension reservation-set coverage now documents the interpreter's exact
+  physical byte-range reservation model and pins mixed-width SC attempts at the
+  same address as deterministic failures under that model.
 - A-extension signed min/max coverage now includes `AMOMIN.W` plus full-width
   `AMOMIN.D`/`AMOMAX.D` comparisons across the 64-bit sign boundary.
 - A-extension unsigned min/max coverage now includes full-width

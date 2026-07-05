@@ -411,7 +411,10 @@
   `SC.W` is now covered as consuming the hart reservation before any later
   matching `SC.W` can succeed. A later `LR.W` to a different address is also
   covered as replacing the previous reservation, so SC cannot pair with an
-  older LR in program order. Signed AMO min/max coverage now includes both
+  older LR in program order. The reservation-set model is documented as the
+  exact physical byte range loaded by the most recent LR, and mixed-width SC
+  attempts at the same address are covered as deterministic failures under that
+  model. Signed AMO min/max coverage now includes both
   `AMOMIN.W` and full-width `AMOMIN.D`/`AMOMAX.D`
   comparisons across the sign boundary, and unsigned AMO.D min/max coverage
   now pins `AMOMINU.D`/`AMOMAXU.D` on the same bit patterns. The remaining

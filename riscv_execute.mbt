@@ -815,6 +815,12 @@ fn Runner::lr_sc_reservation_matches(
   pa : UInt64,
   width : Int,
 ) -> Bool {
+  // The architectural reservation set is implementation-defined as long as it
+  // includes the LR's addressed bytes. This interpreter chooses the narrowest
+  // useful shape: exactly the translated byte range loaded by the most recent
+  // LR on this hart. That keeps SC success deterministic and keeps constrained
+  // forward-progress reasoning tied to the same-address, same-size LR/SC loops
+  // that portable software is allowed to rely on.
   let hart = self.lr_sc_hart_index()
   self.lr_sc_reserved_pas[hart] == pa &&
   self.lr_sc_reserved_sizes[hart] == width

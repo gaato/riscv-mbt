@@ -11599,6 +11599,58 @@ test "a later LR replaces the reservation used by SC" {
 }
 
 ///|
+test "SC fails when its width does not match the LR reservation" {
+  // The runner models each reservation set as the exact LR byte range. A
+  // mixed-width SC at the same physical address is therefore outside the
+  // reservation shape this implementation exposes, even though the broader
+  // ISA leaves reservation-set size implementation-defined.
+  let runner = make_runner(virt_machine_config())
+  let addr = runner.cpu.pc + 0x100U.to_uint64()
+  let original = 0x1122334455667788UL
+  let replacement = 0x8877665544332211UL
+  runner.bus.store_u64(addr, original)
+  runner.cpu.write_reg(1, addr)
+  runner.cpu.write_reg(5, replacement)
+  let pc0 = runner.cpu.pc
+  runner.bus.store_u32(pc0, encode_amo(0x02U, 0, 1, 0x2U, 3).to_uint64())
+  runner.bus.store_u32(
+    pc0 + 4U.to_uint64(),
+    encode_amo(0x03U, 5, 1, 0x3U, 4).to_uint64(),
+  )
+  runner.bus.store_u32(
+    pc0 + 8U.to_uint64(),
+    encode_amo(0x02U, 0, 1, 0x3U, 6).to_uint64(),
+  )
+  runner.bus.store_u32(
+    pc0 + 12U.to_uint64(),
+    encode_amo(0x03U, 5, 1, 0x2U, 7).to_uint64(),
+  )
+
+  match runner.step() {
+    Running => ()
+    _ => fail("expected lr.w to run")
+  }
+  assert_eq(runner.read_reg_u64(3), 0x55667788U.to_uint64())
+  match runner.step() {
+    Running => ()
+    _ => fail("expected mixed-width sc.d to retire as failure")
+  }
+  assert_eq(runner.read_reg_u64(4), 1U.to_uint64())
+  assert_eq(runner.bus.load_u64(addr), original)
+  match runner.step() {
+    Running => ()
+    _ => fail("expected lr.d to run")
+  }
+  assert_eq(runner.read_reg_u64(6), original)
+  match runner.step() {
+    Running => ()
+    _ => fail("expected mixed-width sc.w to retire as failure")
+  }
+  assert_eq(runner.read_reg_u64(7), 1U.to_uint64())
+  assert_eq(runner.bus.load_u64(addr), original)
+}
+
+///|
 test "atomic operations require natural address alignment" {
   fn expect_atomic_misaligned_trap(
     name : String,
