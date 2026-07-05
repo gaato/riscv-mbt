@@ -280,6 +280,8 @@ official coverage improve.
   `mconfigptr` is now exposed as the mandatory read-only machine information
   CSR and returns zero, indicating that this platform has no standard
   configuration data structure and relies on the existing device-tree path.
+  Machine-information readback coverage now pins `mvendorid`, `marchid`,
+  `mimpid`, and `mconfigptr` to zero and `mhartid` to the runner hart ID.
   `misa` now behaves as a fixed WARL machine ISA CSR for the current runner
   profile: write forms retire but read back the configured ISA. The read-only
   machine-information CSR trap coverage samples the exposed read-only set:
@@ -699,6 +701,9 @@ official coverage improve.
   cover both read and suppressed-read write forms trapping when Smrnmi is absent.
 - `mconfigptr` is now part of the supported read-only CSR table. Focused
   regressions cover zero readback and illegal-instruction traps for write forms.
+  The full machine-information CSR readback set is now pinned as stable:
+  implementation IDs and `mconfigptr` read as zero, while `mhartid` reports the
+  current runner hart ID.
 - `misa` is no longer treated as address-encoded read-only. Focused regressions
   cover fixed WARL behavior: write forms retire and preserve the runner's
   configured ISA bits.

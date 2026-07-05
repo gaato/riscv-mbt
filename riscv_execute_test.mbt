@@ -5429,6 +5429,35 @@ test "mconfigptr is mandatory read only zero" {
 }
 
 ///|
+test "machine information csrs expose stable read only identifiers" {
+  let mvendorid = 0xF11
+  let marchid = 0xF12
+  let mimpid = 0xF13
+  let mhartid = 0xF14
+  let mconfigptr = 0xF15
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(
+    words_to_bytes([
+      encode_csr(mvendorid, 0, 0x2U, 2),
+      encode_csr(marchid, 0, 0x2U, 3),
+      encode_csr(mimpid, 0, 0x2U, 4),
+      encode_csr(mhartid, 0, 0x2U, 5),
+      encode_csr(mconfigptr, 0, 0x2U, 6),
+    ]),
+    0U,
+  )
+  match runner.run(5) {
+    Running => ()
+    _ => fail("expected machine information CSR reads to run")
+  }
+  assert_eq(runner.read_reg_u64(2), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(3), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(4), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(5), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(6), 0U.to_uint64())
+}
+
+///|
 test "csr address privilege bits gate supervisor and machine csrs" {
   let read_mstatus = encode_csr(0x300, 0, 0x2U, 1)
   let supervisor_machine_denied = make_runner(rv64_machine_config())
