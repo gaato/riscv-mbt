@@ -76,6 +76,8 @@
 
 - The first console-path exercise, `printf ':stats\n:quit\n' | moon run --target native cmd/alpine_probe xlong --interactive-console --interactive-command-step-budget 1000000`, reaches `interactive console ready` at 558,000,000 guest steps and exits cleanly with `outcome=interactive-console-quit`, `interactive_console=true`, and the auto-root/post-init markers present.
 
+- RV64 F/D float-to-integer conversions now honor RNE, RTZ, RDN, RUP, RMM, and valid dynamic `frm` for `fcvt.{w,wu,l,lu}.{s,d}`. This is emulator-body hardening for the ordinary C floating-point paths that Alpine userspace can exercise; `fflags`, signaling-NaN, and exact invalid/overflow flag behavior remain later spec-compliance work.
+
 ## Known Blockers
 
 - Local `moon test` now expects build artifacts under `_build/riscv-tests-src/isa`; run `./scripts/build-riscv-tests-official.sh` first if they are missing.

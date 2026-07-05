@@ -995,6 +995,50 @@ test "rv64fd double to signed word conversion uses rtz" {
 }
 
 ///|
+test "rv64fd double to signed word conversion honors rounding modes" {
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, exec_test_f64_bits(2.5))
+  runner.cpu.write_freg(2, exec_test_f64_bits(-2.5))
+  runner.cpu.write_freg(3, exec_test_f64_bits(2.25))
+  runner.cpu.write_freg(4, exec_test_f64_bits(-2.25))
+  runner.cpu.write_freg(5, exec_test_f64_bits(3.5))
+  runner.load_program(
+    words_to_bytes([
+      encode_fcvt_w_d(1, 0x0U, 10),
+      encode_fcvt_w_d(2, 0x0U, 11),
+      encode_fcvt_w_d(3, 0x2U, 12),
+      encode_fcvt_w_d(4, 0x3U, 13),
+      encode_fcvt_w_d(5, 0x4U, 14),
+    ]),
+    0U,
+  )
+  match runner.run(5) {
+    Running => ()
+    _ => fail("expected rounded rv64fd fcvt.w.d path to run")
+  }
+  assert_eq(runner.read_reg_u64(10), 2U.to_uint64())
+  assert_eq(runner.read_reg_u64(11), test_sign_extend_word64(0xfffffffeU))
+  assert_eq(runner.read_reg_u64(12), 2U.to_uint64())
+  assert_eq(runner.read_reg_u64(13), test_sign_extend_word64(0xfffffffeU))
+  assert_eq(runner.read_reg_u64(14), 4U.to_uint64())
+}
+
+///|
+test "rv64fd float to int conversion honors dynamic frm" {
+  let runner = make_runner(rv64fd_machine_config())
+  let csr_fcsr = 0x003
+  let fcsr_frm_shift = 5
+  runner.cpu.write_freg(1, exec_test_f64_bits(2.25))
+  runner.cpu.write_csr(csr_fcsr, 0x3U.to_uint64() << fcsr_frm_shift)
+  runner.load_program(words_to_bytes([encode_fcvt_w_d(1, 0x7U, 2)]), 0U)
+  match runner.run(1) {
+    Running => ()
+    _ => fail("expected dynamic rounded rv64fd fcvt.w.d path to run")
+  }
+  assert_eq(runner.read_reg_u64(2), 3U.to_uint64())
+}
+
+///|
 test "rv64fd double to unsigned word conversion sign extends on rv64" {
   let runner = make_runner(rv64fd_machine_config())
   runner.cpu.write_freg(1, exec_test_f64_bits(42.75))

@@ -332,3 +332,10 @@ but it is not the same as a more ordinary Alpine service environment.
   with `outcome=interactive-console-quit`, `interactive_console=true`,
   `contains_post_init_marker=true`, `contains_auto_root_marker=true`, and
   `virtio_blk=513 read-req/1601536 read-bytes 1 write-req/1024 write-bytes`.
+- Body-side F/D hardening now supports all architectural rounding selectors
+  for float-to-integer `fcvt.{w,wu,l,lu}.{s,d}` instructions: RNE, RTZ, RDN,
+  RUP, RMM, and valid dynamic `frm`. This removes the previous RTZ-only
+  limitation on those conversion paths, which are part of the ordinary C
+  floating-point surface exposed by BusyBox/Alpine userspace. Full `fflags`,
+  signaling-NaN, and invalid/overflow flag precision remain separate
+  spec-compliance work.

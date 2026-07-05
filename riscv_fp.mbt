@@ -249,10 +249,50 @@ fn Runner::fp_rounding_mode_supported(self : Runner, rm : UInt) -> Bool {
 }
 
 ///|
-fn Runner::fp_rounding_mode_is_rtz(self : Runner, rm : UInt) -> Bool {
-  // Float-to-integer Linux paths have so far required RTZ. Full rounding-mode
-  // and fflags support belongs in a later spec-compliance slice.
-  rm == 1U || (rm == 7U && self.read_frm() == 1U)
+fn Runner::fp_effective_rounding_mode(self : Runner, rm : UInt) -> UInt? {
+  if rm <= 4U {
+    Some(rm)
+  } else if rm == 7U {
+    let frm = self.read_frm()
+    if frm <= 4U {
+      Some(frm)
+    } else {
+      None
+    }
+  } else {
+    None
+  }
+}
+
+///|
+fn fp_integer_is_even(value : Double) -> Bool {
+  value.to_int64() % 2L == 0L
+}
+
+///|
+fn fp_round_to_integer(value : Double, mode : UInt) -> Double {
+  match mode {
+    0U => {
+      let down = value.floor()
+      let up = value.ceil()
+      let down_delta = value - down
+      let up_delta = up - value
+      if down_delta < up_delta {
+        down
+      } else if up_delta < down_delta {
+        up
+      } else if fp_integer_is_even(down) {
+        down
+      } else {
+        up
+      }
+    }
+    1U => value.trunc()
+    2U => value.floor()
+    3U => value.ceil()
+    4U => if value < 0.0 { (value - 0.5).ceil() } else { (value + 0.5).floor() }
+    _ => value.trunc()
+  }
 }
 
 ///|
@@ -727,13 +767,19 @@ fn Runner::execute_fp(
       Running
     }
     FCvtWS(rd, rs1, rm) => {
-      if !self.fp_rounding_mode_is_rtz(rm) {
-        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      let mode = match self.fp_effective_rounding_mode(rm) {
+        Some(mode) => mode
+        None =>
+          return self.raise_trap(
+            IllegalInstruction,
+            current_pc,
+            raw.to_uint64(),
+          )
       }
-      let result = f32_from_bits(self.read_freg_single_value_bits(rs1))
-        .to_double()
-        .trunc()
-        .to_int64()
+      let result = fp_round_to_integer(
+        f32_from_bits(self.read_freg_single_value_bits(rs1)).to_double(),
+        mode,
+      ).to_int64()
       self.write_xlen_reg(
         rd,
         sign_extend_64(result.reinterpret_as_uint64(), 32),
@@ -742,46 +788,77 @@ fn Runner::execute_fp(
       Running
     }
     FCvtWUS(rd, rs1, rm) => {
-      if !self.fp_rounding_mode_is_rtz(rm) {
-        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      let mode = match self.fp_effective_rounding_mode(rm) {
+        Some(mode) => mode
+        None =>
+          return self.raise_trap(
+            IllegalInstruction,
+            current_pc,
+            raw.to_uint64(),
+          )
       }
       let result = UInt64::trunc_double(
-        f32_from_bits(self.read_freg_single_value_bits(rs1)).to_double(),
+        fp_round_to_integer(
+          f32_from_bits(self.read_freg_single_value_bits(rs1)).to_double(),
+          mode,
+        ),
       )
       self.write_xlen_reg(rd, sign_extend_64(result, 32))
       self.cpu.pc = next_pc
       Running
     }
     FCvtLS(rd, rs1, rm) => {
-      if !self.fp_rounding_mode_is_rtz(rm) {
-        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      let mode = match self.fp_effective_rounding_mode(rm) {
+        Some(mode) => mode
+        None =>
+          return self.raise_trap(
+            IllegalInstruction,
+            current_pc,
+            raw.to_uint64(),
+          )
       }
-      let result = f32_from_bits(self.read_freg_single_value_bits(rs1))
-        .to_double()
-        .trunc()
-        .to_int64()
+      let result = fp_round_to_integer(
+        f32_from_bits(self.read_freg_single_value_bits(rs1)).to_double(),
+        mode,
+      ).to_int64()
       self.write_xlen_reg(rd, result.reinterpret_as_uint64())
       self.cpu.pc = next_pc
       Running
     }
     FCvtLUS(rd, rs1, rm) => {
-      if !self.fp_rounding_mode_is_rtz(rm) {
-        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      let mode = match self.fp_effective_rounding_mode(rm) {
+        Some(mode) => mode
+        None =>
+          return self.raise_trap(
+            IllegalInstruction,
+            current_pc,
+            raw.to_uint64(),
+          )
       }
       let result = UInt64::trunc_double(
-        f32_from_bits(self.read_freg_single_value_bits(rs1)).to_double(),
+        fp_round_to_integer(
+          f32_from_bits(self.read_freg_single_value_bits(rs1)).to_double(),
+          mode,
+        ),
       )
       self.write_xlen_reg(rd, result)
       self.cpu.pc = next_pc
       Running
     }
     FCvtWD(rd, rs1, rm) => {
-      if !self.fp_rounding_mode_is_rtz(rm) {
-        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      let mode = match self.fp_effective_rounding_mode(rm) {
+        Some(mode) => mode
+        None =>
+          return self.raise_trap(
+            IllegalInstruction,
+            current_pc,
+            raw.to_uint64(),
+          )
       }
-      let result = f64_from_bits(self.read_freg_double_bits(rs1))
-        .trunc()
-        .to_int64()
+      let result = fp_round_to_integer(
+        f64_from_bits(self.read_freg_double_bits(rs1)),
+        mode,
+      ).to_int64()
       self.write_xlen_reg(
         rd,
         sign_extend_64(result.reinterpret_as_uint64(), 32),
@@ -790,33 +867,58 @@ fn Runner::execute_fp(
       Running
     }
     FCvtWUD(rd, rs1, rm) => {
-      if !self.fp_rounding_mode_is_rtz(rm) {
-        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      let mode = match self.fp_effective_rounding_mode(rm) {
+        Some(mode) => mode
+        None =>
+          return self.raise_trap(
+            IllegalInstruction,
+            current_pc,
+            raw.to_uint64(),
+          )
       }
       let result = UInt64::trunc_double(
-        f64_from_bits(self.read_freg_double_bits(rs1)),
+        fp_round_to_integer(
+          f64_from_bits(self.read_freg_double_bits(rs1)),
+          mode,
+        ),
       )
       self.write_xlen_reg(rd, sign_extend_64(result, 32))
       self.cpu.pc = next_pc
       Running
     }
     FCvtLD(rd, rs1, rm) => {
-      if !self.fp_rounding_mode_is_rtz(rm) {
-        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      let mode = match self.fp_effective_rounding_mode(rm) {
+        Some(mode) => mode
+        None =>
+          return self.raise_trap(
+            IllegalInstruction,
+            current_pc,
+            raw.to_uint64(),
+          )
       }
-      let result = f64_from_bits(self.read_freg_double_bits(rs1))
-        .trunc()
-        .to_int64()
+      let result = fp_round_to_integer(
+        f64_from_bits(self.read_freg_double_bits(rs1)),
+        mode,
+      ).to_int64()
       self.write_xlen_reg(rd, result.reinterpret_as_uint64())
       self.cpu.pc = next_pc
       Running
     }
     FCvtLUD(rd, rs1, rm) => {
-      if !self.fp_rounding_mode_is_rtz(rm) {
-        return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
+      let mode = match self.fp_effective_rounding_mode(rm) {
+        Some(mode) => mode
+        None =>
+          return self.raise_trap(
+            IllegalInstruction,
+            current_pc,
+            raw.to_uint64(),
+          )
       }
       let result = UInt64::trunc_double(
-        f64_from_bits(self.read_freg_double_bits(rs1)),
+        fp_round_to_integer(
+          f64_from_bits(self.read_freg_double_bits(rs1)),
+          mode,
+        ),
       )
       self.write_xlen_reg(rd, result)
       self.cpu.pc = next_pc
