@@ -124,8 +124,8 @@
   now also proves that S/D NX, DZ, and NV flags are accrued state until an
   explicit software `fcsr` clear. This is emulator-body hardening for the
   ordinary C floating-point paths that Alpine userspace can exercise; deeper
-  NaN payload/flag behavior and full official-suite promotion remain later
-  spec-compliance work. Exact widening
+  NaN payload/flag behavior remains later strict spec-compliance work beyond
+  the current locally available official `riscv-tests` rows. Exact widening
   `FCVT.D.S` and exact
   RV32-width-to-double `FCVT.D.W[U]` now validate the otherwise unaffected `rm`
   field for legal/reserved static and dynamic encodings, so legal non-RNE forms
