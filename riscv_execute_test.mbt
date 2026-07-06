@@ -4556,6 +4556,50 @@ test "rv64fd long conversions clip exact upper rne boundaries" {
 }
 
 ///|
+test "rv64fd rmm long conversion handles ties and unsigned lower edge" {
+  let csr_fcsr = 0x003
+  let invalid = 0x10U.to_uint64()
+  let inexact = 0x01U.to_uint64()
+  let runner = make_runner(rv64fd_machine_config())
+  // At the 64-bit upper endpoints, binary64 spacing is larger than one, so
+  // `2^63 - 0.5`-style sources are not real double values. Use small exact
+  // half-way inputs to pin RMM ties-away behavior on FCVT.L.D, and use -0.5
+  // to pin the unsigned lower edge for both D and S sources.
+  runner.cpu.write_freg(1, exec_test_f64_bits(9.5))
+  runner.cpu.write_freg(2, exec_test_f64_bits(-9.5))
+  runner.cpu.write_freg(3, 0xbfe0000000000000UL)
+  runner.cpu.write_freg(4, exec_test_nan_box_single(0xbf000000U))
+  runner.load_program(
+    words_to_bytes([
+      encode_fcvt_l_d(1, 0x4U, 10),
+      encode_csr(csr_fcsr, 0, 0x2U, 11),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_l_d(2, 0x4U, 12),
+      encode_csr(csr_fcsr, 0, 0x2U, 13),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_lu_d(3, 0x4U, 14),
+      encode_csr(csr_fcsr, 0, 0x2U, 15),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fcvt_lu_s(4, 0x4U, 16),
+      encode_csr(csr_fcsr, 0, 0x2U, 17),
+    ]),
+    0U,
+  )
+  match runner.run(11) {
+    Running => ()
+    _ => fail("expected RMM fcvt long path to run")
+  }
+  assert_eq(runner.read_reg_u64(10), 10U.to_uint64())
+  assert_eq(runner.read_reg_u64(11) & 0x1fU.to_uint64(), inexact)
+  assert_eq(runner.read_reg_u64(12), (-10L).reinterpret_as_uint64())
+  assert_eq(runner.read_reg_u64(13) & 0x1fU.to_uint64(), inexact)
+  assert_eq(runner.read_reg_u64(14), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(15) & 0x1fU.to_uint64(), invalid)
+  assert_eq(runner.read_reg_u64(16), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(17) & 0x1fU.to_uint64(), invalid)
+}
+
+///|
 test "rv64fd unsigned long conversion checks negative half after rounding" {
   let csr_fcsr = 0x003
   let invalid = 0x10U.to_uint64()

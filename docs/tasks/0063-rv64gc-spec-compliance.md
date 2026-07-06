@@ -124,7 +124,9 @@ official coverage improve.
   invalid-conversion path.
   `FCVT.LU.S/D` now has the same lower-edge rounded-result coverage: RNE/RTZ
   produce valid inexact zero for `-0.5`, while RDN rounds to `-1` and takes the
-  unsigned-long invalid-conversion path.
+  unsigned-long invalid-conversion path. RMM long-width coverage now pins
+  representable signed ties such as `+9.5`/`-9.5` and the unsigned `-0.5`
+  lower edge for both S and D sources.
   Invalid scalar arithmetic coverage now checks both NV and canonical-NaN
   results for representative add, multiply, and divide cases.
   Invalid fused multiply-add coverage now also checks canonical-NaN results for
@@ -577,6 +579,9 @@ official coverage improve.
   for large exact boundary values such as `2^64`. The unsigned-long lower edge
   now also checks validity after rounding for both S and D sources, proving
   that `-0.5` is valid with NX under RNE/RTZ but invalid with NV under RDN.
+  RMM coverage now also checks FCVT.L.D ties-away behavior on representable
+  `+9.5`/`-9.5` inputs and the FCVT.LU.S/D `-0.5` lower edge, where ties away
+  from zero produce an invalid rounded result.
 - `FCVT.S.W`, `FCVT.S.WU`, `FCVT.S.L`, `FCVT.S.LU`, `FCVT.D.L`, and
   `FCVT.D.LU` now construct IEEE result bits through a shared integer-magnitude
   rounding helper instead of relying on host-default conversion. The helper
