@@ -485,7 +485,8 @@
   WARL rules. User-interrupt, VS, XS, and other WPRI/reserved bits read back as
   zero; the remaining visible surface is the emulator's implemented interrupt,
   return, privilege, FP-status, memory-access, trap-control, fixed-XLEN, and
-  derived-SD fields.
+  derived-SD fields. Focused coverage now includes both replacement writes and
+  register-source set/clear candidates.
 - `sstatus` alias writes now preserve M-only `mstatus` fields while updating
   only the supervisor-visible subset. Focused coverage pins both replacement
   writes and register-source set/clear RMW forms so `MIE`, `MPIE`, `MPP`, and

@@ -6049,6 +6049,8 @@ test "status endian control fields are read only zero" {
 test "mstatus clears unsupported status bits" {
   let mstatus = 0x300
   let sstatus = 0x100
+  let normalized_mstatus = 0x8000000a007e79aaUL
+  let normalized_sstatus = 0x80000002000c6122UL
   let program = words_to_bytes([
     encode_i(-1, 0, 0x0U, 1, 0x13U),
     encode_csr(mstatus, 1, 0x1U, 0),
@@ -6061,10 +6063,35 @@ test "mstatus clears unsupported status bits" {
     Running => ()
     _ => fail("expected mstatus supported-bit program to run")
   }
-  assert_eq(runner.read_reg_u64(2), 0x8000000a007e79aaUL)
-  assert_eq(runner.read_reg_u64(3), 0x80000002000c6122UL)
-  assert_eq(runner.read_csr_u64(mstatus), 0x8000000a007e79aaUL)
-  assert_eq(runner.read_csr_u64(sstatus), 0x80000002000c6122UL)
+  assert_eq(runner.read_reg_u64(2), normalized_mstatus)
+  assert_eq(runner.read_reg_u64(3), normalized_sstatus)
+  assert_eq(runner.read_csr_u64(mstatus), normalized_mstatus)
+  assert_eq(runner.read_csr_u64(sstatus), normalized_sstatus)
+
+  let rmw_runner = make_runner(rv64_machine_config())
+  rmw_runner.load_program(
+    words_to_bytes([
+      encode_i(-1, 0, 0x0U, 1, 0x13U),
+      encode_csr(mstatus, 1, 0x2U, 4),
+      encode_csr(mstatus, 0, 0x2U, 5),
+      encode_csr(mstatus, 1, 0x3U, 6),
+      encode_csr(mstatus, 0, 0x2U, 7),
+    ]),
+    0U,
+  )
+  match rmw_runner.run(5) {
+    Running => ()
+    _ => fail("expected mstatus unsupported-bit RMW program to run")
+  }
+  // CSRRS/CSRRC derive candidates from a visible status value, but the final
+  // write still passes through the mstatus WARL filter. Unsupported
+  // user-interrupt, VS, XS, and WPRI/reserved storage therefore never becomes
+  // observable state.
+  assert_eq(rmw_runner.read_reg_u64(4), 0xa00000000UL)
+  assert_eq(rmw_runner.read_reg_u64(5), normalized_mstatus)
+  assert_eq(rmw_runner.read_reg_u64(6), normalized_mstatus)
+  assert_eq(rmw_runner.read_reg_u64(7), 0xa00000000UL)
+  assert_eq(rmw_runner.read_csr_u64(mstatus), 0xa00000000UL)
 }
 
 ///|
