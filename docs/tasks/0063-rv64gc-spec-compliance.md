@@ -540,7 +540,8 @@ official coverage improve.
   CSR and returns zero, indicating that this platform has no standard
   configuration data structure and relies on the existing device-tree path.
   Machine-information readback coverage now pins `mvendorid`, `marchid`,
-  `mimpid`, and `mconfigptr` to zero and `mhartid` to the runner hart ID.
+  `mimpid`, and `mconfigptr` to zero and `mhartid` to the runner hart ID,
+  including a nonzero configured hart-id case.
   `misa` now behaves as a fixed WARL machine ISA CSR for the current runner
   profile: `CSRRW[I]`, nonzero `CSRRS[I]`, and nonzero `CSRRC[I]` retire but
   read back the configured ISA. Focused coverage now explicitly samples both

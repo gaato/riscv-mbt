@@ -10284,6 +10284,24 @@ test "machine information csrs expose stable read only identifiers" {
 }
 
 ///|
+test "mhartid readback follows configured hart id" {
+  let mhartid = 0xF14
+  let configured_hart_id = 7U.to_uint64()
+  let harts = make_smp_runners(rv64_machine_config(), 8)
+  let runner = harts[7]
+  runner.load_program(words_to_bytes([encode_csr(mhartid, 0, 0x2U, 2)]), 0U)
+  match runner.step() {
+    Running => ()
+    _ => fail("expected nonzero mhartid CSR read to run")
+  }
+  // mhartid is a read-only machine-information CSR, but it is not a constant
+  // zero identifier. The value comes from the hart configuration used to build
+  // the runner, matching the boot ABI register setup and SMP hart numbering.
+  assert_eq(runner.read_reg_u64(2), configured_hart_id)
+  assert_eq(runner.read_csr_u64(mhartid), configured_hart_id)
+}
+
+///|
 test "machine information csrs reject every non-suppressed write form" {
   // The machine-identification CSRs are address-encoded read-only CSRs. Pure
   // reads through CSRRS/CSRRC with a zero mask are legal elsewhere, but every

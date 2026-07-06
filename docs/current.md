@@ -585,7 +585,9 @@
 - Machine-information CSRs now have full read-only write-form coverage:
   `mvendorid`, `marchid`, `mimpid`, `mhartid`, and `mconfigptr` reject every
   non-suppressed `CSRRW[I]`, `CSRRS[I]`, and `CSRRC[I]` write form while
-  remaining readable through pure-read CSR forms.
+  remaining readable through pure-read CSR forms. `mhartid` readback is also
+  pinned for a nonzero configured hart id, so the machine-information surface is
+  not accidentally treated as all-zero fixed metadata.
 - `sstatus` now exposes and writes the shared `mstatus.FS` field, matching the
   RV64GC F/D context-status path used by supervisor software.
 - `mstatus.SD` / `sstatus.SD` are now read as derived summary bits for dirty
