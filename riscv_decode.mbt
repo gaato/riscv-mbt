@@ -2033,17 +2033,22 @@ fn decode_c_q1_cb(raw : UInt, xlen : Int) -> Instruction {
   let rd = c_rs1_prime(raw)
   let rs2 = c_rs2_prime(raw)
   match c_funct2_cb(raw) {
-    // C.SRLI: 6-bit unsigned shift (bit12||bits[6:2]). RV64 allows shamt 32-63.
+    // C.SRLI: 6-bit unsigned shift (bit12||bits[6:2]). RV64 allows shamt 32-63;
+    // shamt=0 is architectural HINT space and is canonicalized to NOP.
     0x0U =>
       if xlen == XLEN_32 && ((raw >> 12) & 0x1U) != 0U {
         Unknown(raw)
+      } else if c_shamt6(raw) == 0 {
+        Addi(0, 0, 0)
       } else {
         Srli(rd, rd, c_shamt6(raw))
       }
-    // C.SRAI: 6-bit unsigned shift. RV64 allows shamt 32-63.
+    // C.SRAI mirrors C.SRLI's shift amount and zero-shift HINT rules.
     0x1U =>
       if xlen == XLEN_32 && ((raw >> 12) & 0x1U) != 0U {
         Unknown(raw)
+      } else if c_shamt6(raw) == 0 {
+        Addi(0, 0, 0)
       } else {
         Srai(rd, rd, c_shamt6(raw))
       }
@@ -2158,12 +2163,11 @@ fn decode_c_q2(raw : UInt, xlen : Int) -> Instruction {
       let rd = c_rd_rs1(raw)
       if xlen == XLEN_32 && ((raw >> 12) & 0x1U) != 0U {
         Unknown(raw)
-      } else if rd == 0 {
+      } else if rd == 0 || c_shamt6(raw) == 0 {
         Addi(0, 0, 0)
       } else {
-        // C.SLLI with shamt=0 is an architectural HINT. Expanding it to
-        // SLLI rd, rd, 0 gives the same no-op register effect while keeping
-        // the normal RV64 six-bit shift-amount path for nonzero shifts.
+        // Nonzero C.SLLI shifts use the same unsigned six-bit field as the
+        // right shifts under RV64C. Zero shifts and rd=x0 are HINTs above.
         Slli(rd, rd, c_shamt6(raw))
       }
     }
