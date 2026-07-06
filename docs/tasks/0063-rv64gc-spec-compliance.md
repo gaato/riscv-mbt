@@ -245,8 +245,8 @@ official coverage improve.
   `rd=x0` hint encodings.
   Integer stack-load reserved forms for `C.LWSP rd=x0` and `C.LDSP rd=x0` are
   now covered, with adjacent stack stores from `x0` kept legal.
-  `C.LUI` now has coverage for positive and negative compressed immediates,
-  pinning sign extension from bit 17 through XLEN.
+  `C.LUI` now has coverage for positive, negative, and most-negative
+  compressed immediates, pinning sign extension from bit 17 through XLEN.
   Shared 6-bit signed compressed immediates now have focused coverage through
   `C.ADDI`, `C.LI`, and `C.ANDI`.
   `C.ADDI4SPN` now has high unsigned stack-offset coverage for the scattered
@@ -255,9 +255,9 @@ official coverage improve.
   the scattered CL/CS memory immediate path.
   Stack-pointer `C.LWSP`/`C.SWSP` and `C.LDSP`/`C.SDSP` now have high
   zero-extended offset coverage for the separate CI/CSS memory layouts.
-  `C.ADDI16SP` now also has coverage for negative and high positive
-  sign-extended stack-pointer adjustments, beyond the zero-immediate reserved
-  case.
+  `C.ADDI16SP` now also has coverage for the lower `-512` edge, a negative
+  adjustment, and the high positive `+496` adjustment, beyond the
+  zero-immediate reserved case.
   Immediate-form HINT coverage now pins canonical `C.NOP`, nonzero `C.NOP`
   hint encodings, zero-immediate `C.ADDI rd!=x0`, and zero/positive/negative
   `C.LI rd=x0` forms as no-ops.
@@ -901,8 +901,9 @@ official coverage improve.
 - RV64C zero-immediate coverage now keeps the reserved `C.LUI` and
   `C.ADDI16SP` code points illegal while leaving nearby positive and negative
   nonzero `C.LUI rd=x0` hint forms as no-ops.
-- RV64C `C.LUI` coverage now pins the positive and negative compressed
-  immediate paths, including sign extension from bit 17 through XLEN.
+- RV64C `C.LUI` coverage now pins the positive, negative, and most-negative
+  compressed immediate paths, including sign extension from bit 17 through
+  XLEN.
 - Shared RV64C 6-bit signed immediate coverage now pins `C.ADDI`, `C.LI`, and
   `C.ANDI`, keeping the CI and CB immediate decode paths from regressing into
   zero-extension.
@@ -915,7 +916,8 @@ official coverage improve.
   `C.LWSP`/`C.SWSP` `uimm=252` path and the high unsigned
   `C.LDSP`/`C.SDSP` `uimm=504` path through the separate CI/CSS layouts.
 - RV64C `C.ADDI16SP` coverage now pins the scattered signed immediate path for
-  both a negative stack adjustment and the high positive `+496` adjustment.
+  the lower `-512` edge, a negative stack adjustment, and the high positive
+  `+496` adjustment.
 - RV64C integer stack-load coverage now keeps `C.LWSP rd=x0` and
   `C.LDSP rd=x0` illegal while leaving neighboring stack stores from `x0`
   legal.

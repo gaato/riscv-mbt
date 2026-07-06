@@ -766,44 +766,49 @@ test "rv64c stack word and double memory use high zero-extended offsets" {
 ///|
 test "rv64c addi16sp sign extends scaled stack offsets" {
   // C.ADDI16SP scatters nzimm bits across the CI format and then sign-extends
-  // a value scaled in 16-byte units. Cover a negative prologue/epilogue-shaped
-  // adjustment so the zero-reserved test is not the only ADDI16SP edge.
+  // a value scaled in 16-byte units. Cover the lower -512 edge, a small
+  // negative prologue/epilogue-shaped adjustment, and the high positive edge
+  // so the zero-reserved test is not the only ADDI16SP boundary.
   let runner = make_runner(rv64_machine_config())
   runner.cpu.write_reg(2, 0x1000U.to_uint64())
   runner.load_program(
     mixed_program_bytes([
+      (2, encode_c_addi16sp(-512).reinterpret_as_uint()),
       (2, encode_c_addi16sp(-16).reinterpret_as_uint()),
       (2, encode_c_addi16sp(496).reinterpret_as_uint()),
     ]),
     0U,
   )
-  match runner.run(2) {
+  match runner.run(3) {
     Running => ()
     _ => fail("expected signed c.addi16sp adjustments to run")
   }
-  assert_eq(runner.read_reg_u64(2), 0x11e0U.to_uint64())
-  assert_eq(runner.pc_u64(), 4U.to_uint64())
+  assert_eq(runner.read_reg_u64(2), 0xfe0U.to_uint64())
+  assert_eq(runner.pc_u64(), 6U.to_uint64())
 }
 
 ///|
 test "rv64c lui sign extends the compressed immediate" {
   // C.LUI carries a nonzero 6-bit immediate into bits 17:12 and sign-extends
-  // bit 17 through XLEN. Cover both sides of that boundary explicitly.
+  // bit 17 through XLEN. Cover both sides of that boundary plus the most
+  // negative 6-bit immediate, which lands at -128 KiB after the LUI shift.
   let runner = make_runner(rv64_machine_config())
   runner.load_program(
     mixed_program_bytes([
       (2, encode_c_lui(11, 31).reinterpret_as_uint()),
       (2, encode_c_lui(12, -1).reinterpret_as_uint()),
+      (2, encode_c_lui(13, -32).reinterpret_as_uint()),
     ]),
     0U,
   )
-  match runner.run(2) {
+  match runner.run(3) {
     Running => ()
     _ => fail("expected signed c.lui immediates to run")
   }
   assert_eq(runner.read_reg_u64(11), 0x1f000U.to_uint64())
   assert_eq(runner.read_reg_u64(12), 0xfffffffffffff000UL)
-  assert_eq(runner.pc_u64(), 4U.to_uint64())
+  assert_eq(runner.read_reg_u64(13), 0xfffffffffffe0000UL)
+  assert_eq(runner.pc_u64(), 6U.to_uint64())
 }
 
 ///|

@@ -318,8 +318,8 @@
   negative nonzero `rd=x0` hint encodings.
   Integer stack loads now also pin their reserved `rd=x0` encodings for
   `C.LWSP` and `C.LDSP`, while adjacent stack stores from `x0` remain legal.
-  `C.LUI` now has coverage for positive and negative compressed immediates,
-  pinning sign extension from bit 17 through XLEN.
+  `C.LUI` now has coverage for positive, negative, and most-negative
+  compressed immediates, pinning sign extension from bit 17 through XLEN.
   Shared 6-bit signed compressed immediates now have focused coverage through
   `C.ADDI`, `C.LI`, and `C.ANDI`.
   `C.ADDI4SPN` now has high unsigned stack-offset coverage for the scattered
@@ -328,9 +328,9 @@
   the scattered CL/CS memory immediate path.
   Stack-pointer `C.LWSP`/`C.SWSP` and `C.LDSP`/`C.SDSP` now have high
   zero-extended offset coverage for the separate CI/CSS memory layouts.
-  `C.ADDI16SP` now also has coverage for negative and high positive
-  sign-extended stack-pointer adjustments, beyond the zero-immediate reserved
-  case.
+  `C.ADDI16SP` now also has coverage for the lower `-512` edge, a negative
+  adjustment, and the high positive `+496` adjustment, beyond the
+  zero-immediate reserved case.
   RV64C compressed floating double load/store aliases are now pinned as
   D-dependent RV64DC forms: they execute under the FD profile and trap as
   illegal instructions under integer-only RV64C and RV64F-without-D.
