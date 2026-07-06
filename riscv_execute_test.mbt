@@ -17160,45 +17160,69 @@ test "load-reserved from another hart preserves existing reservation" {
 }
 
 ///|
-test "plain load from another hart preserves existing reservation" {
-  // Ordinary loads are also read-side events for LR/SC progress. They can
-  // observe the reserved bytes, but without a store/AMO/SC write they must not
-  // invalidate another hart's reservation.
+fn expect_plain_load_preserves_lr_sc_reservation(
+  lr_raw : UInt,
+  sc_raw : UInt,
+  load_raw : UInt,
+  original : UInt64,
+  replacement : UInt64,
+  doubleword : Bool,
+) -> Unit raise {
   let harts = make_smp_runners(virt_machine_config(), 2)
   let hart0 = harts[0]
   let hart1 = harts[1]
   let pc0 = hart0.cpu.pc
   let addr = pc0 + 0x100U.to_uint64()
-  hart0.bus.store_u32(addr, 77U.to_uint64())
+  if doubleword {
+    hart0.bus.store_u64(addr, original)
+  } else {
+    hart0.bus.store_u32(addr, original)
+  }
   hart0.cpu.write_reg(1, addr)
-  hart0.cpu.write_reg(5, 88U.to_uint64())
+  hart0.cpu.write_reg(5, replacement)
   hart1.cpu.write_reg(1, addr)
-  hart0.bus.store_u32(pc0, encode_amo(0x02U, 0, 1, 0x2U, 3).to_uint64())
-  hart0.bus.store_u32(
-    pc0 + 4U.to_uint64(),
-    encode_amo(0x03U, 5, 1, 0x2U, 4).to_uint64(),
-  )
+  hart0.bus.store_u32(pc0, lr_raw.to_uint64())
+  hart0.bus.store_u32(pc0 + 4U.to_uint64(), sc_raw.to_uint64())
 
   match hart0.step() {
     Running => ()
-    _ => fail("expected hart0 LR.W to run")
+    _ => fail("expected hart0 LR to run")
   }
   // Hart 1 still starts at pc0. Once hart 0 has fetched and retired its LR,
-  // replace that slot with a plain load for hart 1; hart 0's next instruction
-  // is already the SC at pc+4.
-  hart1.bus.store_u32(pc0, encode_i(0, 1, 0x2U, 7, 0x03U).to_uint64())
+  // reuse that shared reset slot for hart 1's plain load; hart 0's next
+  // instruction is already the SC at pc+4.
+  hart1.bus.store_u32(pc0, load_raw.to_uint64())
   match hart1.step() {
     Running => ()
-    _ => fail("expected hart1 LW to run")
+    _ => fail("expected hart1 plain load to run")
   }
   match hart0.step() {
     Running => ()
-    _ => fail("expected hart0 SC.W to run after another hart load")
+    _ => fail("expected hart0 SC to run after another hart load")
   }
-  assert_eq(hart0.read_reg_u64(3), 77U.to_uint64())
-  assert_eq(hart1.read_reg_u64(7), 77U.to_uint64())
+  assert_eq(hart0.read_reg_u64(3), original)
+  assert_eq(hart1.read_reg_u64(7), original)
   assert_eq(hart0.read_reg_u64(4), 0U.to_uint64())
-  assert_eq(hart0.bus.load_u32(addr), 88U.to_uint64())
+  if doubleword {
+    assert_eq(hart0.bus.load_u64(addr), replacement)
+  } else {
+    assert_eq(hart0.bus.load_u32(addr), replacement)
+  }
+}
+
+///|
+test "plain load from another hart preserves existing reservation" {
+  // Ordinary loads are also read-side events for LR/SC progress. They can
+  // observe the reserved bytes, but without a store/AMO/SC write they must not
+  // invalidate another hart's reservation.
+  expect_plain_load_preserves_lr_sc_reservation(
+    encode_amo(0x02U, 0, 1, 0x2U, 3),
+    encode_amo(0x03U, 5, 1, 0x2U, 4),
+    encode_i(0, 1, 0x2U, 7, 0x03U),
+    77U.to_uint64(),
+    88U.to_uint64(),
+    false,
+  )
 }
 
 ///|
@@ -17206,43 +17230,14 @@ test "plain doubleword load from another hart preserves LR.D reservation" {
   // RV64A has the same read-side preservation rule for doubleword LR/SC. A
   // second hart's LD can observe the reserved doubleword, but only a write-side
   // event should make the original hart's following SC.D fail.
-  let harts = make_smp_runners(virt_machine_config(), 2)
-  let hart0 = harts[0]
-  let hart1 = harts[1]
-  let pc0 = hart0.cpu.pc
-  let addr = pc0 + 0x100U.to_uint64()
-  let original = 0x1122334455667788UL
-  let replacement = 0x8877665544332211UL
-  hart0.bus.store_u64(addr, original)
-  hart0.cpu.write_reg(1, addr)
-  hart0.cpu.write_reg(5, replacement)
-  hart1.cpu.write_reg(1, addr)
-  hart0.bus.store_u32(pc0, encode_amo(0x02U, 0, 1, 0x3U, 3).to_uint64())
-  hart0.bus.store_u32(
-    pc0 + 4U.to_uint64(),
-    encode_amo(0x03U, 5, 1, 0x3U, 4).to_uint64(),
+  expect_plain_load_preserves_lr_sc_reservation(
+    encode_amo(0x02U, 0, 1, 0x3U, 3),
+    encode_amo(0x03U, 5, 1, 0x3U, 4),
+    encode_i(0, 1, 0x3U, 7, 0x03U),
+    0x1122334455667788UL,
+    0x8877665544332211UL,
+    true,
   )
-
-  match hart0.step() {
-    Running => ()
-    _ => fail("expected hart0 LR.D to run")
-  }
-  // Reuse the shared reset slot for hart 1 after hart 0 has already advanced
-  // to SC.D. This mirrors the plain-LW case without requiring per-hart code
-  // memory.
-  hart1.bus.store_u32(pc0, encode_i(0, 1, 0x3U, 7, 0x03U).to_uint64())
-  match hart1.step() {
-    Running => ()
-    _ => fail("expected hart1 LD to run")
-  }
-  match hart0.step() {
-    Running => ()
-    _ => fail("expected hart0 SC.D to run after another hart load")
-  }
-  assert_eq(hart0.read_reg_u64(3), original)
-  assert_eq(hart1.read_reg_u64(7), original)
-  assert_eq(hart0.read_reg_u64(4), 0U.to_uint64())
-  assert_eq(hart0.bus.load_u64(addr), replacement)
 }
 
 ///|

@@ -685,6 +685,13 @@ official coverage improve.
   reducing repeated run/status assertion boilerplate in the S/D comparison and
   conversion cases; measure the next roughly-3000-line feature-growth window
   from this checkpoint.
+- Refactor/tuning checkpoint for the A-extension read-side reservation tests
+  consolidated the plain `LW` and `LD` cross-hart LR/SC cases behind
+  `expect_plain_load_preserves_lr_sc_reservation` in
+  `riscv_execute_test.mbt`. The pass keeps the same W/D read-side preservation
+  assertions while reducing repeated SMP runner setup and shared instruction
+  slot manipulation; measure the next roughly-3000-line feature-growth window
+  from this checkpoint.
 - Control-flow execution now checks taken branch, `JAL`, and `JALR` targets
   against the active profile's IALIGN. Non-C profiles raise
   instruction-address-misaligned on 2-byte-only targets and report the branch or
