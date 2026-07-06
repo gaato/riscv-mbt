@@ -1742,6 +1742,66 @@ test "rv64fd fp loads and stores dirty only on fp state writes" {
 }
 
 ///|
+test "rv64fd fp arithmetic and integer to fp moves dirty fp context" {
+  let mstatus = 0x300
+  let fs_dirty = 0x6000U.to_uint64()
+  let sd_bit = 1U.to_uint64() << 63
+
+  let arithmetic_writer = make_runner(rv64fd_machine_config())
+  arithmetic_writer.cpu.write_freg(
+    1,
+    exec_test_nan_box_single(exec_test_f32_bits(1.0)),
+  )
+  arithmetic_writer.cpu.write_freg(
+    2,
+    exec_test_nan_box_single(exec_test_f32_bits(2.0)),
+  )
+  arithmetic_writer.load_program(
+    words_to_bytes([
+      encode_fp_r(0x00U, 2, 1, 0x0U, 3),
+      encode_csr(mstatus, 0, 0x2U, 4),
+    ]),
+    0U,
+  )
+  match arithmetic_writer.run(2) {
+    Running => ()
+    _ => fail("expected FP arithmetic and mstatus read to run")
+  }
+  // Arithmetic writes an FP destination register even when no exception flag
+  // is accrued. The context-state side effect is therefore independent of
+  // fflags and follows the register-file write.
+  assert_eq(
+    arithmetic_writer.read_freg_u64(3),
+    exec_test_nan_box_single(exec_test_f32_bits(3.0)),
+  )
+  assert_eq(arithmetic_writer.read_reg_u64(4) & fs_dirty, fs_dirty)
+  assert_eq(arithmetic_writer.read_reg_u64(4) & sd_bit, sd_bit)
+
+  let raw_move_writer = make_runner(rv64fd_machine_config())
+  raw_move_writer.cpu.write_reg(1, 0x3f800000U.to_uint64())
+  raw_move_writer.cpu.write_reg(2, 0x4000000000000000UL)
+  raw_move_writer.load_program(
+    words_to_bytes([
+      encode_fmv_w_x(1, 5),
+      encode_fmv_d_x(2, 6),
+      encode_csr(mstatus, 0, 0x2U, 7),
+    ]),
+    0U,
+  )
+  match raw_move_writer.run(3) {
+    Running => ()
+    _ => fail("expected integer-to-FP moves and mstatus read to run")
+  }
+  // FMV.W.X and FMV.D.X are non-arithmetic transfers, but their destination is
+  // still the FP register file, so they dirty the FP context just like loads
+  // and arithmetic results.
+  assert_eq(raw_move_writer.read_freg_u64(5), 0xffffffff3f800000UL)
+  assert_eq(raw_move_writer.read_freg_u64(6), 0x4000000000000000UL)
+  assert_eq(raw_move_writer.read_reg_u64(7) & fs_dirty, fs_dirty)
+  assert_eq(raw_move_writer.read_reg_u64(7) & sd_bit, sd_bit)
+}
+
+///|
 test "rv64fd move path preserves raw double-precision nan payloads without flags" {
   let csr_fflags = 0x001
   let existing_nx = 0x01U.to_uint64()
