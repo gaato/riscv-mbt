@@ -9414,11 +9414,13 @@ test "csr address privilege bits gate supervisor and machine csrs" {
 }
 
 ///|
-test "unsupported CSR form family traps as illegal instruction" {
-  // 0x7A0 is outside the modeled CSR surface and is not tied to an optional
-  // extension block such as Debug, HPM, or Smrnmi. Use it as the generic
-  // unsupported-address representative for the whole Zicsr form family.
-  expect_absent_csr_form_family_traps(0x7A0, "unsupported CSR")
+test "trigger module csrs trap when debug triggers are absent" {
+  // The standard trigger CSR block starts at tselect=0x7A0. This emulator does
+  // not implement a Trigger Module or Debug Mode, so these addresses must stay
+  // absent instead of becoming generic machine-mode scratch storage.
+  for trigger_csr in [0x7A0, 0x7A1, 0x7A2, 0x7A3, 0x7A4, 0x7A8] {
+    expect_absent_csr_form_family_traps(trigger_csr, "trigger CSR")
+  }
 }
 
 ///|

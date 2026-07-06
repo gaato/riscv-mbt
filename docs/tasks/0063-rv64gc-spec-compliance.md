@@ -529,6 +529,11 @@ official coverage improve.
   `0x7B0`, `0x7B7`, and `0x7BF` trap across the full Zicsr form family,
   including zero-mask set/clear reads, because this RV64GC baseline does not
   implement Debug Mode or expose those addresses as ordinary machine storage.
+  The optional trigger module CSR block is now sampled separately:
+  `tselect`/`tdata1`/`tdata2`/`tdata3`/`tinfo`/`mcontext`
+  (`0x7A0`/`0x7A1`/`0x7A2`/`0x7A3`/`0x7A4`/`0x7A8`) all trap across the full
+  Zicsr form family because this baseline reports zero debug triggers and does
+  not implement Sdtrig.
   The remaining audit is a spec pass over remaining WARL behavior,
   read-only/write-ignored fields, and privilege-visible side effects for every
   CSR currently exposed by `riscv_decode.mbt`.

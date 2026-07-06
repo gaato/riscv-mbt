@@ -404,11 +404,12 @@
   mode to `mstatus`, preventing lower privilege modes from writing
   higher-privilege CSRs just because the instruction form avoids reading the old
   CSR value.
-  Suppression is also pinned for absent CSRs: a generic unsupported CSR address
-  now traps across direct `CSRRW[I]`, suppressed-read `CSRRW[I] rd=x0`,
-  zero-mask read-only `CSRRS/CSRRC[I]`, and nonzero set/clear forms, because an
-  absent CSR has no architectural endpoint for either the read side or the
-  write side.
+  Suppression is also pinned for absent CSRs: optional trigger-module CSRs
+  (`tselect`, `tdata1`, `tdata2`, `tdata3`, `tinfo`, and `mcontext`) now trap
+  across direct `CSRRW[I]`, suppressed-read `CSRRW[I] rd=x0`, zero-mask
+  read-only `CSRRS/CSRRC[I]`, and nonzero set/clear forms, because this
+  baseline does not implement Debug/Trigger support and absent CSRs have no
+  architectural endpoint for either the read side or the write side.
   The debug-mode-only CSR range is now sampled at `0x7B0`, `0x7B7`, and
   `0x7BF` across the full Zicsr form family, including zero-mask set/clear
   reads, with every access trapping from M-mode because this baseline does not
