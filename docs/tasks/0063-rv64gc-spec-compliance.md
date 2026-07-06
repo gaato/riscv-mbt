@@ -354,8 +354,8 @@ official coverage improve.
   the next halfword. RV64C now also has focused coverage rejecting the
   RV32C-only `C.JAL` code point.
   `C.ADD rd=x0, rs2!=x0` forms now execute as
-  ignored hints, including the `rs2=x2..x5` compressed Zihintntl non-temporal
-  locality hint subrange. CR-format coverage now also pins `C.MV rd=x0,
+  ignored hints, with named coverage for the `rs2=x2..x5` compressed Zihintntl
+  non-temporal locality hint subrange. CR-format coverage now also pins `C.MV rd=x0,
   rs2!=x0` as an ignored hint, `C.JR rs1=x0` as reserved, and the
   `C.JALR rs1=x0` encoding as `C.EBREAK`. The complementary `rs2=x0,
   rd!=x0` CR encodings are now swept across the full nonzero rd/rs1 range:
@@ -1257,9 +1257,10 @@ official coverage improve.
   permanently illegal sentinel, while keeping the broader `C.ADDI4SPN`
   zero-immediate reserved behavior intact.
 - Compressed `C.ADD rd=x0, rs2!=x0` now executes as an architectural hint
-  across the whole nonzero source range. The `rs2=x2..x5` encodings are the
-  compressed Zihintntl locality hints, so they remain no-ops in this RV64GC
-  baseline instead of trapping as custom code points.
+  across the whole nonzero source range. The `rs2=x2..x5` encodings also have
+  named focused coverage as the compressed Zihintntl locality hints, so they
+  remain no-ops in this RV64GC baseline instead of trapping as custom code
+  points.
 - The CR-format `rs2=x0` split is now explicitly covered: nonzero rd/rs1
   encodings in the C.MV half execute as `C.JR`, and the same split in the
   C.ADD half executes as `C.JALR`, not as ignored hints.

@@ -446,8 +446,9 @@
   forms are now covered as legal ordinary control transfers: taken forms
   self-target, while untaken branches retire to the next halfword. RV64C now
   also has focused coverage rejecting the RV32C-only `C.JAL` code point.
-  `C.ADD rd=x0, rs2!=x0` forms now execute as ignored hints, including the
-  `rs2=x2..x5` compressed Zihintntl non-temporal locality hint subrange.
+  `C.ADD rd=x0, rs2!=x0` forms now execute as ignored hints, with named
+  coverage for the `rs2=x2..x5` compressed Zihintntl non-temporal locality
+  hint subrange.
   CR-format coverage now also pins `C.MV rd=x0, rs2!=x0` as an ignored hint,
   `C.JR rs1=x0` as reserved, and the `C.JALR rs1=x0` encoding as `C.EBREAK`.
   The complementary `rs2=x0, rd!=x0` CR encodings are now swept too: the

@@ -1579,6 +1579,28 @@ test "compressed add rd x0 forms execute as hints" {
 }
 
 ///|
+test "compressed add x0 ntl subrange executes as hints" {
+  for rs2 in 2..<=5 {
+    let raw = encode_c_add(0, rs2)
+    let runner = make_runner(rv64_machine_config())
+    runner.load_program(
+      mixed_program_bytes([(2, raw.reinterpret_as_uint())]),
+      0U,
+    )
+    runner.cpu.write_reg(rs2, 0x5555U.to_uint64())
+    match runner.step() {
+      Running => ()
+      _ => fail("expected compressed NTL hint spelling to run as a no-op")
+    }
+    // C.ADD rd=x0,rs2=x2..x5 encodes the compressed non-temporal-locality
+    // hint subrange. The integer register file must observe only a no-op.
+    assert_eq(runner.pc_u64(), 2U.to_uint64())
+    assert_eq(runner.read_reg_u64(0), 0U.to_uint64())
+    assert_eq(runner.read_reg_u64(rs2), 0x5555U.to_uint64())
+  }
+}
+
+///|
 test "compressed mv rd x0 forms execute as hints" {
   for rs2 in 1..<=31 {
     let raw = encode_c_mv(0, rs2)
