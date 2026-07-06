@@ -188,8 +188,10 @@
   memory, so they leave an otherwise clean `mstatus.FS=Initial` context clean.
   Integer-result FP instructions such as `FCLASS.S` and `FMV.X.W` still require
   FS enabled, but they do not dirty an otherwise clean FP context because they
-  only observe FP state. Quiet `FEQ.S/D` NaN comparisons now have matching
-  coverage that they leave FS clean when they do not update `fflags`;
+  only observe FP state. `FEQ.S/D` NaN comparisons now have matching coverage
+  for both halves of the quiet-comparison rule: quiet NaNs leave FS clean
+  because they do not update `fflags`, while signaling NaNs dirty FS by
+  accruing NV.
   integer-result conversions that update `fflags` do dirty FS through the
   `fcsr` side effect, and ordered S/D NaN comparisons have matching coverage
   for the NV flag path.

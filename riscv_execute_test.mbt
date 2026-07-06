@@ -1819,6 +1819,29 @@ test "rv64f fp status dirtiness follows actual fp state writes" {
   )
   assert_eq(quiet_comparison_reader.read_reg_u64(5), 0U.to_uint64())
 
+  let signaling_equality_writer = make_runner(rv64f_machine_config())
+  signaling_equality_writer.cpu.write_freg(1, 0x7f800001U.to_uint64())
+  signaling_equality_writer.cpu.write_freg(
+    2,
+    exec_test_f32_bits(1.0).to_uint64(),
+  )
+  signaling_equality_writer.load_program(
+    words_to_bytes([encode_feq_s(1, 2, 5), encode_csr(mstatus, 0, 0x2U, 6)]),
+    0U,
+  )
+  // FEQ is quiet for quiet NaNs, but signaling NaNs still accrue NV. That
+  // flag update moves the FP context to Dirty even though rd is an integer.
+  expect_fp_status_case(
+    signaling_equality_writer,
+    2,
+    6,
+    fs_dirty,
+    sd_bit,
+    0x10U.to_uint64(),
+    "signaling NaN equality comparison",
+  )
+  assert_eq(signaling_equality_writer.read_reg_u64(5), 0U.to_uint64())
+
   let integer_result_flag_writer = make_runner(rv64f_machine_config())
   integer_result_flag_writer.cpu.write_freg(
     1,
@@ -1881,6 +1904,24 @@ test "rv64f fp status dirtiness follows actual fp state writes" {
     "quiet double NaN comparison",
   )
   assert_eq(double_quiet_comparison_reader.read_reg_u64(5), 0U.to_uint64())
+
+  let double_signaling_equality_writer = make_runner(rv64fd_machine_config())
+  double_signaling_equality_writer.cpu.write_freg(1, 0x7ff0000000000001UL)
+  double_signaling_equality_writer.cpu.write_freg(2, exec_test_f64_bits(1.0))
+  double_signaling_equality_writer.load_program(
+    words_to_bytes([encode_feq_d(1, 2, 5), encode_csr(mstatus, 0, 0x2U, 6)]),
+    0U,
+  )
+  expect_fp_status_case(
+    double_signaling_equality_writer,
+    2,
+    6,
+    fs_dirty,
+    sd_bit,
+    0x10U.to_uint64(),
+    "signaling double NaN equality comparison",
+  )
+  assert_eq(double_signaling_equality_writer.read_reg_u64(5), 0U.to_uint64())
 
   let double_comparison_flag_writer = make_runner(rv64fd_machine_config())
   double_comparison_flag_writer.cpu.write_freg(1, 0x7ff8000000000000UL)

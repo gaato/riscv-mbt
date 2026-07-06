@@ -185,11 +185,13 @@ official coverage improve.
   `mstatus.FS=Initial` context clean.
   Integer-result FP instructions such as `FCLASS.S`
   and `FMV.X.W` still require FS enabled, but they do not dirty an otherwise
-  clean FP context because they only observe FP state. Quiet `FEQ.S/D` NaN
-  comparisons now have matching coverage that they leave FS clean when they do
-  not update `fflags`; integer-result conversions that update `fflags` now
-  dirty FS through the `fcsr` side effect. Ordered NaN comparisons now have
-  matching coverage for the integer-result NV-flag path.
+  clean FP context because they only observe FP state. `FEQ.S/D` NaN
+  comparisons now have matching coverage for both halves of the
+  quiet-comparison rule: quiet NaNs leave FS clean because they do not update
+  `fflags`, while signaling NaNs dirty FS by accruing NV. Integer-result
+  conversions that update `fflags` now dirty FS through the `fcsr` side effect.
+  Ordered NaN comparisons now have matching coverage for the integer-result
+  NV-flag path.
   The
   `fflags`, `frm`, and `fcsr` CSR aliases are now governed by the same FS state,
   so both read and write attempts trap when FS=Off. Writes to absent `fcsr` bits
@@ -867,9 +869,9 @@ official coverage improve.
   or `fcsr` move the visible status from FS=Initial to FS=Dirty with `SD` set.
   FP stores and integer-result FP instructions that only read FP state keep
   FS=Initial and leave `SD` clear, including quiet `FEQ.S/D` NaN comparisons
-  that do not update `fflags`, while integer-result conversions that update
-  `fflags` and ordered S/D NaN comparisons that accrue NV dirty FS through
-  that `fcsr` write.
+  that do not update `fflags`, while signaling `FEQ.S/D`, integer-result
+  conversions that update `fflags`, and ordered S/D NaN comparisons that
+  accrue NV dirty FS through that `fcsr` write.
 - Floating-point CSR access is now FS-gated. Focused regressions cover both
   read forms and write-only `CSRRW rd=x0` forms for `fflags`, `frm`, and
   `fcsr`, preserving Zicsr read suppression while still trapping writes to
