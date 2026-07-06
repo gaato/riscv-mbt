@@ -15335,9 +15335,9 @@ test "AMO.W aq rl encodings execute ordinary atomic operation" {
     runner.bus.store_u32(addr, old_word.to_uint64())
     runner.cpu.write_reg(1, addr)
     runner.cpu.write_reg(2, 5U.to_uint64())
-    // The single-hart interpreter does not yet model cross-hart visibility
-    // differences for aq/rl, but every architectural order encoding must still
-    // decode and execute the underlying atomic read-modify-write operation.
+    // aq/rl constrain visibility in weakly ordered implementations. This
+    // interpreter serializes each instruction step, so every order annotation
+    // must still reach the same architectural read-modify-write operation.
     runner.bus.store_u32(
       runner.cpu.pc,
       encode_amo_ordered(0x00U, order, 2, 1, 0x2U, 3).to_uint64(),
@@ -15361,9 +15361,8 @@ test "AMO.D aq rl encodings execute ordinary atomic operation" {
     runner.cpu.write_reg(1, addr)
     runner.cpu.write_reg(2, 5U.to_uint64())
     // AMO.D has the same architectural aq/rl encoding surface as AMO.W. The
-    // current interpreter still executes memory operations in program order,
-    // so this pins decode and ordinary doubleword RMW behavior while leaving
-    // cross-hart visibility ordering as the documented remaining audit.
+    // serialized interpreter model is already stronger than RVWMO acquire and
+    // release ordering, so the order bits must not perturb the arithmetic path.
     runner.bus.store_u32(
       runner.cpu.pc,
       encode_amo_ordered(0x00U, order, 2, 1, 0x3U, 3).to_uint64(),
@@ -16182,7 +16181,7 @@ test "store from another hart invalidates LR.W reservation" {
 }
 
 ///|
-test "atomic operation from another hart invalidates LR reservations" {
+test "ordered atomic operation from another hart invalidates LR reservations" {
   let word_harts = make_smp_runners(virt_machine_config(), 2)
   let word_lr_hart = word_harts[0]
   let word_amo_hart = word_harts[1]
@@ -16205,12 +16204,13 @@ test "atomic operation from another hart invalidates LR reservations" {
     Running => ()
     _ => fail("expected hart0 LR.W to run")
   }
-  // AMOs are read-modify-write memory operations. When another hart performs
-  // the write phase inside the reserved byte range, a following SC on this
-  // hart must fail just like it would after a plain store.
+  // AMOs are read-modify-write memory operations. The aq+rl bits order that
+  // transaction in weak memory models; in this serialized interpreter they
+  // still flow through the same single-step write phase, so a following SC on
+  // the reserving hart must fail just like it would after a plain store.
   word_amo_hart.bus.store_u32(
     word_pc,
-    encode_amo(0x00U, 6, 1, 0x2U, 7).to_uint64(),
+    encode_amo_ordered(0x00U, 0x3U, 6, 1, 0x2U, 7).to_uint64(),
   )
   match word_amo_hart.step() {
     Running => ()
@@ -16250,7 +16250,7 @@ test "atomic operation from another hart invalidates LR reservations" {
   }
   double_amo_hart.bus.store_u32(
     double_pc,
-    encode_amo(0x00U, 6, 1, 0x3U, 7).to_uint64(),
+    encode_amo_ordered(0x00U, 0x3U, 6, 1, 0x3U, 7).to_uint64(),
   )
   match double_amo_hart.step() {
     Running => ()

@@ -261,9 +261,12 @@ official coverage improve.
   Virtio-blk
   guest-visible DMA/status/used-ring writes now use reservation-aware device
   store helpers. The upstream `rv64ua` AMO/LRSC cases are now part of the
-  gating manifest. The remaining audit is true `aq`/`rl` visibility ordering
-  semantics beyond the current in-order single-hart execution model, plus
-  broader forward-progress/eventual-success behavior beyond the current
+  gating manifest. Ordered aq+rl AMOs from another hart are now covered as
+  reservation-breaking writes under the interpreter's serialized multi-hart
+  step model. Because each guest instruction completes its memory transaction
+  before the next hart observes the shared bus, the model is stronger than the
+  RVWMO visibility constraints that aq/rl annotate. The remaining audit is
+  broader LR/SC forward-progress/eventual-success behavior beyond the current
   interpreter scheduling model.
 - `C`: compressed decode/execute coverage exists in
   `riscv_compressed_test.mbt`, and the upstream `rv64uc-p-rvc` binary is now
@@ -662,7 +665,9 @@ official coverage improve.
   same address as deterministic failures under that model.
 - A-extension reservation invalidation coverage now also treats AMO.W and
   AMO.D operations from another hart as reservation-breaking stores, not only
-  plain integer stores and device writes.
+  plain integer stores and device writes. The same path now uses aq+rl ordered
+  AMOs, pinning that the order annotation does not bypass the serialized
+  write/invalidation transaction.
 - A-extension/privileged interaction coverage now pins the implementation's
   legal xRET policy: both `MRET` and `SRET` preserve a live LR reservation for
   a following SC instead of implicitly clearing it.

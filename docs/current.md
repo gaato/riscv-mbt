@@ -629,10 +629,12 @@
   min/max coverage now includes both
   `AMOMIN.W` and full-width `AMOMIN.D`/`AMOMAX.D`
   comparisons across the sign boundary, and unsigned AMO.D min/max coverage
-  now pins `AMOMINU.D`/`AMOMAXU.D` on the same bit patterns. The remaining
-  A-extension audit is true `aq`/`rl` ordering behavior and
-  forward-progress/eventual-success behavior beyond the current interpreter
-  scheduler.
+  now pins `AMOMINU.D`/`AMOMAXU.D` on the same bit patterns. Ordered aq+rl
+  AMOs from another hart are now covered as reservation-breaking writes under
+  the interpreter's serialized memory model; that model is stronger than the
+  RVWMO visibility constraints that aq/rl annotate. The remaining A-extension
+  audit is broader LR/SC forward-progress/eventual-success behavior beyond the
+  current interpreter scheduler.
 
 ## Known Blockers
 

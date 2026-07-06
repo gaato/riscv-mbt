@@ -1001,9 +1001,11 @@ fn Runner::execute_amo(
 ) -> StepResult {
   // AMO and LR/SC operations share the same physical-address reservation
   // model as normal stores. The decoded order field preserves the architectural
-  // aq/rl annotation for memory-model work; the current single-hart interpreter
-  // still executes guest memory operations in program order and therefore does
-  // not emit a separate host-side ordering barrier here.
+  // aq/rl annotation, but the interpreter's memory model is already serialized
+  // at the guest-instruction boundary: one hart step completes its load,
+  // read-modify-write, store, and reservation invalidation before another hart
+  // can observe the shared bus. That is stronger than the RVWMO ordering that
+  // aq/rl constrains, so no extra host-side barrier is needed here.
   match instruction {
     AmoW(funct5_val, _order, rd, rs1, rs2) => {
       let addr = self.cpu.read_reg(rs1)
