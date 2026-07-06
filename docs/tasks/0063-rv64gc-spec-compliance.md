@@ -178,8 +178,8 @@ official coverage improve.
   FS enabled, but scalar F/D load/store, arithmetic, sign-injection, classify,
   and raw-transfer instructions trap as illegal when software sets FS=Off. FP
   register writes and writes through `fflags`, `frm`, or `fcsr` also mark FS
-  Dirty, making the visible `SD` summary track modeled FP state changes. FP loads, arithmetic
-  results, and integer-to-FP
+  Dirty, making the visible `SD` summary track modeled FP state changes. FP
+  loads, arithmetic results, and integer-to-FP
   moves dirty the context because they write FP registers, while FP stores only
   observe FP registers and write memory, so they leave an otherwise clean
   `mstatus.FS=Initial` context clean.
@@ -353,7 +353,8 @@ official coverage improve.
   The compressed floating double load/store aliases are now also pinned as
   RV64DC forms rather than integer-only RV64C forms: `C.FLD`, `C.FSD`,
   `C.FLDSP`, and `C.FSDSP` trap without `MISA.D`, including under
-  RV64F-without-D, and execute under the FD profile.
+  RV64F-without-D, execute under the FD profile, and trap when the FD profile
+  is present but `mstatus.FS=Off`.
   The same RV64DC aliases now also have high zero-extended offset coverage for
   both register-based and stack-pointer compressed memory layouts.
   The remaining audit is broader reserved/hint behavior beyond those focused
@@ -967,6 +968,9 @@ official coverage improve.
 - FS=Off coverage now samples the same broader FP surface: scalar load/store,
   arithmetic, sign-injection, classify, and both raw-transfer directions all
   trap before observing or changing FP state.
+- Compressed RV64DC floating double load/store aliases now have the matching
+  FS=Off regression, keeping `C.FLD`, `C.FSD`, `C.FLDSP`, and `C.FSDSP`
+  aligned with the base `FLD`/`FSD` context-state rule.
 - `FMV.W.X` / `FMV.X.W` now have RV64FD transfer-boundary coverage:
   `FMV.W.X` NaN-boxes the raw low word on entry to the 64-bit FP register file,
   while `FMV.X.W` ignores upper FP-register bits and sign-extends only the low

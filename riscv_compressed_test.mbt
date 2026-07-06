@@ -757,6 +757,36 @@ test "rv64dc compressed floating double memory uses high zero-extended offsets" 
 }
 
 ///|
+test "rv64dc compressed floating double memory traps when fs is off" {
+  for
+    raw in [
+      encode_c_fld(8, 10, 16),
+      encode_c_fsd(8, 10, 16),
+      encode_c_fldsp(8, 16),
+      encode_c_fsdsp(8, 16),
+    ] {
+    let runner = make_runner(rv64fd_machine_config())
+    runner.cpu.write_csr(0x300, 0U.to_uint64())
+    runner.load_program(
+      mixed_program_bytes([(2, raw.reinterpret_as_uint())]),
+      0U,
+    )
+    match runner.step() {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected compressed FP FS=Off trap")
+        }
+        assert_eq(info.faulting_pc, 0U.to_uint64())
+        assert_eq(info.trap_value, raw.reinterpret_as_uint().to_uint64())
+      }
+      _ =>
+        fail("expected compressed floating double memory to trap with FS=Off")
+    }
+  }
+}
+
+///|
 test "rv64gc compressed memory zero offsets stay legal" {
   // Unlike C.ADDI4SPN, C.ADDI16SP, and C.LUI, compressed memory forms do not
   // reserve a zero immediate. Keep offset zero on the ordinary load/store path
