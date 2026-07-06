@@ -3702,6 +3702,48 @@ test "rv64fd double to single conversion honors dynamic frm" {
 }
 
 ///|
+test "rv64fd exact double to single conversion stays flag clean" {
+  let csr_fcsr = 0x003
+  let fcsr_frm_shift = 5
+  let legal_static_modes = [0U, 1U, 2U, 3U, 4U]
+  for rm in legal_static_modes {
+    let runner = make_runner(rv64fd_machine_config())
+    runner.cpu.write_freg(1, exec_test_f64_bits(1.5))
+    runner.load_program(words_to_bytes([encode_fcvt_s_d(1, rm, 2)]), 0U)
+    match runner.run(1) {
+      Running => ()
+      Trap(info) =>
+        fail(
+          "expected exact fcvt.s.d to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+        )
+    }
+    // Exact narrowing is still a rounded operation, so the rm field must be
+    // legal, but no IEEE exception flag should be accrued when the binary64
+    // source is already exactly representable in binary32.
+    assert_eq(runner.read_freg_u64(2), exec_test_nan_box_single(0x3fc00000U))
+    assert_eq(runner.read_csr(csr_fcsr) & 0x1fU, 0U)
+  }
+
+  let dynamic_runner = make_runner(rv64fd_machine_config())
+  dynamic_runner.cpu.write_freg(1, exec_test_f64_bits(1.5))
+  dynamic_runner.cpu.write_csr(csr_fcsr, 0x2U.to_uint64() << fcsr_frm_shift)
+  dynamic_runner.load_program(words_to_bytes([encode_fcvt_s_d(1, 0x7U, 2)]), 0U)
+  match dynamic_runner.run(1) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected dynamic exact fcvt.s.d to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(
+    dynamic_runner.read_freg_u64(2),
+    exec_test_nan_box_single(0x3fc00000U),
+  )
+  assert_eq(dynamic_runner.read_csr(csr_fcsr) & 0x1fU, 0U)
+  assert_eq((dynamic_runner.read_csr(csr_fcsr) >> fcsr_frm_shift) & 0x7U, 0x2U)
+}
+
+///|
 test "rv64fd double to single conversion handles overflow by rounding mode" {
   let runner = make_runner(rv64fd_machine_config())
   let csr_fcsr = 0x003

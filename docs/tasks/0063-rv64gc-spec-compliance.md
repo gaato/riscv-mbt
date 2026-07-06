@@ -693,7 +693,8 @@ official coverage improve.
   `FCVT.S.LU`, or `FCVT.D.L`.
 - `FCVT.S.D` now rounds double-precision source bits to single precision inside
   the emulator instead of relying on host-default conversion. The helper handles
-  legal static/dynamic rounding modes, canonical NaN results, NX for inexact
+  legal static/dynamic rounding modes, canonical NaN results, flag-clean exact
+  narrowing across every legal static mode plus dynamic `frm`, NX for inexact
   narrowing, OF/NX result selection for overflow, and UF only when the rounded
   result remains tiny after rounding.
 - Scalar `F/D` arithmetic now accrues the first spec-shaped exception flags:
@@ -895,7 +896,8 @@ official coverage improve.
   accrual for inexact integer inputs.
 - Double-to-single narrowing now supports legal non-RNE rounding where the mode
   changes the result. Focused regressions cover `FCVT.S.D` at the single
-  precision boundary, dynamic `frm=RMM`, overflow result selection for RNE vs
+  precision boundary, dynamic `frm=RMM`, exact finite narrowing across every
+  legal static mode plus dynamic `frm`, overflow result selection for RNE vs
   RTZ, OF/NX accrual, tininess-after-rounding at the minimum normal boundary,
   and reserved rounding-mode traps.
 - Single-precision add/sub/mul now support legal non-RNE arithmetic rounding.
