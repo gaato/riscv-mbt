@@ -559,8 +559,8 @@ official coverage improve.
   physical byte-range reservation model and pins mixed-width SC attempts at the
   same address as deterministic failures under that model.
 - A-extension/privileged interaction coverage now pins the implementation's
-  legal xRET policy: `MRET` preserves a live LR reservation for a following SC
-  instead of implicitly clearing it.
+  legal xRET policy: both `MRET` and `SRET` preserve a live LR reservation for
+  a following SC instead of implicitly clearing it.
 - A-extension signed min/max coverage now includes `AMOMIN.W` plus full-width
   `AMOMIN.D`/`AMOMAX.D` comparisons across the 64-bit sign boundary.
 - A-extension unsigned min/max coverage now includes full-width

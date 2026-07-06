@@ -544,9 +544,10 @@
   older LR in program order. The reservation-set model is documented as the
   exact physical byte range loaded by the most recent LR, and mixed-width SC
   attempts at the same address are covered as deterministic failures under that
-  model. The xRET policy is explicit and covered for `MRET`: trap returns do
-  not implicitly clear live reservations, which is permitted by the privileged
-  spec. Compressed integer instructions between `LR.W` and `SC.W` are now
+  model. The xRET policy is explicit and covered for both `MRET` and `SRET`:
+  trap returns do not implicitly clear live reservations, which is permitted by
+  the privileged spec. Compressed integer instructions between `LR.W` and
+  `SC.W` are now
   covered as preserving the single-hart reservation when no store or device
   write intervenes, pinning the C/A constrained-sequence boundary. Signed AMO
   min/max coverage now includes both

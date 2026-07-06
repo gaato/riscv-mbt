@@ -6949,6 +6949,64 @@ test "mret preserves live LR reservation for following SC" {
 }
 
 ///|
+test "sret preserves live LR reservation for following SC" {
+  // The xRET reservation policy is intentionally uniform: SRET, like MRET,
+  // leaves a live LR reservation alone. This matters because the optional
+  // clearing rule is architectural latitude, not a privilege-level difference.
+  let runner = make_runner(rv64_machine_config())
+  let addr = runner.cpu.pc + 0x100U.to_uint64()
+  let original = 0x33445566U.to_uint64()
+  let replacement = 0x778899aaU.to_uint64()
+  runner.bus.store_u32(addr, original)
+  runner.cpu.write_reg(1, addr)
+  runner.cpu.write_reg(5, replacement)
+  let pc0 = runner.cpu.pc
+  runner.cpu.write_csr(0x341, pc0 + 4U.to_uint64())
+  runner.cpu.write_csr(0x141, pc0 + 12U.to_uint64())
+  runner.cpu.write_csr(0x300, 0x900U.to_uint64()) // MPP=S and SPP=Supervisor.
+  runner.bus.store_u32(pc0, encode_mret().to_uint64())
+  runner.bus.store_u32(
+    pc0 + 4U.to_uint64(),
+    encode_amo(0x02U, 0, 1, 0x2U, 3).to_uint64(),
+  )
+  runner.bus.store_u32(pc0 + 8U.to_uint64(), encode_sret().to_uint64())
+  runner.bus.store_u32(
+    pc0 + 12U.to_uint64(),
+    encode_amo(0x03U, 5, 1, 0x2U, 4).to_uint64(),
+  )
+
+  match runner.step() {
+    Running => ()
+    _ => fail("expected mret to enter supervisor mode before lr.w")
+  }
+  assert_eq(runner.pc_u64(), pc0 + 4U.to_uint64())
+  match runner.privilege_mode() {
+    Supervisor => ()
+    _ => fail("expected mret to enter supervisor mode")
+  }
+  match runner.step() {
+    Running => ()
+    _ => fail("expected lr.w to run before sret")
+  }
+  assert_eq(runner.read_reg_u64(3), original)
+  match runner.step() {
+    Running => ()
+    _ => fail("expected sret to run")
+  }
+  assert_eq(runner.pc_u64(), pc0 + 12U.to_uint64())
+  match runner.privilege_mode() {
+    Supervisor => ()
+    _ => fail("expected sret to keep supervisor target from SPP")
+  }
+  match runner.step() {
+    Running => ()
+    _ => fail("expected sc.w after sret to run")
+  }
+  assert_eq(runner.read_reg_u64(4), 0U.to_uint64())
+  assert_eq(runner.bus.load_u32(addr), replacement)
+}
+
+///|
 test "sret clears mprv when returning below machine mode" {
   let program = words_to_bytes([
     encode_i(24, 0, 0x0U, 5, 0x13U),
