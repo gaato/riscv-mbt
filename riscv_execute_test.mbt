@@ -6746,6 +6746,44 @@ test "trap vector csrs legalize base alignment and reserved modes" {
 }
 
 ///|
+fn expect_trap_vector_set_clear_forms(csr : Int, label : String) -> Unit raise {
+  let program = words_to_bytes([
+    encode_i(4, 0, 0x0U, 1, 0x13U),
+    encode_i(3, 0, 0x0U, 2, 0x13U),
+    encode_i(1, 0, 0x0U, 5, 0x13U),
+    encode_csr(csr, 1, 0x1U, 0),
+    encode_csr(csr, 2, 0x2U, 3),
+    encode_csr(csr, 0, 0x2U, 4),
+    encode_csr(csr, 5, 0x2U, 6),
+    encode_csr(csr, 0, 0x2U, 7),
+    encode_csr(csr, 5, 0x3U, 8),
+    encode_csr(csr, 0, 0x2U, 9),
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(10) {
+    Running => ()
+    _ => fail("expected trap-vector set/clear program to run for " + label)
+  }
+  // CSRRS/CSRRC first derive a candidate trap-vector value, then the WARL
+  // boundary keeps only 4-byte-aligned BASE plus MODE=Direct or Vectored.
+  // Reserved mode 3 normalizes to Direct; mode 1 remains Vectored.
+  assert_eq(runner.read_reg(3), 4U)
+  assert_eq(runner.read_reg(4), 4U)
+  assert_eq(runner.read_reg(6), 4U)
+  assert_eq(runner.read_reg(7), 5U)
+  assert_eq(runner.read_reg(8), 5U)
+  assert_eq(runner.read_reg(9), 4U)
+  assert_eq(runner.read_csr(csr), 4U)
+}
+
+///|
+test "trap vector csrs legalize set and clear forms" {
+  expect_trap_vector_set_clear_forms(0x305, "mtvec")
+  expect_trap_vector_set_clear_forms(0x105, "stvec")
+}
+
+///|
 test "epc csrs clear bit zero on write and trap return" {
   let program = words_to_bytes([
     encode_i(13, 0, 0x0U, 1, 0x13U),

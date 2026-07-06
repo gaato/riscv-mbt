@@ -962,7 +962,9 @@ official coverage improve.
   boundary. The modeled WARL surface preserves the aligned BASE, stores MODE=1
   for Vectored, maps Direct and reserved MODE values to MODE=0, and keeps
   vectored interrupt dispatch covered with a delegated supervisor-timer
-  regression.
+  regression. Focused set/clear CSR-form coverage now also proves that
+  candidate values derived by `CSRRS`/`CSRRC` pass through the same WARL
+  boundary for both `mtvec` and `stvec`.
 - EPC CSR writes now normalize `mepc[0]` and `sepc[0]` to zero, and EPC
   visibility follows the active IALIGN. The compressed baseline keeps bit 1
   visible and usable as a return target, while non-`C` profiles mask bit 1 on
