@@ -151,9 +151,12 @@ official coverage improve.
   Exact widening `FCVT.D.S` and exact
   RV32-width-to-double `FCVT.D.W[U]` now treat the otherwise unaffected `rm`
   field as architecturally significant for legal/reserved static and dynamic
-  encodings. The RV32-width-to-double coverage now sweeps all legal static
-  modes, checks dynamic `frm`, keeps signed `W` source interpretation distinct
-  from unsigned `WU`, and proves exact results do not accrue `fflags`.
+  encodings. The exact `FCVT.D.S` finite-widening coverage now sweeps all
+  legal static modes, checks dynamic `frm`, preserves `frm`, and proves exact
+  results do not accrue `fflags`. The RV32-width-to-double coverage now sweeps
+  all legal static modes, checks dynamic `frm`, keeps signed `W` source
+  interpretation distinct from unsigned `WU`, and proves exact results do not
+  accrue `fflags`.
   `FCVT.S.D` now has explicit NaN narrowing coverage: quiet NaNs
   produce the canonical NaN-boxed single result without NV, while signaling
   NaNs produce the same canonical result and accrue NV. `FDIV.S/D` coverage now
@@ -865,6 +868,9 @@ official coverage improve.
   while reserved static `rm=101/110` and dynamic `rm=111` with reserved `frm`
   trap as illegal instructions. This follows the F/D spec rule that unaffected
   rounding-mode fields still participate in legal-vs-reserved encoding checks.
+  Focused finite-source coverage now sweeps every legal static `rm`, exercises
+  dynamic `rm=111` through `fcsr.frm`, preserves `frm`, and proves exact
+  widening does not accrue `fflags`.
   `FCVT.D.S` now handles NaNs before host widening: quiet single-precision NaNs
   write the canonical double-precision NaN without flags, while signaling
   single-precision NaNs write the same canonical result and accrue NV.

@@ -3727,17 +3727,44 @@ test "rv64fd fcvt.s.d canonicalizes nan inputs and flags signaling nan" {
 
 ///|
 test "rv64fd fcvt.d.s accepts legal unaffected rounding modes" {
-  let runner = make_runner(rv64fd_machine_config())
-  runner.cpu.write_freg(1, exec_test_nan_box_single(exec_test_f32_bits(1.5)))
-  runner.load_program(words_to_bytes([encode_fcvt_d_s(1, 0x1U, 2)]), 0U)
-  match runner.run(1) {
+  let csr_fcsr = 0x003
+  let fcsr_frm_shift = 5
+  let legal_static_modes = [0U, 1U, 2U, 3U, 4U]
+  for rm in legal_static_modes {
+    let runner = make_runner(rv64fd_machine_config())
+    runner.cpu.write_freg(1, exec_test_nan_box_single(exec_test_f32_bits(1.5)))
+    runner.load_program(words_to_bytes([encode_fcvt_d_s(1, rm, 2)]), 0U)
+    match runner.run(1) {
+      Running => ()
+      Trap(info) =>
+        fail(
+          "expected legal fcvt.d.s to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+        )
+    }
+    // FCVT.D.S widens every finite single-precision value exactly. The rm
+    // field is still checked for legality, but a legal mode cannot make the
+    // exact widening inexact or otherwise touch fflags.
+    assert_eq(runner.read_freg_u64(2), exec_test_f64_bits(1.5))
+    assert_eq(runner.read_csr(csr_fcsr) & 0x1fU, 0U)
+  }
+
+  let dynamic_runner = make_runner(rv64fd_machine_config())
+  dynamic_runner.cpu.write_freg(
+    1,
+    exec_test_nan_box_single(exec_test_f32_bits(1.5)),
+  )
+  dynamic_runner.cpu.write_csr(csr_fcsr, 0x3U.to_uint64() << fcsr_frm_shift)
+  dynamic_runner.load_program(words_to_bytes([encode_fcvt_d_s(1, 0x7U, 2)]), 0U)
+  match dynamic_runner.run(1) {
     Running => ()
     Trap(info) =>
       fail(
-        "expected legal RTZ fcvt.d.s to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+        "expected dynamic fcvt.d.s to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
       )
   }
-  assert_eq(runner.read_freg_u64(2), exec_test_f64_bits(1.5))
+  assert_eq(dynamic_runner.read_freg_u64(2), exec_test_f64_bits(1.5))
+  assert_eq(dynamic_runner.read_csr(csr_fcsr) & 0x1fU, 0U)
+  assert_eq((dynamic_runner.read_csr(csr_fcsr) >> fcsr_frm_shift) & 0x7U, 0x3U)
 }
 
 ///|
