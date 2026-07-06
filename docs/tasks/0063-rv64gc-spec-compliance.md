@@ -894,11 +894,13 @@ official coverage improve.
   tininess-after-rounding underflow flags for rounded finite results. Exact
   zero signs are handled explicitly for add/sub cancellation and multiplication
   by zero.
-- Scalar `FADD.S/D` and `FMUL.S/D` overflow now has focused signed
+- Scalar `FADD.S/D`, `FSUB.S/D`, and `FMUL.S/D` overflow now has focused signed
   rounding-mode coverage outside the fused path: positive overflow selects
   infinity under RNE and the largest finite value under RTZ, while negative
   overflow selects negative infinity under RDN and the largest finite negative
-  value under RUP. Every sampled path accrues OF|NX.
+  value under RUP. The `FSUB` cases cover the separate subtract opcode and RHS
+  sign handling rather than relying only on add/multiply helper coverage. Every
+  sampled path accrues OF|NX.
 - `FDIV.D` now uses the same exact-rational-to-double rounding path for finite
   nonzero divisors. Legal static non-RNE quotients execute where they change the
   result, NX/OF/UF come from the shared helper, and exact zero quotient signs are
