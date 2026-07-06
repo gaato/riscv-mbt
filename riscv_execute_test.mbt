@@ -7182,9 +7182,11 @@ test "delegated user ecall traps to stvec with supervisor trap state" {
 }
 
 ///|
-test "stvec direct target masks low bits during delegated supervisor trap entry" {
+test "supervisor synchronous exceptions use stvec base in vectored mode" {
   let program = words_to_bytes([
     encode_i(33, 0, 0x0U, 6, 0x13U),
+    // Write stvec=33: BASE becomes 32 and MODE=Vectored. Delegated user ECALL
+    // is a synchronous exception, so it must enter supervisor mode at BASE.
     encode_csr(0x105, 6, 0x1U, 0),
     encode_i(256, 0, 0x0U, 1, 0x13U),
     encode_csr(0x302, 1, 0x1U, 0),
@@ -7201,6 +7203,8 @@ test "stvec direct target masks low bits during delegated supervisor trap entry"
     Running => ()
     _ => fail("expected delegated supervisor trap redirection to running state")
   }
+  // If Vectored mode were applied to this exception, user ECALL cause 8 would
+  // target 32 + 32 instead of the BASE handler slot.
   assert_eq(runner.pc(), 36U)
   assert_eq(runner.read_reg(9), 1U)
   assert_eq(runner.read_reg(10), 0U)
