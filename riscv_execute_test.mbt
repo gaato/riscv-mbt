@@ -8021,13 +8021,13 @@ test "zero-valued nonzero csr source still writes read-only csrs" {
   // when x[rs1] happens to contain zero. Read-only CSRs must therefore trap.
   let read_only_csrs = [
     0xF11, // mvendorid
-    0xF12, // marchid
-    0xF13, // mimpid
-    0xF14, // mhartid
-    0xF15, // mconfigptr
-    0xC00, // cycle
-    0xC01, // time
-    0xC02, // instret
+     0xF12, // marchid
+     0xF13, // mimpid
+     0xF14, // mhartid
+     0xF15, // mconfigptr
+     0xC00, // cycle
+     0xC01, // time
+     0xC02, // instret
   ]
   for csr in read_only_csrs {
     for raw in [encode_csr(csr, 1, 0x2U, 2), encode_csr(csr, 1, 0x3U, 3)] {
@@ -13944,6 +13944,44 @@ test "mip CSRRS does not copy external SEIP into software SEIP" {
   }
   assert_eq(runner.read_reg_u64(3) & 0x202U.to_uint64(), 0x2U.to_uint64())
   assert_eq(runner.cpu.read_csr(0x344) & 0x200U.to_uint64(), 0U.to_uint64())
+}
+
+///|
+test "sip CSRRS does not copy external SEIP into software SEIP" {
+  let mideleg = 0x303
+  let sip = 0x144
+  let mip = 0x344
+  let ssip = 0x2U.to_uint64()
+  let seip = 0x200U.to_uint64()
+  let program = words_to_bytes([
+    encode_i(0x202, 0, 0x0U, 1, 0x13U),
+    encode_csr(mideleg, 1, 0x1U, 0),
+    encode_i(2, 0, 0x0U, 2, 0x13U),
+    encode_csr(sip, 2, 0x2U, 3),
+    encode_csr(sip, 0, 0x2U, 4),
+  ])
+  let runner = make_runner(virtio_blk_machine_config())
+  // Once SEI is delegated, `sip.SEIP` reads the same B||E pending value exposed
+  // through `mip.SEIP`. The supervisor alias still writes only the modeled
+  // software-pending state, so the external PLIC signal must not be captured
+  // as a sticky software SEIP bit during CSRRS writeback.
+  runner.plic_regs[4] = 1U.to_byte()
+  runner.plic_regs[0x2080] = 2U.to_byte()
+  runner.virtio_blk_state[6] = 1U.to_uint64()
+  runner.load_program_u64(program, 0x80000000U.to_uint64())
+  match runner.run(4) {
+    Running => ()
+    _ => fail("expected delegated sip CSRRS with external SEIP")
+  }
+  assert_eq(runner.read_reg_u64(3) & (seip | ssip), seip)
+  runner.virtio_blk_state[6] = 0U.to_uint64()
+  match runner.step() {
+    Running => ()
+    _ => fail("expected sip read after external SEIP clears")
+  }
+  assert_eq(runner.read_reg_u64(4) & (seip | ssip), ssip)
+  assert_eq(runner.cpu.read_csr(mip) & seip, 0U.to_uint64())
+  assert_eq(runner.cpu.read_csr(mip) & ssip, ssip)
 }
 
 ///|
