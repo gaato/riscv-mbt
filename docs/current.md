@@ -460,7 +460,10 @@
   `C.JR`/`C.JALR` expansion through `JALR` and the compressed `C.JALR`
   `pc + 2` link address. Post-decode profile legality now also rejects all
   16-bit compressed encodings when `MISA.C` is not advertised, keeping the
-  permissive decoder while making the executing profile authoritative.
+  permissive decoder while making the executing profile authoritative. The
+  current task list no longer has a named RV64GC-baseline compressed
+  reserved/hint gap; remaining C work is a final table-driven sweep if a future
+  spec pass or official row exposes an omitted code point.
   Control-flow target alignment now follows the same profile boundary: non-C
   profiles trap taken branches and jumps to 2-byte-only targets with
   instruction-address-misaligned, while RV64GC/C profiles use IALIGN=16 and

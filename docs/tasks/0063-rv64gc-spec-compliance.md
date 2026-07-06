@@ -381,8 +381,10 @@ official coverage improve.
   NaN-looking payloads too.
   The same RV64DC aliases now also have high zero-extended offset coverage for
   both register-based and stack-pointer compressed memory layouts.
-  The remaining audit is broader reserved/hint behavior beyond those focused
-  cases and the official aggregate compressed test.
+  There is no longer a known named RV64GC-baseline compressed reserved/hint
+  gap in this task list. The remaining C work is a final table-driven sweep
+  against the current unprivileged spec if a future spec pass or official row
+  exposes an omitted code point.
 - `Zicsr`: CSR decode, read-side and write-side privilege checks,
   `fcsr`/`fflags` views, and explicit read/write suppression for the standard
   CSR instruction forms are covered by focused execute tests. The `fcsr` alias
@@ -759,8 +761,10 @@ official coverage improve.
   with instruction-family-specific flag handling.
 - `D` min/max now has matching signed-zero and quiet-NaN result-selection
   coverage: `FMIN.D` selects `-0.0`, `FMAX.D` selects `+0.0`, numeric operands
-  beat quiet NaNs, and quiet all-NaN inputs produce the canonical double NaN
-  without accruing `fflags`.
+  beat quiet NaNs, signaling-NaN numeric-selection paths return the numeric
+  operand while accruing NV, quiet all-NaN inputs produce the canonical double
+  NaN without accruing `fflags`, and signaling all-NaN inputs produce the
+  canonical double NaN with NV.
 - Fused multiply-add now also accrues NV for the required infinity-times-zero
   multiplicand case, including the spec-called-out path where the addend is a
   quiet NaN. Finite fused results now avoid the old host-IEEE arithmetic
