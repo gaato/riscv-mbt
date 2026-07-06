@@ -1675,8 +1675,14 @@ test "rv64fd traps floating-point instructions when mstatus fs is off" {
     encode_fld(0x108, 0, 1),
     encode_fsd(0x110, 1, 0),
     encode_fp_r(0x00U, 2, 1, 0x0U, 3),
+    encode_fsgnj_s(1, 2, 3),
+    encode_fsgnj_d(1, 2, 3),
     encode_fclass_s(1, 2),
+    encode_fclass_d(1, 2),
     encode_fmv_x_w(1, 2),
+    encode_fmv_w_x(1, 2),
+    encode_fmv_x_d(1, 2),
+    encode_fmv_d_x(1, 2),
   ]
   for raw in fp_words {
     let runner = make_runner(rv64fd_machine_config())

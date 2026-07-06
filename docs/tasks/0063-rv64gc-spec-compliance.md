@@ -175,10 +175,10 @@ official coverage improve.
   separately: quiet NaNs canonicalize without flags, while signaling NaNs
   canonicalize and accrue NV. `mstatus.FS`
   is now part of the execution contract: FP-capable reset profiles start with
-  FS enabled, but scalar F/D load/store, arithmetic, classify, and raw transfer
-  instructions trap as illegal when software sets FS=Off. FP register writes
-  and writes through `fflags`, `frm`, or `fcsr` also mark FS Dirty, making the
-  visible `SD` summary track modeled FP state changes. FP loads, arithmetic
+  FS enabled, but scalar F/D load/store, arithmetic, sign-injection, classify,
+  and raw-transfer instructions trap as illegal when software sets FS=Off. FP
+  register writes and writes through `fflags`, `frm`, or `fcsr` also mark FS
+  Dirty, making the visible `SD` summary track modeled FP state changes. FP loads, arithmetic
   results, and integer-to-FP
   moves dirty the context because they write FP registers, while FP stores only
   observe FP registers and write memory, so they leave an otherwise clean
@@ -964,6 +964,9 @@ official coverage improve.
 - The single-precision read-only status case now mirrors that signaling-NaN
   boundary for `FCLASS.S` and `FMV.X.W`, proving the result class/raw payload
   moves to integer registers without marking the FP context Dirty.
+- FS=Off coverage now samples the same broader FP surface: scalar load/store,
+  arithmetic, sign-injection, classify, and both raw-transfer directions all
+  trap before observing or changing FP state.
 - `FMV.W.X` / `FMV.X.W` now have RV64FD transfer-boundary coverage:
   `FMV.W.X` NaN-boxes the raw low word on entry to the 64-bit FP register file,
   while `FMV.X.W` ignores upper FP-register bits and sign-extends only the low
