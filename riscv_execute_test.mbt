@@ -1799,6 +1799,33 @@ test "rv64f fp status dirtiness follows actual fp state writes" {
   assert_eq(integer_result.read_reg_u64(3), 0x3f800000U.to_uint64())
   assert_eq(integer_result.read_csr_u64(mstatus) & fs_dirty, fs_initial)
 
+  let double_integer_result = make_runner(rv64fd_machine_config())
+  double_integer_result.cpu.write_freg(1, exec_test_f64_bits(1.0))
+  double_integer_result.cpu.write_freg(2, 0x7ff0000000000001UL)
+  double_integer_result.load_program(
+    words_to_bytes([
+      encode_fclass_d(1, 3),
+      encode_fmv_x_d(2, 4),
+      encode_csr(mstatus, 0, 0x2U, 5),
+    ]),
+    0U,
+  )
+  // The double classify and raw double-to-integer transfer are also
+  // read-only observations of FP state. FCLASS.D reports signaling-NaN classes
+  // without setting NV, while FMV.X.D preserves the raw 64-bit payload.
+  expect_fp_status_case(
+    double_integer_result,
+    3,
+    5,
+    fs_initial,
+    0U.to_uint64(),
+    0U.to_uint64(),
+    "double integer-result FP instructions",
+  )
+  assert_eq(double_integer_result.read_reg_u64(3), 1U.to_uint64() << 6)
+  assert_eq(double_integer_result.read_reg_u64(4), 0x7ff0000000000001UL)
+  assert_eq(double_integer_result.read_csr_u64(mstatus) & fs_dirty, fs_initial)
+
   let quiet_comparison_reader = make_runner(rv64f_machine_config())
   quiet_comparison_reader.cpu.write_freg(1, 0x7fc00000U.to_uint64())
   quiet_comparison_reader.cpu.write_freg(2, exec_test_f32_bits(1.0).to_uint64())

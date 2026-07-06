@@ -186,9 +186,10 @@
   FP loads, arithmetic results, and integer-to-FP moves dirty the context
   because they write FP registers; FP stores only read FP registers and write
   memory, so they leave an otherwise clean `mstatus.FS=Initial` context clean.
-  Integer-result FP instructions such as `FCLASS.S` and `FMV.X.W` still require
-  FS enabled, but they do not dirty an otherwise clean FP context because they
-  only observe FP state. `FSGNJ.S/D` with signaling-NaN payloads now covers the
+  Integer-result FP instructions such as `FCLASS.S/D`, `FMV.X.W`, and
+  `FMV.X.D` still require FS enabled, but they do not dirty an otherwise clean
+  FP context because they only observe FP state. `FSGNJ.S/D` with
+  signaling-NaN payloads now covers the
   complementary write path: sign injection leaves `fflags` clear, but it still
   dirties FS because it writes an FP register result. `FEQ.S/D` NaN
   comparisons now have matching coverage
