@@ -461,7 +461,10 @@ official coverage improve.
   Profile legality now also makes supervisor state conditional on `MISA.S`:
   no-`S` profiles reject supervisor CSRs, `SRET`, and `SFENCE.VMA`, and
   `mstatus` WARL normalization clears supervisor return state instead of
-  accepting `MPP=S` or `SPP=1`. `misa` profile canonicalization now also
+  accepting `MPP=S` or `SPP=1`. The no-`S` CSR coverage now spans the full
+  Zicsr form family for `sstatus`, `satp`, `medeleg`, `mideleg`,
+  `scounteren`, and `senvcfg`, including suppressed-read `CSRRW[I]` and
+  zero-mask set/clear forms. `misa` profile canonicalization now also
   applies the privileged dependency that `S` depends on `U`, and no-`U`
   profiles clear `mstatus.UXL`, clear `MPRV` because U-mode is absent, clear
   `TW` because there are no modes below M after `S` is also absent, and
@@ -471,10 +474,12 @@ official coverage improve.
   supervisor context-status coverage.
   Supervisor-dependent compatibility CSRs now follow the same profile surface:
   no-`S` profiles reject `satp`, `medeleg`, `mideleg`, `scounteren`, and
-  `senvcfg`, while no-`U` profiles reject `mcounteren`. `MRET` now also resets
-  the stored `MPP` stack-bottom field to the least implemented privilege mode
-  for the active profile, so M-only profiles no longer leave a raw `MPP=U`
-  encoding behind after returning to M-mode.
+  `senvcfg`, while no-`U` profiles reject `mcounteren`. The same absent-CSR
+  form-family coverage now protects no-`U` `mcounteren` and no-`F`
+  `fflags`/`frm`/`fcsr` as address-absent CSRs, not WARL-zero storage.
+  `MRET` now also resets the stored `MPP` stack-bottom field to the least
+  implemented privilege mode for the active profile, so M-only profiles no
+  longer leave a raw `MPP=U` encoding behind after returning to M-mode.
   The standard debug-mode-only CSR range is now sampled explicitly:
   `0x7B0`, `0x7B7`, and `0x7BF` read, suppressed-read write, and nonzero
   set/clear forms trap as illegal instruction from M-mode because this RV64GC
