@@ -7275,6 +7275,24 @@ test "delegated supervisor external interrupt traps to stvec from supervisor mod
 }
 
 ///|
+test "delegated supervisor external interrupt honors stvec vectored mode" {
+  let runner = make_runner(rv64_machine_config())
+  // BASE=12 with MODE=1 vectors supervisor external cause 9 to byte 48, the
+  // same handler slot used by the direct-mode helper path.
+  runner.load_program(exec_test_supervisor_interrupt_program(512, 13), 0U)
+  let expected_scause = (1U.to_uint64() << 63) | 9U.to_uint64()
+  match runner.run(14) {
+    Running => ()
+    _ => fail("expected delegated supervisor external vector handler to run")
+  }
+  assert_eq(runner.read_reg_u64(7), expected_scause)
+  assert_eq(runner.read_reg_u64(8), 1U.to_uint64())
+  assert_eq(runner.read_reg_u64(10), 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(0x105), 13U.to_uint64())
+  assert_eq(runner.pc_u64(), 56U.to_uint64())
+}
+
+///|
 test "virtio-blk plic external interrupt traps to supervisor mode" {
   let runner = make_runner(virtio_blk_machine_config())
   let base = 0x80000000U.to_uint64()

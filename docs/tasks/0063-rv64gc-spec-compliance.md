@@ -383,9 +383,9 @@ official coverage improve.
   to the modeled WARL surface: 4-byte-aligned BASE plus Direct or Vectored MODE
   only. Machine synchronous exceptions explicitly cover the Vectored-mode rule
   that exceptions still enter at BASE, delegated supervisor synchronous
-  exceptions now cover the same rule for `stvec`, and vectored supervisor-timer
-  dispatch and machine-timer dispatch are covered by focused interrupt
-  regressions. `mepc` and `sepc` now clear bit 0 on writes,
+  exceptions now cover the same rule for `stvec`, and vectored supervisor timer
+  and external dispatch plus machine-timer dispatch are covered by focused
+  interrupt regressions. `mepc` and `sepc` now clear bit 0 on writes,
   preserve bit 1 for RV64GC/IALIGN=16, and mask bit 1 on visible reads plus
   xRET target reads when `MISA.C` is absent and IALIGN=32. Focused profile
   coverage now also pins that bit 1 remains writable backing storage in
@@ -1196,9 +1196,10 @@ official coverage improve.
   for Vectored, maps Direct and reserved MODE values to MODE=0, keeps
   synchronous machine and delegated supervisor exceptions at BASE under
   Vectored mode, and keeps vectored interrupt dispatch covered with delegated
-  supervisor-timer and machine-timer regressions. Focused set/clear CSR-form
-  coverage now also proves that candidate values derived by `CSRRS`/`CSRRC`
-  pass through the same WARL boundary for both `mtvec` and `stvec`.
+  supervisor timer and external plus machine-timer regressions. Focused
+  set/clear CSR-form coverage now also proves that candidate values derived by
+  `CSRRS`/`CSRRC` pass through the same WARL boundary for both `mtvec` and
+  `stvec`.
 - EPC CSR writes now normalize `mepc[0]` and `sepc[0]` to zero, and EPC
   visibility follows the active IALIGN. The compressed baseline keeps bit 1
   visible and usable as a return target, while non-`C` profiles mask bit 1 on

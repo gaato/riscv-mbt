@@ -464,9 +464,9 @@
   surface: aligned BASE plus Direct or Vectored MODE only. Machine synchronous
   exceptions now explicitly cover the Vectored-mode rule that exceptions still
   enter at BASE, and delegated supervisor synchronous exceptions now cover the
-  same rule for `stvec`. A delegated supervisor-timer regression covers
-  Vectored `stvec` dispatch to `BASE + 4*cause`, and a machine-timer regression
-  covers Vectored `mtvec` dispatch to `BASE + 4*cause`. Register-source
+  same rule for `stvec`. Delegated supervisor timer and external regressions
+  cover Vectored `stvec` dispatch to `BASE + 4*cause`, and a machine-timer
+  regression covers Vectored `mtvec` dispatch to `BASE + 4*cause`. Register-source
   set/clear forms are now pinned for both trap-vector CSRs as well: derived
   reserved MODE values normalize to Direct, while MODE=1 remains Vectored.
 - EPC CSR writes now clear hardwired bit 0 for `mepc` and `sepc`, and `MRET` /
