@@ -296,6 +296,9 @@
   Delegated S-mode `ECALL` now has matching horizontal supervisor trap-entry
   coverage, pinning `sepc`/`scause`/`stval`, `SPP=S`, `SPIE=old SIE`, `SIE=0`,
   and continued S-mode execution.
+  The same path now also runs through a nonzero vectored `stvec` handler,
+  proving synchronous supervisor exceptions still use `BASE` rather than the
+  interrupt offset.
   RV32-only counter high-half CSRs are now excluded through the shared CSR
   support classifier on RV64, so `cycleh`/`timeh`/`instreth`,
   `mcycleh`/`minstreth`, and the first/last HPM high-half aliases trap across

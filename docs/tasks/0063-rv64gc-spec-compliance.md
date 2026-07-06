@@ -458,6 +458,9 @@ official coverage improve.
   Horizontal delegated supervisor trap entry is also pinned: a delegated
   S-mode `ECALL` writes `sepc`/`scause`/`stval`, records `SPP=S`, copies the
   old `SIE` into `SPIE`, clears `SIE`, and remains in S-mode.
+  The same horizontal path now also has a nonzero-`stvec` handler regression
+  with `stvec.MODE=Vectored`, proving synchronous supervisor exceptions still
+  enter at `BASE` rather than `BASE + 4*cause`.
   RV32-only high-half counter CSRs are now filtered by the shared CSR support
   classifier on RV64: `cycleh`, `timeh`, `instreth`, `mcycleh`, and
   `minstreth` are readable where modeled for RV32 but absent from the RV64GC
