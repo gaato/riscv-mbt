@@ -13952,6 +13952,35 @@ test "mip CSRRS does not copy external SEIP into software SEIP" {
 }
 
 ///|
+test "mip CSRRC does not copy external SEIP into software SEIP" {
+  let program = words_to_bytes([
+    encode_i(2, 0, 0x0U, 1, 0x13U),
+    encode_csr(0x344, 1, 0x3U, 2),
+    encode_csr(0x344, 0, 0x2U, 3),
+  ])
+  let runner = make_runner(virtio_blk_machine_config())
+  // CSRRC shares the same read-modify-write hazard as CSRRS: rd observes the
+  // external PLIC contribution to mip.SEIP, but writeback must start from the
+  // stored CSR pending bits so the external signal cannot become sticky.
+  runner.plic_regs[4] = 1U.to_byte()
+  runner.plic_regs[0x2080] = 2U.to_byte()
+  runner.virtio_blk_state[6] = 1U.to_uint64()
+  runner.load_program_u64(program, 0x80000000U.to_uint64())
+  match runner.run(2) {
+    Running => ()
+    _ => fail("expected mip CSRRC with external SEIP")
+  }
+  assert_eq(runner.read_reg_u64(2) & 0x200U.to_uint64(), 0x200U.to_uint64())
+  runner.virtio_blk_state[6] = 0U.to_uint64()
+  match runner.step() {
+    Running => ()
+    _ => fail("expected mip read after external SEIP clears")
+  }
+  assert_eq(runner.read_reg_u64(3) & 0x202U.to_uint64(), 0U.to_uint64())
+  assert_eq(runner.cpu.read_csr(0x344) & 0x200U.to_uint64(), 0U.to_uint64())
+}
+
+///|
 test "sip CSRRS does not copy external SEIP into software SEIP" {
   let mideleg = 0x303
   let sip = 0x144
@@ -13987,6 +14016,43 @@ test "sip CSRRS does not copy external SEIP into software SEIP" {
   assert_eq(runner.read_reg_u64(4) & (seip | ssip), ssip)
   assert_eq(runner.cpu.read_csr(mip) & seip, 0U.to_uint64())
   assert_eq(runner.cpu.read_csr(mip) & ssip, ssip)
+}
+
+///|
+test "sip CSRRC does not copy external SEIP into software SEIP" {
+  let mideleg = 0x303
+  let sip = 0x144
+  let mip = 0x344
+  let ssip = 0x2U.to_uint64()
+  let seip = 0x200U.to_uint64()
+  let program = words_to_bytes([
+    encode_i(0x202, 0, 0x0U, 1, 0x13U),
+    encode_csr(mideleg, 1, 0x1U, 0),
+    encode_i(2, 0, 0x0U, 2, 0x13U),
+    encode_csr(sip, 2, 0x3U, 3),
+    encode_csr(sip, 0, 0x2U, 4),
+  ])
+  let runner = make_runner(virtio_blk_machine_config())
+  // The supervisor alias has the same B||E readback shape as mip.SEIP after
+  // delegation. Clearing SSIP through CSRRC must not write the external SEIP
+  // contribution back into stored mip state.
+  runner.plic_regs[4] = 1U.to_byte()
+  runner.plic_regs[0x2080] = 2U.to_byte()
+  runner.virtio_blk_state[6] = 1U.to_uint64()
+  runner.load_program_u64(program, 0x80000000U.to_uint64())
+  match runner.run(4) {
+    Running => ()
+    _ => fail("expected delegated sip CSRRC with external SEIP")
+  }
+  assert_eq(runner.read_reg_u64(3) & (seip | ssip), seip)
+  runner.virtio_blk_state[6] = 0U.to_uint64()
+  match runner.step() {
+    Running => ()
+    _ => fail("expected sip read after external SEIP clears")
+  }
+  assert_eq(runner.read_reg_u64(4) & (seip | ssip), 0U.to_uint64())
+  assert_eq(runner.cpu.read_csr(mip) & seip, 0U.to_uint64())
+  assert_eq(runner.cpu.read_csr(mip) & ssip, 0U.to_uint64())
 }
 
 ///|

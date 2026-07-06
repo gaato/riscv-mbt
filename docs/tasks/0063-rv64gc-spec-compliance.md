@@ -420,7 +420,8 @@ official coverage improve.
   bit, visible `mip` and delegated `sip` reads OR in the PLIC supervisor
   external signal, and CSRRS/CSRRC use write bases that cannot copy that
   external signal into software-pending storage. Focused coverage now pins both
-  the machine CSR and the delegated supervisor `sip` alias.
+  set and clear RMW forms through the machine CSR and the delegated supervisor
+  `sip` alias.
   `mstatus` now clears unsupported status storage before applying the modeled
   WARL rules. User-interrupt, VS, XS, and other WPRI/reserved bits read back as
   zero, while the implemented interrupt, return, privilege, FP-status,
@@ -1148,13 +1149,14 @@ official coverage improve.
   external pending state.
 - `mip.SEIP` now separates the software-writable pending bit from the PLIC
   supervisor external interrupt signal. Focused regressions cover software
-  `SEIP` surviving platform refresh with no external interrupt and CSRRS
-  reading `B||E` while writing back only `B||source`. The same regression
-  surface now covers the delegated `sip` alias, proving a supervisor CSRRS read
-  can observe external `SEIP` without making that external signal sticky after
-  the device source clears. The CSR RMW helper now explicitly derives `sip`
-  write candidates from delegated stored `mip` bits, matching the machine
-  `mip` split instead of relying only on the final writable-bit mask.
+  `SEIP` surviving platform refresh with no external interrupt, plus CSRRS and
+  CSRRC reading `B||E` while writing back only from stored pending bits and the
+  source mask. The same regression surface now covers the delegated `sip`
+  alias, proving supervisor set/clear reads can observe external `SEIP`
+  without making that external signal sticky after the device source clears.
+  The CSR RMW helper now explicitly derives `sip` write candidates from
+  delegated stored `mip` bits, matching the machine `mip` split instead of
+  relying only on the final writable-bit mask.
 - `MRET` and `SRET` now apply the privileged-spec `MPRV` return rule: when the
   return target is below M-mode, `mstatus.MPRV` is cleared so later data
   accesses cannot continue using the old MPP override. Focused regressions cover
