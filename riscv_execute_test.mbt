@@ -7594,7 +7594,44 @@ test "environment config csrs expose no optional feature bits" {
 }
 
 ///|
-test "pmp csrs are read only zero without pmp enforcement" {
+fn expect_warl_zero_csr_set_clear_forms(
+  csr : Int,
+  label : String,
+) -> Unit raise {
+  let program = words_to_bytes([
+    encode_i(-1, 0, 0x0U, 1, 0x13U),
+    // Writable WARL-zero CSRs are not read-only CSRs. Set/clear forms with a
+    // nonzero source must execute and report the old value, even though every
+    // attempted written bit is normalized away at the visible CSR boundary.
+    encode_csr(csr, 1, 0x2U, 2),
+    encode_csr(csr, 0, 0x2U, 3),
+    encode_csr(csr, 1, 0x3U, 4),
+    encode_csr(csr, 0, 0x2U, 5),
+    encode_csr(csr, 0x1f, 0x6U, 6),
+    encode_csr(csr, 0, 0x2U, 7),
+    encode_csr(csr, 0x1f, 0x7U, 8),
+    encode_csr(csr, 0, 0x2U, 9),
+  ])
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(9) {
+    Running => ()
+    _ => fail("expected WARL-zero CSR set/clear program to run for " + label)
+  }
+  for rd in 2..<=9 {
+    assert_eq(runner.read_reg_u64(rd), 0U.to_uint64())
+  }
+  assert_eq(runner.read_csr_u64(csr), 0U.to_uint64())
+}
+
+///|
+test "environment config csrs stay WARL zero across set and clear forms" {
+  expect_warl_zero_csr_set_clear_forms(0x30A, "menvcfg")
+  expect_warl_zero_csr_set_clear_forms(0x10A, "senvcfg")
+}
+
+///|
+test "pmp csrs are warl zero without pmp enforcement" {
   let pmpcfg0 = 0x3A0
   let pmpaddr0 = 0x3B0
   let program = words_to_bytes([
@@ -7614,6 +7651,12 @@ test "pmp csrs are read only zero without pmp enforcement" {
   assert_eq(runner.read_reg_u64(3), 0U.to_uint64())
   assert_eq(runner.read_csr_u64(pmpcfg0), 0U.to_uint64())
   assert_eq(runner.read_csr_u64(pmpaddr0), 0U.to_uint64())
+}
+
+///|
+test "pmp csrs stay WARL zero across set and clear forms" {
+  expect_warl_zero_csr_set_clear_forms(0x3A0, "pmpcfg0")
+  expect_warl_zero_csr_set_clear_forms(0x3B0, "pmpaddr0")
 }
 
 ///|

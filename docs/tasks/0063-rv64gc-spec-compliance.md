@@ -381,11 +381,16 @@ official coverage improve.
   `menvcfg` and `senvcfg` now expose no optional environment-feature bits in
   this RV64GC baseline. FIOM, Svpbmt, Svadu, Sstc, cache-block controls,
   pointer masking, landing-pad, shadow-stack, and double-trap controls read
-  back as zero because those extensions are not implemented.
+  back as zero because those extensions are not implemented. Focused coverage
+  now also distinguishes this writable WARL-zero surface from address-encoded
+  read-only CSRs: nonzero `CSRRS`/`CSRRC` and immediate set/clear forms retire,
+  return the old zero value, and still read back zero after normalization.
   `pmpcfg0` and `pmpaddr0` now read as zero because PMP access enforcement is
   not implemented. The OpenSBI smoke still boots and reports `PMP Count: 0`,
   avoiding the old mismatch where firmware could configure protection rules the
-  emulator would silently ignore.
+  emulator would silently ignore. The same writable WARL-zero set/clear
+  coverage now pins the PMP CSR surface so it is not accidentally handled as
+  address-encoded read-only storage.
   `mnstatus` is no longer exposed as compatibility storage. It belongs to the
   optional Smrnmi resumable-NMI extension, which is not implemented in the
   RV64GC baseline, so read and write attempts now trap as illegal instruction.
@@ -1071,11 +1076,14 @@ official coverage improve.
 - `menvcfg`/`senvcfg` no longer retain arbitrary compatibility storage bits.
   A write-all-ones regression pins the current baseline behavior: all optional
   environment controls read as zero until their corresponding extensions are
-  implemented.
+  implemented. The set/clear CSR forms now also have focused coverage proving
+  they retire as writable WARL-zero CSRs instead of trapping like read-only
+  CSRs.
 - `pmpcfg0`/`pmpaddr0` no longer retain arbitrary compatibility storage bits.
   A write-all-ones regression pins the current no-PMP-enforcement profile as
-  read-only zero, and the native OpenSBI smoke confirms the firmware-visible
-  PMP count is zero.
+  writable WARL-zero, the set/clear CSR forms now retire and still read back
+  zero, and the native OpenSBI smoke confirms the firmware-visible PMP count is
+  zero.
 - `mnstatus` is no longer part of the supported CSR table. Focused regressions
   cover both read and suppressed-read write forms trapping when Smrnmi is absent.
 - `mconfigptr` is now part of the supported read-only CSR table. Focused
