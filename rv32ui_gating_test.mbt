@@ -14,3 +14,17 @@ async test "refactored execute path keeps official riscv-tests gating subset gre
     index = index + 1
   }
 }
+
+///|
+async test "official RV64GC riscv-tests source rows are all gated" {
+  let source_keys = load_local_rv64gc_source_keys()
+  let gating_keys = load_manifest_gating_keys()
+  let missing : Array[String] = []
+  for key in source_keys {
+    if !gating_keys.contains(key) {
+      missing.push(key)
+    }
+  }
+  missing.sort()
+  assert_eq(missing.length(), 0)
+}

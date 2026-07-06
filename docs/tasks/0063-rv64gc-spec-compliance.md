@@ -36,8 +36,8 @@ or more OpenRC-specific probing.
   conversion results, and reserved rounding-mode handling.
 - Audit `A`, `C`, `Zicsr`, and `Zifencei` for spec gaps that are masked by
   current Linux probes.
-- Promote relevant official `rv64*` riscv-tests from survey to gating when the
-  emulator behavior is ready.
+- Promote every locally available/buildable official `riscv-tests` source row
+  applicable to RV64GC into `gating` before claiming this task complete.
 - Keep comments close to architectural boundaries: decode shape, execute
   semantics, CSR side effects, trap routing, translation, device interrupts,
   and test support.
@@ -92,6 +92,9 @@ official coverage improve.
   source rows. As of this pass, every local official source row for the
   RV64GC-relevant suites (`rv64ui/um/ua/uc/uf/ud`) is in `gating`; remaining
   local official rows are optional non-baseline extensions such as Zba/Zbb/Zfh.
+  `rv32ui_gating_test.mbt` now derives the local RV64GC source-row set from
+  the checked-out upstream `riscv-tests` tree and fails if any row is missing
+  from the manifest's `gating` tier.
   Taken branch and jump target alignment now follows the active IALIGN:
   non-C profiles trap halfword-only targets as instruction-address-misaligned,
   while C/RV64GC profiles allow them under IALIGN=16. `JAL` and `JALR` also
@@ -545,6 +548,10 @@ official coverage improve.
   gating rows. This makes the already-integrated upstream `riscv-tests` path
   part of the always-green regression floor for the RV64I/M/A/C portion of
   RV64GC.
+- The official-test gate now includes a source-tree completeness check: every
+  `.S` row under the local upstream RV64GC source suites
+  `rv64ui/um/ua/uc/uf/ud` must have a matching manifest row in the `gating`
+  tier, not merely a passing handwritten or survey-only equivalent.
 - `FCVT.W.S`, `FCVT.WU.S`, `FCVT.W.D`, and `FCVT.WU.D` now use a shared
   spec-shaped result helper for NaN/out-of-range clipping and accrued flags.
   The helper sets NV for invalid conversions, sets NX when the rounded valid

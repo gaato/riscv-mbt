@@ -134,6 +134,10 @@ Use the upstream Linux RISC-V architecture index as the entry point for Linux-sp
 - Keep regression in two layers:
   - `gating`: tests expected to pass and stay green in normal CI
   - `survey`: broader upstream coverage that may be expected to fail while features are still missing
+- For an active baseline ISA such as RV64GC, task completion requires every
+  locally available/buildable upstream source row for that baseline to be in
+  `gating`; do not leave applicable official rows as `survey` once the baseline
+  is the completion target.
 - Prefer adding metadata and better classification over inventing more custom tests.
 - Build upstream `*-p-*` binaries early even before the current emulator can execute the full privileged startup path.
 - If a temporary adapter is ever introduced, keep it explicitly disposable and never let it become the source of truth.

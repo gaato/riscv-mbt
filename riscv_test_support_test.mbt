@@ -21,6 +21,11 @@ let official_riscv_tests_isa_dir_rv32 = "_build/riscv-tests-src/isa"
 let official_riscv_tests_isa_dir_rv64 = "_build/riscv-tests-src-rv64/isa"
 
 ///|
+let official_rv64gc_riscv_tests_suites : ReadOnlyArray[String] = [
+  "rv64ui", "rv64um", "rv64ua", "rv64uc", "rv64uf", "rv64ud",
+]
+
+///|
 async fn read_manifest_text(path : String) -> String {
   @fs.read_file(path).text() catch {
     _ =>
@@ -38,6 +43,65 @@ async fn read_official_test_elf(path : String) -> Bytes {
         "missing official riscv-tests ELF: \{path}; run ./scripts/build-riscv-tests-official.sh first",
       )
   }
+}
+
+///|
+fn official_riscv_test_case_key(suite : String, name : String) -> String {
+  "\{suite}/\{name}"
+}
+
+///|
+async fn load_manifest_gating_keys() -> Array[String] {
+  let manifest = read_manifest_text(official_riscv_tests_manifest_path)
+  let keys : Array[String] = []
+  for raw_line in manifest.split("\n") {
+    let line = raw_line.to_owned().trim().to_owned()
+    if line == "" || line.has_prefix("#") {
+      continue
+    }
+    let fields : Array[String] = []
+    for field in line.split("\t") {
+      fields.push(field.to_owned())
+    }
+    if fields.length() != 4 {
+      abort("invalid riscv-tests manifest line: \{line}")
+    }
+    let suite = fields[0]
+    let name = fields[1]
+    let tier = fields[3]
+    if tier == "gating" {
+      keys.push(official_riscv_test_case_key(suite, name))
+    }
+  }
+  keys
+}
+
+///|
+async fn load_local_rv64gc_source_keys() -> Array[String] {
+  // Completion now requires every locally available upstream RV64GC row to be
+  // in the always-run gate. Discover that set from the checked-out riscv-tests
+  // source tree rather than from this repo's manifest, so a new upstream source
+  // file cannot be skipped by omission.
+  let keys : Array[String] = []
+  for suite in official_rv64gc_riscv_tests_suites {
+    let dir = "\{official_riscv_tests_isa_dir_rv64}/\{suite}"
+    let entries = @fs.readdir(dir, sort=true) catch {
+      _ =>
+        abort(
+          "missing official RV64 riscv-tests source suite: \{dir}; run ./scripts/build-riscv-tests-official.sh first",
+        )
+    }
+    for entry in entries {
+      if entry.has_suffix(".S") {
+        let name = match entry.strip_suffix(".S") {
+          Some(name) => name.to_owned()
+          None => abort("unreachable .S suffix check failed: \{entry}")
+        }
+        keys.push(official_riscv_test_case_key(suite, name))
+      }
+    }
+  }
+  keys
 }
 
 ///|
