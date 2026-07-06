@@ -372,6 +372,10 @@
   focused round-trip coverage, paired with RV32C rejection of the same integer
   double aliases, and high zero-extended offset coverage for the scattered
   doubleword CL/CS immediate path.
+  Zero-offset compressed memory forms are now covered as legal ordinary memory
+  operations across register-based, stack-pointer, and RV64DC floating-double
+  aliases, keeping load/store offsets separate from neighboring
+  zero-immediate reserved encodings.
   RV32C now also rejects quadrant-2 integer double stack forms
   `C.LDSP`/`C.SDSP`, keeping those RV64C-only encodings from expanding into
   RV64 load/store operations in the 32-bit profile.

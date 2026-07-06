@@ -757,6 +757,50 @@ test "rv64dc compressed floating double memory uses high zero-extended offsets" 
 }
 
 ///|
+test "rv64gc compressed memory zero offsets stay legal" {
+  // Unlike C.ADDI4SPN, C.ADDI16SP, and C.LUI, compressed memory forms do not
+  // reserve a zero immediate. Keep offset zero on the ordinary load/store path
+  // for register-based, stack-pointer, and D-extension floating aliases.
+  let runner = make_runner(rv64fd_machine_config())
+  let word_value = 0x80000001U.to_uint64()
+  let double_value = 0x1122334455667788UL
+  let float_bits = 0x8877665544332211UL
+  runner.cpu.write_reg(2, 0x200U.to_uint64())
+  runner.cpu.write_reg(9, word_value)
+  runner.cpu.write_reg(10, 0x100U.to_uint64())
+  runner.cpu.write_reg(11, double_value)
+  runner.cpu.write_freg(8, float_bits)
+  runner.load_program(
+    mixed_program_bytes([
+      (2, encode_c_sw(9, 10, 0).reinterpret_as_uint()),
+      (2, encode_c_lw(12, 10, 0).reinterpret_as_uint()),
+      (2, encode_c_sd(11, 10, 0).reinterpret_as_uint()),
+      (2, encode_c_ld(13, 10, 0).reinterpret_as_uint()),
+      (2, encode_c_swsp(9, 0).reinterpret_as_uint()),
+      (2, encode_c_lwsp(14, 0).reinterpret_as_uint()),
+      (2, encode_c_sdsp(11, 0).reinterpret_as_uint()),
+      (2, encode_c_ldsp(15, 0).reinterpret_as_uint()),
+      (2, encode_c_fsd(8, 10, 0).reinterpret_as_uint()),
+      (2, encode_c_fld(9, 10, 0).reinterpret_as_uint()),
+      (2, encode_c_fsdsp(8, 0).reinterpret_as_uint()),
+      (2, encode_c_fldsp(10, 0).reinterpret_as_uint()),
+    ]),
+    0U,
+  )
+  match runner.run(12) {
+    Running => ()
+    _ => fail("expected zero-offset compressed memory sequence to run")
+  }
+  assert_eq(runner.read_reg_u64(12), 0xffffffff80000001UL)
+  assert_eq(runner.read_reg_u64(13), double_value)
+  assert_eq(runner.read_reg_u64(14), 0xffffffff80000001UL)
+  assert_eq(runner.read_reg_u64(15), double_value)
+  assert_eq(runner.read_freg_u64(9), float_bits)
+  assert_eq(runner.read_freg_u64(10), float_bits)
+  assert_eq(runner.pc_u64(), 24U.to_uint64())
+}
+
+///|
 test "rv64c compressed floating double forms require d extension" {
   // The C spec provides compressed double load/store aliases for RV64DC, but
   // they are not integer-only RV64C instructions. Pin this at the execute
