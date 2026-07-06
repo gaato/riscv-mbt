@@ -107,6 +107,44 @@ fn wb_word_program(raw : UInt) -> Bytes {
 }
 
 ///|
+fn wb_expect_absent_csr_forms(
+  config : MachineConfig,
+  csr : Int,
+  label : String,
+) -> Unit raise {
+  let forms = [
+    wb_encode_csr(csr, 1, 0x1U, 2), // CSRRW reads old value, then writes.
+    wb_encode_csr(csr, 1, 0x1U, 0), // CSRRW rd=x0 suppresses only the read.
+    wb_encode_csr(csr, 1, 0x2U, 2), // CSRRS with a nonzero register mask.
+    wb_encode_csr(csr, 0, 0x2U, 2), // CSRRS with x0 is still a read.
+    wb_encode_csr(csr, 1, 0x3U, 2), // CSRRC with a nonzero register mask.
+    wb_encode_csr(csr, 0, 0x3U, 2), // CSRRC with x0 is still a read.
+    wb_encode_csr(csr, 1, 0x5U, 2), // CSRRWI reads old value, then writes.
+    wb_encode_csr(csr, 1, 0x5U, 0), // CSRRWI rd=x0 suppresses only the read.
+    wb_encode_csr(csr, 1, 0x6U, 2), // CSRRSI with a nonzero immediate mask.
+    wb_encode_csr(csr, 0, 0x6U, 2), // CSRRSI uimm=0 is still a read.
+    wb_encode_csr(csr, 1, 0x7U, 2), // CSRRCI with a nonzero immediate mask.
+    wb_encode_csr(csr, 0, 0x7U, 2), // CSRRCI uimm=0 is still a read.
+  ]
+  for raw in forms {
+    let runner = make_runner(config)
+    runner.cpu.write_reg(1, 1U.to_uint64())
+    runner.load_program(wb_word_program(raw), 0U)
+    match runner.step() {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected absent CSR form to trap for " + label)
+        }
+        assert_eq(info.faulting_pc, 0U.to_uint64())
+        assert_eq(info.trap_value, raw.to_uint64())
+      }
+      _ => fail("expected absent CSR form trap for " + label)
+    }
+  }
+}
+
+///|
 fn wb_encode_i(
   imm : Int,
   rs1 : Int,
@@ -387,19 +425,25 @@ test "multiply instruction traps when M extension is not advertised" {
 
 ///|
 test "supervisor profile resources trap when S extension is not advertised" {
+  let no_s_config = wb_rv64_without_s_machine_config()
+  for
+    csr in [
+      CSR_SSTATUS,
+      CSR_SATP,
+      CSR_MEDELEG,
+      CSR_MIDELEG,
+      CSR_SCOUNTEREN,
+      CSR_SENVCFG,
+    ] {
+    wb_expect_absent_csr_forms(no_s_config, csr, "no-S supervisor CSR")
+  }
+
   let supervisor_resources = [
-    wb_encode_csr(CSR_SSTATUS, 0, 0x2U, 1), // CSRRS x1, sstatus, x0
-    wb_encode_csr(CSR_SSTATUS, 1, 0x1U, 0), // CSRRW x0, sstatus, x1
-    wb_encode_csr(CSR_SATP, 0, 0x2U, 1), // CSRRS x1, satp, x0
-    wb_encode_csr(CSR_MEDELEG, 0, 0x2U, 1), // CSRRS x1, medeleg, x0
-    wb_encode_csr(CSR_MIDELEG, 0, 0x2U, 1), // CSRRS x1, mideleg, x0
-    wb_encode_csr(CSR_SCOUNTEREN, 0, 0x2U, 1), // CSRRS x1, scounteren, x0
-    wb_encode_csr(CSR_SENVCFG, 0, 0x2U, 1), // CSRRS x1, senvcfg, x0
     0x12000073U, // sfence.vma x0, x0
     wb_encode_sret(),
   ]
   for raw in supervisor_resources {
-    let runner = make_runner(wb_rv64_without_s_machine_config())
+    let runner = make_runner(no_s_config)
     runner.cpu.write_reg(1, 1U.to_uint64())
     runner.load_program(wb_word_program(raw), 0U)
     match runner.step() {
