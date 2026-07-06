@@ -1260,6 +1260,12 @@ fn Runner::csr_rmw_write_base(
     // WARL fields such as UXL, so derive RMW candidates from stored mstatus
     // bits and let write_csr_visible/legalize_mstatus_csr reapply fixed fields.
     self.cpu.read_csr(CSR_MSTATUS) & SSTATUS_VISIBLE_MASK
+  } else if csr == CSR_MEPC || csr == CSR_SEPC {
+    // EPC bit 1 can be hidden by the current IALIGN while remaining writable
+    // backing storage. CSRRS/CSRRC must leave bits outside the source mask
+    // unaffected, so their write base has to be the stored EPC value rather
+    // than the possibly masked visible read returned to rd.
+    legalize_epc_csr(self.cpu.read_csr(csr))
   } else {
     visible_old
   }

@@ -321,6 +321,29 @@ test "epc bit one remains writable when ialign masks reads" {
   assert_eq(no_c_set.read_reg_u64(5), 0U.to_uint64())
   assert_eq(no_c_set.cpu.read_csr(CSR_MEPC), 2U.to_uint64())
   assert_eq(no_c_set.cpu.read_csr(CSR_SEPC), 2U.to_uint64())
+
+  let no_c_preserve = make_runner(wb_rv64_without_c_machine_config())
+  no_c_preserve.cpu.write_csr(CSR_MEPC, 2U.to_uint64())
+  no_c_preserve.cpu.write_csr(CSR_SEPC, 2U.to_uint64())
+  no_c_preserve.cpu.write_reg(1, 4U.to_uint64())
+  no_c_preserve.load_program(
+    words_to_bytes([
+      wb_encode_csr(CSR_MEPC, 1, 0x2U, 2),
+      wb_encode_csr(CSR_SEPC, 1, 0x3U, 3),
+    ]),
+    0U,
+  )
+  match no_c_preserve.run(2) {
+    Running => ()
+    _ => fail("expected non-c epc hidden-bit preservation program to run")
+  }
+  // CSRRS/CSRRC read the visible masked value, but bits outside the source
+  // mask are architecturally unaffected. An unrelated set/clear mask must
+  // therefore preserve the hidden bit-1 backing storage.
+  assert_eq(no_c_preserve.read_reg_u64(2), 0U.to_uint64())
+  assert_eq(no_c_preserve.read_reg_u64(3), 0U.to_uint64())
+  assert_eq(no_c_preserve.cpu.read_csr(CSR_MEPC), 6U.to_uint64())
+  assert_eq(no_c_preserve.cpu.read_csr(CSR_SEPC), 2U.to_uint64())
 }
 
 ///|

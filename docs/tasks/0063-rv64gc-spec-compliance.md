@@ -355,7 +355,10 @@ official coverage improve.
   preserve bit 1 for RV64GC/IALIGN=16, and mask bit 1 on visible reads plus
   xRET target reads when `MISA.C` is absent and IALIGN=32. Focused profile
   coverage now also pins that bit 1 remains writable backing storage in
-  non-`C` profiles even while visible CSR reads report it as zero.
+  non-`C` profiles even while visible CSR reads report it as zero. The
+  `CSRRS`/`CSRRC` write base now uses that stored EPC value, so source masks
+  that set or clear unrelated bits do not accidentally destroy hidden bit-1
+  state outside the requested mask.
   RV64 `mstatus.SXL`/`mstatus.UXL` and `sstatus.UXL` now expose the fixed
   SXLEN=UXLEN=64 profile and normalize writes back to that value.
   The endian-control fields now match the emulator's little-endian-only memory
@@ -1089,7 +1092,10 @@ official coverage improve.
   from an aligned stored value before the hardwired-zero bit is cleared.
   Non-`C` profile coverage now also proves that this read masking is not
   destructive storage normalization: both `mepc` and `sepc` can still retain
-  writable bit 1 behind the masked visible value.
+  writable bit 1 behind the masked visible value. Register-source set and
+  clear forms now preserve that hidden bit when the source mask addresses other
+  bits, matching Zicsr's rule that bits outside the source mask are
+  unaffected.
 - `mstatus.MPP` now treats reserved privilege encoding 2 as a WARL value and
   normalizes it to U-mode on visible `mstatus` writes. A focused CSR
   regression now covers replacement writes plus register-source set/clear forms
