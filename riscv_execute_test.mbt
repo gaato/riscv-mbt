@@ -3622,6 +3622,154 @@ test "rv64fd basic scalar arithmetic executes exact representative results" {
 }
 
 ///|
+test "rv64fd exact scalar arithmetic stays flag clean across rounding modes" {
+  let csr_fcsr = 0x003
+  let fcsr_frm_shift = 5
+  let legal_static_modes = [0U, 1U, 2U, 3U, 4U]
+  for rm in legal_static_modes {
+    let runner = make_runner(rv64fd_machine_config())
+    runner.cpu.write_freg(1, exec_test_nan_box_single(exec_test_f32_bits(1.5)))
+    runner.cpu.write_freg(2, exec_test_nan_box_single(exec_test_f32_bits(0.5)))
+    runner.cpu.write_freg(3, exec_test_nan_box_single(exec_test_f32_bits(2.0)))
+    runner.cpu.write_freg(4, exec_test_nan_box_single(exec_test_f32_bits(3.0)))
+    runner.cpu.write_freg(5, exec_test_nan_box_single(exec_test_f32_bits(4.0)))
+    runner.cpu.write_freg(11, exec_test_f64_bits(1.5))
+    runner.cpu.write_freg(12, exec_test_f64_bits(0.5))
+    runner.cpu.write_freg(13, exec_test_f64_bits(2.0))
+    runner.cpu.write_freg(14, exec_test_f64_bits(3.0))
+    runner.cpu.write_freg(15, exec_test_f64_bits(4.0))
+    runner.load_program(
+      words_to_bytes([
+        encode_fp_r(0x00U, 2, 1, rm, 6),
+        encode_fp_r(0x04U, 2, 1, rm, 7),
+        encode_fp_r(0x08U, 3, 1, rm, 8),
+        encode_fp_r(0x0cU, 3, 4, rm, 9),
+        encode_fsqrt_s(5, rm, 10),
+        encode_fp_r(0x01U, 12, 11, rm, 16),
+        encode_fp_r(0x05U, 12, 11, rm, 17),
+        encode_fp_r(0x09U, 13, 11, rm, 18),
+        encode_fp_r(0x0dU, 13, 14, rm, 19),
+        encode_fsqrt_d(15, rm, 20),
+      ]),
+      0U,
+    )
+    match runner.run(10) {
+      Running => ()
+      Trap(info) =>
+        fail(
+          "expected exact scalar arithmetic to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+        )
+    }
+    // These operands are exactly representable and produce exact results for
+    // every operation. Rounding mode legality still matters, but no operation
+    // should accrue NX or any other floating-point exception flag.
+    assert_eq(
+      runner.read_freg_u64(6),
+      exec_test_nan_box_single(exec_test_f32_bits(2.0)),
+    )
+    assert_eq(
+      runner.read_freg_u64(7),
+      exec_test_nan_box_single(exec_test_f32_bits(1.0)),
+    )
+    assert_eq(
+      runner.read_freg_u64(8),
+      exec_test_nan_box_single(exec_test_f32_bits(3.0)),
+    )
+    assert_eq(
+      runner.read_freg_u64(9),
+      exec_test_nan_box_single(exec_test_f32_bits(1.5)),
+    )
+    assert_eq(
+      runner.read_freg_u64(10),
+      exec_test_nan_box_single(exec_test_f32_bits(2.0)),
+    )
+    assert_eq(runner.read_freg_u64(16), exec_test_f64_bits(2.0))
+    assert_eq(runner.read_freg_u64(17), exec_test_f64_bits(1.0))
+    assert_eq(runner.read_freg_u64(18), exec_test_f64_bits(3.0))
+    assert_eq(runner.read_freg_u64(19), exec_test_f64_bits(1.5))
+    assert_eq(runner.read_freg_u64(20), exec_test_f64_bits(2.0))
+    assert_eq(runner.read_csr(csr_fcsr) & 0x1fU, 0U)
+  }
+
+  let dynamic_runner = make_runner(rv64fd_machine_config())
+  dynamic_runner.cpu.write_freg(
+    1,
+    exec_test_nan_box_single(exec_test_f32_bits(1.5)),
+  )
+  dynamic_runner.cpu.write_freg(
+    2,
+    exec_test_nan_box_single(exec_test_f32_bits(0.5)),
+  )
+  dynamic_runner.cpu.write_freg(
+    3,
+    exec_test_nan_box_single(exec_test_f32_bits(2.0)),
+  )
+  dynamic_runner.cpu.write_freg(
+    4,
+    exec_test_nan_box_single(exec_test_f32_bits(3.0)),
+  )
+  dynamic_runner.cpu.write_freg(
+    5,
+    exec_test_nan_box_single(exec_test_f32_bits(4.0)),
+  )
+  dynamic_runner.cpu.write_freg(11, exec_test_f64_bits(1.5))
+  dynamic_runner.cpu.write_freg(12, exec_test_f64_bits(0.5))
+  dynamic_runner.cpu.write_freg(13, exec_test_f64_bits(2.0))
+  dynamic_runner.cpu.write_freg(14, exec_test_f64_bits(3.0))
+  dynamic_runner.cpu.write_freg(15, exec_test_f64_bits(4.0))
+  dynamic_runner.cpu.write_csr(csr_fcsr, 0x3U.to_uint64() << fcsr_frm_shift)
+  dynamic_runner.load_program(
+    words_to_bytes([
+      encode_fp_r(0x00U, 2, 1, 0x7U, 6),
+      encode_fp_r(0x04U, 2, 1, 0x7U, 7),
+      encode_fp_r(0x08U, 3, 1, 0x7U, 8),
+      encode_fp_r(0x0cU, 3, 4, 0x7U, 9),
+      encode_fsqrt_s(5, 0x7U, 10),
+      encode_fp_r(0x01U, 12, 11, 0x7U, 16),
+      encode_fp_r(0x05U, 12, 11, 0x7U, 17),
+      encode_fp_r(0x09U, 13, 11, 0x7U, 18),
+      encode_fp_r(0x0dU, 13, 14, 0x7U, 19),
+      encode_fsqrt_d(15, 0x7U, 20),
+    ]),
+    0U,
+  )
+  match dynamic_runner.run(10) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected dynamic exact scalar arithmetic to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(
+    dynamic_runner.read_freg_u64(6),
+    exec_test_nan_box_single(exec_test_f32_bits(2.0)),
+  )
+  assert_eq(
+    dynamic_runner.read_freg_u64(7),
+    exec_test_nan_box_single(exec_test_f32_bits(1.0)),
+  )
+  assert_eq(
+    dynamic_runner.read_freg_u64(8),
+    exec_test_nan_box_single(exec_test_f32_bits(3.0)),
+  )
+  assert_eq(
+    dynamic_runner.read_freg_u64(9),
+    exec_test_nan_box_single(exec_test_f32_bits(1.5)),
+  )
+  assert_eq(
+    dynamic_runner.read_freg_u64(10),
+    exec_test_nan_box_single(exec_test_f32_bits(2.0)),
+  )
+  assert_eq(dynamic_runner.read_freg_u64(16), exec_test_f64_bits(2.0))
+  assert_eq(dynamic_runner.read_freg_u64(17), exec_test_f64_bits(1.0))
+  assert_eq(dynamic_runner.read_freg_u64(18), exec_test_f64_bits(3.0))
+  assert_eq(dynamic_runner.read_freg_u64(19), exec_test_f64_bits(1.5))
+  assert_eq(dynamic_runner.read_freg_u64(20), exec_test_f64_bits(2.0))
+  assert_eq(dynamic_runner.read_csr(csr_fcsr) & 0x1fU, 0U)
+  assert_eq((dynamic_runner.read_csr(csr_fcsr) >> fcsr_frm_shift) & 0x7U, 0x3U)
+}
+
+///|
 test "rv64fd f and d conversion paths preserve expected values" {
   let single = exec_test_f32_bits(1.5)
   let double = exec_test_f64_bits(2.25)

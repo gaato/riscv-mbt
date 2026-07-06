@@ -206,7 +206,10 @@ official coverage improve.
   NaN without NV, while signaling all-NaN inputs produce the canonical NaN and
   accrue NV for both S and D. Focused S/D arithmetic coverage now also pins
   that `fflags` are accrued state across independent FP instructions: NX, DZ,
-  and NV remain set until software explicitly clears `fcsr`. The remaining
+  and NV remain set until software explicitly clears `fcsr`. Exact scalar S/D
+  add, subtract, multiply, divide, and square-root coverage now also sweeps
+  every legal static rounding mode plus dynamic `frm`, proving exact results
+  leave `fflags` clear while still validating the rounding-mode field. The remaining
   strict-spec gaps are broader than the current official rows: deeper
   fused-rounding audits and exception-flag corner cases beyond the current
   `riscv-tests` surface.
@@ -914,6 +917,10 @@ official coverage improve.
   lower adjacent single for both `FDIV.S` and `FSQRT.S`. `FDIV.S` now also has
   exact-zero quotient sign coverage, and `FSQRT.S` exact square roots are
   covered as flag-clean results.
+- Exact scalar arithmetic now has a flag-clean baseline for both S and D:
+  add/sub/mul/div/sqrt execute exact representative operands under every legal
+  static rounding mode and dynamic `frm`, preserve the selected `frm`, and
+  leave `fflags` clear.
 - Single-precision FMA now has matching non-RNE coverage for finite nonzero
   exact results. Focused regressions cover all four FMA opcodes at `2^24 + 1`,
   where RTZ and RUP select adjacent single-precision results and accrue NX.
