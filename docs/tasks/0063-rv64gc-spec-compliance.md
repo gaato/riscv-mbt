@@ -356,10 +356,12 @@ official coverage improve.
   CY/TM/IR write mask instead of retaining unsupported HPM bits. Focused
   coverage now also pins first/last `hpmcounter`, `mhpmcounter`, and
   `mhpmevent` slots as illegal-instruction traps rather than zero-valued
-  compatibility storage. The RV64-only CSR support classifier also excludes the
-  first/last HPM high-half aliases as RV32-only addresses. In an M+U profile without S-mode,
-  `mcounteren` gates U-mode counter reads directly because there is no
-  supervisor `scounteren` layer.
+  compatibility storage across the full Zicsr form family, including
+  suppressed-read writes and zero-mask set/clear reads. The RV64-only CSR
+  support classifier also excludes the first/last HPM high-half aliases as
+  RV32-only addresses. In an M+U profile without S-mode, `mcounteren` gates
+  U-mode counter reads directly because there is no supervisor `scounteren`
+  layer.
   `mcountinhibit` now controls the exposed architectural counters: CY inhibits
   `cycle`, IR inhibits `instret`, HPM inhibit bits are read-only zero because
   no HPM counters are modeled, and nonzero set/clear forms now apply that same

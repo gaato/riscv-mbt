@@ -7726,8 +7726,8 @@ test "hpm counter csrs trap when hpm counters are not implemented" {
   // mcounteren/scounteren expose HPM enable bits as read-only zero because the
   // matching hpmcounter, mhpmcounter, and mhpmevent CSR surface is absent in
   // this RV64GC profile. Check both ends of each family so the emulator cannot
-  // accidentally implement only the first slot as zero-valued compatibility
-  // storage.
+  // accidentally implement only the first slot, or only the direct read/write
+  // forms, as zero-valued compatibility storage.
   let representative_hpm_csrs = [
     0xC03, // hpmcounter3
      0xC1F, // hpmcounter31
@@ -7737,19 +7737,7 @@ test "hpm counter csrs trap when hpm counters are not implemented" {
      0x33F, // mhpmevent31
   ]
   for csr in representative_hpm_csrs {
-    let read_raw = encode_csr(csr, 0, 0x2U, 1)
-    let write_raw = encode_csr(csr, 1, 0x1U, 0)
-    for raw in [read_raw, write_raw] {
-      let runner = make_runner(rv64_machine_config())
-      runner.cpu.write_reg(1, 1U.to_uint64())
-      runner.load_program(words_to_bytes([raw]), 0U)
-      expect_step_trap(
-        runner,
-        "illegal instruction",
-        raw.to_uint64(),
-        "expected absent HPM CSR access to trap",
-      )
-    }
+    expect_absent_csr_form_family_traps(csr, "absent HPM CSR")
   }
 }
 

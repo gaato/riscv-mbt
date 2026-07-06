@@ -232,9 +232,10 @@
   `CSRRS/CSRRC` and immediate set/clear forms now also preserve the old visible
   value while applying the same CY/TM/IR mask at writeback. Focused coverage now
   checks first/last low-half HPM counter and event-selector CSR slots as absent
-  rather than zero-valued compatibility storage. In an M+U profile without
-  S-mode, `mcounteren` gates U-mode counter reads directly because there is no
-  supervisor `scounteren` layer.
+  rather than zero-valued compatibility storage across the full Zicsr form
+  family, including suppressed-read writes and zero-mask set/clear reads. In an
+  M+U profile without S-mode, `mcounteren` gates U-mode counter reads directly
+  because there is no supervisor `scounteren` layer.
 - `mcountinhibit` is now modeled for the exposed architectural counters. CY
   and IR are writable, HPM inhibit bits read back as zero because HPM counters
   are absent, and nonzero set/clear forms now apply that same CY/IR mask while
