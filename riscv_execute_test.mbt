@@ -9466,6 +9466,31 @@ test "optional privileged extension csrs trap when extensions are absent" {
 }
 
 ///|
+test "hypervisor and virtual supervisor csrs trap when H is absent" {
+  // RV64GC does not include the hypervisor extension. Even though the standard
+  // CSR map allocates these addresses, the emulator must keep the whole H/VS
+  // register surface absent until two-stage translation, VS state, and
+  // hypervisor trap semantics are actually modeled.
+  for
+    hypervisor_csr in [
+      0x600, 0x602, 0x603, 0x604, 0x605, 0x606, 0x607, 0x60A, 0x60C, 0x60D, 0x60E,
+      0x60F, 0x612, 0x615, 0x61A, 0x61C, 0x61D, 0x61E, 0x61F, 0x643, 0x644, 0x645,
+      0x64A, 0x680, 0x6A8, 0xE12,
+    ] {
+    expect_absent_csr_form_family_traps(hypervisor_csr, "hypervisor CSR")
+  }
+  for
+    virtual_supervisor_csr in [
+      0x200, 0x204, 0x205, 0x240, 0x241, 0x242, 0x243, 0x244, 0x24D, 0x24E, 0x250,
+      0x251, 0x252, 0x253, 0x255, 0x256, 0x257, 0x25D, 0x280,
+    ] {
+    expect_absent_csr_form_family_traps(
+      virtual_supervisor_csr, "virtual-supervisor CSR",
+    )
+  }
+}
+
+///|
 test "trigger module csrs trap when debug triggers are absent" {
   // The standard trigger CSR block starts at tselect=0x7A0. This emulator does
   // not implement a Trigger Module or Debug Mode, so these addresses must stay

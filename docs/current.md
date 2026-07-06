@@ -203,6 +203,10 @@
   CSRs, `scontext`, supervisor resource-management/CTR CSRs, and
   `mseccfg`/`mseccfgh`, keeping them distinct from the deliberately modeled
   WARL-zero compatibility CSRs.
+- The `H`/VS CSR surface is now sampled as absent from the RV64GC profile as
+  well. Representative hypervisor trap/configuration/state-enable/timer/context
+  CSRs and virtual-supervisor trap/translation/indirect/timer CSRs trap across
+  the full Zicsr form family until the hypervisor extension is implemented.
 - RV64 `mstatus.SXL`/`mstatus.UXL` and `sstatus.UXL` are now visible as fixed
   64-bit lower-privilege XLEN fields. Replacement writes and register-source
   set/clear candidates that try to clear or change them are normalized back to

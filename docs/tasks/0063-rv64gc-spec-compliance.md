@@ -456,6 +456,10 @@ official coverage improve.
   resource-management/CTR CSRs, and `Smepmp` `mseccfg`/`mseccfgh` all trap
   across the full Zicsr form family instead of appearing as generic CSR
   storage before their extension semantics exist.
+  The `H`/VS CSR surface is now sampled as absent from the same baseline:
+  representative hypervisor trap/configuration/state-enable/timer/context CSRs
+  and virtual-supervisor trap/translation/indirect/timer CSRs all trap until
+  the hypervisor extension is deliberately implemented.
   `pmpcfg0` and `pmpaddr0` now read as zero because PMP access enforcement is
   not implemented. The OpenSBI smoke still boots and reports `PMP Count: 0`,
   avoiding the old mismatch where firmware could configure protection rules the
