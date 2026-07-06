@@ -148,7 +148,9 @@
   `FCVT.WU.D` now also checks the mode-dependent upper edge where
   `+2^32 - 0.5` stays valid/inexact under RTZ but rounds out of range and sets
   NV under RNE/RUP, plus the lower S/D `-0.5` edge where RNE/RTZ produce valid
-  inexact zero but RDN rounds invalid.
+  inexact zero but RDN rounds invalid. Dynamic `rm=111` coverage now also
+  checks those word-boundary rules through `fcsr.frm`, using `fflags` clears
+  that leave the current rounding mode intact.
   `FCVT.LU.S/D` now has matching unsigned-long lower-edge coverage for `-0.5`,
   proving the same rounded-result validity rule on the RV64-width output path;
   RMM coverage also pins FCVT.L.D ties-away behavior on representable `+9.5`

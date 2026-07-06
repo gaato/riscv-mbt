@@ -563,6 +563,9 @@ official coverage improve.
   rounding, proving that `+2^32 - 0.5` is valid with NX under RTZ but invalid
   with NV under RNE/RUP. The lower edge likewise checks that `-0.5` is valid
   with NX under RNE/RTZ but invalid with NV under RDN for both S and D sources.
+  Dynamic `rm=111` coverage now repeats the word-boundary check through
+  `fcsr.frm` for signed RDN and unsigned RMM cases, and uses `fflags` clears so
+  the test also proves the selected dynamic rounding mode is preserved.
   Float-to-integer conversions now also have explicit reserved-rounding
   regressions for representative word, unsigned-word, and long forms,
   including dynamic `rm=111` with a reserved `frm`.

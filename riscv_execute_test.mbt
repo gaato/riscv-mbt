@@ -4302,6 +4302,71 @@ test "rv64fd rmm word conversion checks range after ties-away rounding" {
 }
 
 ///|
+test "rv64fd dynamic frm word conversion checks range after rounding" {
+  let csr_fflags = 0x001
+  let csr_fcsr = 0x003
+  let fcsr_frm_shift = 5
+  let invalid = 0x10U.to_uint64()
+  let inexact = 0x01U.to_uint64()
+  let frm_mask = 0x7U << fcsr_frm_shift
+  let rdn_frm = 0x2U << fcsr_frm_shift
+  let rmm_frm = 0x4U << fcsr_frm_shift
+
+  let rdn = make_runner(rv64fd_machine_config())
+  // Dynamic rm=111 must read fcsr.frm at execution time and then apply the
+  // same round-before-range-check rule as a static rm. Clearing only fflags
+  // between conversions keeps frm live, which catches accidental fcsr clears.
+  rdn.cpu.write_freg(1, 0x41dfffffffe00000UL) // +2^31 - 0.5.
+  rdn.cpu.write_freg(2, 0xc1e0000000100000UL) // -2^31 - 0.5.
+  rdn.cpu.write_csr(csr_fcsr, rdn_frm.to_uint64())
+  rdn.load_program(
+    words_to_bytes([
+      encode_fcvt_w_d(1, 0x7U, 10),
+      encode_csr(csr_fflags, 0, 0x2U, 11),
+      encode_csr(csr_fflags, 0, 0x1U, 0),
+      encode_fcvt_w_d(2, 0x7U, 12),
+      encode_csr(csr_fflags, 0, 0x2U, 13),
+    ]),
+    0U,
+  )
+  match rdn.run(5) {
+    Running => ()
+    _ => fail("expected dynamic RDN fcvt.w.d boundary path to run")
+  }
+  assert_eq(rdn.read_reg_u64(10), 0x7fffffffU.to_uint64())
+  assert_eq(rdn.read_reg_u64(11) & 0x1fU.to_uint64(), inexact)
+  assert_eq(rdn.read_reg_u64(12), test_sign_extend_word64(0x80000000U))
+  assert_eq(rdn.read_reg_u64(13) & 0x1fU.to_uint64(), invalid)
+  assert_eq(rdn.read_csr(csr_fcsr) & frm_mask, rdn_frm)
+
+  let rmm = make_runner(rv64fd_machine_config())
+  // RMM ties away from zero, so both unsigned-word half-unit boundary inputs
+  // round outside the valid range and report NV without also reporting NX.
+  rmm.cpu.write_freg(1, 0x41effffffff00000UL) // +2^32 - 0.5.
+  rmm.cpu.write_freg(2, 0xbfe0000000000000UL) // -0.5.
+  rmm.cpu.write_csr(csr_fcsr, rmm_frm.to_uint64())
+  rmm.load_program(
+    words_to_bytes([
+      encode_fcvt_wu_d(1, 0x7U, 10),
+      encode_csr(csr_fflags, 0, 0x2U, 11),
+      encode_csr(csr_fflags, 0, 0x1U, 0),
+      encode_fcvt_wu_d(2, 0x7U, 12),
+      encode_csr(csr_fflags, 0, 0x2U, 13),
+    ]),
+    0U,
+  )
+  match rmm.run(5) {
+    Running => ()
+    _ => fail("expected dynamic RMM fcvt.wu.d boundary path to run")
+  }
+  assert_eq(rmm.read_reg_u64(10), test_sign_extend_word64(0xffffffffU))
+  assert_eq(rmm.read_reg_u64(11) & 0x1fU.to_uint64(), invalid)
+  assert_eq(rmm.read_reg_u64(12), 0U.to_uint64())
+  assert_eq(rmm.read_reg_u64(13) & 0x1fU.to_uint64(), invalid)
+  assert_eq(rmm.read_csr(csr_fcsr) & frm_mask, rmm_frm)
+}
+
+///|
 test "rv64fd unsigned word conversion checks range after rounding" {
   let csr_fcsr = 0x003
   let invalid = 0x10U.to_uint64()
