@@ -12774,6 +12774,50 @@ test "SIP writes affect only delegated SSIP through supervisor view" {
 }
 
 ///|
+test "SIP set and clear forms affect only delegated SSIP" {
+  let mideleg = 0x303
+  let sip = 0x144
+  let mip = 0x344
+  let supervisor_pending = 0x222U.to_uint64()
+  let ssip = 0x2U.to_uint64()
+  let program = words_to_bytes([
+    encode_i(-1, 0, 0x0U, 1, 0x13U),
+    encode_csr(mideleg, 1, 0x1U, 0),
+    encode_csr(sip, 1, 0x2U, 2),
+    encode_csr(sip, 0, 0x2U, 3),
+    encode_csr(mip, 0, 0x2U, 4),
+    encode_csr(sip, 1, 0x3U, 5),
+    encode_csr(sip, 0, 0x2U, 6),
+    encode_csr(mip, 0, 0x2U, 7),
+    encode_csr(sip, 0x1f, 0x6U, 8),
+    encode_csr(sip, 0, 0x2U, 9),
+    encode_csr(sip, 0x1e, 0x7U, 10),
+    encode_csr(sip, 0, 0x2U, 11),
+  ])
+  let runner = make_runner(virt_machine_config())
+  runner.load_program_u64(program, 0x80000000U.to_uint64())
+  match runner.run(12) {
+    Running => ()
+    _ => fail("expected SIP set/clear form program to run")
+  }
+  // `sip` is a delegated supervisor view of `mip`, not a second pending-bit
+  // store. Through that view only SSIP is software-writable; STIP and SEIP are
+  // supplied by timer/external interrupt hardware even when their causes are
+  // delegated.
+  assert_eq(runner.read_reg_u64(2), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(3), ssip)
+  assert_eq(runner.read_reg_u64(4) & supervisor_pending, ssip)
+  assert_eq(runner.read_reg_u64(5), ssip)
+  assert_eq(runner.read_reg_u64(6), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(7) & supervisor_pending, 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(8), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(9), ssip)
+  assert_eq(runner.read_reg_u64(10), ssip)
+  assert_eq(runner.read_reg_u64(11), 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(mip) & supervisor_pending, 0U.to_uint64())
+}
+
+///|
 test "mip software SEIP survives platform interrupt refresh" {
   let program = words_to_bytes([
     encode_i(0x200, 0, 0x0U, 1, 0x13U),

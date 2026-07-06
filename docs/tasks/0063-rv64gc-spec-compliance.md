@@ -330,7 +330,8 @@ official coverage improve.
   `sip` and `sie` now expose only supervisor interrupt bits delegated by
   `mideleg`; `sie` writes update only those delegated enable bits, and `sip`
   writes update only delegated SSIP while STIP/SEIP remain pending bits supplied
-  by the machine/platform path.
+  by the machine/platform path. Register-source and immediate `sip` set/clear
+  forms now have focused coverage for that writable-SSIP boundary.
   `medeleg` and `mideleg` now apply WARL masks on read, write, and internal
   trap-routing paths. `medeleg` exposes the modeled delegatable exception
   causes (`0xb3fe`), including the modeled load/store/AMO
@@ -1033,7 +1034,9 @@ official coverage improve.
   cover write-all-ones `mie` readback, `mip` writes limited to S-level pending
   bits, nonzero `mie` set/clear writeback masking, no-`S` profiles exposing
   only machine interrupt bits, and the existing delegated `sie`/`sip` view
-  behavior after masking.
+  behavior after masking. Focused `sip` set/clear coverage now proves the
+  delegated supervisor pending view can mutate only software SSIP, not timer or
+  external pending state.
 - `mip.SEIP` now separates the software-writable pending bit from the PLIC
   supervisor external interrupt signal. Focused regressions cover software
   `SEIP` surviving platform refresh with no external interrupt and CSRRS
