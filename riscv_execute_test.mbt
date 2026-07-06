@@ -1579,15 +1579,18 @@ test "rv64 without f rejects scalar f instructions as illegal" {
 }
 
 ///|
-test "rv64f traps floating-point instructions when mstatus fs is off" {
+test "rv64fd traps floating-point instructions when mstatus fs is off" {
   let fp_words = [
     encode_flw(0x100, 0, 1),
+    encode_fsw(0x104, 1, 0),
+    encode_fld(0x108, 0, 1),
+    encode_fsd(0x110, 1, 0),
     encode_fp_r(0x00U, 2, 1, 0x0U, 3),
     encode_fclass_s(1, 2),
     encode_fmv_x_w(1, 2),
   ]
   for raw in fp_words {
-    let runner = make_runner(rv64f_machine_config())
+    let runner = make_runner(rv64fd_machine_config())
     runner.cpu.write_csr(0x300, 0U.to_uint64())
     runner.load_program(words_to_bytes([raw]), 0U)
     match runner.step() {
@@ -1671,6 +1674,71 @@ test "rv64f fp status dirtiness follows actual fp state writes" {
   assert_eq(integer_result.read_reg_u64(4) & fs_dirty, fs_initial)
   assert_eq(integer_result.read_reg_u64(4) & sd_bit, 0U.to_uint64())
   assert_eq(integer_result.read_csr_u64(mstatus) & fs_dirty, fs_initial)
+}
+
+///|
+test "rv64fd fp loads and stores dirty only on fp state writes" {
+  let mstatus = 0x300
+  let fs_initial = 0x2000U.to_uint64()
+  let fs_dirty = 0x6000U.to_uint64()
+  let sd_bit = 1U.to_uint64() << 63
+  let double_payload = 0x1122334455667788UL
+  let single_payload = exec_test_f32_bits(1.0)
+
+  let load_writer = make_runner(rv64fd_machine_config())
+  load_writer.load_program(words_to_bytes([single_payload]), 0x100U)
+  load_writer.load_program_u64(
+    exec_test_u64_to_le_bytes(double_payload),
+    0x108U.to_uint64(),
+  )
+  load_writer.load_program(
+    words_to_bytes([
+      encode_flw(0x100, 0, 1),
+      encode_fld(0x108, 0, 2),
+      encode_csr(mstatus, 0, 0x2U, 3),
+    ]),
+    0U,
+  )
+  match load_writer.run(3) {
+    Running => ()
+    _ => fail("expected FP loads and mstatus read to run")
+  }
+  // FLW/FLD write architectural FP registers. Even though they only copy
+  // memory bits into the register file, that is an FP state mutation and must
+  // make an Initial FP context Dirty with SD set.
+  assert_eq(
+    load_writer.read_freg_u64(1),
+    exec_test_nan_box_single(single_payload),
+  )
+  assert_eq(load_writer.read_freg_u64(2), double_payload)
+  assert_eq(load_writer.read_reg_u64(3) & fs_dirty, fs_dirty)
+  assert_eq(load_writer.read_reg_u64(3) & sd_bit, sd_bit)
+
+  let store_reader = make_runner(rv64fd_machine_config())
+  store_reader.cpu.write_freg(1, exec_test_nan_box_single(single_payload))
+  store_reader.cpu.write_freg(2, double_payload)
+  store_reader.load_program(
+    words_to_bytes([
+      encode_fsw(0x120, 1, 0),
+      encode_fsd(0x128, 2, 0),
+      encode_csr(mstatus, 0, 0x2U, 3),
+    ]),
+    0U,
+  )
+  match store_reader.run(3) {
+    Running => ()
+    _ => fail("expected FP stores and mstatus read to run")
+  }
+  // FSW/FSD read FP registers and write memory, but they do not change FP
+  // architectural state. A clean context therefore stays FS=Initial and SD=0.
+  assert_eq(
+    store_reader.bus.load_u32(0x120U.to_uint64()),
+    single_payload.to_uint64(),
+  )
+  assert_eq(store_reader.bus.load_u64(0x128U.to_uint64()), double_payload)
+  assert_eq(store_reader.read_reg_u64(3) & fs_dirty, fs_initial)
+  assert_eq(store_reader.read_reg_u64(3) & sd_bit, 0U.to_uint64())
+  assert_eq(store_reader.read_csr_u64(mstatus) & fs_dirty, fs_initial)
 }
 
 ///|

@@ -170,7 +170,10 @@ official coverage improve.
   FS enabled, but scalar F/D load/store, arithmetic, classify, and raw transfer
   instructions trap as illegal when software sets FS=Off. FP register and
   `fcsr` writes also mark FS Dirty, making the visible `SD` summary track
-  modeled FP state changes. Integer-result FP instructions such as `FCLASS.S`
+  modeled FP state changes. FP loads dirty the context because they write FP
+  registers, while FP stores only observe FP registers and write memory, so
+  they leave an otherwise clean `mstatus.FS=Initial` context clean.
+  Integer-result FP instructions such as `FCLASS.S`
   and `FMV.X.W` still require FS enabled, but they do not dirty an otherwise
   clean FP context because they only observe FP state. The
   `fflags`, `frm`, and `fcsr` CSR aliases are now governed by the same FS state,
@@ -757,10 +760,10 @@ official coverage improve.
   focused regression clears FS and requires both FP load/store and FP arithmetic
   to raise illegal-instruction traps before touching FP state.
 - FP state writes now dirty `mstatus.FS`. The shared FP register and `fcsr`
-  write helpers perform the transition, and a regression confirms an FP load
-  and an `fflags` write move the visible status from FS=Initial to FS=Dirty
-  with `SD` set. Integer-result FP instructions that only read FP state keep
-  FS=Initial and leave `SD` clear.
+  write helpers perform the transition, and regressions confirm FP loads and
+  `fflags` writes move the visible status from FS=Initial to FS=Dirty with
+  `SD` set. FP stores and integer-result FP instructions that only read FP
+  state keep FS=Initial and leave `SD` clear.
 - Floating-point CSR access is now FS-gated. Focused regressions cover both
   read forms and write-only `CSRRW rd=x0` forms for `fflags`, `frm`, and
   `fcsr`, preserving Zicsr read suppression while still trapping writes to

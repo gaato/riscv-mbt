@@ -179,6 +179,9 @@
   F/D load/store plus arithmetic execution now traps as illegal when software
   sets `mstatus.FS=Off`. FP register and `fcsr` writes now mark FS Dirty, so
   the visible `mstatus.SD` summary follows actual modeled FP state changes.
+  FP loads dirty the context because they write FP registers; FP stores only
+  read FP registers and write memory, so they leave an otherwise clean
+  `mstatus.FS=Initial` context clean.
   Integer-result FP instructions such as `FCLASS.S` and `FMV.X.W` still require
   FS enabled, but they do not dirty an otherwise clean FP context because they
   only observe FP state.
