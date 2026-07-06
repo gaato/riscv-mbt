@@ -3817,22 +3817,51 @@ test "rv64fd fcvt.d.s rejects reserved dynamic rounding mode" {
 
 ///|
 test "rv64fd fcvt.d.w exact conversions accept legal unaffected rounding modes" {
-  let runner = make_runner(rv64fd_machine_config())
-  runner.cpu.write_reg(1, 42U.to_uint64())
-  runner.cpu.write_reg(2, 0xffffffffU.to_uint64())
-  runner.load_program(
-    words_to_bytes([encode_fcvt_d_w(1, 0x2U, 3), encode_fcvt_d_wu(2, 0x4U, 4)]),
+  let csr_fcsr = 0x003
+  let fcsr_frm_shift = 5
+  let legal_static_modes = [0U, 1U, 2U, 3U, 4U]
+  for rm in legal_static_modes {
+    let runner = make_runner(rv64fd_machine_config())
+    runner.cpu.write_reg(1, 0xffffffffU.to_uint64())
+    runner.cpu.write_reg(2, 0xffffffffU.to_uint64())
+    runner.load_program(
+      words_to_bytes([encode_fcvt_d_w(1, rm, 3), encode_fcvt_d_wu(2, rm, 4)]),
+      0U,
+    )
+    match runner.run(2) {
+      Running => ()
+      Trap(info) =>
+        fail(
+          "expected legal exact fcvt.d.w paths to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+        )
+    }
+    // RV32-width signed and unsigned integers are exactly representable in
+    // binary64. The rm field is still checked for legality, but a legal mode
+    // must not create an inexact flag or reinterpret the W source as unsigned.
+    assert_eq(runner.read_freg_u64(3), exec_test_f64_bits(-1.0))
+    assert_eq(runner.read_freg_u64(4), exec_test_f64_bits(4294967295.0))
+    assert_eq(runner.read_csr(csr_fcsr) & 0x1fU, 0U)
+  }
+
+  let dynamic_runner = make_runner(rv64fd_machine_config())
+  dynamic_runner.cpu.write_reg(1, 42U.to_uint64())
+  dynamic_runner.cpu.write_reg(2, 0xffffffffU.to_uint64())
+  dynamic_runner.cpu.write_csr(csr_fcsr, 0x4U.to_uint64() << fcsr_frm_shift)
+  dynamic_runner.load_program(
+    words_to_bytes([encode_fcvt_d_w(1, 0x7U, 3), encode_fcvt_d_wu(2, 0x7U, 4)]),
     0U,
   )
-  match runner.run(2) {
+  match dynamic_runner.run(2) {
     Running => ()
     Trap(info) =>
       fail(
-        "expected legal exact fcvt.d.w paths to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+        "expected dynamic exact fcvt.d.w paths to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
       )
   }
-  assert_eq(runner.read_freg_u64(3), exec_test_f64_bits(42.0))
-  assert_eq(runner.read_freg_u64(4), exec_test_f64_bits(4294967295.0))
+  assert_eq(dynamic_runner.read_freg_u64(3), exec_test_f64_bits(42.0))
+  assert_eq(dynamic_runner.read_freg_u64(4), exec_test_f64_bits(4294967295.0))
+  assert_eq(dynamic_runner.read_csr(csr_fcsr) & 0x1fU, 0U)
+  assert_eq((dynamic_runner.read_csr(csr_fcsr) >> fcsr_frm_shift) & 0x7U, 0x4U)
 }
 
 ///|

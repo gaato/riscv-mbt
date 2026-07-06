@@ -151,7 +151,10 @@ official coverage improve.
   Exact widening `FCVT.D.S` and exact
   RV32-width-to-double `FCVT.D.W[U]` now treat the otherwise unaffected `rm`
   field as architecturally significant for legal/reserved static and dynamic
-  encodings. `FCVT.S.D` now has explicit NaN narrowing coverage: quiet NaNs
+  encodings. The RV32-width-to-double coverage now sweeps all legal static
+  modes, checks dynamic `frm`, keeps signed `W` source interpretation distinct
+  from unsigned `WU`, and proves exact results do not accrue `fflags`.
+  `FCVT.S.D` now has explicit NaN narrowing coverage: quiet NaNs
   produce the canonical NaN-boxed single result without NV, while signaling
   NaNs produce the same canonical result and accrue NV. `FDIV.S/D` coverage now
   also pins invalid `0/0` and `infinity/infinity` default results to canonical
@@ -869,7 +872,10 @@ official coverage improve.
   instead of the current RNE-only rounded-arithmetic support gate. Signed and
   unsigned 32-bit integer inputs are exactly representable in double precision,
   so legal non-RNE encodings execute while reserved static or dynamic rounding
-  modes still trap.
+  modes still trap. Focused coverage now sweeps every legal static mode,
+  exercises dynamic `rm=111` through `fcsr.frm`, preserves `frm`, keeps `W`
+  sign-extension separate from `WU` zero-extension, and checks that exact
+  conversions leave `fflags` clear.
 - Integer-to-float conversions now support legal non-RNE rounding where the mode
   changes the result: focused regressions cover single-precision rounding at
   `2^24+1`, double-precision rounding at `2^53+1`, dynamic `frm=RMM`, and NX
