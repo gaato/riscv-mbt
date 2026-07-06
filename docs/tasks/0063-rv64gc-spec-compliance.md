@@ -266,9 +266,12 @@ official coverage improve.
   fresh LR after that failed SC can establish a new reservation and a matching
   SC can succeed, proving the failure does not poison later LR/SC pairs. A
   later LR also replaces the previous hart reservation, so SC cannot pair with
-  an older LR in program order. The reservation-set model is documented as the
-  exact physical byte range loaded by the most recent LR, and mixed-width SC
-  attempts at the same address now have focused regression coverage for
+  an older LR in program order. Successful SC consumption is now covered for
+  both W and D forms as well: a second SC immediately after a successful first
+  SC fails and leaves the first store intact unless software executes a fresh
+  LR. The reservation-set model is documented as the exact physical byte range
+  loaded by the most recent LR, and mixed-width SC attempts at the same address
+  now have focused regression coverage for
   deterministic failure. The same model now has the complementary
   non-overlap coverage: another hart's store immediately after an `LR.D`
   reservation leaves the reservation live and the later `SC.D` can still

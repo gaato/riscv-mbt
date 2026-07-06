@@ -16449,6 +16449,85 @@ test "LR.W/SC.W pair succeeds on single hart" {
 }
 
 ///|
+test "successful SC consumes the hart reservation" {
+  // The A extension makes every retired SC consume the hart's reservation,
+  // regardless of success or failure. A second SC after a successful first SC
+  // cannot pair with the old LR unless software executes a fresh LR first.
+  let word_runner = make_runner(virt_machine_config())
+  let word_addr = word_runner.cpu.pc + 0x100U.to_uint64()
+  word_runner.bus.store_u32(word_addr, 77U.to_uint64())
+  word_runner.cpu.write_reg(1, word_addr)
+  word_runner.cpu.write_reg(5, 88U.to_uint64())
+  word_runner.cpu.write_reg(6, 99U.to_uint64())
+  let word_pc = word_runner.cpu.pc
+  word_runner.bus.store_u32(
+    word_pc,
+    encode_amo(0x02U, 0, 1, 0x2U, 3).to_uint64(),
+  )
+  word_runner.bus.store_u32(
+    word_pc + 4U.to_uint64(),
+    encode_amo(0x03U, 5, 1, 0x2U, 4).to_uint64(),
+  )
+  word_runner.bus.store_u32(
+    word_pc + 8U.to_uint64(),
+    encode_amo(0x03U, 6, 1, 0x2U, 7).to_uint64(),
+  )
+  match word_runner.step() {
+    Running => ()
+    _ => fail("expected LR.W to run")
+  }
+  match word_runner.step() {
+    Running => ()
+    _ => fail("expected first SC.W to run")
+  }
+  match word_runner.step() {
+    Running => ()
+    _ => fail("expected second SC.W to retire as failure")
+  }
+  assert_eq(word_runner.read_reg_u64(4), 0U.to_uint64())
+  assert_eq(word_runner.read_reg_u64(7), 1U.to_uint64())
+  assert_eq(word_runner.bus.load_u32(word_addr), 88U.to_uint64())
+
+  let double_runner = make_runner(virt_machine_config())
+  let double_addr = double_runner.cpu.pc + 0x100U.to_uint64()
+  let original = 0x1122334455667788UL
+  let first_replacement = 0x8877665544332211UL
+  let second_replacement = 0xaabbccddeeff0011UL
+  double_runner.bus.store_u64(double_addr, original)
+  double_runner.cpu.write_reg(1, double_addr)
+  double_runner.cpu.write_reg(5, first_replacement)
+  double_runner.cpu.write_reg(6, second_replacement)
+  let double_pc = double_runner.cpu.pc
+  double_runner.bus.store_u32(
+    double_pc,
+    encode_amo(0x02U, 0, 1, 0x3U, 3).to_uint64(),
+  )
+  double_runner.bus.store_u32(
+    double_pc + 4U.to_uint64(),
+    encode_amo(0x03U, 5, 1, 0x3U, 4).to_uint64(),
+  )
+  double_runner.bus.store_u32(
+    double_pc + 8U.to_uint64(),
+    encode_amo(0x03U, 6, 1, 0x3U, 7).to_uint64(),
+  )
+  match double_runner.step() {
+    Running => ()
+    _ => fail("expected LR.D to run")
+  }
+  match double_runner.step() {
+    Running => ()
+    _ => fail("expected first SC.D to run")
+  }
+  match double_runner.step() {
+    Running => ()
+    _ => fail("expected second SC.D to retire as failure")
+  }
+  assert_eq(double_runner.read_reg_u64(4), 0U.to_uint64())
+  assert_eq(double_runner.read_reg_u64(7), 1U.to_uint64())
+  assert_eq(double_runner.bus.load_u64(double_addr), first_replacement)
+}
+
+///|
 test "LR.W and SC.W aq rl encodings execute ordinary reservation pair" {
   for order in [0U, 1U, 2U, 3U] {
     let lr_runner = make_runner(virt_machine_config())

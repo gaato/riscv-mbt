@@ -678,7 +678,10 @@
   fresh LR can establish a new reservation and the matching SC can still
   succeed. A later `LR.W` to a different address is also covered as replacing
   the previous reservation, so SC cannot pair with an older LR in program
-  order. The reservation-set model is documented as the exact physical byte
+  order. Successful SC consumption is now covered for both W and D: a second
+  SC immediately after a successful first SC fails and leaves the first store
+  intact unless software executes a fresh LR. The reservation-set model is
+  documented as the exact physical byte
   range loaded by the most recent LR, and mixed-width SC attempts at the same
   address are covered as deterministic failures under that model. The
   complementary SMP non-overlap case is covered too: another hart's store just
