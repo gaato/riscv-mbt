@@ -492,6 +492,9 @@ official coverage improve.
   (`mvendorid`, `marchid`, `mimpid`, `mhartid`, and `mconfigptr`) and now also
   pins the user-visible read-only counter aliases `cycle`, `time`, and
   `instret`, including both direct register-source and immediate write forms.
+  The machine-information CSR family now has full non-suppressed write-form
+  coverage across all five addresses, including `CSRRW[I] rd=x0` write-only
+  forms and nonzero register/immediate set-clear forms.
   `mcause` and `scause` now expose the modeled WLRL cause surface on explicit
   CSR writes and reads: the interrupt flag and low five exception-code bits are
   retained, while unsupported high platform/custom cause-code storage is masked
@@ -880,7 +883,9 @@ official coverage improve.
   read-only set/clear coverage now explicitly exercises both register-source
   and immediate-source zero and nonzero masks across the exposed
   machine-information CSRs and the read-only counter aliases `cycle`, `time`,
-  and `instret`. The executor now also keeps `CSRRS/CSRRC[I]`
+  and `instret`. Machine-information coverage now also checks every
+  non-suppressed write form for every identity CSR, not only sampled IDs. The
+  executor now also keeps `CSRRS/CSRRC[I]`
   read-modify-write paths single-read: the old CSR value returned to `rd` is
   the same value used to derive the writeback value, avoiding a second visible
   CSR read when the form has already performed the architectural read side.
@@ -1312,7 +1317,9 @@ official coverage improve.
   regressions cover zero readback and illegal-instruction traps for write forms.
   The full machine-information CSR readback set is now pinned as stable:
   implementation IDs and `mconfigptr` read as zero, while `mhartid` reports the
-  current runner hart ID.
+  current runner hart ID. The same mandatory identity CSR family now rejects
+  every non-suppressed write form across `CSRRW[I]`, `CSRRS[I]`, and
+  `CSRRC[I]`.
 - `misa` is no longer treated as address-encoded read-only. Focused regressions
   cover fixed WARL behavior across `CSRRW[I]`, nonzero `CSRRS[I]`, and nonzero
   `CSRRC[I]`: writes retire and preserve the runner's configured ISA bits.

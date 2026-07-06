@@ -9290,6 +9290,43 @@ test "machine information csrs expose stable read only identifiers" {
 }
 
 ///|
+test "machine information csrs reject every non-suppressed write form" {
+  // The machine-identification CSRs are address-encoded read-only CSRs. Pure
+  // reads through CSRRS/CSRRC with a zero mask are legal elsewhere, but every
+  // form that architecturally attempts a write must raise illegal instruction.
+  let machine_info_csrs = [
+    0xF11, // mvendorid
+     0xF12, // marchid
+     0xF13, // mimpid
+     0xF14, // mhartid
+     0xF15, // mconfigptr
+  ]
+  for csr in machine_info_csrs {
+    let forms = [
+      encode_csr(csr, 1, 0x1U, 2), // CSRRW reads old value, then writes.
+      encode_csr(csr, 1, 0x1U, 0), // CSRRW rd=x0 suppresses only the read.
+      encode_csr(csr, 1, 0x2U, 3), // CSRRS with rs1!=x0 writes.
+      encode_csr(csr, 1, 0x3U, 4), // CSRRC with rs1!=x0 writes.
+      encode_csr(csr, 1, 0x5U, 5), // CSRRWI writes an immediate value.
+      encode_csr(csr, 1, 0x5U, 0), // CSRRWI rd=x0 still writes.
+      encode_csr(csr, 1, 0x6U, 6), // CSRRSI with uimm!=0 writes.
+      encode_csr(csr, 1, 0x7U, 7), // CSRRCI with uimm!=0 writes.
+    ]
+    for raw in forms {
+      let runner = make_runner(rv64_machine_config())
+      runner.cpu.write_reg(1, 0U.to_uint64())
+      runner.load_program(words_to_bytes([raw]), 0U)
+      expect_step_trap(
+        runner,
+        "illegal instruction",
+        raw.to_uint64(),
+        "expected machine-information CSR write to trap",
+      )
+    }
+  }
+}
+
+///|
 test "csr address privilege bits gate supervisor and machine csrs" {
   let read_mstatus = encode_csr(0x300, 0, 0x2U, 1)
   let supervisor_machine_denied = make_runner(rv64_machine_config())
