@@ -5932,14 +5932,31 @@ test "status endian control fields are read only zero" {
     encode_csr(mstatus, 3, 0x1U, 0),
     encode_csr(mstatus, 0, 0x2U, 4),
     encode_csr(sstatus, 0, 0x2U, 5),
+    encode_csr(mstatus, 3, 0x2U, 6),
+    encode_csr(mstatus, 0, 0x2U, 7),
+    encode_csr(mstatus, 3, 0x3U, 8),
+    encode_csr(sstatus, 1, 0x2U, 9),
+    encode_csr(sstatus, 0, 0x2U, 10),
+    encode_csr(sstatus, 1, 0x3U, 11),
+    encode_csr(sstatus, 0, 0x2U, 12),
   ])
   runner.load_program(mstatus_program, 0U)
-  match runner.run(11) {
+  match runner.run(18) {
     Running => ()
     _ => fail("expected endian-control mstatus program to run")
   }
+  // Replacement and register-source set/clear forms all pass through the same
+  // WARL normalizer. The candidate values can contain MBE/SBE/UBE, but this
+  // little-endian-only profile must read those fields back as zero.
   assert_eq(runner.read_reg_u64(4) & endian_bits, 0U.to_uint64())
   assert_eq(runner.read_reg_u64(5) & ube, 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(6) & endian_bits, 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(7) & endian_bits, 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(8) & endian_bits, 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(9) & ube, 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(10) & ube, 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(11) & ube, 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(12) & ube, 0U.to_uint64())
   assert_eq(runner.read_csr_u64(mstatus) & endian_bits, 0U.to_uint64())
   assert_eq(runner.read_csr_u64(sstatus) & ube, 0U.to_uint64())
 

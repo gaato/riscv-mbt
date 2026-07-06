@@ -202,7 +202,7 @@
 - The status endian-control fields now match the emulator's little-endian-only
   memory system: `mstatus.MBE`, `mstatus.SBE`, and `mstatus.UBE`, plus
   `sstatus.UBE`, are visible where appropriate but normalize to read-only zero
-  on writes.
+  on replacement writes and register-source set/clear candidates.
 - `sip` and `sie` now behave as `mip`/`mie` views restricted by `mideleg`.
   Non-delegated supervisor interrupt bits read as zero through the supervisor
   CSRs, `sie` writes affect only delegated SSI/STI/SEI enable bits, and `sip`

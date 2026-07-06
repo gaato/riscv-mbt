@@ -1009,7 +1009,8 @@ official coverage improve.
   `sstatus`, while RV32 status behavior remains unchanged.
 - `mstatus.MBE`/`SBE`/`UBE` and `sstatus.UBE` now behave as read-only-zero WARL
   fields for the current little-endian-only profile. A focused CSR regression
-  covers writes through both `mstatus` and `sstatus`.
+  covers replacement writes and register-source set/clear candidates through
+  both `mstatus` and `sstatus`.
 - `sip`/`sie` are now delegated views of `mip`/`mie` instead of unconditional
   aliases for SSI/STI/SEI. Focused regressions cover non-delegated readback,
   delegated `sie` writes, `sie` set/clear forms that affect only delegated
