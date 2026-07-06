@@ -676,8 +676,8 @@ official coverage improve.
   flag-clean while signaling NaNs accrue NV. S/D arithmetic now also has a
   direct sticky-flag regression proving that NX, DZ, and NV accumulate across
   separate FP instructions until a software `fcsr` write clears them. Deeper
-  NaN payload behavior, broader flag corner cases, and full official-suite
-  promotion remain open.
+  NaN payload behavior and broader flag corner cases remain open beyond the
+  locally available official `riscv-tests` rows that are already gated.
 - `FADD.S`, `FSUB.S`, and `FMUL.S` now round their exact single-precision
   operand results through the emulator-side exact-rational helper. Legal
   static non-RNE modes are accepted where they change the result, reserved
