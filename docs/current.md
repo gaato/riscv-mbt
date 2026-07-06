@@ -154,7 +154,9 @@
   `FCVT.LU.S/D` now has matching unsigned-long lower-edge coverage for `-0.5`,
   proving the same rounded-result validity rule on the RV64-width output path;
   RMM coverage also pins FCVT.L.D ties-away behavior on representable `+9.5`
-  and `-9.5` inputs.
+  and `-9.5` inputs. Dynamic `rm=111` coverage now mirrors those long-width
+  checks through `fcsr.frm` for RDN and RMM while preserving `frm` across
+  `fflags` clears.
   Integer-to-double conversion coverage now also pins dynamic-`frm`
   long-to-double rounding at the binary64 precision boundary, including signed
   negative RDN and unsigned positive RMM halfway cases with NX. Rounded

@@ -4665,6 +4665,77 @@ test "rv64fd rmm long conversion handles ties and unsigned lower edge" {
 }
 
 ///|
+test "rv64fd dynamic frm long conversion uses fcsr rounding" {
+  let csr_fflags = 0x001
+  let csr_fcsr = 0x003
+  let fcsr_frm_shift = 5
+  let invalid = 0x10U.to_uint64()
+  let inexact = 0x01U.to_uint64()
+  let frm_mask = 0x7U << fcsr_frm_shift
+  let rdn_frm = 0x2U << fcsr_frm_shift
+  let rmm_frm = 0x4U << fcsr_frm_shift
+
+  let rdn = make_runner(rv64fd_machine_config())
+  // Use exact small ties for signed long conversions because binary64 cannot
+  // represent a useful `2^63 - 0.5` boundary. The unsigned -0.5 edge still
+  // proves the RV64-width invalid path after dynamic directed rounding.
+  rdn.cpu.write_freg(1, exec_test_f64_bits(9.5))
+  rdn.cpu.write_freg(2, 0xbfe0000000000000UL)
+  rdn.cpu.write_csr(csr_fcsr, rdn_frm.to_uint64())
+  rdn.load_program(
+    words_to_bytes([
+      encode_fcvt_l_d(1, 0x7U, 10),
+      encode_csr(csr_fflags, 0, 0x2U, 11),
+      encode_csr(csr_fflags, 0, 0x1U, 0),
+      encode_fcvt_lu_d(2, 0x7U, 12),
+      encode_csr(csr_fflags, 0, 0x2U, 13),
+    ]),
+    0U,
+  )
+  match rdn.run(5) {
+    Running => ()
+    _ => fail("expected dynamic RDN fcvt long path to run")
+  }
+  assert_eq(rdn.read_reg_u64(10), 9U.to_uint64())
+  assert_eq(rdn.read_reg_u64(11) & 0x1fU.to_uint64(), inexact)
+  assert_eq(rdn.read_reg_u64(12), 0U.to_uint64())
+  assert_eq(rdn.read_reg_u64(13) & 0x1fU.to_uint64(), invalid)
+  assert_eq(rdn.read_csr(csr_fcsr) & frm_mask, rdn_frm)
+
+  let rmm = make_runner(rv64fd_machine_config())
+  // RMM is the non-IEEE rounding mode where ties move away from zero. Check
+  // both signed long ties and the unsigned lower edge through dynamic rm=111.
+  rmm.cpu.write_freg(1, exec_test_f64_bits(9.5))
+  rmm.cpu.write_freg(2, exec_test_f64_bits(-9.5))
+  rmm.cpu.write_freg(3, exec_test_nan_box_single(0xbf000000U))
+  rmm.cpu.write_csr(csr_fcsr, rmm_frm.to_uint64())
+  rmm.load_program(
+    words_to_bytes([
+      encode_fcvt_l_d(1, 0x7U, 10),
+      encode_csr(csr_fflags, 0, 0x2U, 11),
+      encode_csr(csr_fflags, 0, 0x1U, 0),
+      encode_fcvt_l_d(2, 0x7U, 12),
+      encode_csr(csr_fflags, 0, 0x2U, 13),
+      encode_csr(csr_fflags, 0, 0x1U, 0),
+      encode_fcvt_lu_s(3, 0x7U, 14),
+      encode_csr(csr_fflags, 0, 0x2U, 15),
+    ]),
+    0U,
+  )
+  match rmm.run(8) {
+    Running => ()
+    _ => fail("expected dynamic RMM fcvt long path to run")
+  }
+  assert_eq(rmm.read_reg_u64(10), 10U.to_uint64())
+  assert_eq(rmm.read_reg_u64(11) & 0x1fU.to_uint64(), inexact)
+  assert_eq(rmm.read_reg_u64(12), (-10L).reinterpret_as_uint64())
+  assert_eq(rmm.read_reg_u64(13) & 0x1fU.to_uint64(), inexact)
+  assert_eq(rmm.read_reg_u64(14), 0U.to_uint64())
+  assert_eq(rmm.read_reg_u64(15) & 0x1fU.to_uint64(), invalid)
+  assert_eq(rmm.read_csr(csr_fcsr) & frm_mask, rmm_frm)
+}
+
+///|
 test "rv64fd unsigned long conversion checks negative half after rounding" {
   let csr_fcsr = 0x003
   let invalid = 0x10U.to_uint64()

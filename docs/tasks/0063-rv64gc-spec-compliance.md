@@ -584,7 +584,9 @@ official coverage improve.
   that `-0.5` is valid with NX under RNE/RTZ but invalid with NV under RDN.
   RMM coverage now also checks FCVT.L.D ties-away behavior on representable
   `+9.5`/`-9.5` inputs and the FCVT.LU.S/D `-0.5` lower edge, where ties away
-  from zero produce an invalid rounded result.
+  from zero produce an invalid rounded result. Dynamic `rm=111` coverage now
+  mirrors those long-width RDN and RMM paths through `fcsr.frm`, with `fflags`
+  clears that preserve the selected rounding mode.
 - `FCVT.S.W`, `FCVT.S.WU`, `FCVT.S.L`, `FCVT.S.LU`, `FCVT.D.L`, and
   `FCVT.D.LU` now construct IEEE result bits through a shared integer-magnitude
   rounding helper instead of relying on host-default conversion. The helper
