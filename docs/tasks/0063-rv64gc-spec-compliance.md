@@ -420,7 +420,8 @@ official coverage improve.
   `mnscratch`, `mnepc`, `mncause`, and `mnstatus` all belong to the optional
   resumable-NMI extension, which is not implemented in the RV64GC baseline, so
   read, suppressed-read write, zero-mask set/clear, and nonzero set/clear
-  attempts now trap as illegal instruction.
+  attempts now trap as illegal instruction. The Smrnmi-only `MNRET` encoding
+  also remains illegal rather than aliasing any implemented xRET behavior.
   `mconfigptr` is now exposed as the mandatory read-only machine information
   CSR and returns zero, indicating that this platform has no standard
   configuration data structure and relies on the existing device-tree path.
@@ -1182,7 +1183,8 @@ official coverage improve.
   Focused regressions cover `mnscratch`, `mnepc`, `mncause`, and `mnstatus`
   trapping across the full Zicsr form family when Smrnmi is absent, including
   pure reads, suppressed-read writes, zero-mask set/clear reads, and nonzero
-  set/clear write attempts.
+  set/clear write attempts. A paired regression also pins the Smrnmi-only
+  `MNRET` encoding as illegal in the RV64GC baseline.
 - `mconfigptr` is now part of the supported read-only CSR table. Focused
   regressions cover zero readback and illegal-instruction traps for write forms.
   The full machine-information CSR readback set is now pinned as stable:

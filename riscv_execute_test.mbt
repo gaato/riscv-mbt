@@ -8232,6 +8232,26 @@ test "Smrnmi CSRs trap when extension is absent" {
 }
 
 ///|
+test "MNRET traps when Smrnmi is absent" {
+  let mnret_raw = 0x70200073U
+  let runner = make_runner(rv64_machine_config())
+  // MNRET is the RNMI return instruction added by Smrnmi. Since RV64GC does
+  // not include that extension, the encoding must remain illegal rather than
+  // silently behaving like another xRET form.
+  runner.load_program(words_to_bytes([mnret_raw]), 0U)
+  match runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected MNRET to trap as illegal without Smrnmi")
+      }
+      assert_eq(info.trap_value, mnret_raw.to_uint64())
+    }
+    _ => fail("expected MNRET to trap without Smrnmi")
+  }
+}
+
+///|
 test "mconfigptr is mandatory read only zero" {
   let mconfigptr = 0xF15
   let read_raw = encode_csr(mconfigptr, 0, 0x2U, 2)

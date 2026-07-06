@@ -506,7 +506,8 @@
   `mnscratch`, `mnepc`, `mncause`, and `mnstatus` all belong to the optional
   resumable-NMI extension, which is not implemented in the RV64GC baseline, so
   read, suppressed-read write, zero-mask set/clear, and nonzero set/clear
-  attempts now trap as illegal instruction.
+  attempts now trap as illegal instruction. The Smrnmi-only `MNRET` encoding
+  also remains illegal rather than aliasing any implemented xRET behavior.
 - `mconfigptr` is now exposed as the mandatory read-only machine information
   CSR and returns zero, indicating that this platform has no standard
   configuration data structure and relies on the existing device-tree path.
