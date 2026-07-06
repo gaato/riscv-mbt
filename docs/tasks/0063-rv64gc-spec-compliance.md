@@ -720,7 +720,10 @@ official coverage improve.
   establish a new W/D reservation and the matching SC can still succeed.
 - A-extension successful LR/SC coverage now includes both `LR.W`/`SC.W` and
   `LR.D`/`SC.D`, proving full-width load-reserved results, zero success status,
-  and the committed store-conditional value.
+  and the committed store-conditional value. Atomic `rd=x0` encodings are now
+  covered too: LR still establishes a reservation, SC still commits and
+  consumes a matching reservation, and ordinary AMO W/D operations still
+  perform their read-modify-write memory side effect.
 - A-extension reservation-set coverage now documents the interpreter's exact
   physical byte-range reservation model and pins mixed-width SC attempts at the
   same address as deterministic failures under that model. A complementary

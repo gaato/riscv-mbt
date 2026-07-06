@@ -16798,6 +16798,129 @@ test "LR.D/SC.D pair succeeds on single hart" {
 }
 
 ///|
+test "atomic rd x0 encodings keep memory side effects" {
+  let lr_word_runner = make_runner(virt_machine_config())
+  let lr_word_addr = lr_word_runner.cpu.pc + 0x100U.to_uint64()
+  lr_word_runner.bus.store_u32(lr_word_addr, 77U.to_uint64())
+  lr_word_runner.cpu.write_reg(1, lr_word_addr)
+  lr_word_runner.cpu.write_reg(5, 88U.to_uint64())
+  let lr_word_pc = lr_word_runner.cpu.pc
+  // LR writes its loaded value through rd, but the reservation is not a
+  // register-write side effect. Discarding the load into x0 must still leave a
+  // live reservation for the following SC.
+  lr_word_runner.bus.store_u32(
+    lr_word_pc,
+    encode_amo(0x02U, 0, 1, 0x2U, 0).to_uint64(),
+  )
+  lr_word_runner.bus.store_u32(
+    lr_word_pc + 4U.to_uint64(),
+    encode_amo(0x03U, 5, 1, 0x2U, 4).to_uint64(),
+  )
+  match lr_word_runner.step() {
+    Running => ()
+    _ => fail("expected LR.W rd=x0 to run")
+  }
+  assert_eq(lr_word_runner.read_reg_u64(0), 0U.to_uint64())
+  match lr_word_runner.step() {
+    Running => ()
+    _ => fail("expected SC.W after LR.W rd=x0 to run")
+  }
+  assert_eq(lr_word_runner.read_reg_u64(4), 0U.to_uint64())
+  assert_eq(lr_word_runner.bus.load_u32(lr_word_addr), 88U.to_uint64())
+
+  let sc_word_runner = make_runner(virt_machine_config())
+  let sc_word_addr = sc_word_runner.cpu.pc + 0x100U.to_uint64()
+  sc_word_runner.bus.store_u32(sc_word_addr, 11U.to_uint64())
+  sc_word_runner.cpu.write_reg(1, sc_word_addr)
+  sc_word_runner.cpu.write_reg(5, 22U.to_uint64())
+  sc_word_runner.cpu.write_reg(6, 33U.to_uint64())
+  let sc_word_pc = sc_word_runner.cpu.pc
+  sc_word_runner.bus.store_u32(
+    sc_word_pc,
+    encode_amo(0x02U, 0, 1, 0x2U, 3).to_uint64(),
+  )
+  sc_word_runner.bus.store_u32(
+    sc_word_pc + 4U.to_uint64(),
+    encode_amo(0x03U, 5, 1, 0x2U, 0).to_uint64(),
+  )
+  sc_word_runner.bus.store_u32(
+    sc_word_pc + 8U.to_uint64(),
+    encode_amo(0x03U, 6, 1, 0x2U, 7).to_uint64(),
+  )
+  match sc_word_runner.step() {
+    Running => ()
+    _ => fail("expected LR.W before SC.W rd=x0 to run")
+  }
+  match sc_word_runner.step() {
+    Running => ()
+    _ => fail("expected SC.W rd=x0 to run")
+  }
+  // SC success/failure status is discarded by x0, but the successful
+  // conditional store still commits and consumes the reservation.
+  assert_eq(sc_word_runner.read_reg_u64(0), 0U.to_uint64())
+  assert_eq(sc_word_runner.bus.load_u32(sc_word_addr), 22U.to_uint64())
+  match sc_word_runner.step() {
+    Running => ()
+    _ => fail("expected second SC.W after rd=x0 SC to run")
+  }
+  assert_eq(sc_word_runner.read_reg_u64(7), 1U.to_uint64())
+  assert_eq(sc_word_runner.bus.load_u32(sc_word_addr), 22U.to_uint64())
+
+  let amo_word_runner = make_runner(virt_machine_config())
+  let amo_word_addr = amo_word_runner.cpu.pc + 0x100U.to_uint64()
+  amo_word_runner.bus.store_u32(amo_word_addr, 10U.to_uint64())
+  amo_word_runner.cpu.write_reg(1, amo_word_addr)
+  amo_word_runner.cpu.write_reg(2, 5U.to_uint64())
+  amo_word_runner.bus.store_u32(
+    amo_word_runner.cpu.pc,
+    encode_amo(0x00U, 2, 1, 0x2U, 0).to_uint64(),
+  )
+  match amo_word_runner.step() {
+    Running => ()
+    _ => fail("expected AMOADD.W rd=x0 to run")
+  }
+  assert_eq(amo_word_runner.read_reg_u64(0), 0U.to_uint64())
+  assert_eq(amo_word_runner.bus.load_u32(amo_word_addr), 15U.to_uint64())
+
+  let double_runner = make_runner(virt_machine_config())
+  let double_addr = double_runner.cpu.pc + 0x100U.to_uint64()
+  let double_original = 0x1122334455667788UL
+  let double_replacement = 0x8877665544332211UL
+  double_runner.bus.store_u64(double_addr, double_original)
+  double_runner.cpu.write_reg(1, double_addr)
+  double_runner.cpu.write_reg(5, double_replacement)
+  double_runner.cpu.write_reg(6, 1U.to_uint64())
+  let double_pc = double_runner.cpu.pc
+  double_runner.bus.store_u32(
+    double_pc,
+    encode_amo(0x02U, 0, 1, 0x3U, 0).to_uint64(),
+  )
+  double_runner.bus.store_u32(
+    double_pc + 4U.to_uint64(),
+    encode_amo(0x03U, 5, 1, 0x3U, 0).to_uint64(),
+  )
+  double_runner.bus.store_u32(
+    double_pc + 8U.to_uint64(),
+    encode_amo(0x00U, 6, 1, 0x3U, 0).to_uint64(),
+  )
+  match double_runner.step() {
+    Running => ()
+    _ => fail("expected LR.D rd=x0 to run")
+  }
+  match double_runner.step() {
+    Running => ()
+    _ => fail("expected SC.D rd=x0 to run")
+  }
+  assert_eq(double_runner.bus.load_u64(double_addr), double_replacement)
+  match double_runner.step() {
+    Running => ()
+    _ => fail("expected AMOADD.D rd=x0 to run")
+  }
+  assert_eq(double_runner.read_reg_u64(0), 0U.to_uint64())
+  assert_eq(double_runner.bus.load_u64(double_addr), double_replacement + 1UL)
+}
+
+///|
 test "LR.D and SC.D aq rl encodings execute ordinary reservation pair" {
   for order in [0U, 1U, 2U, 3U] {
     let lr_runner = make_runner(virt_machine_config())

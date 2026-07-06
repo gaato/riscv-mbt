@@ -715,6 +715,10 @@
   another hart now have matching reservation-invalidation coverage as
   conditional stores, while failed remote `SC.W`/`SC.D` operations are now
   covered as non-store events that leave unrelated live reservations intact.
+  Atomic `rd=x0` encodings are also pinned as side-effecting operations: LR
+  still establishes a reservation, SC still stores and consumes a matching
+  reservation, and AMO W/D still performs the read-modify-write even though the
+  old value is discarded.
   The complementary read-side cases are covered too: another hart's plain
   `LW`, plain `LD`, or `LR.W` to the same bytes does not invalidate the first
   hart's live reservation, while the first hart's later successful `SC.W` still
