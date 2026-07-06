@@ -185,7 +185,9 @@ official coverage improve.
   `mstatus.FS=Initial` context clean.
   Integer-result FP instructions such as `FCLASS.S`
   and `FMV.X.W` still require FS enabled, but they do not dirty an otherwise
-  clean FP context because they only observe FP state. The
+  clean FP context because they only observe FP state; integer-result
+  conversions that update `fflags` now dirty FS through the `fcsr` side effect.
+  The
   `fflags`, `frm`, and `fcsr` CSR aliases are now governed by the same FS state,
   so both read and write attempts trap when FS=Off. Writes to absent `fcsr` bits
   31:8 are covered as
@@ -855,7 +857,8 @@ official coverage improve.
   arithmetic results, integer-to-FP moves, and writes through `fflags`, `frm`,
   or `fcsr` move the visible status from FS=Initial to FS=Dirty with `SD` set.
   FP stores and integer-result FP instructions that only read FP state keep
-  FS=Initial and leave `SD` clear.
+  FS=Initial and leave `SD` clear, while integer-result conversions that update
+  `fflags` dirty FS through that `fcsr` write.
 - Floating-point CSR access is now FS-gated. Focused regressions cover both
   read forms and write-only `CSRRW rd=x0` forms for `fflags`, `frm`, and
   `fcsr`, preserving Zicsr read suppression while still trapping writes to

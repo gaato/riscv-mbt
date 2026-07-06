@@ -188,7 +188,8 @@
   memory, so they leave an otherwise clean `mstatus.FS=Initial` context clean.
   Integer-result FP instructions such as `FCLASS.S` and `FMV.X.W` still require
   FS enabled, but they do not dirty an otherwise clean FP context because they
-  only observe FP state.
+  only observe FP state; integer-result conversions that update `fflags` do
+  dirty FS through the `fcsr` side effect.
   The `fflags`, `frm`, and `fcsr` CSR aliases are also FS-gated: read and
   write attempts trap when FS is Off. Alias writes now explicitly preserve the
   untouched field, including `fflags` writes and clears that leave `frm`

@@ -1776,6 +1776,29 @@ test "rv64f fp status dirtiness follows actual fp state writes" {
   assert_eq(integer_result.read_reg_u64(4) & fs_dirty, fs_initial)
   assert_eq(integer_result.read_reg_u64(4) & sd_bit, 0U.to_uint64())
   assert_eq(integer_result.read_csr_u64(mstatus) & fs_dirty, fs_initial)
+
+  let integer_result_flag_writer = make_runner(rv64f_machine_config())
+  integer_result_flag_writer.cpu.write_freg(
+    1,
+    exec_test_f32_bits(1.5).to_uint64(),
+  )
+  integer_result_flag_writer.load_program(
+    words_to_bytes([
+      encode_fcvt_w_s(1, 0x0U, 2),
+      encode_csr(mstatus, 0, 0x2U, 3),
+    ]),
+    0U,
+  )
+  match integer_result_flag_writer.run(2) {
+    Running => ()
+    _ => fail("expected integer-result conversion and mstatus read to run")
+  }
+  // FCVT.W.S writes an integer destination, but an inexact conversion updates
+  // fflags. That fcsr side effect is enough to dirty the FP context.
+  assert_eq(integer_result_flag_writer.read_reg_u64(2), 2U.to_uint64())
+  assert_eq(integer_result_flag_writer.read_reg_u64(3) & fs_dirty, fs_dirty)
+  assert_eq(integer_result_flag_writer.read_reg_u64(3) & sd_bit, sd_bit)
+  assert_eq(integer_result_flag_writer.read_csr_u64(fflags), 0x01U.to_uint64())
 }
 
 ///|
