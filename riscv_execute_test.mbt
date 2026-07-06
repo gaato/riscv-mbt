@@ -1777,6 +1777,24 @@ test "rv64f fp status dirtiness follows actual fp state writes" {
   assert_eq(integer_result.read_reg_u64(4) & sd_bit, 0U.to_uint64())
   assert_eq(integer_result.read_csr_u64(mstatus) & fs_dirty, fs_initial)
 
+  let quiet_comparison_reader = make_runner(rv64f_machine_config())
+  quiet_comparison_reader.cpu.write_freg(1, 0x7fc00000U.to_uint64())
+  quiet_comparison_reader.cpu.write_freg(2, exec_test_f32_bits(1.0).to_uint64())
+  quiet_comparison_reader.load_program(
+    words_to_bytes([encode_feq_s(1, 2, 5), encode_csr(mstatus, 0, 0x2U, 6)]),
+    0U,
+  )
+  match quiet_comparison_reader.run(2) {
+    Running => ()
+    _ => fail("expected quiet NaN equality comparison and mstatus read to run")
+  }
+  // FEQ is the quiet comparison form. A quiet NaN result still writes an
+  // integer zero, but it does not touch fflags and therefore must not dirty FS.
+  assert_eq(quiet_comparison_reader.read_reg_u64(5), 0U.to_uint64())
+  assert_eq(quiet_comparison_reader.read_reg_u64(6) & fs_dirty, fs_initial)
+  assert_eq(quiet_comparison_reader.read_reg_u64(6) & sd_bit, 0U.to_uint64())
+  assert_eq(quiet_comparison_reader.read_csr_u64(fflags), 0U.to_uint64())
+
   let integer_result_flag_writer = make_runner(rv64f_machine_config())
   integer_result_flag_writer.cpu.write_freg(
     1,
