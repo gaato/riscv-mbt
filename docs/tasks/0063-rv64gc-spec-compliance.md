@@ -513,6 +513,11 @@ official coverage improve.
   repeated `runner.step()` boilerplate around synchronous exception,
   fetch-fault, execute-fault, and interrupt non-retirement coverage; measure
   the next roughly-3000-line feature-growth window from this checkpoint.
+- Refactor/tuning checkpoint `0e042b4` consolidated the white-box RV64 profile
+  config builders behind a single helper in `riscv_profile_wbtest.mbt`.
+  The pass keeps the platform layout identical for every custom profile while
+  reducing repeated `MachineConfig` copy blocks; measure the next
+  roughly-3000-line feature-growth window from this checkpoint.
 - Control-flow execution now checks taken branch, `JAL`, and `JALR` targets
   against the active profile's IALIGN. Non-C profiles raise
   instruction-address-misaligned on 2-byte-only targets and report the branch or
