@@ -317,7 +317,9 @@ official coverage improve.
   CSR instruction forms are covered by focused execute tests. The `fcsr` alias
   coverage now also pins field preservation in both directions that are easy to
   regress: `frm` writes preserve accrued `fflags`, and `fflags` writes or
-  clears preserve `frm`. The write-side coverage includes suppressed-read
+  clears preserve `frm`. The same alias coverage now also pins field-width
+  masking: high source bits are ignored when writing the five-bit `fflags` view
+  or three-bit `frm` view. The write-side coverage includes suppressed-read
   `CSRRW[I] rd=x0` forms, so lower privilege modes cannot write
   higher-privilege CSRs by avoiding the read. `mtvec` and `stvec` writes now
   normalize to the modeled WARL surface: 4-byte-aligned BASE plus Direct or
@@ -742,7 +744,11 @@ official coverage improve.
   clean instead of incorrectly promoting `mstatus.FS` to Dirty. The alias
   field split is now pinned more directly: writes through the `fflags` view
   replace only accrued exception flags and leave the current `frm` intact,
-  including the zero write used to clear flags.
+  including the zero write used to clear flags. Alias writes now also prove
+  field-width masking: high source bits are ignored for the five-bit `fflags`
+  view and the three-bit `frm` view, while `frm=111` can still be stored as
+  CSR state even though dynamic use of that reserved rounding mode traps
+  elsewhere.
 - `fcsr` reserved high bits now have focused regression coverage. A CSR write
   of all ones leaves only visible bits 7:0 readable, matching the F extension
   rule for absent standard-extension fields in bits 31:8.

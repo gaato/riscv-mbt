@@ -1351,6 +1351,44 @@ test "rv64f fflags writes preserve frm field" {
 }
 
 ///|
+test "rv64f fflags and frm alias writes ignore high source bits" {
+  let csr_fflags = 0x001
+  let csr_frm = 0x002
+  let csr_fcsr = 0x003
+  let runner = make_runner(rv64f_machine_config())
+  runner.cpu.write_reg(1, (-1L).reinterpret_as_uint64())
+  runner.cpu.write_reg(2, 0x20U.to_uint64())
+  runner.load_program(
+    words_to_bytes([
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_csr(csr_fflags, 1, 0x1U, 3),
+      encode_csr(csr_frm, 1, 0x1U, 4),
+      encode_csr(csr_fflags, 2, 0x1U, 5),
+      encode_csr(csr_fcsr, 0, 0x2U, 6),
+      encode_csr(csr_frm, 2, 0x1U, 7),
+      encode_csr(csr_fcsr, 0, 0x2U, 8),
+    ]),
+    0U,
+  )
+  match runner.run(7) {
+    Running => ()
+    _ => fail("expected fcsr alias high-bit masking path to run")
+  }
+  // The alias CSRs expose only their architectural fields: fflags is five bits
+  // and frm is three bits. Writing all ones may store frm=111 as CSR state
+  // even though dynamic use of that reserved rounding mode traps elsewhere.
+  assert_eq(runner.read_reg_u64(3), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(4), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(5), 0x1fU.to_uint64())
+  assert_eq(runner.read_reg_u64(6), 0xe0U.to_uint64())
+  assert_eq(runner.read_reg_u64(7), 0x7U.to_uint64())
+  assert_eq(runner.read_reg_u64(8), 0U.to_uint64())
+  assert_eq(runner.read_csr(csr_fflags), 0U)
+  assert_eq(runner.read_csr(csr_frm), 0U)
+  assert_eq(runner.read_csr(csr_fcsr), 0U)
+}
+
+///|
 test "rv64fd arithmetic exception flags accrue until software clears them" {
   let csr_fcsr = 0x003
   let nx = 0x01U.to_uint64()
