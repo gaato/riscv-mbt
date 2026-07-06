@@ -200,13 +200,16 @@
 - Optional standard CSR allocations outside RV64GC are now sampled as absent
   across the full Zicsr form family. The covered boundary includes Zicfiss
   `ssp`, entropy `seed`, Zcmt `jvt`, state-enable CSRs, indirect CSR access
-  CSRs, `scontext`, supervisor resource-management/CTR CSRs, and
-  `mseccfg`/`mseccfgh`, keeping them distinct from the deliberately modeled
-  WARL-zero compatibility CSRs.
+  CSRs, `scontext`, supervisor counter-overflow/resource-management/CTR CSRs,
+  and `mseccfg`/`mseccfgh`, keeping them distinct from the deliberately
+  modeled WARL-zero compatibility CSRs. RV32-only privileged high-half aliases
+  such as `mstatush`, `medelegh`, and `menvcfgh` are also now pinned absent on
+  RV64GC.
 - The `H`/VS CSR surface is now sampled as absent from the RV64GC profile as
   well. Representative hypervisor trap/configuration/state-enable/timer/context
-  CSRs and virtual-supervisor trap/translation/indirect/timer CSRs trap across
-  the full Zicsr form family until the hypervisor extension is implemented.
+  CSRs, `mtinst`/`mtval2`, and virtual-supervisor
+  trap/translation/indirect/timer CSRs trap across the full Zicsr form family
+  until the hypervisor extension is implemented.
 - RV64 `mstatus.SXL`/`mstatus.UXL` and `sstatus.UXL` are now visible as fixed
   64-bit lower-privilege XLEN fields. Replacement writes and register-source
   set/clear candidates that try to clear or change them are normalized back to

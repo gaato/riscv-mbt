@@ -9458,11 +9458,23 @@ test "optional privileged extension csrs trap when extensions are absent" {
   }
   expect_absent_csr_form_family_traps(0x5A8, "scontext")
   expect_absent_csr_form_family_traps(0x181, "srmcfg")
+  expect_absent_csr_form_family_traps(0x120, "scountinhibit")
   expect_absent_csr_form_family_traps(0x14E, "sctrctl")
   expect_absent_csr_form_family_traps(0x14F, "sctrstatus")
   expect_absent_csr_form_family_traps(0x15F, "sctrdepth")
+  expect_absent_csr_form_family_traps(0xDA0, "scountovf")
   expect_absent_csr_form_family_traps(0x747, "mseccfg")
   expect_absent_csr_form_family_traps(0x757, "mseccfgh")
+}
+
+///|
+test "rv32-only privileged high-half csrs trap on rv64gc" {
+  // RV64 CSRs are already XLEN-wide, so the RV32 high-half aliases are not
+  // alternate names for the modeled state. Keeping them absent prevents RV64GC
+  // software from accidentally seeing two architectural endpoints for one CSR.
+  expect_absent_csr_form_family_traps(0x310, "mstatush")
+  expect_absent_csr_form_family_traps(0x312, "medelegh")
+  expect_absent_csr_form_family_traps(0x31A, "menvcfgh")
 }
 
 ///|
@@ -9478,6 +9490,11 @@ test "hypervisor and virtual supervisor csrs trap when H is absent" {
       0x64A, 0x680, 0x6A8, 0xE12,
     ] {
     expect_absent_csr_form_family_traps(hypervisor_csr, "hypervisor CSR")
+  }
+  for trap_payload_csr in [0x34A, 0x34B] {
+    expect_absent_csr_form_family_traps(
+      trap_payload_csr, "hypervisor trap payload CSR",
+    )
   }
   for
     virtual_supervisor_csr in [

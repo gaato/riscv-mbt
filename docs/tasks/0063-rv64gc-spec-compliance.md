@@ -453,13 +453,16 @@ official coverage improve.
   Optional allocated CSR blocks outside RV64GC are now sampled the same way:
   Zicfiss `ssp`, entropy `seed`, Zcmt `jvt`, `Smstateen`/`Ssstateen`, the
   `Smcsrind`/`Sscsrind` indirect CSR register files, `scontext`, supervisor
-  resource-management/CTR CSRs, and `Smepmp` `mseccfg`/`mseccfgh` all trap
-  across the full Zicsr form family instead of appearing as generic CSR
-  storage before their extension semantics exist.
+  counter-overflow/resource-management/CTR CSRs, and `Smepmp`
+  `mseccfg`/`mseccfgh` all trap across the full Zicsr form family instead of
+  appearing as generic CSR storage before their extension semantics exist.
+  RV32-only privileged high-half aliases such as `mstatush`, `medelegh`, and
+  `menvcfgh` are likewise absent on RV64GC, matching the XLEN-wide CSR view.
   The `H`/VS CSR surface is now sampled as absent from the same baseline:
   representative hypervisor trap/configuration/state-enable/timer/context CSRs
-  and virtual-supervisor trap/translation/indirect/timer CSRs all trap until
-  the hypervisor extension is deliberately implemented.
+  plus `mtinst`/`mtval2`, and virtual-supervisor
+  trap/translation/indirect/timer CSRs all trap until the hypervisor extension
+  is deliberately implemented.
   `pmpcfg0` and `pmpaddr0` now read as zero because PMP access enforcement is
   not implemented. The OpenSBI smoke still boots and reports `PMP Count: 0`,
   avoiding the old mismatch where firmware could configure protection rules the
