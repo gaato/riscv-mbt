@@ -1622,9 +1622,12 @@ test "rv64f fp register writes mark mstatus fs dirty" {
 }
 
 ///|
-test "rv64fd move path preserves raw double-precision bits" {
-  let raw = exec_test_f64_bits(1.5)
+test "rv64fd move path preserves raw double-precision nan payloads without flags" {
+  let csr_fflags = 0x001
+  let existing_nx = 0x01U.to_uint64()
+  let raw = 0x7ff0000000012345UL
   let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_csr(0x003, existing_nx)
   runner.load_program_u64(exec_test_u64_to_le_bytes(raw), 0x100U.to_uint64())
   runner.load_program(
     words_to_bytes([
@@ -1639,8 +1642,12 @@ test "rv64fd move path preserves raw double-precision bits" {
     Running => ()
     _ => fail("expected rv64fd move path to stay running")
   }
+  // The D-extension transfer moves are not arithmetic operations. Even a
+  // signaling-NaN payload crosses the integer/FP boundary as opaque bits and
+  // therefore must not accrue NV or canonicalize the payload.
   assert_eq(runner.read_freg_u64(3), raw)
   assert_eq(runner.read_reg_u64(4), raw)
+  assert_eq(runner.read_csr_u64(csr_fflags), existing_nx)
 }
 
 ///|

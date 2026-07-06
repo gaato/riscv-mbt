@@ -2236,11 +2236,16 @@ fn Runner::execute_fp(
       Running
     }
     FmvXD(rd, rs1) => {
+      // Double-width transfers are exact bit moves on RV64. They are
+      // intentionally outside the arithmetic NaN path, so non-canonical and
+      // signaling-NaN payloads remain opaque and do not touch fflags.
       self.write_xlen_reg(rd, self.read_freg_double_bits(rs1))
       self.cpu.pc = next_pc
       Running
     }
     FmvDX(rd, rs1) => {
+      // The inverse path writes the full XLEN-sized IEEE payload into FLEN=64
+      // storage without NaN-boxing or canonicalization.
       self.write_freg_double_bits(rd, self.cpu.read_reg(rs1))
       self.cpu.pc = next_pc
       Running

@@ -824,6 +824,10 @@ official coverage improve.
   `FMV.W.X` NaN-boxes the raw low word on entry to the 64-bit FP register file,
   while `FMV.X.W` ignores upper FP-register bits and sign-extends only the low
   word. This pins the transfer exception to the normal NaN-box input rule.
+- `FMV.D.X` / `FMV.X.D` now have the matching RV64D transfer-boundary
+  regression: raw double-width signaling-NaN payloads cross the integer/FP
+  register boundary unchanged and without accruing `fflags`, because these
+  instructions are bit transfers rather than arithmetic NaN operations.
 - Single-precision arithmetic now accrues NX when the rounded `Float` result
   differs from the same operation evaluated in `Double` from exactly
   represented single operands. This covers ordinary RNE inexact behavior for
