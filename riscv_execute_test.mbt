@@ -7257,6 +7257,49 @@ test "counteren csrs expose only base counter enable bits" {
 }
 
 ///|
+fn expect_masked_csr_set_clear_forms(
+  csr : Int,
+  writable_mask : UInt64,
+  label : String,
+) -> Unit raise {
+  let program = words_to_bytes([
+    encode_i(-1, 0, 0x0U, 1, 0x13U),
+    // Masked WARL CSRs still use ordinary Zicsr read-modify-write flow. The
+    // old visible value is returned to rd, while unsupported bits disappear at
+    // the write boundary for both register-source and immediate set/clear.
+    encode_csr(csr, 1, 0x2U, 2),
+    encode_csr(csr, 0, 0x2U, 3),
+    encode_csr(csr, 1, 0x3U, 4),
+    encode_csr(csr, 0, 0x2U, 5),
+    encode_csr(csr, 0x1f, 0x6U, 6),
+    encode_csr(csr, 0, 0x2U, 7),
+    encode_csr(csr, 0x1f, 0x7U, 8),
+    encode_csr(csr, 0, 0x2U, 9),
+  ])
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(9) {
+    Running => ()
+    _ => fail("expected masked WARL CSR set/clear program to run for " + label)
+  }
+  assert_eq(runner.read_reg_u64(2), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(3), writable_mask)
+  assert_eq(runner.read_reg_u64(4), writable_mask)
+  assert_eq(runner.read_reg_u64(5), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(6), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(7), writable_mask)
+  assert_eq(runner.read_reg_u64(8), writable_mask)
+  assert_eq(runner.read_reg_u64(9), 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(csr), 0U.to_uint64())
+}
+
+///|
+test "counteren csrs mask unsupported hpm bits across set and clear forms" {
+  expect_masked_csr_set_clear_forms(0x306, 0x7U.to_uint64(), "mcounteren")
+  expect_masked_csr_set_clear_forms(0x106, 0x7U.to_uint64(), "scounteren")
+}
+
+///|
 test "hpm counter csrs trap when hpm counters are not implemented" {
   // mcounteren/scounteren expose HPM enable bits as read-only zero because the
   // matching hpmcounter, mhpmcounter, and mhpmevent CSR surface is absent in
@@ -7319,6 +7362,11 @@ test "mcountinhibit gates cycle and instret but not time" {
   assert_eq(runner.read_reg_u64(6), runner.read_reg_u64(3))
   assert_eq(runner.read_reg_u64(7), runner.read_reg_u64(4))
   assert_true(runner.read_reg_u64(9) > runner.read_reg_u64(8))
+}
+
+///|
+test "mcountinhibit masks unsupported hpm bits across set and clear forms" {
+  expect_masked_csr_set_clear_forms(0x320, 0x5U.to_uint64(), "mcountinhibit")
 }
 
 ///|

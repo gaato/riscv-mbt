@@ -335,17 +335,20 @@ official coverage improve.
   (`0x222`).
   `mcounteren` and `scounteren` now expose only the implemented base counter
   enables CY/TM/IR (`0x7`); HPM counter enables are read-only zero because the
-  corresponding counter CSRs are absent. Focused coverage now also pins
-  first/last `hpmcounter`, `mhpmcounter`, and `mhpmevent` slots as
-  illegal-instruction traps rather than zero-valued compatibility storage. The
-  RV64-only CSR support classifier also excludes the first/last HPM high-half
-  aliases as RV32-only addresses. In an M+U profile without S-mode,
+  corresponding counter CSRs are absent. Nonzero `CSRRS/CSRRC` and immediate
+  set/clear forms now also return the old visible value and apply the same
+  CY/TM/IR write mask instead of retaining unsupported HPM bits. Focused
+  coverage now also pins first/last `hpmcounter`, `mhpmcounter`, and
+  `mhpmevent` slots as illegal-instruction traps rather than zero-valued
+  compatibility storage. The RV64-only CSR support classifier also excludes the
+  first/last HPM high-half aliases as RV32-only addresses. In an M+U profile without S-mode,
   `mcounteren` gates U-mode counter reads directly because there is no
   supervisor `scounteren` layer.
   `mcountinhibit` now controls the exposed architectural counters: CY inhibits
   `cycle`, IR inhibits `instret`, HPM inhibit bits are read-only zero because
-  no HPM counters are modeled, and `time` continues to reflect CLINT `mtime`
-  because the privileged spec excludes `mtime` from mcountinhibit. The
+  no HPM counters are modeled, and nonzero set/clear forms now apply that same
+  CY/IR write mask while returning the old visible value. `time` continues to
+  reflect CLINT `mtime` because the privileged spec excludes `mtime` from mcountinhibit. The
   unprivileged `cycle` and `instret` CSRs now shadow writable machine `mcycle`
   and `minstret` state instead of aliasing CLINT `mtime`; focused coverage also
   pins that illegal instructions, `ECALL`, `EBREAK`, and `C.EBREAK` are
@@ -974,14 +977,17 @@ official coverage improve.
   and an S-mode misaligned LR regression verifies routing through `stvec`.
 - `mcounteren`/`scounteren` are now WARL-filtered to CY/TM/IR. The existing
   privilege-gate tests still cover access behavior, and a new readback
-  regression pins HPM enable bits as read-only zero. A no-`S` profile
-  regression now also proves that `mcounteren` alone permits U-mode `cycle`
-  reads in M+U configurations where `scounteren` is absent.
+  regression pins HPM enable bits as read-only zero. Nonzero register-source
+  and immediate set/clear forms now also prove those HPM bits are masked at
+  writeback while returning the old visible value. A no-`S` profile regression
+  now also proves that `mcounteren` alone permits U-mode `cycle` reads in M+U
+  configurations where `scounteren` is absent.
 - `mcountinhibit` is now modeled for the base architectural counters. Focused
   coverage writes all ones, verifies only CY/IR read back, proves inhibited
   `cycle` and `instret` stay stable, proves `time` still advances, and verifies
-  writable `mcycle`/`minstret` back the unprivileged counter shadows. A separate
-  regression verifies that illegal-instruction, `ECALL`, `EBREAK`, and
+  writable `mcycle`/`minstret` back the unprivileged counter shadows. Nonzero
+  set/clear CSR forms now also prove the same CY/IR mask is applied to RMW
+  writeback. A separate regression verifies that illegal-instruction, `ECALL`, `EBREAK`, and
   `C.EBREAK` synchronous traps update trap state without incrementing
   `instret`. Another regression verifies that a pending machine-timer
   interrupt enters the trap path before fetching the next instruction and does

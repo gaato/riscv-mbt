@@ -213,15 +213,18 @@
   limited to SSI/STI/SEI (`0x222`); machine-only causes remain read-only zero.
 - `mcounteren` and `scounteren` now expose only CY/TM/IR (`0x7`) as writable
   WARL bits. HPM counter-enable bits read back as zero because the matching
-  `hpmcounter` CSRs are not implemented in the current RV64GC profile. Focused
-  coverage now checks first/last low-half HPM counter and event-selector CSR
-  slots as absent rather than zero-valued compatibility storage. In an M+U
-  profile without S-mode, `mcounteren` gates U-mode counter reads directly
-  because there is no supervisor `scounteren` layer.
+  `hpmcounter` CSRs are not implemented in the current RV64GC profile. Nonzero
+  `CSRRS/CSRRC` and immediate set/clear forms now also preserve the old visible
+  value while applying the same CY/TM/IR mask at writeback. Focused coverage now
+  checks first/last low-half HPM counter and event-selector CSR slots as absent
+  rather than zero-valued compatibility storage. In an M+U profile without
+  S-mode, `mcounteren` gates U-mode counter reads directly because there is no
+  supervisor `scounteren` layer.
 - `mcountinhibit` is now modeled for the exposed architectural counters. CY
   and IR are writable, HPM inhibit bits read back as zero because HPM counters
-  are absent, and `time` remains tied to CLINT `mtime` rather than the inhibit
-  mechanism. The `cycle` and `instret` user-visible counters now shadow
+  are absent, and nonzero set/clear forms now apply that same CY/IR mask while
+  returning the old visible value. `time` remains tied to CLINT `mtime` rather
+  than the inhibit mechanism. The `cycle` and `instret` user-visible counters now shadow
   writable machine `mcycle` and `minstret` state instead of aliasing `mtime`.
   Synchronous exception coverage now explicitly pins illegal instructions,
   `ECALL`, `EBREAK`, and `C.EBREAK` as non-retiring instructions for `instret`.
