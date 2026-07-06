@@ -111,7 +111,9 @@
   underflow coverage now pins subnormal tiny quotients/products accruing UF and
   NX, and positive `FMADD.S/D` overflow coverage now pins the fused final
   rounding boundary: RNE/RUP select infinity, RTZ/RDN select the largest finite
-  result, and all modes accrue OF|NX. `FCLASS.S` /`FCLASS.D`
+  result, and all modes accrue OF|NX. Negative `FMADD.S/D` overflow now mirrors
+  that boundary: RNE/RDN select negative infinity, RTZ/RUP select the largest
+  finite negative value, and all modes accrue OF|NX. `FCLASS.S` /`FCLASS.D`
   now decode and execute the architectural 10-bit classification mask for zero,
   subnormal, normal, infinity, signaling-NaN, and quiet-NaN values. Double
   `FSQRT.D` now derives finite results for all legal rounding modes from exact

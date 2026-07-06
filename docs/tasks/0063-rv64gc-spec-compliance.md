@@ -915,6 +915,9 @@ official coverage improve.
 - Positive `FMADD.S/D` overflow now has matching rounding-mode coverage at the
   fused final rounding step. RNE and RUP produce positive infinity, RTZ and RDN
   produce the largest finite value, and every case accrues OF|NX.
+- Negative `FMADD.S/D` overflow now has matching signed rounding-mode coverage:
+  RNE and RDN produce negative infinity, RTZ and RUP produce the largest finite
+  negative value, and every case accrues OF|NX.
 - The double-precision fused multiply-add family now accepts legal static and
   dynamic non-RNE modes and routes finite nonzero exact fused results through the
   exact-rational-to-double helper. This covers `FMADD.D`, `FMSUB.D`,
