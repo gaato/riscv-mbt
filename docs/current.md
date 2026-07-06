@@ -206,9 +206,9 @@
   Non-delegated supervisor interrupt bits read as zero through the supervisor
   CSRs, `sie` writes affect only delegated SSI/STI/SEI enable bits, and `sip`
   writes affect only delegated SSIP; STIP/SEIP pending state is supplied through
-  the machine/platform path. Focused `sip` set/clear coverage now pins both
-  register-source and immediate forms so the supervisor view cannot retain
-  timer or external pending bits as software state.
+  the machine/platform path. Focused `sie` and `sip` set/clear coverage now pins
+  both register-source and immediate forms so the supervisor views cannot retain
+  independent enable or pending state outside the delegated machine CSR bits.
 - `medeleg` and `mideleg` now apply WARL masks on read, write, and trap routing.
   The modeled delegatable exception surface is `0xb3fe`, including
   load/store/AMO address-misaligned causes, and delegated interrupts are

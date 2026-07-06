@@ -330,8 +330,9 @@ official coverage improve.
   `sip` and `sie` now expose only supervisor interrupt bits delegated by
   `mideleg`; `sie` writes update only those delegated enable bits, and `sip`
   writes update only delegated SSIP while STIP/SEIP remain pending bits supplied
-  by the machine/platform path. Register-source and immediate `sip` set/clear
-  forms now have focused coverage for that writable-SSIP boundary.
+  by the machine/platform path. Register-source and immediate `sie`/`sip`
+  set/clear forms now have focused coverage for those delegated-view
+  boundaries.
   `medeleg` and `mideleg` now apply WARL masks on read, write, and internal
   trap-routing paths. `medeleg` exposes the modeled delegatable exception
   causes (`0xb3fe`), including the modeled load/store/AMO
@@ -991,7 +992,8 @@ official coverage improve.
   covers writes through both `mstatus` and `sstatus`.
 - `sip`/`sie` are now delegated views of `mip`/`mie` instead of unconditional
   aliases for SSI/STI/SEI. Focused regressions cover non-delegated readback,
-  delegated `sie` writes, and `sip` writes that affect only SSIP.
+  delegated `sie` writes, `sie` set/clear forms that affect only delegated
+  enable bits, and `sip` writes that affect only SSIP.
 - `medeleg`/`mideleg` no longer store arbitrary compatibility bits. Focused
   coverage writes all ones and verifies the supported delegatable exception and
   interrupt bit surfaces are the only values that read back or affect routing.

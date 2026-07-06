@@ -12717,6 +12717,51 @@ test "CSRRW to SIE only affects bits 1,5,9 of MIE" {
 }
 
 ///|
+test "SIE set and clear forms affect only delegated supervisor enables" {
+  let mideleg = 0x303
+  let sie = 0x104
+  let mie = 0x304
+  let supervisor_enables = 0x222U.to_uint64()
+  let ssie = 0x2U.to_uint64()
+  let program = words_to_bytes([
+    encode_i(-1, 0, 0x0U, 1, 0x13U),
+    encode_csr(mideleg, 1, 0x1U, 0),
+    encode_csr(sie, 1, 0x2U, 2),
+    encode_csr(sie, 0, 0x2U, 3),
+    encode_csr(mie, 0, 0x2U, 4),
+    encode_csr(sie, 1, 0x3U, 5),
+    encode_csr(sie, 0, 0x2U, 6),
+    encode_csr(mie, 0, 0x2U, 7),
+    encode_csr(sie, 0x1f, 0x6U, 8),
+    encode_csr(sie, 0, 0x2U, 9),
+    encode_csr(sie, 0x1e, 0x7U, 10),
+    encode_csr(sie, 0, 0x2U, 11),
+  ])
+  let runner = make_runner(virt_machine_config())
+  runner.load_program_u64(program, 0x80000000U.to_uint64())
+  match runner.run(12) {
+    Running => ()
+    _ => fail("expected SIE set/clear form program to run")
+  }
+  // `sie` is the supervisor-visible enable view of `mie`. Delegation controls
+  // both read visibility and write reachability, so CSRRS/CSRRC must not create
+  // independent S-level enable state or touch non-delegated M-level enables.
+  assert_eq(runner.read_reg_u64(2), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(3), supervisor_enables)
+  assert_eq(runner.read_reg_u64(4) & supervisor_enables, supervisor_enables)
+  assert_eq(runner.read_reg_u64(5), supervisor_enables)
+  assert_eq(runner.read_reg_u64(6), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(7) & supervisor_enables, 0U.to_uint64())
+  // Immediate CSR forms carry only a five-bit source. With the current
+  // SSI/STI/SEI delegation mask, CSRRSI 0x1f can reach SSIE but not STIE/SEIE.
+  assert_eq(runner.read_reg_u64(8), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(9), ssie)
+  assert_eq(runner.read_reg_u64(10), ssie)
+  assert_eq(runner.read_reg_u64(11), 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(mie) & supervisor_enables, 0U.to_uint64())
+}
+
+///|
 test "SIP is masked view of MIP; write does not affect MTIP" {
   // Set MIP.MTIP (bit 7) via update_timer (mtime >= mtimecmp with mtimecmp=1).
   // Then CSRRS SIP with SSIP (bit 1). Verify MTIP still set but not visible via SIP.
