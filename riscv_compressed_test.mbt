@@ -1052,26 +1052,52 @@ test "rv64c integer stack loads reserve x0 destination" {
 
 ///|
 test "rv64c addi nop and li hint forms execute as no-ops" {
-  let runner = make_runner(rv64_machine_config())
-  runner.cpu.write_reg(5, 0x55U.to_uint64())
-  runner.load_program(
-    mixed_program_bytes([
-      (2, encode_c_addi(0, 0).reinterpret_as_uint()),
-      (2, encode_c_addi(0, 7).reinterpret_as_uint()),
-      (2, encode_c_addi(5, 0).reinterpret_as_uint()),
-      (2, encode_c_li(0, 0).reinterpret_as_uint()),
-      (2, encode_c_li(0, 31).reinterpret_as_uint()),
-      (2, encode_c_li(0, -1).reinterpret_as_uint()),
-    ]),
-    0U,
-  )
-  match runner.run(6) {
-    Running => ()
-    _ => fail("expected compressed immediate hints to execute as no-ops")
+  // C.ADDI rd=x0 is the C.NOP/HINT family for the whole signed 6-bit
+  // immediate range. C.LI rd=x0 is another immediate HINT family, distinct
+  // from ordinary C.LI because writes to x0 are discarded.
+  for imm in -32..<=31 {
+    let addi_hint = make_runner(rv64_machine_config())
+    addi_hint.load_program(
+      mixed_program_bytes([(2, encode_c_addi(0, imm).reinterpret_as_uint())]),
+      0U,
+    )
+    match addi_hint.step() {
+      Running => ()
+      _ => fail("expected c.addi/c.nop hint immediate to run")
+    }
+    assert_eq(addi_hint.pc_u64(), 2U.to_uint64())
+    assert_eq(addi_hint.read_reg_u64(0), 0U.to_uint64())
+
+    let li_hint = make_runner(rv64_machine_config())
+    li_hint.load_program(
+      mixed_program_bytes([(2, encode_c_li(0, imm).reinterpret_as_uint())]),
+      0U,
+    )
+    match li_hint.step() {
+      Running => ()
+      _ => fail("expected c.li x0 hint immediate to run")
+    }
+    assert_eq(li_hint.pc_u64(), 2U.to_uint64())
+    assert_eq(li_hint.read_reg_u64(0), 0U.to_uint64())
   }
-  assert_eq(runner.pc_u64(), 12U.to_uint64())
-  assert_eq(runner.read_reg_u64(0), 0U.to_uint64())
-  assert_eq(runner.read_reg_u64(5), 0x55U.to_uint64())
+
+  // C.ADDI with rd!=x0 and imm=0 is also a HINT: it reads and writes the same
+  // architectural register value. Cover every nonzero destination so no rd
+  // bit pattern is accidentally routed to a reserved or special case.
+  for rd in 1..<=31 {
+    let zero_addi = make_runner(rv64_machine_config())
+    zero_addi.cpu.write_reg(rd, 0x600dU.to_uint64())
+    zero_addi.load_program(
+      mixed_program_bytes([(2, encode_c_addi(rd, 0).reinterpret_as_uint())]),
+      0U,
+    )
+    match zero_addi.step() {
+      Running => ()
+      _ => fail("expected c.addi zero-immediate hint to run")
+    }
+    assert_eq(zero_addi.pc_u64(), 2U.to_uint64())
+    assert_eq(zero_addi.read_reg_u64(rd), 0x600dU.to_uint64())
+  }
 }
 
 ///|

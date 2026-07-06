@@ -270,9 +270,10 @@ official coverage improve.
   `C.ADDI16SP` now also has coverage for the lower `-512` edge, a negative
   adjustment, and the high positive `+496` adjustment, beyond the
   zero-immediate reserved case.
-  Immediate-form HINT coverage now pins canonical `C.NOP`, nonzero `C.NOP`
-  hint encodings, zero-immediate `C.ADDI rd!=x0`, and zero/positive/negative
-  `C.LI rd=x0` forms as no-ops.
+  Immediate-form HINT coverage now pins canonical `C.NOP`, the full signed
+  six-bit `C.NOP`/`C.ADDI rd=x0` hint immediate range, zero-immediate
+  `C.ADDI rd!=x0` across all nonzero destinations, and the full signed
+  six-bit `C.LI rd=x0` hint immediate range as no-ops.
   Zero-shift HINT coverage now pins `C.SLLI`, `C.SRLI`, and `C.SRAI` with
   `shamt=0` as no-ops, including the combined `C.SLLI rd=x0, shamt=0`
   encoding. High-shamt RV64C coverage now pins `C.SLLI`, `C.SRLI`, and
