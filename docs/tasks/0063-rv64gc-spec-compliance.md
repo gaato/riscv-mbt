@@ -38,6 +38,9 @@ or more OpenRC-specific probing.
   current Linux probes.
 - Promote every locally available/buildable official `riscv-tests` source row
   applicable to RV64GC into `gating` before claiming this task complete.
+- Keep the official-row coverage gate diagnostic enough to name missing
+  suite/test rows, so a future upstream checkout expansion is actionable rather
+  than a bare count mismatch.
 - Keep comments close to architectural boundaries: decode shape, execute
   semantics, CSR side effects, trap routing, translation, device interrupts,
   and test support.

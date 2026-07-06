@@ -26,5 +26,11 @@ async test "official RV64GC riscv-tests source rows are all gated" {
     }
   }
   missing.sort()
-  assert_eq(missing.length(), 0)
+  if missing.length() != 0 {
+    let mut message = "missing RV64GC official riscv-tests gating rows:"
+    for key in missing {
+      message = message + "\n" + key
+    }
+    abort(message)
+  }
 }
