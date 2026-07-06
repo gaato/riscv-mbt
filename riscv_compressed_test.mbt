@@ -1005,15 +1005,25 @@ test "rv64c addiw with x0 destination remains reserved" {
 }
 
 ///|
-test "rv64c lui and addi16sp zero immediates remain reserved" {
-  let reserved = [
-    encode_c_lui(0, 0), // rd=x0 is a hint only for nonzero nzimm.
-    encode_c_lui(3, 0), // C.LUI requires a nonzero nzimm.
-    encode_c_addi16sp(0), // C.ADDI16SP also reserves nzimm=0.
-  ]
-  for raw_int in reserved {
-    let raw = raw_int.reinterpret_as_uint()
-    expect_compressed_illegal(rv64_machine_config(), raw)
+test "rv64c lui and addi16sp zero immediates remain reserved for all destinations" {
+  // The funct3=011 CI slot splits three ways: rd=x0 is a nonzero-immediate
+  // hint, rd=x2 is C.ADDI16SP, and other destinations are C.LUI. All three
+  // subfamilies reserve the zero immediate rather than treating it as a no-op.
+  expect_compressed_illegal(
+    rv64_machine_config(),
+    encode_c_lui(0, 0).reinterpret_as_uint(),
+  )
+  expect_compressed_illegal(
+    rv64_machine_config(),
+    encode_c_addi16sp(0).reinterpret_as_uint(),
+  )
+  for rd in 1..<=31 {
+    if rd != 2 {
+      expect_compressed_illegal(
+        rv64_machine_config(),
+        encode_c_lui(rd, 0).reinterpret_as_uint(),
+      )
+    }
   }
 }
 
