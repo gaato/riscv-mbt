@@ -233,8 +233,9 @@ official coverage improve.
 - `A`: `riscv_decode.mbt` rejects reserved AMO operations and reserved
   `LR.W`/`LR.D` encodings with nonzero `rs2`, gates AMO execution on `MISA.A`,
   keeps `AMO.D` RV64-only, and preserves the two-bit `aq`/`rl` ordering field
-  in decoded AMO instructions. Focused white-box regressions pin the reserved
-  AMO/LR encodings, all four AMO order encodings for both AMO.W and AMO.D,
+  in decoded AMO instructions. Focused white-box regressions pin reserved AMO
+  operations in both W and D width slots, malformed `LR.W` and `LR.D`
+  `rs2!=x0` encodings, all four AMO order encodings for both AMO.W and AMO.D,
   LR/SC order-bit execution for W and D reservation pairs, missing-`MISA.A`
   trap, and RV32 `AMO.D` rejection.
   `riscv_execute.mbt` implements LR/SC and AMO W/D behavior with shared

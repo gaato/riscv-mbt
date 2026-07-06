@@ -352,6 +352,9 @@
   effects. Misaligned LR raises load-address-misaligned; misaligned SC and AMO
   raise store-address-misaligned. Ordinary non-atomic load/store misalignment
   is intentionally left on the existing EEI path.
+  Reserved AMO decode coverage now samples both W and D width slots for an
+  unassigned AMO operation, and both `LR.W` and `LR.D` malformed `rs2!=x0`
+  encodings trap before execution.
   AMO.W bitwise regressions now pin low-word operation with sign-extended
   old-word results in `rd`.
   Focused AMO.D regressions now also pin full-width swap, add wraparound, and

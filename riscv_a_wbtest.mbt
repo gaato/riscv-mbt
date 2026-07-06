@@ -75,13 +75,23 @@ test "AMO.W traps when A extension is not advertised" {
 
 ///|
 test "A extension rejects reserved AMO encodings before execution" {
-  let reserved_op = wb_encode_amo(0x05U, 2, 1, 0x2U, 3)
-  wb_expect_illegal_atomic(reserved_op, make_runner(rv64_machine_config()))
+  // Reserved funct5 values must stay illegal for both word and doubleword AMO
+  // slots. Decode should reject the operation code itself before the executor
+  // can accidentally treat the width as a fallback to a valid AMO family.
+  let reserved_word_op = wb_encode_amo(0x05U, 2, 1, 0x2U, 3)
+  wb_expect_illegal_atomic(reserved_word_op, make_runner(rv64_machine_config()))
+  let reserved_double_op = wb_encode_amo(0x05U, 2, 1, 0x3U, 3)
+  wb_expect_illegal_atomic(
+    reserved_double_op,
+    make_runner(rv64_machine_config()),
+  )
 
   // LR.W/LR.D reserve rs2 as zero. Keeping this at decode/profile-legality
   // time avoids constructing an LR instruction with an impossible source.
-  let malformed_lr = wb_encode_amo(0x02U, 4, 1, 0x2U, 3)
-  wb_expect_illegal_atomic(malformed_lr, make_runner(rv64_machine_config()))
+  let malformed_lr_w = wb_encode_amo(0x02U, 4, 1, 0x2U, 3)
+  wb_expect_illegal_atomic(malformed_lr_w, make_runner(rv64_machine_config()))
+  let malformed_lr_d = wb_encode_amo(0x02U, 4, 1, 0x3U, 3)
+  wb_expect_illegal_atomic(malformed_lr_d, make_runner(rv64_machine_config()))
 }
 
 ///|
