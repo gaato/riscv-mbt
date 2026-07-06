@@ -1667,6 +1667,68 @@ test "compressed jump-register forms use jalr target clearing and 2-byte links" 
 }
 
 ///|
+test "compressed cr rs2 zero forms are jump register forms not hints" {
+  // The CR-format spec splits the slot by bit 12 and rs2.  In both halves,
+  // rs2=x0 leaves the MV/ADD arithmetic families and becomes JR/JALR/EBREAK.
+  // Sweep the nonzero rd/rs1 encodings so a future hint audit cannot turn
+  // these branch forms into harmless register no-ops.
+  for rd in 1..<=31 {
+    let jr_runner = make_runner(rv64_machine_config())
+    let jr_target = 8
+    jr_runner.cpu.write_reg(rd, jr_target.to_uint64())
+    jr_runner.load_program(
+      mixed_program_bytes([
+        (2, encode_c_jr(rd).reinterpret_as_uint()),
+        (2, encode_c_li(5, 1).reinterpret_as_uint()),
+        (2, encode_c_li(6, 2).reinterpret_as_uint()),
+        (2, encode_c_li(7, 3).reinterpret_as_uint()),
+        (2, encode_c_li(8, 4).reinterpret_as_uint()),
+      ]),
+      0U,
+    )
+    match jr_runner.run(2) {
+      Running => ()
+      _ => fail("expected C.JR rs2=x0 code point to branch")
+    }
+    if rd != 5 {
+      assert_eq(jr_runner.read_reg_u64(5), 0U.to_uint64())
+    }
+    if rd != 8 {
+      assert_eq(jr_runner.read_reg_u64(8), 4U.to_uint64())
+    }
+    assert_eq(jr_runner.pc_u64(), 10U.to_uint64())
+
+    let jalr_runner = make_runner(rv64_machine_config())
+    let jalr_target = 8
+    jalr_runner.cpu.write_reg(rd, jalr_target.to_uint64())
+    jalr_runner.load_program(
+      mixed_program_bytes([
+        (2, encode_c_jalr(rd).reinterpret_as_uint()),
+        (2, encode_c_li(5, 1).reinterpret_as_uint()),
+        (2, encode_c_li(6, 2).reinterpret_as_uint()),
+        (2, encode_c_li(7, 3).reinterpret_as_uint()),
+        (2, encode_c_li(8, 4).reinterpret_as_uint()),
+      ]),
+      0U,
+    )
+    match jalr_runner.run(2) {
+      Running => ()
+      _ => fail("expected C.JALR rs2=x0 code point to branch")
+    }
+    if rd != 1 {
+      assert_eq(jalr_runner.read_reg_u64(1), 2U.to_uint64())
+    }
+    if rd != 5 {
+      assert_eq(jalr_runner.read_reg_u64(5), 0U.to_uint64())
+    }
+    if rd != 8 {
+      assert_eq(jalr_runner.read_reg_u64(8), 4U.to_uint64())
+    }
+    assert_eq(jalr_runner.pc_u64(), 10U.to_uint64())
+  }
+}
+
+///|
 test "unsupported compressed instructions still trap as illegal instruction" {
   expect_compressed_illegal(default_machine_config(), 0x9c25U)
 }

@@ -2128,6 +2128,8 @@ fn decode_c_q2_cr(raw : UInt) -> Instruction {
       if rd == 0 {
         Unknown(raw)
       } else {
+        // The rs2=x0 code points in the C.MV half of the CR slot are not
+        // move hints; the compressed spec assigns them to C.JR.
         Jalr(0, rd, 0)
       }
     } else {
@@ -2137,6 +2139,8 @@ fn decode_c_q2_cr(raw : UInt) -> Instruction {
     if rd == 0 {
       Ebreak
     } else {
+      // Likewise, rs2=x0 in the C.ADD half selects C.JALR, with rd=x0 being
+      // the C.EBREAK singleton above.
       Jalr(1, rd, 0)
     }
   } else {

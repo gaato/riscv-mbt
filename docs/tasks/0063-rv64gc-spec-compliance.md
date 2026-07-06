@@ -340,11 +340,14 @@ official coverage improve.
   ignored hints, including the `rs2=x2..x5` compressed Zihintntl non-temporal
   locality hint subrange. CR-format coverage now also pins `C.MV rd=x0,
   rs2!=x0` as an ignored hint, `C.JR rs1=x0` as reserved, and the
-  `C.JALR rs1=x0` encoding as `C.EBREAK`. The legal `C.JR`/`C.JALR` forms are
-  now pinned through execute coverage as `JALR` aliases, including the
-  inherited `JALR` target-bit-clearing rule for odd register targets and the
-  compressed link rule that `C.JALR` writes `pc + 2` to `x1` while `C.JR` does
-  not link. Post-decode profile legality now rejects all 16-bit compressed
+  `C.JALR rs1=x0` encoding as `C.EBREAK`. The complementary `rs2=x0,
+  rd!=x0` CR encodings are now swept across the full nonzero rd/rs1 range:
+  the C.MV half branches as `C.JR`, and the C.ADD half branches as `C.JALR`
+  rather than being accepted as arithmetic hints. The legal `C.JR`/`C.JALR`
+  forms are now pinned through execute coverage as `JALR` aliases, including
+  the inherited `JALR` target-bit-clearing rule for odd register targets and
+  the compressed link rule that `C.JALR` writes `pc + 2` to `x1` while `C.JR`
+  does not link. Post-decode profile legality now rejects all 16-bit compressed
   encodings when `MISA.C` is not advertised, preserving the permissive decoder
   while making execution obey the active ISA profile.
   Compressed integer instructions are also covered inside an LR/SC-style
@@ -1190,6 +1193,9 @@ official coverage improve.
   across the whole nonzero source range. The `rs2=x2..x5` encodings are the
   compressed Zihintntl locality hints, so they remain no-ops in this RV64GC
   baseline instead of trapping as custom code points.
+- The CR-format `rs2=x0` split is now explicitly covered: nonzero rd/rs1
+  encodings in the C.MV half execute as `C.JR`, and the same split in the
+  C.ADD half executes as `C.JALR`, not as ignored hints.
 - Zicsr write-side privilege checks now run even when the instruction form
   suppresses the CSR read. This closes the `CSRRW rd=x0` hole where a lower
   privilege mode could otherwise write a higher-privilege CSR because no read
