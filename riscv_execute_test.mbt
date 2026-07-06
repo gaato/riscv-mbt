@@ -6963,20 +6963,39 @@ test "epc set forms clear hardwired bit zero" {
 }
 
 ///|
-test "mstatus mpp normalizes reserved privilege encoding" {
+test "mstatus mpp normalizes reserved privilege encoding across csr forms" {
+  let mstatus = 0x300
+  let mpp_mask = 0x1800U.to_uint64()
+  let mpp_machine = 0x1800U.to_uint64()
+  let mpp_low_bit = 0x0800U.to_uint64()
   let program = words_to_bytes([
     encode_u(0x00001000U, 1, 0x37U),
-    encode_csr(0x300, 1, 0x1U, 0),
-    encode_csr(0x300, 0, 0x2U, 2),
+    encode_csr(mstatus, 1, 0x1U, 0),
+    encode_csr(mstatus, 0, 0x2U, 2),
+    encode_csr(mstatus, 1, 0x2U, 3),
+    encode_csr(mstatus, 0, 0x2U, 4),
+    encode_csr(mstatus, 5, 0x1U, 0),
+    encode_csr(mstatus, 6, 0x3U, 7),
+    encode_csr(mstatus, 0, 0x2U, 8),
   ])
   let runner = make_runner(default_machine_config())
+  runner.cpu.write_reg(5, mpp_machine)
+  runner.cpu.write_reg(6, mpp_low_bit)
   runner.load_program(program, 0U)
-  match runner.run(3) {
+  match runner.run(8) {
     Running => ()
     _ => fail("expected reserved-mpp csr program to run")
   }
-  assert_eq(runner.read_reg(2) & 0x1800U, 0U)
-  assert_eq(runner.read_csr(0x300) & 0x1800U, 0U)
+  // In this implemented U/S/M profile, MPP encoding 2 is reserved and
+  // canonicalizes to the least implemented mode, U. The same WARL boundary must
+  // apply after CSRRW replacement writes and after CSRRS/CSRRC derive a
+  // candidate value from the old visible CSR.
+  assert_eq(runner.read_reg_u64(2) & mpp_mask, 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(3) & mpp_mask, 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(4) & mpp_mask, 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(7) & mpp_mask, mpp_machine)
+  assert_eq(runner.read_reg_u64(8) & mpp_mask, 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(mstatus) & mpp_mask, 0U.to_uint64())
 }
 
 ///|

@@ -418,7 +418,8 @@
   forms are now pinned too: `CSRRS`/`CSRRSI` may derive an odd candidate EPC,
   but the stored value still clears hardwired bit 0.
 - `mstatus.MPP` now normalizes the reserved privilege encoding 2 to U-mode on
-  visible CSR writes, while preserving legal U/S/M return-mode encodings.
+  replacement writes and register-source set/clear candidates, while
+  preserving legal U/S/M return-mode encodings.
 - `MRET` and `SRET` now clear `mstatus.MPRV` when returning to a privilege mode
   below M, while preserving `MPRV` for `MRET` returns that stay in M-mode.
 - Sv39 now keeps SUM data-only: supervisor loads/stores may access U pages when
