@@ -458,6 +458,10 @@
   zero; the remaining visible surface is the emulator's implemented interrupt,
   return, privilege, FP-status, memory-access, trap-control, fixed-XLEN, and
   derived-SD fields.
+- `sstatus` alias writes now preserve M-only `mstatus` fields while updating
+  only the supervisor-visible subset. Focused coverage pins both replacement
+  writes and register-source set/clear RMW forms so `MIE`, `MPIE`, `MPP`, and
+  `MPRV` survive writes through the supervisor status view.
 - `menvcfg` and `senvcfg` now expose no optional environment-feature bits in
   the RV64GC baseline. FIOM, Svpbmt, Svadu, Sstc, cache-block controls, pointer
   masking, landing-pad, shadow-stack, and double-trap controls read back as

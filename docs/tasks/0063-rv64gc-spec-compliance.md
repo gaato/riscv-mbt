@@ -384,8 +384,9 @@ official coverage improve.
   zero, while the implemented interrupt, return, privilege, FP-status,
   memory-access, trap-control, fixed-XLEN, and derived-SD fields remain visible.
   `sstatus` alias writes now also have focused coverage that only the
-  supervisor-visible subset is replaced: M-only `mstatus` fields such as
-  `MIE`, `MPIE`, `MPP`, and `MPRV` survive writes through the supervisor view.
+  supervisor-visible subset is replaced or modified: M-only `mstatus` fields
+  such as `MIE`, `MPIE`, `MPP`, and `MPRV` survive both replacement writes and
+  register-source set/clear RMW forms through the supervisor view.
   `menvcfg` and `senvcfg` now expose no optional environment-feature bits in
   this RV64GC baseline. FIOM, Svpbmt, Svadu, Sstc, cache-block controls,
   pointer masking, landing-pad, shadow-stack, and double-trap controls read
@@ -1085,7 +1086,9 @@ official coverage improve.
   WARL normalization to hide an unimplemented U encoding.
 - `sstatus` now exposes and writes the shared `mstatus.FS` field. This keeps
   the RV64GC F/D context-status control path visible through the supervisor
-  status CSR instead of only through machine `mstatus`.
+  status CSR instead of only through machine `mstatus`; focused alias coverage
+  also pins replacement and register-source set/clear writes so M-only
+  `mstatus` fields survive supervisor-view updates.
 - `mstatus.SD` / `sstatus.SD` now behave as visible summary bits for the
   modeled extension status rather than writable storage: direct SD writes are
   ignored, and FS=Dirty derives SD=1 on the RV64 status views.

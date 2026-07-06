@@ -5704,6 +5704,43 @@ test "sstatus writes preserve machine only mstatus fields" {
 }
 
 ///|
+test "sstatus set and clear forms preserve machine only mstatus fields" {
+  let mstatus = 0x300
+  let sstatus = 0x100
+  let machine_only = 0x21888U.to_uint64() // MIE | MPIE | MPP=M | MPRV
+  let supervisor_visible = 0xC0122U.to_uint64() // SIE | SPIE | SPP | SUM | MXR
+  let program = words_to_bytes([
+    encode_csr(mstatus, 1, 0x1U, 0),
+    encode_csr(sstatus, 2, 0x2U, 3),
+    encode_csr(mstatus, 0, 0x2U, 4),
+    encode_csr(sstatus, 0, 0x2U, 5),
+    encode_csr(sstatus, 2, 0x3U, 6),
+    encode_csr(mstatus, 0, 0x2U, 7),
+    encode_csr(sstatus, 0, 0x2U, 8),
+  ])
+  let runner = make_runner(rv64_machine_config())
+  runner.cpu.write_reg(1, machine_only)
+  runner.cpu.write_reg(2, supervisor_visible)
+  runner.load_program(program, 0U)
+  match runner.run(7) {
+    Running => ()
+    _ => fail("expected sstatus RMW preservation program to run")
+  }
+  // CSRRS/CSRRC are read-modify-write operations on the visible alias. They
+  // must merge through the same backing `mstatus` mask as CSRRW rather than
+  // treating `sstatus` as independent storage or clearing machine-only state.
+  assert_eq(runner.read_reg_u64(4) & machine_only, machine_only)
+  assert_eq(runner.read_reg_u64(4) & supervisor_visible, supervisor_visible)
+  assert_eq(runner.read_reg_u64(5) & supervisor_visible, supervisor_visible)
+  assert_eq(runner.read_reg_u64(6) & supervisor_visible, supervisor_visible)
+  assert_eq(runner.read_reg_u64(7) & machine_only, machine_only)
+  assert_eq(runner.read_reg_u64(7) & supervisor_visible, 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(8) & supervisor_visible, 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(mstatus) & machine_only, machine_only)
+  assert_eq(runner.read_csr_u64(mstatus) & supervisor_visible, 0U.to_uint64())
+}
+
+///|
 test "mstatus sd is derived from dirty FS instead of writable storage" {
   let sd_bit = 1U.to_uint64() << 63
   let mstatus_xlen_bits = 0xa00000000UL
