@@ -1241,6 +1241,69 @@ test "rv64f int to single conversion honors dynamic frm" {
 }
 
 ///|
+test "rv64f exact int to single conversions stay flag clean" {
+  let csr_fcsr = 0x003
+  let fcsr_frm_shift = 5
+  let legal_static_modes = [0U, 1U, 2U, 3U, 4U]
+  for rm in legal_static_modes {
+    let runner = make_runner(rv64f_machine_config())
+    runner.cpu.write_reg(1, 0xffffffffff000000UL)
+    runner.cpu.write_reg(2, 0x01000000U.to_uint64())
+    runner.load_program(
+      words_to_bytes([
+        encode_fcvt_s_w(1, rm, 3),
+        encode_fcvt_s_wu(2, rm, 4),
+        encode_fcvt_s_l(1, rm, 5),
+        encode_fcvt_s_lu(2, rm, 6),
+      ]),
+      0U,
+    )
+    match runner.run(4) {
+      Running => ()
+      Trap(info) =>
+        fail(
+          "expected exact fcvt.s integer paths to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+        )
+    }
+    // Binary32 represents every integer magnitude up to 2^24 exactly. Cover
+    // all integer source widths so the shared rounding helper cannot start
+    // setting NX on exact inputs or confuse signed W/L with unsigned WU/LU.
+    assert_eq(runner.read_freg_u64(3), 0xcb800000U.to_uint64())
+    assert_eq(runner.read_freg_u64(4), 0x4b800000U.to_uint64())
+    assert_eq(runner.read_freg_u64(5), 0xcb800000U.to_uint64())
+    assert_eq(runner.read_freg_u64(6), 0x4b800000U.to_uint64())
+    assert_eq(runner.read_csr(csr_fcsr) & 0x1fU, 0U)
+  }
+
+  let dynamic_runner = make_runner(rv64f_machine_config())
+  dynamic_runner.cpu.write_reg(1, 0xffffffffff000000UL)
+  dynamic_runner.cpu.write_reg(2, 0x01000000U.to_uint64())
+  dynamic_runner.cpu.write_csr(csr_fcsr, 0x3U.to_uint64() << fcsr_frm_shift)
+  dynamic_runner.load_program(
+    words_to_bytes([
+      encode_fcvt_s_w(1, 0x7U, 3),
+      encode_fcvt_s_wu(2, 0x7U, 4),
+      encode_fcvt_s_l(1, 0x7U, 5),
+      encode_fcvt_s_lu(2, 0x7U, 6),
+    ]),
+    0U,
+  )
+  match dynamic_runner.run(4) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected dynamic exact fcvt.s integer paths to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(dynamic_runner.read_freg_u64(3), 0xcb800000U.to_uint64())
+  assert_eq(dynamic_runner.read_freg_u64(4), 0x4b800000U.to_uint64())
+  assert_eq(dynamic_runner.read_freg_u64(5), 0xcb800000U.to_uint64())
+  assert_eq(dynamic_runner.read_freg_u64(6), 0x4b800000U.to_uint64())
+  assert_eq(dynamic_runner.read_csr(csr_fcsr) & 0x1fU, 0U)
+  assert_eq((dynamic_runner.read_csr(csr_fcsr) >> fcsr_frm_shift) & 0x7U, 0x3U)
+}
+
+///|
 test "rv64fd integer to float conversions reject reserved rounding modes" {
   let csr_fcsr = 0x003
   let fcsr_frm_shift = 5
