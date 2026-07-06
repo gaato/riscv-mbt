@@ -558,20 +558,11 @@ test "requesting no-U profile canonicalizes away S as well" {
 
 ///|
 test "user-mode counter delegation csr traps when U is not advertised" {
-  let raw = wb_encode_csr(CSR_MCOUNTEREN, 0, 0x2U, 1) // CSRRS x1, mcounteren, x0
-  let runner = make_runner(wb_rv64_without_u_machine_config())
-  runner.load_program(wb_word_program(raw), 0U)
-  match runner.step() {
-    Trap(info) => {
-      match info.cause {
-        IllegalInstruction => ()
-        _ => fail("expected absent mcounteren to trap without MISA.U")
-      }
-      assert_eq(info.faulting_pc, 0U.to_uint64())
-      assert_eq(info.trap_value, raw.to_uint64())
-    }
-    _ => fail("expected absent mcounteren trap without MISA.U")
-  }
+  wb_expect_absent_csr_forms(
+    wb_rv64_without_u_machine_config(),
+    CSR_MCOUNTEREN,
+    "no-U mcounteren",
+  )
 }
 
 ///|
@@ -580,19 +571,11 @@ test "floating-point csrs trap when F is not advertised" {
   // context-status bookkeeping, but the actual floating-point CSR address
   // surface belongs to the F extension and must be absent without MISA.F.
   for csr in [CSR_FFLAGS, CSR_FRM, CSR_FCSR] {
-    let raw = wb_encode_csr(csr, 0, 0x2U, 1) // CSRRS x1, csr, x0
-    let runner = make_runner(rv64_machine_config())
-    runner.load_program(wb_word_program(raw), 0U)
-    match runner.step() {
-      Trap(info) => {
-        match info.cause {
-          IllegalInstruction => ()
-          _ => fail("expected absent floating-point CSR to trap")
-        }
-        assert_eq(info.trap_value, raw.to_uint64())
-      }
-      _ => fail("expected absent floating-point CSR to trap")
-    }
+    wb_expect_absent_csr_forms(
+      rv64_machine_config(),
+      csr,
+      "no-F floating-point CSR",
+    )
   }
 }
 
