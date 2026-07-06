@@ -275,6 +275,55 @@ test "epc bit one visibility follows active ialign" {
 }
 
 ///|
+test "epc bit one remains writable when ialign masks reads" {
+  let no_c_mepc = make_runner(wb_rv64_without_c_machine_config())
+  no_c_mepc.cpu.write_reg(1, 14U.to_uint64())
+  no_c_mepc.load_program(
+    words_to_bytes([
+      wb_encode_csr(CSR_MEPC, 1, 0x1U, 0),
+      wb_encode_csr(CSR_MEPC, 0, 0x2U, 2),
+    ]),
+    0U,
+  )
+  match no_c_mepc.run(2) {
+    Running => ()
+    _ => fail("expected non-c mepc write/read program to run")
+  }
+  // The privileged spec masks EPC bit 1 on visible reads and xRET target
+  // reads when IALIGN=32, but the bit remains writable storage. Keep both
+  // layers pinned so a future simplification cannot make read masking destroy
+  // the hidden halfword target bit.
+  assert_eq(no_c_mepc.read_reg_u64(2), 12U.to_uint64())
+  assert_eq(no_c_mepc.read_csr_u64(CSR_MEPC), 12U.to_uint64())
+  assert_eq(no_c_mepc.cpu.read_csr(CSR_MEPC), 14U.to_uint64())
+
+  let no_c_set = make_runner(wb_rv64_without_c_machine_config())
+  no_c_set.cpu.write_reg(1, 2U.to_uint64())
+  no_c_set.load_program(
+    words_to_bytes([
+      wb_encode_csr(CSR_MEPC, 1, 0x2U, 2),
+      wb_encode_csr(CSR_MEPC, 0, 0x2U, 3),
+      wb_encode_csr(CSR_SEPC, 1, 0x2U, 4),
+      wb_encode_csr(CSR_SEPC, 0, 0x2U, 5),
+    ]),
+    0U,
+  )
+  match no_c_set.run(4) {
+    Running => ()
+    _ => fail("expected non-c epc set-form program to run")
+  }
+  // CSRRS writes a candidate derived from the masked visible old value. Setting
+  // bit 1 through that candidate is still legal storage for both machine and
+  // supervisor EPCs, even though the following CSR read must report zero.
+  assert_eq(no_c_set.read_reg_u64(2), 0U.to_uint64())
+  assert_eq(no_c_set.read_reg_u64(3), 0U.to_uint64())
+  assert_eq(no_c_set.read_reg_u64(4), 0U.to_uint64())
+  assert_eq(no_c_set.read_reg_u64(5), 0U.to_uint64())
+  assert_eq(no_c_set.cpu.read_csr(CSR_MEPC), 2U.to_uint64())
+  assert_eq(no_c_set.cpu.read_csr(CSR_SEPC), 2U.to_uint64())
+}
+
+///|
 test "jalr target alignment follows C extension ialign" {
   let program = words_to_bytes([
     wb_encode_i(2, 0, 0x0U, 1, 0x13U), // addi x1, x0, 2
