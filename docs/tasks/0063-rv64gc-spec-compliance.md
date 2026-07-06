@@ -185,7 +185,8 @@ official coverage improve.
   `mstatus.FS=Initial` context clean.
   Integer-result FP instructions such as `FCLASS.S/D`, `FMV.X.W`, and
   `FMV.X.D` still require FS enabled, but they do not dirty an otherwise clean
-  FP context because they only observe FP state. `FSGNJ.S/D` with
+  FP context because they only observe FP state, including signaling-NaN
+  payloads that classify or transfer without `fflags`. `FSGNJ.S/D` with
   signaling-NaN payloads now covers the complementary write path: sign
   injection leaves `fflags` clear, but it still dirties FS because it writes an
   FP register result. `FEQ.S/D` NaN comparisons now have matching coverage for
@@ -960,6 +961,9 @@ official coverage improve.
   require FS to be enabled and can observe signaling-NaN payloads, but because
   they write only integer registers and leave `fflags` unchanged, they keep an
   Initial `mstatus.FS` context clean.
+- The single-precision read-only status case now mirrors that signaling-NaN
+  boundary for `FCLASS.S` and `FMV.X.W`, proving the result class/raw payload
+  moves to integer registers without marking the FP context Dirty.
 - `FMV.W.X` / `FMV.X.W` now have RV64FD transfer-boundary coverage:
   `FMV.W.X` NaN-boxes the raw low word on entry to the 64-bit FP register file,
   while `FMV.X.W` ignores upper FP-register bits and sign-extends only the low

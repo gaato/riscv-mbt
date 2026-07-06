@@ -1775,10 +1775,13 @@ test "rv64f fp status dirtiness follows actual fp state writes" {
 
   let integer_result = make_runner(rv64f_machine_config())
   integer_result.cpu.write_freg(1, exec_test_f32_bits(1.0).to_uint64())
+  integer_result.cpu.write_freg(5, 0x7f800001U.to_uint64())
   integer_result.load_program(
     words_to_bytes([
       encode_fclass_s(1, 2),
       encode_fmv_x_w(1, 3),
+      encode_fclass_s(5, 6),
+      encode_fmv_x_w(5, 7),
       encode_csr(mstatus, 0, 0x2U, 4),
     ]),
     0U,
@@ -1788,7 +1791,7 @@ test "rv64f fp status dirtiness follows actual fp state writes" {
   // context Dirty merely because they observed it.
   expect_fp_status_case(
     integer_result,
-    3,
+    5,
     4,
     fs_initial,
     0U.to_uint64(),
@@ -1797,6 +1800,8 @@ test "rv64f fp status dirtiness follows actual fp state writes" {
   )
   assert_eq(integer_result.read_reg_u64(2), 1U.to_uint64() << 6)
   assert_eq(integer_result.read_reg_u64(3), 0x3f800000U.to_uint64())
+  assert_eq(integer_result.read_reg_u64(6), 1U.to_uint64() << 8)
+  assert_eq(integer_result.read_reg_u64(7), 0x7f800001U.to_uint64())
   assert_eq(integer_result.read_csr_u64(mstatus) & fs_dirty, fs_initial)
 
   let double_integer_result = make_runner(rv64fd_machine_config())
