@@ -475,8 +475,8 @@
   profile: `CSRRW[I]`, nonzero `CSRRS[I]`, and nonzero `CSRRC[I]` retire but
   read back the configured ISA. Read-only
   write-trap coverage samples the exposed read-only machine information set:
-  `mvendorid`, `marchid`, `mimpid`, `mhartid`, `mconfigptr`, plus the read-only
-  `time` counter.
+  `mvendorid`, `marchid`, `mimpid`, `mhartid`, `mconfigptr`, plus the
+  user-visible read-only base counter aliases `cycle`, `time`, and `instret`.
 - LR/SC reservations are now shared across SMP runners as per-hart physical
   byte ranges. Normal stores, successful SC stores, and AMO writes invalidate
   every overlapping reservation, so another hart's store to the same word or to

@@ -948,7 +948,9 @@ official coverage improve.
   suppresses the CSR read. This closes the `CSRRW rd=x0` hole where a lower
   privilege mode could otherwise write a higher-privilege CSR because no read
   was attempted first. The same read-only CSR coverage now spans nonzero-source
-  `CSRRS[I]` and `CSRRC[I]`, while zero-mask variants remain legal pure reads.
+  `CSRRS[I]` and `CSRRC[I]` for both machine-information CSRs and the
+  user-visible base counter aliases `cycle`, `time`, and `instret`, while
+  zero-mask variants remain legal pure reads.
 - Trap-vector CSR writes now normalize `mtvec` and `stvec` at the visible CSR
   boundary. The modeled WARL surface preserves the aligned BASE, stores MODE=1
   for Vectored, maps Direct and reserved MODE values to MODE=0, and keeps

@@ -8084,7 +8084,9 @@ test "writes to read-only csrs trap as illegal instruction" {
      0xF13, // mimpid
      0xF14, // mhartid
      0xF15, // mconfigptr
+     0xC00, // cycle
      0xC01, // time
+     0xC02, // instret
   ]
   for csr in read_only_csrs {
     let raw = encode_csr(csr, 1, 0x1U, 0)
@@ -8114,8 +8116,12 @@ test "nonzero set and clear writes to read-only csrs trap" {
   let mimpid = 0xF13
   let mhartid = 0xF14
   let mconfigptr = 0xF15
+  let cycle = 0xC00
   let time = 0xC01
-  let read_only_csrs = [mvendorid, marchid, mimpid, mhartid, mconfigptr, time]
+  let instret = 0xC02
+  let read_only_csrs = [
+    mvendorid, marchid, mimpid, mhartid, mconfigptr, cycle, time, instret,
+  ]
   for csr in read_only_csrs {
     let raws = [
       encode_csr(csr, 1, 0x2U, 2), // CSRRS with rs1=x1
