@@ -417,10 +417,13 @@ official coverage improve.
   also apply their masks while returning the old visible value, including the
   immediate form's low-five source-mask limit. Writes to `mip` affect only the
   software-writable S-level pending bits; machine-level pending bits are
-  supplied by CLINT/PLIC state. The mask is now profile-aware: no-`S` profiles
-  expose only MSI/MTI/MEI, `mip` writes cannot retain absent S-level pending
-  bits, and PLIC supervisor external state is not ORed into `mip` without an
-  implemented supervisor mode. `mip.SEIP` now keeps the privileged spec's
+  supplied by CLINT/PLIC state. Focused coverage now pins that M-mode writes
+  to `mip` can set the implemented supervisor pending triplet
+  SSIP/STIP/SEIP, and that those bits become visible through `sip` only after
+  matching `mideleg` delegation. The mask is now profile-aware: no-`S`
+  profiles expose only MSI/MTI/MEI, `mip` writes cannot retain absent S-level
+  pending bits, and PLIC supervisor external state is not ORed into `mip`
+  without an implemented supervisor mode. `mip.SEIP` now keeps the privileged spec's
   software/external split: the stored CSR bit is the M-mode software-pending
   bit, visible `mip` and delegated `sip` reads OR in the PLIC supervisor
   external signal, and CSRRS/CSRRC use write bases that cannot copy that
@@ -1112,7 +1115,8 @@ official coverage improve.
 - `sip`/`sie` are now delegated views of `mip`/`mie` instead of unconditional
   aliases for SSI/STI/SEI. Focused regressions cover non-delegated readback,
   delegated `sie` writes, `sie` set/clear forms that affect only delegated
-  enable bits, and `sip` writes that affect only SSIP.
+  enable bits, `sip` writes that affect only SSIP, and M-mode `mip` writes
+  that can set SSIP/STIP/SEIP before delegation exposes them through `sip`.
 - `medeleg`/`mideleg` no longer store arbitrary compatibility bits. Focused
   coverage writes all ones and verifies the supported delegatable exception and
   interrupt bit surfaces are the only values that read back or affect routing.
