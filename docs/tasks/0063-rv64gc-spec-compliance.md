@@ -176,9 +176,10 @@ official coverage improve.
   canonicalize and accrue NV. `mstatus.FS`
   is now part of the execution contract: FP-capable reset profiles start with
   FS enabled, but scalar F/D load/store, arithmetic, classify, and raw transfer
-  instructions trap as illegal when software sets FS=Off. FP register and
-  `fcsr` writes also mark FS Dirty, making the visible `SD` summary track
-  modeled FP state changes. FP loads, arithmetic results, and integer-to-FP
+  instructions trap as illegal when software sets FS=Off. FP register writes
+  and writes through `fflags`, `frm`, or `fcsr` also mark FS Dirty, making the
+  visible `SD` summary track modeled FP state changes. FP loads, arithmetic
+  results, and integer-to-FP
   moves dirty the context because they write FP registers, while FP stores only
   observe FP registers and write memory, so they leave an otherwise clean
   `mstatus.FS=Initial` context clean.
@@ -851,9 +852,10 @@ official coverage improve.
   to raise illegal-instruction traps before touching FP state.
 - FP state writes now dirty `mstatus.FS`. The shared FP register and `fcsr`
   write helpers perform the transition, and regressions confirm FP loads,
-  arithmetic results, integer-to-FP moves, and `fflags` writes move the visible
-  status from FS=Initial to FS=Dirty with `SD` set. FP stores and integer-result
-  FP instructions that only read FP state keep FS=Initial and leave `SD` clear.
+  arithmetic results, integer-to-FP moves, and writes through `fflags`, `frm`,
+  or `fcsr` move the visible status from FS=Initial to FS=Dirty with `SD` set.
+  FP stores and integer-result FP instructions that only read FP state keep
+  FS=Initial and leave `SD` clear.
 - Floating-point CSR access is now FS-gated. Focused regressions cover both
   read forms and write-only `CSRRW rd=x0` forms for `fflags`, `frm`, and
   `fcsr`, preserving Zicsr read suppression while still trapping writes to

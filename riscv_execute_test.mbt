@@ -1717,29 +1717,42 @@ test "rv64f fp register writes mark mstatus fs dirty" {
 test "rv64f fp status dirtiness follows actual fp state writes" {
   let mstatus = 0x300
   let fflags = 0x001
+  let frm = 0x002
+  let fcsr = 0x003
   let fs_initial = 0x2000U.to_uint64()
   let fs_dirty = 0x6000U.to_uint64()
   let sd_bit = 1U.to_uint64() << 63
 
-  let csr_writer = make_runner(rv64f_machine_config())
-  csr_writer.cpu.write_reg(1, 1U.to_uint64())
-  csr_writer.load_program(
-    words_to_bytes([
-      encode_csr(fflags, 1, 0x1U, 0),
-      encode_csr(mstatus, 0, 0x2U, 2),
-    ]),
-    0U,
-  )
-  match csr_writer.run(2) {
-    Running => ()
-    _ => fail("expected fflags write and mstatus read to run")
+  for
+    write_case in [
+      (fflags, 0x01U.to_uint64(), "fflags"),
+      (frm, 0x02U.to_uint64(), "frm"),
+      (fcsr, 0x41U.to_uint64(), "fcsr"),
+    ] {
+    let csr_writer = make_runner(rv64f_machine_config())
+    match write_case {
+      (csr, value, label) => {
+        csr_writer.cpu.write_reg(1, value)
+        csr_writer.load_program(
+          words_to_bytes([
+            encode_csr(csr, 1, 0x1U, 0),
+            encode_csr(mstatus, 0, 0x2U, 2),
+          ]),
+          0U,
+        )
+        match csr_writer.run(2) {
+          Running => ()
+          _ => fail("expected " + label + " write and mstatus read to run")
+        }
+        // FS tracks the whole floating-point context, not just f0-f31. The
+        // privileged spec includes fflags, frm, and fcsr in that state, so
+        // writes through any alias make an Initial context Dirty with SD set.
+        assert_eq(csr_writer.read_reg_u64(2) & fs_dirty, fs_dirty)
+        assert_eq(csr_writer.read_reg_u64(2) & sd_bit, sd_bit)
+        assert_eq(csr_writer.read_csr_u64(mstatus) & fs_dirty, fs_dirty)
+      }
+    }
   }
-  // Writing fflags is a write to the architectural FP state, even though it
-  // does not touch an FP register. It must therefore promote FS from Initial
-  // to Dirty and make the derived SD summary visible.
-  assert_eq(csr_writer.read_reg_u64(2) & fs_dirty, fs_dirty)
-  assert_eq(csr_writer.read_reg_u64(2) & sd_bit, sd_bit)
-  assert_eq(csr_writer.read_csr_u64(mstatus) & fs_dirty, fs_dirty)
 
   let integer_result = make_runner(rv64f_machine_config())
   integer_result.cpu.write_freg(1, exec_test_f32_bits(1.0).to_uint64())

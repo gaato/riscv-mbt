@@ -180,8 +180,9 @@
   word out ignores upper FP-register bits and sign-extends only the low word.
   FP-capable runner profiles now start with `mstatus.FS=Initial`, and scalar
   F/D load/store plus arithmetic execution now traps as illegal when software
-  sets `mstatus.FS=Off`. FP register and `fcsr` writes now mark FS Dirty, so
-  the visible `mstatus.SD` summary follows actual modeled FP state changes.
+  sets `mstatus.FS=Off`. FP register writes and writes through `fflags`, `frm`,
+  or `fcsr` now mark FS Dirty, so the visible `mstatus.SD` summary follows
+  actual modeled FP state changes.
   FP loads, arithmetic results, and integer-to-FP moves dirty the context
   because they write FP registers; FP stores only read FP registers and write
   memory, so they leave an otherwise clean `mstatus.FS=Initial` context clean.
