@@ -680,7 +680,10 @@ test "rv64f flw and fsw preserve raw payload bits" {
 }
 
 ///|
-test "rv64f basic scalar arithmetic executes with host ieee defaults" {
+test "rv64f basic scalar arithmetic executes exact representative results" {
+  // This is a smoke row for the ordinary arithmetic dispatch surface. The
+  // non-RNE, flag, NaN, and subnormal rows below carry the strict corner
+  // coverage; these exact operands keep the common result path easy to read.
   let four = exec_test_f32_bits(4.0)
   let two = exec_test_f32_bits(2.0)
   let program = words_to_bytes([
@@ -3331,7 +3334,10 @@ test "rv64fd double arithmetic accrues inexact flag" {
 }
 
 ///|
-test "rv64fd basic scalar arithmetic executes with host ieee defaults" {
+test "rv64fd basic scalar arithmetic executes exact representative results" {
+  // Mirror the single-precision dispatch smoke with exact binary64 operands.
+  // The surrounding F/D tests handle the cases where host-default arithmetic
+  // would be too weak: directed rounding, signed zero, NaNs, UF/OF/NX, and FMA.
   let four = exec_test_f64_bits(4.0)
   let two = exec_test_f64_bits(2.0)
   let program = words_to_bytes([

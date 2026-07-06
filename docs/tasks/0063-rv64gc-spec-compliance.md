@@ -1181,3 +1181,10 @@ official coverage improve.
 - `misa` is no longer treated as address-encoded read-only. Focused regressions
   cover fixed WARL behavior across `CSRRW[I]`, nonzero `CSRRS[I]`, and nonzero
   `CSRRC[I]`: writes retire and preserve the runner's configured ISA bits.
+- Rechecked the official `riscv-tests` RV64GC source-row gate with
+  `moon test --target native rv32ui_gating_test.mbt`; the manifest gating row,
+  local RV64GC source-row completeness, and duplicate-row checks all still
+  pass. The old scalar F/D smoke-test names that referred to "host IEEE
+  defaults" now describe their actual role as exact representative dispatch
+  checks, while stricter rounding/flag/NaN coverage remains in the dedicated
+  surrounding rows.
