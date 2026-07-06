@@ -2,11 +2,15 @@
 // deliberately not exposed as public constructors.
 
 ///|
-fn wb_rv64_without_c_machine_config() -> MachineConfig {
+fn wb_rv64_profile_machine_config(extensions : UInt64) -> MachineConfig {
   let config = rv64_machine_config()
+  // Profile white-box tests intentionally request non-public ISA combinations.
+  // Keep the platform fields identical to the ordinary RV64 config so each
+  // test isolates extension legality rather than changing memory or device
+  // layout at the same time.
   {
     xlen: config.xlen,
-    extensions: config.extensions & bit_not(MISA_EXT_C),
+    extensions,
     ram_base: config.ram_base,
     ram_size: config.ram_size,
     entry_point: config.entry_point,
@@ -17,78 +21,38 @@ fn wb_rv64_without_c_machine_config() -> MachineConfig {
     virtio_blk_base: config.virtio_blk_base,
     dtb_addr: config.dtb_addr,
   }
+}
+
+///|
+fn wb_rv64_without_c_machine_config() -> MachineConfig {
+  let config = rv64_machine_config()
+  wb_rv64_profile_machine_config(config.extensions & bit_not(MISA_EXT_C))
 }
 
 ///|
 fn wb_rv64_without_m_machine_config() -> MachineConfig {
   let config = rv64_machine_config()
-  {
-    xlen: config.xlen,
-    extensions: config.extensions & bit_not(MISA_EXT_M),
-    ram_base: config.ram_base,
-    ram_size: config.ram_size,
-    entry_point: config.entry_point,
-    hart_id: config.hart_id,
-    uart0_base: config.uart0_base,
-    clint_base: config.clint_base,
-    plic_base: config.plic_base,
-    virtio_blk_base: config.virtio_blk_base,
-    dtb_addr: config.dtb_addr,
-  }
+  wb_rv64_profile_machine_config(config.extensions & bit_not(MISA_EXT_M))
 }
 
 ///|
 fn wb_rv64_without_s_machine_config() -> MachineConfig {
   let config = rv64_machine_config()
-  {
-    xlen: config.xlen,
-    extensions: config.extensions & bit_not(MISA_EXT_S),
-    ram_base: config.ram_base,
-    ram_size: config.ram_size,
-    entry_point: config.entry_point,
-    hart_id: config.hart_id,
-    uart0_base: config.uart0_base,
-    clint_base: config.clint_base,
-    plic_base: config.plic_base,
-    virtio_blk_base: config.virtio_blk_base,
-    dtb_addr: config.dtb_addr,
-  }
+  wb_rv64_profile_machine_config(config.extensions & bit_not(MISA_EXT_S))
 }
 
 ///|
 fn wb_rv64_without_u_machine_config() -> MachineConfig {
   let config = rv64_machine_config()
-  {
-    xlen: config.xlen,
-    extensions: config.extensions & bit_not(MISA_EXT_U),
-    ram_base: config.ram_base,
-    ram_size: config.ram_size,
-    entry_point: config.entry_point,
-    hart_id: config.hart_id,
-    uart0_base: config.uart0_base,
-    clint_base: config.clint_base,
-    plic_base: config.plic_base,
-    virtio_blk_base: config.virtio_blk_base,
-    dtb_addr: config.dtb_addr,
-  }
+  wb_rv64_profile_machine_config(config.extensions & bit_not(MISA_EXT_U))
 }
 
 ///|
 fn wb_rv64_d_only_requested_machine_config() -> MachineConfig {
   let config = rv64_machine_config()
-  {
-    xlen: config.xlen,
-    extensions: (config.extensions & bit_not(MISA_EXT_F)) | MISA_EXT_D,
-    ram_base: config.ram_base,
-    ram_size: config.ram_size,
-    entry_point: config.entry_point,
-    hart_id: config.hart_id,
-    uart0_base: config.uart0_base,
-    clint_base: config.clint_base,
-    plic_base: config.plic_base,
-    virtio_blk_base: config.virtio_blk_base,
-    dtb_addr: config.dtb_addr,
-  }
+  wb_rv64_profile_machine_config(
+    (config.extensions & bit_not(MISA_EXT_F)) | MISA_EXT_D,
+  )
 }
 
 ///|
