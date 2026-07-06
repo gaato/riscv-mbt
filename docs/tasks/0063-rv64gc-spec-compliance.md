@@ -1150,7 +1150,9 @@ official coverage improve.
   reading `B||E` while writing back only `B||source`. The same regression
   surface now covers the delegated `sip` alias, proving a supervisor CSRRS read
   can observe external `SEIP` without making that external signal sticky after
-  the device source clears.
+  the device source clears. The CSR RMW helper now explicitly derives `sip`
+  write candidates from delegated stored `mip` bits, matching the machine
+  `mip` split instead of relying only on the final writable-bit mask.
 - `MRET` and `SRET` now apply the privileged-spec `MPRV` return rule: when the
   return target is below M-mode, `mstatus.MPRV` is cleared so later data
   accesses cannot continue using the old MPP override. Focused regressions cover

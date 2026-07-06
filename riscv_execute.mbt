@@ -1248,6 +1248,13 @@ fn Runner::csr_rmw_write_base(
     // updates only the software bit B. Use the stored CSR value as the write
     // base so E is never copied into B.
     legalize_mip_csr(self.cpu.read_csr(CSR_MIP), self.config.extensions)
+  } else if csr == CSR_SIP {
+    // sip.SEIP can also expose the external PLIC signal once SEI is delegated.
+    // Derive supervisor RMW candidates from the delegated stored mip bits so
+    // the later sip write mask does not have to be the only protection against
+    // making that external signal sticky.
+    legalize_mip_csr(self.cpu.read_csr(CSR_MIP), self.config.extensions) &
+    self.delegated_s_interrupt_mask()
   } else if csr == CSR_SSTATUS {
     // sstatus is a filtered view of mstatus. Its visible read includes fixed
     // WARL fields such as UXL, so derive RMW candidates from stored mstatus
