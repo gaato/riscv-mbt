@@ -630,8 +630,11 @@
   the previous reservation, so SC cannot pair with an older LR in program
   order. The reservation-set model is documented as the exact physical byte
   range loaded by the most recent LR, and mixed-width SC attempts at the same
-  address are covered as deterministic failures under that model. The xRET
-  policy is explicit and covered for both `MRET` and `SRET`:
+  address are covered as deterministic failures under that model. The
+  complementary SMP non-overlap case is covered too: another hart's store just
+  after an `LR.D` reservation does not clear that reservation, so the following
+  `SC.D` can still succeed. The xRET policy is explicit and covered for both
+  `MRET` and `SRET`:
   trap returns do not implicitly clear live reservations, which is permitted by
   the privileged spec. Compressed integer instructions between `LR.W` and
   `SC.W` are now

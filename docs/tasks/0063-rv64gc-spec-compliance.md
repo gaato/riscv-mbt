@@ -253,7 +253,10 @@ official coverage improve.
   an older LR in program order. The reservation-set model is documented as the
   exact physical byte range loaded by the most recent LR, and mixed-width SC
   attempts at the same address now have focused regression coverage for
-  deterministic failure.
+  deterministic failure. The same model now has the complementary
+  non-overlap coverage: another hart's store immediately after an `LR.D`
+  reservation leaves the reservation live and the later `SC.D` can still
+  succeed.
   The xRET policy is also explicit: `MRET`/`SRET` do not clear live
   reservations, which is permitted by the privileged spec, and `MRET`
   preserving a live LR reservation for a following SC is covered. The A/C
@@ -665,7 +668,10 @@ official coverage improve.
   and the committed store-conditional value.
 - A-extension reservation-set coverage now documents the interpreter's exact
   physical byte-range reservation model and pins mixed-width SC attempts at the
-  same address as deterministic failures under that model.
+  same address as deterministic failures under that model. A complementary
+  SMP regression now pins that a store from another hart just outside an
+  `LR.D` byte range does not over-invalidate the reservation, so the following
+  `SC.D` can still succeed.
 - A-extension reservation invalidation coverage now also treats AMO.W and
   AMO.D operations from another hart as reservation-breaking stores, not only
   plain integer stores and device writes. The same path now uses aq+rl ordered
