@@ -197,6 +197,12 @@
   regression also pins those floating-point CSR addresses as absent even when
   an integer S-mode profile keeps `mstatus.FS` writable for context-status
   bookkeeping.
+- Optional standard CSR allocations outside RV64GC are now sampled as absent
+  across the full Zicsr form family. The covered boundary includes Zicfiss
+  `ssp`, entropy `seed`, Zcmt `jvt`, state-enable CSRs, indirect CSR access
+  CSRs, `scontext`, supervisor resource-management/CTR CSRs, and
+  `mseccfg`/`mseccfgh`, keeping them distinct from the deliberately modeled
+  WARL-zero compatibility CSRs.
 - RV64 `mstatus.SXL`/`mstatus.UXL` and `sstatus.UXL` are now visible as fixed
   64-bit lower-privilege XLEN fields. Replacement writes and register-source
   set/clear candidates that try to clear or change them are normalized back to

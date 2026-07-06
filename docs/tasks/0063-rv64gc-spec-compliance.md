@@ -450,6 +450,12 @@ official coverage improve.
   covered separately as absent optional-extension CSRs across the full Zicsr
   form family, so the WARL-zero environment bit cannot be mistaken for an
   implemented supervisor timer-compare register.
+  Optional allocated CSR blocks outside RV64GC are now sampled the same way:
+  Zicfiss `ssp`, entropy `seed`, Zcmt `jvt`, `Smstateen`/`Ssstateen`, the
+  `Smcsrind`/`Sscsrind` indirect CSR register files, `scontext`, supervisor
+  resource-management/CTR CSRs, and `Smepmp` `mseccfg`/`mseccfgh` all trap
+  across the full Zicsr form family instead of appearing as generic CSR
+  storage before their extension semantics exist.
   `pmpcfg0` and `pmpaddr0` now read as zero because PMP access enforcement is
   not implemented. The OpenSBI smoke still boots and reports `PMP Count: 0`,
   avoiding the old mismatch where firmware could configure protection rules the

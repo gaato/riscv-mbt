@@ -9426,6 +9426,46 @@ test "sstc supervisor timer compare csrs trap when extension is absent" {
 }
 
 ///|
+test "optional unprivileged extension csrs trap when extensions are absent" {
+  // These CSRs have standard allocations, but none belong to the RV64GC
+  // baseline. Keeping them absent prevents the generic CSR address decoder from
+  // accidentally accepting optional feature state before the feature semantics
+  // exist.
+  expect_absent_csr_form_family_traps(0x011, "Zicfiss ssp")
+  expect_absent_csr_form_family_traps(0x015, "entropy seed")
+  expect_absent_csr_form_family_traps(0x017, "Zcmt jvt")
+}
+
+///|
+test "optional privileged extension csrs trap when extensions are absent" {
+  // Sample allocated optional privileged CSR blocks outside RV64GC. These are
+  // deliberately not WARL-zero compatibility registers: without the matching
+  // extension, software must observe an illegal-instruction trap for every
+  // Zicsr form that still performs either the read side or the write side.
+  for
+    stateen_csr in [
+      0x10C, 0x10D, 0x10E, 0x10F, 0x30C, 0x30D, 0x30E, 0x30F, 0x31C, 0x31D, 0x31E,
+      0x31F,
+    ] {
+    expect_absent_csr_form_family_traps(stateen_csr, "state-enable CSR")
+  }
+  for
+    indirect_csr in [
+      0x150, 0x151, 0x152, 0x153, 0x155, 0x156, 0x157, 0x350, 0x351, 0x352, 0x353,
+      0x355, 0x356, 0x357,
+    ] {
+    expect_absent_csr_form_family_traps(indirect_csr, "indirect CSR access CSR")
+  }
+  expect_absent_csr_form_family_traps(0x5A8, "scontext")
+  expect_absent_csr_form_family_traps(0x181, "srmcfg")
+  expect_absent_csr_form_family_traps(0x14E, "sctrctl")
+  expect_absent_csr_form_family_traps(0x14F, "sctrstatus")
+  expect_absent_csr_form_family_traps(0x15F, "sctrdepth")
+  expect_absent_csr_form_family_traps(0x747, "mseccfg")
+  expect_absent_csr_form_family_traps(0x757, "mseccfgh")
+}
+
+///|
 test "trigger module csrs trap when debug triggers are absent" {
   // The standard trigger CSR block starts at tselect=0x7A0. This emulator does
   // not implement a Trigger Module or Debug Mode, so these addresses must stay
