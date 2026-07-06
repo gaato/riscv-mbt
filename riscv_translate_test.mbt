@@ -383,6 +383,27 @@ test "sv39 translate sets D bit on store when it is clear" {
 }
 
 ///|
+test "sv39 translate sets A and D bits together on a cold store" {
+  let bus = Bus::new(0U.to_uint64(), 0x10000)
+  // Hardware-managed PTE state must treat a store as both an access and a
+  // write. A cold writable leaf therefore gains A and D in one translation
+  // instead of setting only D and leaving the next load to repair A.
+  let satp = test_setup_identity_map(
+    bus,
+    test_pte_v | test_pte_r | test_pte_w | test_pte_x,
+  )
+  match
+    sv39_translate(bus, satp, 0U.to_uint64(), Store, Supervisor, false, false) {
+    TranslatedAddr(_) => ()
+    TranslateFault(_) =>
+      fail("expected store translation to update A and D bits")
+  }
+  let pte = bus.load_u64(0x3000U.to_uint64())
+  assert_eq(pte & test_pte_a, test_pte_a)
+  assert_eq(pte & test_pte_d, test_pte_d)
+}
+
+///|
 test "sv39 translate succeeds for load when D bit is clear" {
   let bus = Bus::new(0U.to_uint64(), 0x10000)
   // Has A but not D — loads should still work

@@ -487,6 +487,8 @@
   rejects those bits instead of silently ignoring them.
 - Sv39 non-leaf PTEs now reject reserved D/A/U bits before descending to the
   next page-table level. Those bits remain leaf-only state in this baseline.
+- Sv39 hardware-managed leaf A/D coverage now includes the cold-store case:
+  a store through a writable leaf with both bits clear sets A and D together.
 - Return-instruction legality is now enforced for the modeled privileged
   surface: `MRET` traps outside M-mode, `SRET` traps from U-mode, and S-mode
   `SRET` traps when `mstatus.TSR` is set. `SRET` status restoration now also
