@@ -869,9 +869,12 @@ official coverage improve.
   Multiplicand NaN regressions now separately pin that quiet NaNs are
   flag-clean while signaling NaNs accrue NV. S/D arithmetic now also has a
   direct sticky-flag regression proving that NX, UF, OF, DZ, and NV accumulate
-  across separate FP instructions until a software `fcsr` write clears them. Deeper
-  NaN payload behavior and broader flag corner cases remain open beyond the
-  locally available official `riscv-tests` rows that are already gated.
+  across separate FP instructions until a software `fcsr` write clears them.
+  Arithmetic NaN results intentionally use the RISC-V canonical-NaN default;
+  payload preservation is covered only for non-arithmetic bit-transfer paths
+  such as sign injection and raw moves. Broader flag corner cases remain open
+  beyond the locally available official `riscv-tests` rows that are already
+  gated.
 - `FADD.S`, `FSUB.S`, and `FMUL.S` now round their exact single-precision
   operand results through the emulator-side exact-rational helper. Legal
   static non-RNE modes are accepted where they change the result, reserved

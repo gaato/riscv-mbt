@@ -136,9 +136,12 @@
   divide results are now also pinned as flag-clean, complementing the existing
   tiny-inexact UF|NX checks at the tininess-after-rounding boundary. This is
   emulator-body hardening for the
-  ordinary C floating-point paths that Alpine userspace can exercise; deeper
-  NaN payload/flag behavior remains later strict spec-compliance work beyond
-  the current locally available official `riscv-tests` rows. Exact widening
+  ordinary C floating-point paths that Alpine userspace can exercise. The
+  ordinary arithmetic NaN-result policy is the RISC-V canonical-NaN default
+  rather than a payload-propagation target; bit-preserving operations such as
+  sign injection and raw moves are covered separately. Broader flag corner
+  cases remain later strict spec-compliance work beyond the current locally
+  available official `riscv-tests` rows. Exact widening
   `FCVT.D.S` and exact
   RV32-width-to-double `FCVT.D.W[U]` now validate the otherwise unaffected `rm`
   field for legal/reserved static and dynamic encodings, so legal non-RNE forms
