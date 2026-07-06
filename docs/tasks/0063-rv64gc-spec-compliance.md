@@ -185,10 +185,12 @@ official coverage improve.
   `mstatus.FS=Initial` context clean.
   Integer-result FP instructions such as `FCLASS.S`
   and `FMV.X.W` still require FS enabled, but they do not dirty an otherwise
-  clean FP context because they only observe FP state. `FEQ.S/D` NaN
-  comparisons now have matching coverage for both halves of the
-  quiet-comparison rule: quiet NaNs leave FS clean because they do not update
-  `fflags`, while signaling NaNs dirty FS by accruing NV. Integer-result
+  clean FP context because they only observe FP state. `FSGNJ.S/D` with
+  signaling-NaN payloads now covers the complementary write path: sign
+  injection leaves `fflags` clear, but it still dirties FS because it writes an
+  FP register result. `FEQ.S/D` NaN comparisons now have matching coverage for
+  both halves of the quiet-comparison rule: quiet NaNs leave FS clean because
+  they do not update `fflags`, while signaling NaNs dirty FS by accruing NV. Integer-result
   conversions that update `fflags` now dirty FS through the `fcsr` side effect.
   Ordered NaN comparisons now have matching coverage for the integer-result
   NV-flag path.
@@ -951,6 +953,9 @@ official coverage improve.
   signaling NaN payload bits are preserved, and signaling NaN operands do not
   accrue `fflags`. This keeps the sign-injection "do not canonicalize NaNs"
   rule separate from the D-present malformed NaN-box input rule.
+- `FSGNJ.S/D` now also has focused FP status coverage: signaling-NaN payloads
+  remain flag-clean, but the FP register destination still makes an Initial
+  `mstatus.FS` context Dirty and sets the visible `SD` summary bit.
 - `FMV.W.X` / `FMV.X.W` now have RV64FD transfer-boundary coverage:
   `FMV.W.X` NaN-boxes the raw low word on entry to the 64-bit FP register file,
   while `FMV.X.W` ignores upper FP-register bits and sign-extends only the low

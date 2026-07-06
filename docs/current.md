@@ -188,7 +188,10 @@
   memory, so they leave an otherwise clean `mstatus.FS=Initial` context clean.
   Integer-result FP instructions such as `FCLASS.S` and `FMV.X.W` still require
   FS enabled, but they do not dirty an otherwise clean FP context because they
-  only observe FP state. `FEQ.S/D` NaN comparisons now have matching coverage
+  only observe FP state. `FSGNJ.S/D` with signaling-NaN payloads now covers the
+  complementary write path: sign injection leaves `fflags` clear, but it still
+  dirties FS because it writes an FP register result. `FEQ.S/D` NaN
+  comparisons now have matching coverage
   for both halves of the quiet-comparison rule: quiet NaNs leave FS clean
   because they do not update `fflags`, while signaling NaNs dirty FS by
   accruing NV.

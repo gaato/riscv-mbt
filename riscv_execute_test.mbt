@@ -1940,6 +1940,48 @@ test "rv64f fp status dirtiness follows actual fp state writes" {
     "ordered double NaN comparison",
   )
   assert_eq(double_comparison_flag_writer.read_reg_u64(4), 0U.to_uint64())
+
+  let sign_injection_writer = make_runner(rv64fd_machine_config())
+  sign_injection_writer.cpu.write_freg(1, exec_test_nan_box_single(0x7fa12345U))
+  sign_injection_writer.cpu.write_freg(2, exec_test_nan_box_single(0U))
+  sign_injection_writer.load_program(
+    words_to_bytes([encode_fsgnj_s(1, 2, 7), encode_csr(mstatus, 0, 0x2U, 8)]),
+    0U,
+  )
+  // Sign injection is a pure bit-pattern operation: even a signaling-NaN
+  // payload is copied without canonicalization or fflags. It still writes an
+  // FP destination register, so FS must become Dirty through register state.
+  expect_fp_status_case(
+    sign_injection_writer,
+    2,
+    8,
+    fs_dirty,
+    sd_bit,
+    0U.to_uint64(),
+    "single sign injection",
+  )
+  assert_eq(
+    sign_injection_writer.read_freg_u64(7),
+    exec_test_nan_box_single(0x7fa12345U),
+  )
+
+  let double_sign_injection_writer = make_runner(rv64fd_machine_config())
+  double_sign_injection_writer.cpu.write_freg(1, 0x7ff0000000012345UL)
+  double_sign_injection_writer.cpu.write_freg(2, exec_test_f64_bits(1.0))
+  double_sign_injection_writer.load_program(
+    words_to_bytes([encode_fsgnj_d(1, 2, 7), encode_csr(mstatus, 0, 0x2U, 8)]),
+    0U,
+  )
+  expect_fp_status_case(
+    double_sign_injection_writer,
+    2,
+    8,
+    fs_dirty,
+    sd_bit,
+    0U.to_uint64(),
+    "double sign injection",
+  )
+  assert_eq(double_sign_injection_writer.read_freg_u64(7), 0x7ff0000000012345UL)
 }
 
 ///|
