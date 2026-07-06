@@ -440,7 +440,10 @@
   access traps when `mstatus.TVM` is set, while M-mode remains allowed.
 - `satp` writes with unsupported MODE values now follow the privileged WARL
   rule that the whole write has no effect; the previous address-space selector
-  is preserved instead of being cleared to Bare.
+  is preserved instead of being cleared to Bare. Register-source set/clear
+  forms now have focused coverage for the same whole-selector WARL rule:
+  `CSRRS` cannot partially install unsupported Sv48, and `CSRRC` canonicalizes
+  a derived Bare selector with reserved fields back to zero.
 - FENCE reserved-field behavior is now pinned by decode and execute coverage:
   `FENCE.TSO` and future-reserved `fm`/pred/succ combinations retire as
   conservative base fences, and FENCE.I ignores its unused imm/rs1/rd fields

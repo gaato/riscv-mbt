@@ -5357,6 +5357,44 @@ test "satp write with unsupported mode preserves previous value" {
 }
 
 ///|
+test "satp set and clear forms use whole csr warl behavior" {
+  let runner = make_runner(rv64_machine_config())
+  let csr_satp = 0x180
+  let initial = exec_test_sv39_satp(0x123U.to_uint64())
+  let set_sv48_mode_bit = 1U.to_uint64() << 60
+  let clear_sv39_mode_bit = 8U.to_uint64() << 60
+  runner.cpu.write_csr(csr_satp, initial)
+  runner.cpu.write_reg(1, set_sv48_mode_bit)
+  runner.cpu.write_reg(2, clear_sv39_mode_bit)
+  runner.load_program(
+    words_to_bytes([
+      encode_csr(csr_satp, 1, 0x2U, 3),
+      encode_csr(csr_satp, 0, 0x2U, 4),
+      encode_csr(csr_satp, 2, 0x3U, 5),
+      encode_csr(csr_satp, 0, 0x2U, 6),
+    ]),
+    0U,
+  )
+  match runner.run(4) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected satp RMW WARL writes to retire, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  // `satp` WARL filtering applies to the whole address-space selector produced
+  // by CSRRS/CSRRC, not just to CSRRW inputs. Setting mode bit 60 would turn
+  // Sv39 into unsupported Sv48 and must preserve the old value; clearing the
+  // Sv39 mode bit produces Bare with reserved ASID/PPN fields and canonicalizes
+  // to the supported Bare value zero.
+  assert_eq(runner.read_reg_u64(3), initial)
+  assert_eq(runner.read_reg_u64(4), initial)
+  assert_eq(runner.read_reg_u64(5), initial)
+  assert_eq(runner.read_reg_u64(6), 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(csr_satp), 0U.to_uint64())
+}
+
+///|
 test "satp bare mode write canonicalizes reserved fields" {
   let runner = make_runner(rv64_machine_config())
   let csr_satp = 0x180

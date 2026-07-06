@@ -1044,7 +1044,10 @@ official coverage improve.
 - Unsupported `satp.MODE` writes are now ignored as a whole write. The focused
   RV64 regression seeds a valid Sv39 `satp`, attempts to write unsupported
   Sv48 MODE on the current Sv39-only implementation, and verifies the old value
-  is still visible.
+  is still visible. Register-source set/clear forms now have matching
+  whole-CSR WARL coverage: `CSRRS` cannot partially install unsupported Sv48,
+  and `CSRRC` canonicalizes a derived Bare selector with reserved fields back
+  to zero.
 - RV64 Bare-mode `satp` writes now normalize the remaining fields to zero.
   This gives the emulator a deterministic WARL choice for the spec's reserved
   Bare encodings instead of leaking nonzero ASID/PPN fields into readback.
