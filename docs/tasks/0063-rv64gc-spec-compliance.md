@@ -780,6 +780,10 @@ official coverage improve.
 - Scalar `FMUL.S/D` now has matching underflow flag coverage: minimum-normal
   operands multiplied by the nearest encoded one-third round to subnormal
   products and accrue both UF and NX under tininess-after-rounding.
+- Exact subnormal scalar S/D multiply and divide results are now covered as the
+  opposite underflow boundary: minimum-normal operands multiplied by one-half
+  or divided by two round exactly to subnormal results, so neither UF nor NX is
+  accrued.
 - The fused multiply-add family now has matching underflow flag coverage with
   an exact +0 addend: the tests isolate the fused single-rounding path while
   requiring the same subnormal tiny-product UF and NX sticky flags for
