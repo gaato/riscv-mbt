@@ -81,6 +81,17 @@ test "decode AMO accepts aqrl bits and rejects reserved encodings" {
       _ => fail("expected amoadd.w with preserved aq/rl order bits")
     }
     match
+      decode(encode_r((0x00U << 2) | expected_order, 2, 1, 0x3U, 3, 0x2fU)) {
+      AmoD(funct5, order, rd, rs1, rs2) => {
+        assert_eq(funct5, 0x00U)
+        assert_eq(order, expected_order)
+        assert_eq(rd, 3)
+        assert_eq(rs1, 1)
+        assert_eq(rs2, 2)
+      }
+      _ => fail("expected amoadd.d with preserved aq/rl order bits")
+    }
+    match
       decode(encode_r((0x02U << 2) | expected_order, 0, 1, 0x2U, 3, 0x2fU)) {
       AmoW(funct5, order, rd, rs1, rs2) => {
         assert_eq(funct5, 0x02U)
@@ -90,6 +101,17 @@ test "decode AMO accepts aqrl bits and rejects reserved encodings" {
         assert_eq(rs2, 0)
       }
       _ => fail("expected LR.W with preserved aq/rl order bits")
+    }
+    match
+      decode(encode_r((0x02U << 2) | expected_order, 0, 1, 0x3U, 3, 0x2fU)) {
+      AmoD(funct5, order, rd, rs1, rs2) => {
+        assert_eq(funct5, 0x02U)
+        assert_eq(order, expected_order)
+        assert_eq(rd, 3)
+        assert_eq(rs1, 1)
+        assert_eq(rs2, 0)
+      }
+      _ => fail("expected LR.D with preserved aq/rl order bits")
     }
     match
       decode(encode_r((0x03U << 2) | expected_order, 2, 1, 0x2U, 3, 0x2fU)) {
@@ -102,14 +124,33 @@ test "decode AMO accepts aqrl bits and rejects reserved encodings" {
       }
       _ => fail("expected SC.W with preserved aq/rl order bits")
     }
+    match
+      decode(encode_r((0x03U << 2) | expected_order, 2, 1, 0x3U, 3, 0x2fU)) {
+      AmoD(funct5, order, rd, rs1, rs2) => {
+        assert_eq(funct5, 0x03U)
+        assert_eq(order, expected_order)
+        assert_eq(rd, 3)
+        assert_eq(rs1, 1)
+        assert_eq(rs2, 2)
+      }
+      _ => fail("expected SC.D with preserved aq/rl order bits")
+    }
   }
   match decode(encode_r(0x05U << 2, 2, 1, 0x2U, 3, 0x2fU)) {
     Unknown(_) => ()
-    _ => fail("expected reserved AMO funct5 to decode as unknown")
+    _ => fail("expected reserved AMO.W funct5 to decode as unknown")
+  }
+  match decode(encode_r(0x05U << 2, 2, 1, 0x3U, 3, 0x2fU)) {
+    Unknown(_) => ()
+    _ => fail("expected reserved AMO.D funct5 to decode as unknown")
   }
   match decode(encode_r(0x02U << 2, 2, 1, 0x2U, 3, 0x2fU)) {
     Unknown(_) => ()
     _ => fail("expected LR.W with nonzero rs2 to decode as unknown")
+  }
+  match decode(encode_r(0x02U << 2, 2, 1, 0x3U, 3, 0x2fU)) {
+    Unknown(_) => ()
+    _ => fail("expected LR.D with nonzero rs2 to decode as unknown")
   }
 }
 
