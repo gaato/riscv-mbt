@@ -920,6 +920,16 @@ test "rv64c addi4spn decodes high unsigned stack offset" {
 }
 
 ///|
+test "rv64c quadrant zero funct3 100 remains reserved" {
+  // Quadrant-0 funct3=100 is C.FLW only for RV32FC. RV64C/RV64DC use separate
+  // C.FLD/C.FSD and integer C.LD/C.SD slots, so keep this code point illegal
+  // even when the F/D extensions are otherwise enabled.
+  let reserved_q0_funct3_100 = 0x8000U
+  expect_compressed_illegal(rv64_machine_config(), reserved_q0_funct3_100)
+  expect_compressed_illegal(rv64fd_machine_config(), reserved_q0_funct3_100)
+}
+
+///|
 test "all-ones compressed sentinel traps as a 16-bit illegal instruction" {
   expect_compressed_illegal(rv64_machine_config(), 0xffffU)
 }

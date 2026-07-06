@@ -254,6 +254,9 @@ official coverage improve.
   CIW immediate path, in addition to the zero-immediate reserved case.
   Register-based `C.LW`/`C.SW` now have high zero-extended offset coverage for
   the scattered CL/CS memory immediate path.
+  Quadrant-0 `funct3=100` is now pinned as reserved under RV64C and RV64DC,
+  preserving `C.FLW` as an RV32FC-only compressed memory slot instead of
+  accidentally accepting it as a legal RV64 compressed alias.
   Stack-pointer `C.LWSP`/`C.SWSP` and `C.LDSP`/`C.SDSP` now have high
   zero-extended offset coverage for the separate CI/CSS memory layouts.
   `C.ADDI16SP` now also has coverage for the lower `-512` edge, a negative
@@ -937,6 +940,8 @@ official coverage improve.
 - RV64C `C.LW`/`C.SW` coverage now pins the high unsigned `uimm=124`
   register-based memory offset through the scattered CL/CS decoder while
   preserving the ordinary RV64 `LW` sign-extension result.
+- RV64C/RV64DC coverage now keeps quadrant-0 `funct3=100` reserved, matching
+  the spec split where that slot is `C.FLW` only for RV32FC.
 - RV64C stack-pointer memory coverage now pins the high unsigned
   `C.LWSP`/`C.SWSP` `uimm=252` path and the high unsigned
   `C.LDSP`/`C.SDSP` `uimm=504` path through the separate CI/CSS layouts.
