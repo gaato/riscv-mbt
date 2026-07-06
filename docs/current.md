@@ -211,6 +211,8 @@
   The modeled delegatable exception surface is `0xb3fe`, including
   load/store/AMO address-misaligned causes, and delegated interrupts are
   limited to SSI/STI/SEI (`0x222`); machine-only causes remain read-only zero.
+  Nonzero set/clear CSR forms now also apply the same delegation masks, with
+  immediate forms naturally limited to the low five source-mask bits.
 - `mcounteren` and `scounteren` now expose only CY/TM/IR (`0x7`) as writable
   WARL bits. HPM counter-enable bits read back as zero because the matching
   `hpmcounter` CSRs are not implemented in the current RV64GC profile. Nonzero
@@ -241,7 +243,9 @@
   ad hoc executor checks.
 - `mie` now exposes only the modeled standard interrupt-enable bits
   MSI/MTI/MEI and SSI/STI/SEI (`0xaaa`), while `mip` readback is masked to the
-  same implemented pending-bit surface. CSR writes to `mip` affect only the
+  same implemented pending-bit surface. Nonzero `mie` set/clear forms now also
+  apply the same interrupt-enable mask, with immediate forms limited to their
+  low-five source mask. CSR writes to `mip` affect only the
   software-writable S-level pending bits; machine-level pending bits come from
   CLINT/PLIC state. No-`S` profiles now reduce that surface to machine
   MSI/MTI/MEI only, so writes cannot synthesize absent supervisor pending or

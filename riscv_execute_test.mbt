@@ -6970,6 +6970,11 @@ test "mie exposes only modeled interrupt enable bits" {
 }
 
 ///|
+test "mie masks unsupported interrupt enables across set and clear forms" {
+  expect_masked_csr_set_clear_forms(0x304, 0xaaaU.to_uint64(), "mie")
+}
+
+///|
 test "csr contract distinguishes modeled, compatibility-only, and unsupported csrs" {
   let program = words_to_bytes([
     encode_i(5, 0, 0x0U, 1, 0x13U),
@@ -7020,6 +7025,12 @@ test "delegation csrs expose only supported writable bits" {
   assert_eq(runner.read_reg_u64(3), 0x222U.to_uint64())
   assert_eq(runner.read_csr_u64(medeleg), 0xb3feU.to_uint64())
   assert_eq(runner.read_csr_u64(mideleg), 0x222U.to_uint64())
+}
+
+///|
+test "delegation csrs mask unsupported causes across set and clear forms" {
+  expect_masked_csr_set_clear_forms(0x302, 0xb3feU.to_uint64(), "medeleg")
+  expect_masked_csr_set_clear_forms(0x303, 0x222U.to_uint64(), "mideleg")
 }
 
 ///|
@@ -7274,11 +7285,14 @@ fn expect_masked_csr_set_clear_forms(
   writable_mask : UInt64,
   label : String,
 ) -> Unit raise {
+  let immediate_mask = writable_mask & 0x1fU.to_uint64()
   let program = words_to_bytes([
     encode_i(-1, 0, 0x0U, 1, 0x13U),
     // Masked WARL CSRs still use ordinary Zicsr read-modify-write flow. The
     // old visible value is returned to rd, while unsupported bits disappear at
-    // the write boundary for both register-source and immediate set/clear.
+    // the write boundary. Immediate forms can only request the low five bits,
+    // so their expected visible write is the implemented mask intersected with
+    // that immediate field.
     encode_csr(csr, 1, 0x2U, 2),
     encode_csr(csr, 0, 0x2U, 3),
     encode_csr(csr, 1, 0x3U, 4),
@@ -7299,8 +7313,8 @@ fn expect_masked_csr_set_clear_forms(
   assert_eq(runner.read_reg_u64(4), writable_mask)
   assert_eq(runner.read_reg_u64(5), 0U.to_uint64())
   assert_eq(runner.read_reg_u64(6), 0U.to_uint64())
-  assert_eq(runner.read_reg_u64(7), writable_mask)
-  assert_eq(runner.read_reg_u64(8), writable_mask)
+  assert_eq(runner.read_reg_u64(7), immediate_mask)
+  assert_eq(runner.read_reg_u64(8), immediate_mask)
   assert_eq(runner.read_reg_u64(9), 0U.to_uint64())
   assert_eq(runner.read_csr_u64(csr), 0U.to_uint64())
 }

@@ -332,7 +332,9 @@ official coverage improve.
   trap-routing paths. `medeleg` exposes the modeled delegatable exception
   causes (`0xb3fe`), including the modeled load/store/AMO
   address-misaligned causes, while `mideleg` exposes only SSI/STI/SEI
-  (`0x222`).
+  (`0x222`). Nonzero set/clear CSR forms now also apply those masks while
+  returning the old visible value; immediate forms are covered as the
+  implemented mask intersected with the architectural low-five immediate field.
   `mcounteren` and `scounteren` now expose only the implemented base counter
   enables CY/TM/IR (`0x7`); HPM counter enables are read-only zero because the
   corresponding counter CSRs are absent. Nonzero `CSRRS/CSRRC` and immediate
@@ -365,7 +367,9 @@ official coverage improve.
   nonzero set/clear forms plus the first/last HPM high-half aliases.
   `mie` now exposes only the modeled standard interrupt-enable bits
   MSI/MTI/MEI and SSI/STI/SEI (`0xaaa`), while `mip` readback is masked to the
-  same implemented pending-bit surface. Writes to `mip` affect only the
+  same implemented pending-bit surface. Nonzero `mie` set/clear forms now also
+  apply that mask while returning the old visible value, including the immediate
+  form's low-five source-mask limit. Writes to `mip` affect only the
   software-writable S-level pending bits; machine-level pending bits are
   supplied by CLINT/PLIC state. The mask is now profile-aware: no-`S` profiles
   expose only MSI/MTI/MEI, `mip` writes cannot retain absent S-level pending
@@ -977,6 +981,8 @@ official coverage improve.
 - `medeleg`/`mideleg` no longer store arbitrary compatibility bits. Focused
   coverage writes all ones and verifies the supported delegatable exception and
   interrupt bit surfaces are the only values that read back or affect routing.
+  Nonzero register-source and immediate set/clear forms now prove the same
+  masks apply to RMW writeback.
   The exception surface now includes load/store/AMO address-misaligned causes,
   and an S-mode misaligned LR regression verifies routing through `stvec`.
 - `mcounteren`/`scounteren` are now WARL-filtered to CY/TM/IR. The existing
@@ -1009,8 +1015,9 @@ official coverage improve.
   first/last HPM high-half counter and event-selector aliases.
 - `mip`/`mie` no longer retain arbitrary interrupt bits. Focused regressions
   cover write-all-ones `mie` readback, `mip` writes limited to S-level pending
-  bits, no-`S` profiles exposing only machine interrupt bits, and the existing
-  delegated `sie`/`sip` view behavior after masking.
+  bits, nonzero `mie` set/clear writeback masking, no-`S` profiles exposing
+  only machine interrupt bits, and the existing delegated `sie`/`sip` view
+  behavior after masking.
 - `mip.SEIP` now separates the software-writable pending bit from the PLIC
   supervisor external interrupt signal. Focused regressions cover software
   `SEIP` surviving platform refresh with no external interrupt and CSRRS
