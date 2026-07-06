@@ -179,6 +179,9 @@
   F/D load/store plus arithmetic execution now traps as illegal when software
   sets `mstatus.FS=Off`. FP register and `fcsr` writes now mark FS Dirty, so
   the visible `mstatus.SD` summary follows actual modeled FP state changes.
+  Integer-result FP instructions such as `FCLASS.S` and `FMV.X.W` still require
+  FS enabled, but they do not dirty an otherwise clean FP context because they
+  only observe FP state.
   The `fflags`, `frm`, and `fcsr` CSR aliases are also FS-gated: read and
   write attempts trap when FS is Off. Alias writes now explicitly preserve the
   untouched field, including `fflags` writes and clears that leave `frm`

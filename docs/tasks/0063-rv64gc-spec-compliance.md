@@ -170,7 +170,9 @@ official coverage improve.
   FS enabled, but scalar F/D load/store, arithmetic, classify, and raw transfer
   instructions trap as illegal when software sets FS=Off. FP register and
   `fcsr` writes also mark FS Dirty, making the visible `SD` summary track
-  modeled FP state changes. The
+  modeled FP state changes. Integer-result FP instructions such as `FCLASS.S`
+  and `FMV.X.W` still require FS enabled, but they do not dirty an otherwise
+  clean FP context because they only observe FP state. The
   `fflags`, `frm`, and `fcsr` CSR aliases are now governed by the same FS state,
   so both read and write attempts trap when FS=Off. Writes to absent `fcsr` bits
   31:8 are covered as
@@ -756,7 +758,9 @@ official coverage improve.
   to raise illegal-instruction traps before touching FP state.
 - FP state writes now dirty `mstatus.FS`. The shared FP register and `fcsr`
   write helpers perform the transition, and a regression confirms an FP load
-  moves the visible status from FS=Initial to FS=Dirty with `SD` set.
+  and an `fflags` write move the visible status from FS=Initial to FS=Dirty
+  with `SD` set. Integer-result FP instructions that only read FP state keep
+  FS=Initial and leave `SD` clear.
 - Floating-point CSR access is now FS-gated. Focused regressions cover both
   read forms and write-only `CSRRW rd=x0` forms for `fflags`, `frm`, and
   `fcsr`, preserving Zicsr read suppression while still trapping writes to

@@ -1622,6 +1622,58 @@ test "rv64f fp register writes mark mstatus fs dirty" {
 }
 
 ///|
+test "rv64f fp status dirtiness follows actual fp state writes" {
+  let mstatus = 0x300
+  let fflags = 0x001
+  let fs_initial = 0x2000U.to_uint64()
+  let fs_dirty = 0x6000U.to_uint64()
+  let sd_bit = 1U.to_uint64() << 63
+
+  let csr_writer = make_runner(rv64f_machine_config())
+  csr_writer.cpu.write_reg(1, 1U.to_uint64())
+  csr_writer.load_program(
+    words_to_bytes([
+      encode_csr(fflags, 1, 0x1U, 0),
+      encode_csr(mstatus, 0, 0x2U, 2),
+    ]),
+    0U,
+  )
+  match csr_writer.run(2) {
+    Running => ()
+    _ => fail("expected fflags write and mstatus read to run")
+  }
+  // Writing fflags is a write to the architectural FP state, even though it
+  // does not touch an FP register. It must therefore promote FS from Initial
+  // to Dirty and make the derived SD summary visible.
+  assert_eq(csr_writer.read_reg_u64(2) & fs_dirty, fs_dirty)
+  assert_eq(csr_writer.read_reg_u64(2) & sd_bit, sd_bit)
+  assert_eq(csr_writer.read_csr_u64(mstatus) & fs_dirty, fs_dirty)
+
+  let integer_result = make_runner(rv64f_machine_config())
+  integer_result.cpu.write_freg(1, exec_test_f32_bits(1.0).to_uint64())
+  integer_result.load_program(
+    words_to_bytes([
+      encode_fclass_s(1, 2),
+      encode_fmv_x_w(1, 3),
+      encode_csr(mstatus, 0, 0x2U, 4),
+    ]),
+    0U,
+  )
+  match integer_result.run(3) {
+    Running => ()
+    _ => fail("expected integer-result FP instructions to run")
+  }
+  // FCLASS and FMV.X.W read FP state but write only integer registers. They
+  // still require FS!=Off, but they must not mark an otherwise clean FP
+  // context Dirty merely because they observed it.
+  assert_eq(integer_result.read_reg_u64(2), 1U.to_uint64() << 6)
+  assert_eq(integer_result.read_reg_u64(3), 0x3f800000U.to_uint64())
+  assert_eq(integer_result.read_reg_u64(4) & fs_dirty, fs_initial)
+  assert_eq(integer_result.read_reg_u64(4) & sd_bit, 0U.to_uint64())
+  assert_eq(integer_result.read_csr_u64(mstatus) & fs_dirty, fs_initial)
+}
+
+///|
 test "rv64fd move path preserves raw double-precision nan payloads without flags" {
   let csr_fflags = 0x001
   let existing_nx = 0x01U.to_uint64()
