@@ -6931,6 +6931,30 @@ test "wfi traps as illegal from supervisor mode when tw is set" {
 }
 
 ///|
+test "wfi in machine mode ignores tw interception bit" {
+  let wfi_raw = encode_wfi()
+  let base = 0x80000000U.to_uint64()
+  let runner = make_runner(virt_machine_config())
+  runner.cpu.write_csr(0x300, 0x200000U.to_uint64()) // mstatus.TW=1
+  runner.all_mtimecmp[0] = 100U.to_uint64()
+  runner.load_program_u64(words_to_bytes([wfi_raw]), base)
+  match runner.step() {
+    Running => ()
+    _ => fail("expected machine-mode wfi with TW set to remain legal")
+  }
+  // TW is an interception control for modes below M. In M-mode the instruction
+  // remains a legal wait hint, so the interpreter may still use its normal
+  // CLINT fast-forward path instead of raising illegal instruction.
+  assert_eq(runner.pc_u64(), base + 4U.to_uint64())
+  assert_eq(runner.clint_mtime(), 99U.to_uint64())
+  assert_eq(runner.cpu.read_csr(0x342), 0U.to_uint64())
+  match runner.privilege_mode() {
+    Machine => ()
+    _ => fail("expected machine mode after legal wfi")
+  }
+}
+
+///|
 test "store to observed page-table page flushes translation cache" {
   let program = words_to_bytes([
     encode_i(0x100, 0, 0x0U, 1, 0x13U),

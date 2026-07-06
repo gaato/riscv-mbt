@@ -1376,6 +1376,8 @@ official coverage improve.
 - `WFI` now enforces the modeled privilege/TW legality rule before applying the
   interpreter's CLINT timer fast-forward hint: U-mode raises illegal
   instruction, and S-mode raises illegal instruction when `mstatus.TW` is set.
+  M-mode `WFI` with `TW=1` is also pinned as legal, keeping TW scoped to
+  lower-privilege interception rather than treating it as a global WFI disable.
   The illegal-path regressions now also arm a CLINT timer compare and verify
   that the legal-WFI fast-forward side effect does not run before the
   privilege/TW trap. Legal WFI keeps the existing timer fast-forward behavior.

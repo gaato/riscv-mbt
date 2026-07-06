@@ -568,7 +568,7 @@
   nonzero.
 - `WFI` now enforces the modeled privilege/TW legality rule before using the
   existing CLINT timer fast-forward: U-mode traps, and S-mode traps when
-  `mstatus.TW` is set.
+  `mstatus.TW` is set, while M-mode `WFI` remains legal even with `TW=1`.
 - Machine-information CSRs now have full read-only write-form coverage:
   `mvendorid`, `marchid`, `mimpid`, `mhartid`, and `mconfigptr` reject every
   non-suppressed `CSRRW[I]`, `CSRRS[I]`, and `CSRRC[I]` write form while
