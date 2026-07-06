@@ -454,8 +454,9 @@ official coverage improve.
   pointer masking, landing-pad, shadow-stack, and double-trap controls read
   back as zero because those extensions are not implemented. Focused coverage
   now also distinguishes this writable WARL-zero surface from address-encoded
-  read-only CSRs: nonzero `CSRRS`/`CSRRC` and immediate set/clear forms retire,
-  return the old zero value, and still read back zero after normalization.
+  read-only CSRs: nonzero `CSRRS`/`CSRRC`, immediate set/clear forms, and
+  direct `CSRRW[I]` replacement writes retire, return the old zero value when
+  they read, and still read back zero after normalization.
   Sstc's `stimecmp` CSR and RV32-only `stimecmph` high-half alias are now
   covered separately as absent optional-extension CSRs across the full Zicsr
   form family, so the WARL-zero environment bit cannot be mistaken for an
@@ -476,9 +477,9 @@ official coverage improve.
   `pmpcfg0` and `pmpaddr0` now read as zero because PMP access enforcement is
   not implemented. The OpenSBI smoke still boots and reports `PMP Count: 0`,
   avoiding the old mismatch where firmware could configure protection rules the
-  emulator would silently ignore. The same writable WARL-zero set/clear
-  coverage now pins the PMP CSR surface so it is not accidentally handled as
-  address-encoded read-only storage.
+  emulator would silently ignore. The same writable WARL-zero set/clear and
+  direct replacement-write coverage now pins the PMP CSR surface so it is not
+  accidentally handled as address-encoded read-only storage.
   The Smrnmi RNMI CSR block is no longer exposed as compatibility storage.
   `mnscratch`, `mnepc`, `mncause`, and `mnstatus` all belong to the optional
   resumable-NMI extension, which is not implemented in the RV64GC baseline, so
@@ -1308,12 +1309,13 @@ official coverage improve.
   environment controls read as zero until their corresponding extensions are
   implemented. The set/clear CSR forms now also have focused coverage proving
   they retire as writable WARL-zero CSRs instead of trapping like read-only
-  CSRs.
+  CSRs, and direct `CSRRW[I]` replacement writes are covered by the same
+  WARL-zero distinction.
 - `pmpcfg0`/`pmpaddr0` no longer retain arbitrary compatibility storage bits.
   A write-all-ones regression pins the current no-PMP-enforcement profile as
-  writable WARL-zero, the set/clear CSR forms now retire and still read back
-  zero, and the native OpenSBI smoke confirms the firmware-visible PMP count is
-  zero.
+  writable WARL-zero, the set/clear and direct `CSRRW[I]` replacement forms now
+  retire and still read back zero, and the native OpenSBI smoke confirms the
+  firmware-visible PMP count is zero.
 - The Smrnmi RNMI CSR block is no longer part of the supported CSR table.
   Focused regressions cover `mnscratch`, `mnepc`, `mncause`, and `mnstatus`
   trapping across the full Zicsr form family when Smrnmi is absent, including

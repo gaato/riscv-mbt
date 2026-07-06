@@ -8977,6 +8977,48 @@ test "environment config csrs expose no optional feature bits" {
 }
 
 ///|
+fn expect_warl_zero_csr_direct_write_forms(
+  csr : Int,
+  label : String,
+) -> Unit raise {
+  let program = words_to_bytes([
+    encode_i(-1, 0, 0x0U, 1, 0x13U),
+    // Writable WARL-zero CSRs still have a write endpoint. CSRRW with rd=x0
+    // suppresses only the read side, while CSRRW/CSRRWI with rd!=x0 report the
+    // old visible value before the attempted write is normalized back to zero.
+    encode_csr(csr, 1, 0x1U, 2),
+    encode_csr(csr, 0, 0x2U, 3),
+    encode_csr(csr, 1, 0x1U, 0),
+    encode_csr(csr, 0, 0x2U, 4),
+    encode_csr(csr, 0x1f, 0x5U, 5),
+    encode_csr(csr, 0, 0x2U, 6),
+    encode_csr(csr, 0x1f, 0x5U, 0),
+    encode_csr(csr, 0, 0x2U, 7),
+  ])
+  let runner = make_runner(rv64_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(9) {
+    Running => ()
+    _ => fail("expected WARL-zero CSR direct writes to retire for " + label)
+  }
+  assert_eq(runner.read_reg_u64(2), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(3), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(4), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(5), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(6), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(7), 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(csr), 0U.to_uint64())
+}
+
+///|
+test "warl zero csrs accept direct write forms" {
+  expect_warl_zero_csr_direct_write_forms(0x30A, "menvcfg")
+  expect_warl_zero_csr_direct_write_forms(0x10A, "senvcfg")
+  expect_warl_zero_csr_direct_write_forms(0x3A0, "pmpcfg0")
+  expect_warl_zero_csr_direct_write_forms(0x3B0, "pmpaddr0")
+}
+
+///|
 fn expect_warl_zero_csr_set_clear_forms(
   csr : Int,
   label : String,
