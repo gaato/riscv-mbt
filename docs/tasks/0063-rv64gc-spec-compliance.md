@@ -381,8 +381,8 @@ official coverage improve.
   CSR read side and therefore cannot hide an absent-CSR illegal-instruction
   trap. `mtvec` and `stvec` writes now normalize
   to the modeled WARL surface: 4-byte-aligned BASE plus Direct or Vectored MODE
-  only, with vectored supervisor-timer dispatch covered by a focused
-  regression. `mepc` and `sepc` now clear bit 0 on writes,
+  only, with vectored supervisor-timer dispatch and machine-timer dispatch
+  covered by focused regressions. `mepc` and `sepc` now clear bit 0 on writes,
   preserve bit 1 for RV64GC/IALIGN=16, and mask bit 1 on visible reads plus
   xRET target reads when `MISA.C` is absent and IALIGN=32. Focused profile
   coverage now also pins that bit 1 remains writable backing storage in
@@ -1191,10 +1191,10 @@ official coverage improve.
 - Trap-vector CSR writes now normalize `mtvec` and `stvec` at the visible CSR
   boundary. The modeled WARL surface preserves the aligned BASE, stores MODE=1
   for Vectored, maps Direct and reserved MODE values to MODE=0, and keeps
-  vectored interrupt dispatch covered with a delegated supervisor-timer
-  regression. Focused set/clear CSR-form coverage now also proves that
-  candidate values derived by `CSRRS`/`CSRRC` pass through the same WARL
-  boundary for both `mtvec` and `stvec`.
+  vectored interrupt dispatch covered with delegated supervisor-timer and
+  machine-timer regressions. Focused set/clear CSR-form coverage now also
+  proves that candidate values derived by `CSRRS`/`CSRRC` pass through the same
+  WARL boundary for both `mtvec` and `stvec`.
 - EPC CSR writes now normalize `mepc[0]` and `sepc[0]` to zero, and EPC
   visibility follows the active IALIGN. The compressed baseline keeps bit 1
   visible and usable as a return target, while non-`C` profiles mask bit 1 on

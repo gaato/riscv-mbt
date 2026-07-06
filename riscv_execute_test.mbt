@@ -9157,6 +9157,52 @@ test "interrupt trap-vector entry does not retire into instret" {
 }
 
 ///|
+test "machine timer interrupt honors mtvec vectored mode" {
+  let base = 0x80000000U.to_uint64()
+  let vector_base = base + 0x100U.to_uint64()
+  let runner = make_runner(virt_machine_config())
+  runner.cpu.write_csr(0x300, 0x8U.to_uint64()) // mstatus.MIE
+  runner.cpu.write_csr(0x304, 0x80U.to_uint64()) // mie.MTIE
+  runner.cpu.write_csr(0x305, vector_base | 1U.to_uint64()) // mtvec MODE=Vectored
+  runner.all_mtimecmp[0] = 0U.to_uint64()
+  runner.load_program_u64(
+    words_to_bytes([
+      encode_i(0, 0, 0x0U, 0, 0x13U),
+      encode_i(0, 0, 0x0U, 0, 0x13U),
+      encode_i(0, 0, 0x0U, 0, 0x13U),
+      encode_i(0, 0, 0x0U, 0, 0x13U),
+      encode_i(0, 0, 0x0U, 0, 0x13U),
+      encode_i(0, 0, 0x0U, 0, 0x13U),
+      encode_i(0, 0, 0x0U, 0, 0x13U),
+      encode_i(7, 0, 0x0U, 4, 0x13U),
+    ]),
+    vector_base,
+  )
+  runner.load_program_u64(
+    words_to_bytes([encode_i(1, 0, 0x0U, 1, 0x13U)]),
+    base,
+  )
+  match runner.step() {
+    Running => ()
+    _ => fail("expected machine timer interrupt to enter mtvec vector")
+  }
+  // In mtvec vectored mode, synchronous exceptions still go to BASE, but
+  // asynchronous interrupts use BASE + 4*cause. Machine timer interrupt cause
+  // 7 therefore lands at BASE + 0x1c before any interrupted instruction runs.
+  assert_eq(runner.pc_u64(), vector_base + 28U.to_uint64())
+  assert_eq(runner.read_reg_u64(1), 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(exec_test_instret_csr), 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(0x341), base)
+  assert_eq(runner.read_csr_u64(0x342), (1U.to_uint64() << 63) | 7U.to_uint64())
+
+  expect_step_running(
+    runner, "expected mtvec vector handler instruction to run",
+  )
+  assert_eq(runner.read_reg_u64(4), 7U.to_uint64())
+  assert_eq(runner.read_csr_u64(exec_test_instret_csr), 1U.to_uint64())
+}
+
+///|
 test "instruction fetch faults do not retire into instret" {
   let fault_pc = 0x10000U.to_uint64()
   let runner = make_runner(rv64_machine_config())
