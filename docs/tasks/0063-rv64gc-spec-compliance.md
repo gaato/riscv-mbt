@@ -423,7 +423,9 @@ official coverage improve.
   The plain trap-handling storage CSRs now have focused coverage at the visible
   instruction boundary: `mscratch`/`mtval` preserve full RV64 XLEN values in
   M-mode, and `sscratch`/`stval` preserve full RV64 XLEN values after an
-  `MRET` transition into S-mode. This keeps the scratch/trap-value path
+  `MRET` transition into S-mode. Set/clear CSR-form coverage now also proves
+  register-source masks preserve full XLEN storage, while immediate forms
+  affect only the low five source bits. This keeps the scratch/trap-value path
   separate from the WARL-filtered status, vector, counter, delegation, and
   trap-vector CSRs.
   `satp` writes with unsupported MODE values now preserve the previous CSR

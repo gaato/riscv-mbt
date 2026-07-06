@@ -217,6 +217,11 @@
   interrupt flag and low five exception-code bits are retained, while high
   platform/custom cause-code storage is masked away. Focused coverage now
   applies that mask to explicit writes and nonzero set/clear CSR forms.
+- The plain trap-storage CSRs stay separate from WARL-filtered status, vector,
+  counter, delegation, and trap-vector CSRs. `mscratch`/`mtval` and
+  `sscratch`/`stval` preserve full RV64 XLEN values on direct writes and
+  register-source set/clear forms, while immediate set/clear forms affect only
+  their low five source bits.
 - `mcounteren` and `scounteren` now expose only CY/TM/IR (`0x7`) as writable
   WARL bits. HPM counter-enable bits read back as zero because the matching
   `hpmcounter` CSRs are not implemented in the current RV64GC profile. Nonzero

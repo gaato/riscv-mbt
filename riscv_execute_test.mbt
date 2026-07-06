@@ -8008,6 +8008,57 @@ test "scratch and trap value csrs preserve full xlen storage" {
 }
 
 ///|
+fn expect_plain_xlen_csr_set_clear_forms(
+  csr : Int,
+  label : String,
+) -> Unit raise {
+  let set_mask = 0xf0f0f0f0f0f0f0f0UL
+  let clear_mask = 0x0ff00ff00ff00ff0UL
+  let all_ones = 0xffffffffffffffffUL
+  let after_clear = set_mask & (clear_mask ^ all_ones)
+  let after_immediate_set = after_clear | 0x1fU.to_uint64()
+  let final_value = after_immediate_set & (0x1eU.to_uint64() ^ all_ones)
+  let program = words_to_bytes([
+    encode_csr(csr, 1, 0x2U, 3),
+    encode_csr(csr, 0, 0x2U, 4),
+    encode_csr(csr, 2, 0x3U, 5),
+    encode_csr(csr, 0, 0x2U, 6),
+    encode_csr(csr, 0x1f, 0x6U, 7),
+    encode_csr(csr, 0, 0x2U, 8),
+    encode_csr(csr, 0x1e, 0x7U, 9),
+    encode_csr(csr, 0, 0x2U, 10),
+  ])
+  let runner = make_runner(rv64_machine_config())
+  runner.cpu.write_reg(1, set_mask)
+  runner.cpu.write_reg(2, clear_mask)
+  runner.load_program(program, 0U)
+  match runner.run(8) {
+    Running => ()
+    _ => fail("expected plain XLEN CSR set/clear program to run for " + label)
+  }
+  // Plain trap-storage CSRs have no WARL mask of their own. Register-source
+  // CSRRS/CSRRC must therefore preserve full XLEN state, while immediate forms
+  // still naturally operate only on the low five source bits.
+  assert_eq(runner.read_reg_u64(3), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(4), set_mask)
+  assert_eq(runner.read_reg_u64(5), set_mask)
+  assert_eq(runner.read_reg_u64(6), after_clear)
+  assert_eq(runner.read_reg_u64(7), after_clear)
+  assert_eq(runner.read_reg_u64(8), after_immediate_set)
+  assert_eq(runner.read_reg_u64(9), after_immediate_set)
+  assert_eq(runner.read_reg_u64(10), final_value)
+  assert_eq(runner.read_csr_u64(csr), final_value)
+}
+
+///|
+test "plain trap storage csrs preserve full xlen across set and clear forms" {
+  expect_plain_xlen_csr_set_clear_forms(0x340, "mscratch")
+  expect_plain_xlen_csr_set_clear_forms(0x343, "mtval")
+  expect_plain_xlen_csr_set_clear_forms(0x140, "sscratch")
+  expect_plain_xlen_csr_set_clear_forms(0x143, "stval")
+}
+
+///|
 test "machine information csrs expose stable read only identifiers" {
   let mvendorid = 0xF11
   let marchid = 0xF12
