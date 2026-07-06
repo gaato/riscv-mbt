@@ -690,7 +690,9 @@
   across the whole Zicsr form family. No-`S` profiles reject supervisor CSRs
   such as `sstatus`, `satp`, delegation, counteren, and envcfg forms across
   direct, set/clear, immediate, suppressed-read, and zero-mask forms; no-`U`
-  `mcounteren` and no-`F` `fflags`/`frm`/`fcsr` use the same absent-CSR helper.
+  `mcounteren`, no-`F` `fflags`/`frm`/`fcsr`, and non-`V`
+  `vstart`/`vxsat`/`vxrm`/`vcsr`/`vl`/`vtype`/`vlenb` use the same absent-CSR
+  helper.
   The no-`M` profile test also samples multiply, divide, remainder, and RV64
   word forms rather than only `MUL`.
 - Initial Alpine probing favors `wasm-gc` for the browser default: it produces a smaller artifact and reaches the same initramfs-unpack point faster than plain `wasm`. Plain `wasm` remains available with `BROWSER_TARGET=wasm`.

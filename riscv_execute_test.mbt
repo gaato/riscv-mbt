@@ -10979,7 +10979,7 @@ test "rv64fdv rejects writes to read-only vector csrs" {
 }
 
 ///|
-test "rv64fd without v rejects the vector csr surface as illegal" {
+test "rv64fd without v rejects the vector csr surface across csr forms" {
   let vector_csrs = [
     0x008, // vstart
      0x009, // vxsat
@@ -10990,19 +10990,11 @@ test "rv64fd without v rejects the vector csr surface as illegal" {
      0xC22, // vlenb
   ]
   for csr in vector_csrs {
-    let raw = encode_csr(csr, 0, 0x2U, 1)
-    let runner = make_runner(rv64fd_machine_config())
-    runner.load_program(words_to_bytes([raw]), 0U)
-    match runner.step() {
-      Trap(info) => {
-        match info.cause {
-          IllegalInstruction => ()
-          _ => fail("expected illegal instruction cause")
-        }
-        assert_eq(info.trap_value, raw.to_uint64())
-      }
-      _ => fail("expected vector csr read to trap without v")
-    }
+    // V CSR addresses are extension-provided, not compatibility storage.
+    // A non-V RV64GC profile must reject every Zicsr form that reaches either
+    // the read side or the write side, including suppressed-read writes and
+    // zero-mask set/clear reads.
+    expect_absent_csr_form_family_traps(csr, "vector CSR without V")
   }
 }
 

@@ -570,7 +570,8 @@ official coverage improve.
   writes and register-source set/clear candidates. Optional vector CSRs are
   also pinned as absent from the non-`V` RV64FD/RV64GC baseline: the
   modeled `vstart`, `vxsat`, `vxrm`, `vcsr`, `vl`, `vtype`, and `vlenb`
-  addresses all trap unless the configured profile advertises `MISA.V`.
+  addresses all trap across the full Zicsr form family unless the configured
+  profile advertises `MISA.V`.
   In the optional vector profile, the read-only `vl`, `vtype`, and `vlenb`
   CSRs now reject both direct write and nonzero set/clear CSR forms.
   Zicsr suppression is also pinned against absent CSRs: a generic unsupported
