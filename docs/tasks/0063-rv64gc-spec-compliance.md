@@ -354,7 +354,9 @@ official coverage improve.
   RV64DC forms rather than integer-only RV64C forms: `C.FLD`, `C.FSD`,
   `C.FLDSP`, and `C.FSDSP` trap without `MISA.D`, including under
   RV64F-without-D, execute under the FD profile, and trap when the FD profile
-  is present but `mstatus.FS=Off`.
+  is present but `mstatus.FS=Off`. Their context-state side effects now also
+  mirror the base `FLD`/`FSD` paths: compressed loads dirty FS, while
+  compressed stores leave an otherwise clean FP context clean.
   The same RV64DC aliases now also have high zero-extended offset coverage for
   both register-based and stack-pointer compressed memory layouts.
   The remaining audit is broader reserved/hint behavior beyond those focused
@@ -971,6 +973,9 @@ official coverage improve.
 - Compressed RV64DC floating double load/store aliases now have the matching
   FS=Off regression, keeping `C.FLD`, `C.FSD`, `C.FLDSP`, and `C.FSDSP`
   aligned with the base `FLD`/`FSD` context-state rule.
+- The same compressed RV64DC aliases now also have positive FS dirtiness
+  coverage: `C.FLD`/`C.FLDSP` mark FS Dirty through FP register writes, while
+  `C.FSD`/`C.FSDSP` only observe FP registers and keep FS Initial.
 - `FMV.W.X` / `FMV.X.W` now have RV64FD transfer-boundary coverage:
   `FMV.W.X` NaN-boxes the raw low word on entry to the 64-bit FP register file,
   while `FMV.X.W` ignores upper FP-register bits and sign-extends only the low

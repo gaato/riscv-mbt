@@ -373,7 +373,9 @@
   RV64C compressed floating double load/store aliases are now pinned as
   D-dependent RV64DC forms: they execute under the FD profile and trap as
   illegal instructions under integer-only RV64C, RV64F-without-D, and
-  FD-with-`mstatus.FS=Off`.
+  FD-with-`mstatus.FS=Off`. Their FP context-state effects now also match the
+  base `FLD`/`FSD` paths: compressed loads dirty FS, while compressed stores
+  leave an otherwise clean FP context clean.
   The RV64DC floating double aliases now also have high zero-extended offset
   coverage for both register-based and stack-pointer compressed memory layouts.
   Immediate-form HINTs now cover canonical `C.NOP`, nonzero `C.NOP` hint

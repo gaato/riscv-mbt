@@ -787,6 +787,64 @@ test "rv64dc compressed floating double memory traps when fs is off" {
 }
 
 ///|
+test "rv64dc compressed floating double memory follows fp state dirtiness" {
+  let mstatus = 0x300
+  let fs_initial = 0x2000U.to_uint64()
+  let fs_dirty = 0x6000U.to_uint64()
+  let sd_bit = 1U.to_uint64() << 63
+  let store_raw = 0x0123456789abcdefUL
+
+  let store_reader = make_runner(rv64fd_machine_config())
+  store_reader.cpu.write_reg(2, 0x400U.to_uint64())
+  store_reader.cpu.write_reg(10, 0x300U.to_uint64())
+  store_reader.cpu.write_freg(8, store_raw)
+  store_reader.load_program(
+    mixed_program_bytes([
+      (2, encode_c_fsd(8, 10, 16).reinterpret_as_uint()),
+      (2, encode_c_fsdsp(8, 16).reinterpret_as_uint()),
+      (4, encode_csr(mstatus, 0, 0x2U, 5)),
+    ]),
+    0U,
+  )
+  match store_reader.run(3) {
+    Running => ()
+    _ => fail("expected compressed floating stores and mstatus read to run")
+  }
+  // C.FSD and C.FSDSP observe FP registers and write memory. They share the
+  // base FSD rule: no FP register or fcsr state changes, so FS stays clean.
+  assert_eq(store_reader.bus.load_u64(0x310U.to_uint64()), store_raw)
+  assert_eq(store_reader.bus.load_u64(0x410U.to_uint64()), store_raw)
+  assert_eq(store_reader.read_reg_u64(5) & fs_dirty, fs_initial)
+  assert_eq(store_reader.read_reg_u64(5) & sd_bit, 0U.to_uint64())
+
+  let load_writer = make_runner(rv64fd_machine_config())
+  let register_load_raw = 0xfedcba9876543210UL
+  let stack_load_raw = 0x8877665544332211UL
+  load_writer.cpu.write_reg(2, 0x400U.to_uint64())
+  load_writer.cpu.write_reg(10, 0x300U.to_uint64())
+  load_writer.bus.store_u64(0x310U.to_uint64(), register_load_raw)
+  load_writer.bus.store_u64(0x410U.to_uint64(), stack_load_raw)
+  load_writer.load_program(
+    mixed_program_bytes([
+      (2, encode_c_fld(9, 10, 16).reinterpret_as_uint()),
+      (2, encode_c_fldsp(10, 16).reinterpret_as_uint()),
+      (4, encode_csr(mstatus, 0, 0x2U, 5)),
+    ]),
+    0U,
+  )
+  match load_writer.run(3) {
+    Running => ()
+    _ => fail("expected compressed floating loads and mstatus read to run")
+  }
+  // C.FLD and C.FLDSP write the FP register file, so they dirty the FP
+  // context and set SD just like their base-width FLD counterpart.
+  assert_eq(load_writer.read_freg_u64(9), register_load_raw)
+  assert_eq(load_writer.read_freg_u64(10), stack_load_raw)
+  assert_eq(load_writer.read_reg_u64(5) & fs_dirty, fs_dirty)
+  assert_eq(load_writer.read_reg_u64(5) & sd_bit, sd_bit)
+}
+
+///|
 test "rv64gc compressed memory zero offsets stay legal" {
   // Unlike C.ADDI4SPN, C.ADDI16SP, and C.LUI, compressed memory forms do not
   // reserve a zero immediate. Keep offset zero on the ordinary load/store path
