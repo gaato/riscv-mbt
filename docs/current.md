@@ -505,7 +505,9 @@
   configuration data structure and relies on the existing device-tree path.
   `misa` now behaves as a fixed WARL machine ISA CSR for the current runner
   profile: `CSRRW[I]`, nonzero `CSRRS[I]`, and nonzero `CSRRC[I]` retire but
-  read back the configured ISA. Read-only
+  read back the configured ISA. Focused coverage now explicitly samples both
+  register-source and immediate set/clear write-attempt forms, keeping `misa`
+  distinct from address-encoded read-only CSRs. Read-only
   write-trap coverage samples the exposed read-only machine information set:
   `mvendorid`, `marchid`, `mimpid`, `mhartid`, `mconfigptr`, plus the
   user-visible read-only base counter aliases `cycle`, `time`, and `instret`.

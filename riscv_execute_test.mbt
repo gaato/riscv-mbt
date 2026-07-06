@@ -12035,15 +12035,36 @@ test "rv64 csr semantics carry forward writable and read-only behavior" {
   assert_eq(runner.read_reg_u64(3), 9U.to_uint64())
   assert_eq(runner.read_csr_u64(0x305), 9U.to_uint64())
 
-  let misa_raw = encode_csr(0x301, 0, 0x5U, 0)
+  let misa = 0x301
   let misa_runner = make_runner(rv64_machine_config())
-  let original = misa_runner.read_csr_u64(0x301)
-  misa_runner.load_program(words_to_bytes([misa_raw]), 0U)
-  match misa_runner.step() {
+  let original = misa_runner.read_csr_u64(misa)
+  misa_runner.cpu.write_reg(1, 0U.to_uint64())
+  misa_runner.cpu.write_reg(2, (-1L).reinterpret_as_uint64())
+  misa_runner.load_program(
+    words_to_bytes([
+      encode_csr(misa, 0, 0x5U, 0), // CSRRWI rd=x0: direct write, no read.
+      encode_csr(misa, 1, 0x2U, 10), // CSRRS with zero register value.
+      encode_csr(misa, 2, 0x2U, 11), // CSRRS with nonzero register mask.
+      encode_csr(misa, 2, 0x3U, 12), // CSRRC with nonzero register mask.
+      encode_csr(misa, 31, 0x6U, 13), // CSRRSI with nonzero uimm mask.
+      encode_csr(misa, 31, 0x7U, 14), // CSRRCI with nonzero uimm mask.
+    ]),
+    0U,
+  )
+  match misa_runner.run(6) {
     Running => ()
-    _ => fail("expected fixed-WARL misa write to retire")
+    _ => fail("expected fixed-WARL misa CSR forms to retire")
   }
-  assert_eq(misa_runner.read_csr_u64(0x301), original)
+  // `misa` is WARL, not address-encoded read-only. The baseline profile fixes
+  // its legal value, so write-attempting CSR forms retire, return the old
+  // visible value when they read, and normalize storage back to the configured
+  // RV64 profile.
+  assert_eq(misa_runner.read_reg_u64(10), original)
+  assert_eq(misa_runner.read_reg_u64(11), original)
+  assert_eq(misa_runner.read_reg_u64(12), original)
+  assert_eq(misa_runner.read_reg_u64(13), original)
+  assert_eq(misa_runner.read_reg_u64(14), original)
+  assert_eq(misa_runner.read_csr_u64(misa), original)
 }
 
 ///|

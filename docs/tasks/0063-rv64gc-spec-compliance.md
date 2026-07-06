@@ -420,8 +420,10 @@ official coverage improve.
   `mimpid`, and `mconfigptr` to zero and `mhartid` to the runner hart ID.
   `misa` now behaves as a fixed WARL machine ISA CSR for the current runner
   profile: `CSRRW[I]`, nonzero `CSRRS[I]`, and nonzero `CSRRC[I]` retire but
-  read back the configured ISA. The read-only CSR trap coverage samples the
-  exposed machine-information read-only set
+  read back the configured ISA. Focused coverage now explicitly samples both
+  register-source and immediate set/clear write-attempt forms, keeping `misa`
+  distinct from address-encoded read-only CSRs. The read-only CSR trap coverage
+  samples the exposed machine-information read-only set
   (`mvendorid`, `marchid`, `mimpid`, `mhartid`, and `mconfigptr`) and now also
   pins the user-visible read-only counter aliases `cycle`, `time`, and
   `instret`.
