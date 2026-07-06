@@ -892,9 +892,10 @@ official coverage improve.
   path. Regression coverage keeps zero-mask set/clear legal for
   address-encoded read-only CSRs and keeps all nonzero-source write forms
   (`CSRRW[I]`, `CSRRS[I]`, and `CSRRC[I]`) illegal for read-only CSRs,
-  including set/clear forms with `rd=x0`. The read-only set/clear coverage now
-  explicitly exercises both register-source and immediate-source zero and
-  nonzero masks across the exposed
+  including set/clear forms with `rd=x0`. `CSRRWI uimm=0` is now covered as a
+  direct write, not a zero-mask set/clear form. The read-only set/clear
+  coverage now explicitly exercises both register-source and immediate-source
+  zero and nonzero masks across the exposed
   machine-information CSRs and the read-only counter aliases `cycle`, `time`,
   and `instret`. Machine-information coverage now also checks every
   non-suppressed write form for every identity CSR, not only sampled IDs. The

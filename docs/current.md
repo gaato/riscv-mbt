@@ -435,11 +435,12 @@
   implement Debug Mode.
   Read-only CSR coverage now spans all write-attempting standard forms:
   `CSRRW[I]`, `CSRRS[I]`, and `CSRRC[I]` with a nonzero source all trap, while
-  zero-mask `CSRRS[I]` / `CSRRC[I]` remain legal pure reads. `rd=x0` is now
-  covered on both sides of that split: it does not suppress pure-read
-  `CSRRS/CSRRC[I]` CSR reads, and it does not make nonzero-source read-only CSR
-  writes harmless. The RMW executor now keeps `CSRRS/CSRRC[I]` single-read
-  internally, using the same old CSR value for `rd` and writeback derivation
+  zero-mask `CSRRS[I]` / `CSRRC[I]` remain legal pure reads. `CSRRWI uimm=0`
+  is covered separately as a direct write, not a zero-mask set/clear form.
+  `rd=x0` is now covered on both sides of that split: it does not suppress
+  pure-read `CSRRS/CSRRC[I]` CSR reads, and it does not make nonzero-source
+  read-only CSR writes harmless. The RMW executor now keeps `CSRRS/CSRRC[I]`
+  single-read internally, using the same old CSR value for `rd` and writeback derivation
   instead of reading the CSR a second time.
 - Trap-vector CSR writes now normalize `mtvec` and `stvec` to the modeled WARL
   surface: aligned BASE plus Direct or Vectored MODE only. A delegated

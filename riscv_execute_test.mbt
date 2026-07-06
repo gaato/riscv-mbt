@@ -9682,8 +9682,8 @@ test "direct writes to read-only csrs trap as illegal instruction" {
   // The CSR address encoding marks these baseline CSRs read-only. Any CSR
   // instruction form that would write them must trap, even when the backing
   // value is otherwise readable and useful to firmware. Cover both CSRRW and
-  // CSRRWI so the immediate direct-write form cannot slip past the read-only
-  // classification.
+  // CSRRWI, including uimm=0: only CSRRSI/CSRRCI treat zero immediates as
+  // write suppression.
   let read_only_csrs = [
     0xF11, // mvendorid
      0xF12, // marchid
@@ -9695,7 +9695,13 @@ test "direct writes to read-only csrs trap as illegal instruction" {
      0xC02, // instret
   ]
   for csr in read_only_csrs {
-    for raw in [encode_csr(csr, 1, 0x1U, 0), encode_csr(csr, 1, 0x5U, 0)] {
+    for
+      raw in [
+        encode_csr(csr, 1, 0x1U, 0),
+        encode_csr(csr, 1, 0x5U, 0),
+        encode_csr(csr, 0, 0x5U, 0),
+        encode_csr(csr, 0, 0x5U, 2),
+      ] {
       let runner = make_runner(default_machine_config())
       runner.load_program(words_to_bytes([raw]), 0U)
       match runner.step() {
