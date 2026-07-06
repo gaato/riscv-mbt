@@ -1521,6 +1521,43 @@ test "rv64f fflags and frm alias writes ignore high source bits" {
   assert_eq(runner.read_csr(csr_fflags), 0U)
   assert_eq(runner.read_csr(csr_frm), 0U)
   assert_eq(runner.read_csr(csr_fcsr), 0U)
+
+  let rmw_runner = make_runner(rv64f_machine_config())
+  rmw_runner.cpu.write_reg(1, (-1L).reinterpret_as_uint64())
+  rmw_runner.load_program(
+    words_to_bytes([
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_csr(csr_fflags, 1, 0x2U, 2),
+      encode_csr(csr_fcsr, 0, 0x2U, 3),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_csr(csr_frm, 1, 0x2U, 4),
+      encode_csr(csr_fcsr, 0, 0x2U, 5),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_csr(csr_fflags, 0x1f, 0x6U, 6),
+      encode_csr(csr_fcsr, 0, 0x2U, 7),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_csr(csr_frm, 0x1f, 0x6U, 8),
+      encode_csr(csr_fcsr, 0, 0x2U, 9),
+    ]),
+    0U,
+  )
+  match rmw_runner.run(12) {
+    Running => ()
+    _ => fail("expected fcsr alias RMW high-bit masking path to run")
+  }
+  // RMW forms derive their candidate from a visible alias value plus a source
+  // mask. Even when the register source is all ones, only the alias field is
+  // writable: fflags contributes bits 4:0 and frm contributes bits 7:5. The
+  // immediate path is additionally limited by Zicsr's five-bit uimm source.
+  assert_eq(rmw_runner.read_reg_u64(2), 0U.to_uint64())
+  assert_eq(rmw_runner.read_reg_u64(3), 0x1fU.to_uint64())
+  assert_eq(rmw_runner.read_reg_u64(4), 0U.to_uint64())
+  assert_eq(rmw_runner.read_reg_u64(5), 0xe0U.to_uint64())
+  assert_eq(rmw_runner.read_reg_u64(6), 0U.to_uint64())
+  assert_eq(rmw_runner.read_reg_u64(7), 0x1fU.to_uint64())
+  assert_eq(rmw_runner.read_reg_u64(8), 0U.to_uint64())
+  assert_eq(rmw_runner.read_reg_u64(9), 0xe0U.to_uint64())
+  assert_eq(rmw_runner.read_csr(csr_fcsr), 0xe0U)
 }
 
 ///|

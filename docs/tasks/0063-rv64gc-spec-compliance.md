@@ -1005,9 +1005,10 @@ official coverage improve.
   pinned more directly: writes through the `fflags` view replace only accrued
   exception flags and leave the current `frm` intact, including the zero write
   used to clear flags. Alias writes now also prove field-width masking: high
-  source bits are ignored for the five-bit `fflags` view and the three-bit
-  `frm` view, while `frm=111` can still be stored as CSR state even though
-  dynamic use of that reserved rounding mode traps elsewhere.
+  source bits are ignored for both replacement and RMW candidates through the
+  five-bit `fflags` view and the three-bit `frm` view, while `frm=111` can
+  still be stored as CSR state even though dynamic use of that reserved
+  rounding mode traps elsewhere.
 - `fcsr` reserved high bits now have focused regression coverage. A CSR write
   of all ones leaves only visible bits 7:0 readable, and register-source or
   immediate set forms cannot make absent standard-extension fields in bits 31:8
