@@ -236,8 +236,9 @@
   exceptions, execute-stage faults, and machine-timer interrupts.
   RV32-only counter high-half CSRs are now excluded through the shared CSR
   support classifier on RV64, so `cycleh`/`timeh`/`instreth`,
-  `mcycleh`/`minstreth`, and the first/last HPM high-half aliases trap instead
-  of reaching ad hoc executor checks.
+  `mcycleh`/`minstreth`, and the first/last HPM high-half aliases trap across
+  read, suppressed-read write, and nonzero set/clear forms instead of reaching
+  ad hoc executor checks.
 - `mie` now exposes only the modeled standard interrupt-enable bits
   MSI/MTI/MEI and SSI/STI/SEI (`0xaaa`), while `mip` readback is masked to the
   same implemented pending-bit surface. CSR writes to `mip` affect only the

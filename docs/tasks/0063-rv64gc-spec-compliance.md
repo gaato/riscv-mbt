@@ -361,7 +361,8 @@ official coverage improve.
   RV32-only high-half counter CSRs are now filtered by the shared CSR support
   classifier on RV64: `cycleh`, `timeh`, `instreth`, `mcycleh`, and
   `minstreth` are readable where modeled for RV32 but absent from the RV64GC
-  CSR surface.
+  CSR surface, with focused coverage spanning read, suppressed-read write, and
+  nonzero set/clear forms plus the first/last HPM high-half aliases.
   `mie` now exposes only the modeled standard interrupt-enable bits
   MSI/MTI/MEI and SSI/STI/SEI (`0xaaa`), while `mip` readback is masked to the
   same implemented pending-bit surface. Writes to `mip` affect only the
@@ -1000,7 +1001,9 @@ official coverage improve.
 - RV32-only high-half counter CSR legality is now centralized in the CSR
   support classifier. Focused coverage keeps `cycleh`, `timeh`, and `instreth`
   readable on RV32, and verifies `cycleh`, `timeh`, `instreth`, `mcycleh`, and
-  `minstreth` trap as absent CSRs on RV64.
+  `minstreth` trap as absent CSRs on RV64 across read, suppressed-read write,
+  and nonzero set/clear forms. The same RV64 absence coverage now includes the
+  first/last HPM high-half counter and event-selector aliases.
 - `mip`/`mie` no longer retain arbitrary interrupt bits. Focused regressions
   cover write-all-ones `mie` readback, `mip` writes limited to S-level pending
   bits, no-`S` profiles exposing only machine interrupt bits, and the existing

@@ -7096,10 +7096,11 @@ test "rv32 counter high-half csrs are readable" {
 }
 
 ///|
-test "rv64 counter high-half csrs are absent" {
+test "rv64 counter high-half csrs are absent across csr forms" {
   // cycleh/timeh/instreth, machine high-half aliases, and the HPM high-half
   // ranges are RV32-only. On RV64 the architectural counters are already
-  // XLEN-wide, so these CSR numbers are not implemented read aliases.
+  // XLEN-wide, so these CSR numbers are not implemented read aliases or
+  // suppressed-read write targets.
   let cases = [
     0xC80, // cycleh
      0xC81, // timeh
@@ -7114,18 +7115,29 @@ test "rv64 counter high-half csrs are absent" {
      0x73F, // mhpmevent31h
   ]
   for csr in cases {
-    let raw = encode_csr(csr, 0, 0x2U, 1)
-    let runner = make_runner(rv64_machine_config())
-    runner.load_program(words_to_bytes([raw]), 0U)
-    match runner.step() {
-      Trap(info) => {
-        match info.cause {
-          IllegalInstruction => ()
-          _ => fail("expected rv64 high-half counter CSR read to trap")
+    let forms = [
+      encode_csr(csr, 0, 0x2U, 1),
+      encode_csr(csr, 1, 0x1U, 0),
+      encode_csr(csr, 1, 0x5U, 0),
+      encode_csr(csr, 1, 0x2U, 2),
+      encode_csr(csr, 1, 0x3U, 3),
+      encode_csr(csr, 1, 0x6U, 4),
+      encode_csr(csr, 1, 0x7U, 5),
+    ]
+    for raw in forms {
+      let runner = make_runner(rv64_machine_config())
+      runner.cpu.write_reg(1, 1U.to_uint64())
+      runner.load_program(words_to_bytes([raw]), 0U)
+      match runner.step() {
+        Trap(info) => {
+          match info.cause {
+            IllegalInstruction => ()
+            _ => fail("expected rv64 high-half counter CSR form to trap")
+          }
+          assert_eq(info.trap_value, raw.to_uint64())
         }
-        assert_eq(info.trap_value, raw.to_uint64())
+        _ => fail("expected rv64 high-half counter CSR form to trap")
       }
-      _ => fail("expected rv64 high-half counter CSR read to trap")
     }
   }
 }
