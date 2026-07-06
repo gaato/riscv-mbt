@@ -147,7 +147,9 @@ official coverage improve.
   `FNMSUB`, and `FNMADD` in both S and D formats. The FMA family also now has
   all-opcode quiet-vs-signaling NaN operand coverage in S and D: quiet NaN
   addends produce canonical NaNs without flags, while signaling NaN addends
-  produce canonical NaNs with NV.
+  produce canonical NaNs with NV. Exact finite FMA results now also have a
+  flag-clean baseline across all four opcodes in both S and D, every legal
+  static `rm`, and every legal dynamic `frm`.
   Exact widening `FCVT.D.S` and exact
   RV32-width-to-double `FCVT.D.W[U]` now treat the otherwise unaffected `rm`
   field as architecturally significant for legal/reserved static and dynamic
@@ -919,6 +921,10 @@ official coverage improve.
   covered as flag-clean results.
 - Exact scalar arithmetic now has a flag-clean baseline for both S and D:
   add/sub/mul/div/sqrt execute exact representative operands under every legal
+  static rounding mode and dynamic `frm`, preserve the selected `frm`, and
+  leave `fflags` clear.
+- Exact fused multiply-add now has the same flag-clean baseline across S and D:
+  all four FMA opcodes execute exact representative operands under every legal
   static rounding mode and dynamic `frm`, preserve the selected `frm`, and
   leave `fflags` clear.
 - Single-precision FMA now has matching non-RNE coverage for finite nonzero

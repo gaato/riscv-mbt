@@ -2367,6 +2367,170 @@ test "rv64fd fused multiply-add double paths preserve exact zero signs" {
 }
 
 ///|
+test "rv64fd fused multiply-add exact finite results stay flag clean" {
+  let csr_fcsr = 0x003
+  let fcsr_frm_shift = 5
+  // Exact finite FMA results still exercise the architectural rm field: legal
+  // static modes and dynamic frm must be accepted, but no inexact, underflow,
+  // or invalid flag is allowed to appear when the fused value is exactly
+  // representable.
+  for rm in [0x0U, 0x1U, 0x2U, 0x3U, 0x4U] {
+    let single_runner = make_runner(rv64fd_machine_config())
+    single_runner.cpu.write_freg(
+      1,
+      exec_test_nan_box_single(exec_test_f32_bits(1.5)),
+    )
+    single_runner.cpu.write_freg(
+      2,
+      exec_test_nan_box_single(exec_test_f32_bits(2.0)),
+    )
+    single_runner.cpu.write_freg(
+      3,
+      exec_test_nan_box_single(exec_test_f32_bits(1.0)),
+    )
+    single_runner.load_program(
+      words_to_bytes([
+        encode_fp_r4(3, 0x0U, 2, 1, rm, 4, 0x43U),
+        encode_fp_r4(3, 0x0U, 2, 1, rm, 5, 0x47U),
+        encode_fp_r4(3, 0x0U, 2, 1, rm, 6, 0x4bU),
+        encode_fp_r4(3, 0x0U, 2, 1, rm, 7, 0x4fU),
+      ]),
+      0U,
+    )
+    match single_runner.run(4) {
+      Running => ()
+      Trap(info) =>
+        fail(
+          "expected exact finite FMA.S static rm=\{rm} to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+        )
+    }
+    assert_eq(
+      single_runner.read_freg_u64(4),
+      exec_test_nan_box_single(exec_test_f32_bits(4.0)),
+    )
+    assert_eq(
+      single_runner.read_freg_u64(5),
+      exec_test_nan_box_single(exec_test_f32_bits(2.0)),
+    )
+    assert_eq(
+      single_runner.read_freg_u64(6),
+      exec_test_nan_box_single(exec_test_f32_bits(-2.0)),
+    )
+    assert_eq(
+      single_runner.read_freg_u64(7),
+      exec_test_nan_box_single(exec_test_f32_bits(-4.0)),
+    )
+    assert_eq(single_runner.read_csr(csr_fcsr) & 0x1fU, 0U)
+
+    let double_runner = make_runner(rv64fd_machine_config())
+    double_runner.cpu.write_freg(1, exec_test_f64_bits(1.5))
+    double_runner.cpu.write_freg(2, exec_test_f64_bits(2.0))
+    double_runner.cpu.write_freg(3, exec_test_f64_bits(1.0))
+    double_runner.load_program(
+      words_to_bytes([
+        encode_fp_r4(3, 0x1U, 2, 1, rm, 4, 0x43U),
+        encode_fp_r4(3, 0x1U, 2, 1, rm, 5, 0x47U),
+        encode_fp_r4(3, 0x1U, 2, 1, rm, 6, 0x4bU),
+        encode_fp_r4(3, 0x1U, 2, 1, rm, 7, 0x4fU),
+      ]),
+      0U,
+    )
+    match double_runner.run(4) {
+      Running => ()
+      Trap(info) =>
+        fail(
+          "expected exact finite FMA.D static rm=\{rm} to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+        )
+    }
+    assert_eq(double_runner.read_freg_u64(4), exec_test_f64_bits(4.0))
+    assert_eq(double_runner.read_freg_u64(5), exec_test_f64_bits(2.0))
+    assert_eq(double_runner.read_freg_u64(6), exec_test_f64_bits(-2.0))
+    assert_eq(double_runner.read_freg_u64(7), exec_test_f64_bits(-4.0))
+    assert_eq(double_runner.read_csr(csr_fcsr) & 0x1fU, 0U)
+  }
+
+  for frm in [0x0U, 0x1U, 0x2U, 0x3U, 0x4U] {
+    let frm_bits = frm.to_uint64() << fcsr_frm_shift
+    let single_runner = make_runner(rv64fd_machine_config())
+    single_runner.cpu.write_csr(csr_fcsr, frm_bits)
+    single_runner.cpu.write_freg(
+      1,
+      exec_test_nan_box_single(exec_test_f32_bits(1.5)),
+    )
+    single_runner.cpu.write_freg(
+      2,
+      exec_test_nan_box_single(exec_test_f32_bits(2.0)),
+    )
+    single_runner.cpu.write_freg(
+      3,
+      exec_test_nan_box_single(exec_test_f32_bits(1.0)),
+    )
+    single_runner.load_program(
+      words_to_bytes([
+        encode_fp_r4(3, 0x0U, 2, 1, 0x7U, 4, 0x43U),
+        encode_fp_r4(3, 0x0U, 2, 1, 0x7U, 5, 0x47U),
+        encode_fp_r4(3, 0x0U, 2, 1, 0x7U, 6, 0x4bU),
+        encode_fp_r4(3, 0x0U, 2, 1, 0x7U, 7, 0x4fU),
+      ]),
+      0U,
+    )
+    match single_runner.run(4) {
+      Running => ()
+      Trap(info) =>
+        fail(
+          "expected exact finite FMA.S dynamic frm=\{frm} to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+        )
+    }
+    assert_eq(
+      single_runner.read_freg_u64(4),
+      exec_test_nan_box_single(exec_test_f32_bits(4.0)),
+    )
+    assert_eq(
+      single_runner.read_freg_u64(5),
+      exec_test_nan_box_single(exec_test_f32_bits(2.0)),
+    )
+    assert_eq(
+      single_runner.read_freg_u64(6),
+      exec_test_nan_box_single(exec_test_f32_bits(-2.0)),
+    )
+    assert_eq(
+      single_runner.read_freg_u64(7),
+      exec_test_nan_box_single(exec_test_f32_bits(-4.0)),
+    )
+    assert_eq(single_runner.read_csr(csr_fcsr) & 0x1fU, 0U)
+    assert_eq((single_runner.read_csr(csr_fcsr) >> fcsr_frm_shift) & 0x7U, frm)
+
+    let double_runner = make_runner(rv64fd_machine_config())
+    double_runner.cpu.write_csr(csr_fcsr, frm_bits)
+    double_runner.cpu.write_freg(1, exec_test_f64_bits(1.5))
+    double_runner.cpu.write_freg(2, exec_test_f64_bits(2.0))
+    double_runner.cpu.write_freg(3, exec_test_f64_bits(1.0))
+    double_runner.load_program(
+      words_to_bytes([
+        encode_fp_r4(3, 0x1U, 2, 1, 0x7U, 4, 0x43U),
+        encode_fp_r4(3, 0x1U, 2, 1, 0x7U, 5, 0x47U),
+        encode_fp_r4(3, 0x1U, 2, 1, 0x7U, 6, 0x4bU),
+        encode_fp_r4(3, 0x1U, 2, 1, 0x7U, 7, 0x4fU),
+      ]),
+      0U,
+    )
+    match double_runner.run(4) {
+      Running => ()
+      Trap(info) =>
+        fail(
+          "expected exact finite FMA.D dynamic frm=\{frm} to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+        )
+    }
+    assert_eq(double_runner.read_freg_u64(4), exec_test_f64_bits(4.0))
+    assert_eq(double_runner.read_freg_u64(5), exec_test_f64_bits(2.0))
+    assert_eq(double_runner.read_freg_u64(6), exec_test_f64_bits(-2.0))
+    assert_eq(double_runner.read_freg_u64(7), exec_test_f64_bits(-4.0))
+    assert_eq(double_runner.read_csr(csr_fcsr) & 0x1fU, 0U)
+    assert_eq((double_runner.read_csr(csr_fcsr) >> fcsr_frm_shift) & 0x7U, frm)
+  }
+}
+
+///|
 test "rv64fd add sub mul honor non-rne rounding modes" {
   let runner = make_runner(rv64fd_machine_config())
   let csr_fcsr = 0x003
