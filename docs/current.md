@@ -121,9 +121,9 @@
   while quiet NaN `FSQRT.S/D` inputs stay quiet and do not set NV. `FDIV`
   NaN coverage now includes both dividend and divisor positions, and `FDIV`
   accrues DZ for finite nonzero division by zero. Focused arithmetic coverage
-  now also proves that S/D NX, DZ, and NV flags are accrued state until an
-  explicit software `fcsr` clear. Exact subnormal S/D multiply and divide
-  results are now also pinned as flag-clean, complementing the existing
+  now also proves that S/D NX, UF, OF, DZ, and NV flags are accrued state
+  until an explicit software `fcsr` clear. Exact subnormal S/D multiply and
+  divide results are now also pinned as flag-clean, complementing the existing
   tiny-inexact UF|NX checks at the tininess-after-rounding boundary. This is
   emulator-body hardening for the
   ordinary C floating-point paths that Alpine userspace can exercise; deeper

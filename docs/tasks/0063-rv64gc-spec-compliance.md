@@ -207,8 +207,8 @@ official coverage improve.
   minimumNumber/maximumNumber split: quiet all-NaN inputs produce the canonical
   NaN without NV, while signaling all-NaN inputs produce the canonical NaN and
   accrue NV for both S and D. Focused S/D arithmetic coverage now also pins
-  that `fflags` are accrued state across independent FP instructions: NX, DZ,
-  and NV remain set until software explicitly clears `fcsr`. Exact scalar S/D
+  that `fflags` are accrued state across independent FP instructions: NX, UF,
+  OF, DZ, and NV remain set until software explicitly clears `fcsr`. Exact scalar S/D
   add, subtract, multiply, divide, and square-root coverage now also sweeps
   every legal static rounding mode plus dynamic `frm`, proving exact results
   leave `fflags` clear while still validating the rounding-mode field. The remaining
@@ -741,8 +741,8 @@ official coverage improve.
   all-opcode S/D quiet-vs-signaling NaN default-result split for addends.
   Multiplicand NaN regressions now separately pin that quiet NaNs are
   flag-clean while signaling NaNs accrue NV. S/D arithmetic now also has a
-  direct sticky-flag regression proving that NX, DZ, and NV accumulate across
-  separate FP instructions until a software `fcsr` write clears them. Deeper
+  direct sticky-flag regression proving that NX, UF, OF, DZ, and NV accumulate
+  across separate FP instructions until a software `fcsr` write clears them. Deeper
   NaN payload behavior and broader flag corner cases remain open beyond the
   locally available official `riscv-tests` rows that are already gated.
 - `FADD.S`, `FSUB.S`, and `FMUL.S` now round their exact single-precision

@@ -1458,6 +1458,8 @@ test "rv64f fflags and frm alias writes ignore high source bits" {
 test "rv64fd arithmetic exception flags accrue until software clears them" {
   let csr_fcsr = 0x003
   let nx = 0x01U.to_uint64()
+  let uf = 0x02U.to_uint64()
+  let of = 0x04U.to_uint64()
   let dz = 0x08U.to_uint64()
   let nv = 0x10U.to_uint64()
   let runner = make_runner(rv64fd_machine_config())
@@ -1469,11 +1471,19 @@ test "rv64fd arithmetic exception flags accrue until software clears them" {
   runner.cpu.write_freg(3, exec_test_nan_box_single(exec_test_f32_bits(0.0)))
   runner.cpu.write_freg(4, exec_test_nan_box_single(0x7f800000U))
   runner.cpu.write_freg(5, exec_test_nan_box_single(0xff800000U))
+  runner.cpu.write_freg(26, exec_test_nan_box_single(0x7f7fffffU))
+  runner.cpu.write_freg(27, exec_test_nan_box_single(exec_test_f32_bits(2.0)))
+  runner.cpu.write_freg(28, exec_test_nan_box_single(0x00800000U))
+  runner.cpu.write_freg(29, exec_test_nan_box_single(0x3eaaaaabU))
   runner.cpu.write_freg(6, exec_test_f64_bits(1.0))
   runner.cpu.write_freg(7, exec_test_f64_bits(9007199254740992.0))
   runner.cpu.write_freg(8, exec_test_f64_bits(0.0))
   runner.cpu.write_freg(9, 0x7ff0000000000000UL)
   runner.cpu.write_freg(10, 0xfff0000000000000UL)
+  runner.cpu.write_freg(30, 0x7fefffffffffffffUL)
+  runner.cpu.write_freg(31, exec_test_f64_bits(2.0))
+  runner.cpu.write_freg(17, 0x0010000000000000UL)
+  runner.cpu.write_freg(18, 0x3fd5555555555555UL)
   runner.load_program(
     words_to_bytes([
       encode_fp_r(0x00U, 2, 1, 0x0U, 20),
@@ -1482,29 +1492,45 @@ test "rv64fd arithmetic exception flags accrue until software clears them" {
       encode_csr(csr_fcsr, 0, 0x2U, 12),
       encode_fp_r(0x00U, 5, 4, 0x0U, 22),
       encode_csr(csr_fcsr, 0, 0x2U, 13),
+      encode_fp_r(0x08U, 27, 26, 0x0U, 23),
+      encode_csr(csr_fcsr, 0, 0x2U, 14),
+      encode_fp_r(0x08U, 29, 28, 0x0U, 24),
+      encode_csr(csr_fcsr, 0, 0x2U, 15),
       encode_csr(csr_fcsr, 0, 0x1U, 0),
       encode_fp_r(0x01U, 7, 6, 0x0U, 23),
-      encode_csr(csr_fcsr, 0, 0x2U, 14),
-      encode_fp_r(0x0dU, 8, 6, 0x0U, 24),
-      encode_csr(csr_fcsr, 0, 0x2U, 15),
-      encode_fp_r(0x01U, 10, 9, 0x0U, 25),
       encode_csr(csr_fcsr, 0, 0x2U, 16),
+      encode_fp_r(0x0dU, 8, 6, 0x0U, 24),
+      encode_csr(csr_fcsr, 0, 0x2U, 19),
+      encode_fp_r(0x01U, 10, 9, 0x0U, 25),
+      encode_csr(csr_fcsr, 0, 0x2U, 20),
+      encode_fp_r(0x09U, 31, 30, 0x0U, 21),
+      encode_csr(csr_fcsr, 0, 0x2U, 22),
+      encode_fp_r(0x09U, 18, 17, 0x0U, 26),
+      encode_csr(csr_fcsr, 0, 0x2U, 27),
     ]),
     0U,
   )
-  match runner.run(13) {
+  match runner.run(21) {
     Running => ()
     _ => fail("expected arithmetic fflags accumulation path to run")
   }
   // fflags are accrued state, not a per-instruction result register. These
-  // reads pin that NX, DZ, and NV remain set until the explicit fcsr write.
+  // reads pin that all five standard flags remain set until an explicit fcsr
+  // write clears the low fflags field.
   assert_eq(runner.read_reg_u64(11) & 0x1fU.to_uint64(), nx)
   assert_eq(runner.read_reg_u64(12) & 0x1fU.to_uint64(), nx | dz)
   assert_eq(runner.read_reg_u64(13) & 0x1fU.to_uint64(), nx | dz | nv)
-  assert_eq(runner.read_reg_u64(14) & 0x1fU.to_uint64(), nx)
-  assert_eq(runner.read_reg_u64(15) & 0x1fU.to_uint64(), nx | dz)
-  assert_eq(runner.read_reg_u64(16) & 0x1fU.to_uint64(), nx | dz | nv)
-  assert_eq(runner.read_csr(csr_fcsr) & 0x1fU, (nx | dz | nv).to_uint())
+  assert_eq(runner.read_reg_u64(14) & 0x1fU.to_uint64(), nx | dz | nv | of)
+  assert_eq(runner.read_reg_u64(15) & 0x1fU.to_uint64(), nx | uf | of | dz | nv)
+  assert_eq(runner.read_reg_u64(16) & 0x1fU.to_uint64(), nx)
+  assert_eq(runner.read_reg_u64(19) & 0x1fU.to_uint64(), nx | dz)
+  assert_eq(runner.read_reg_u64(20) & 0x1fU.to_uint64(), nx | dz | nv)
+  assert_eq(runner.read_reg_u64(22) & 0x1fU.to_uint64(), nx | dz | nv | of)
+  assert_eq(runner.read_reg_u64(27) & 0x1fU.to_uint64(), nx | uf | of | dz | nv)
+  assert_eq(
+    runner.read_csr(csr_fcsr) & 0x1fU,
+    (nx | uf | of | dz | nv).to_uint(),
+  )
 }
 
 ///|
