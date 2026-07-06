@@ -8344,22 +8344,35 @@ fn expect_trap_vector_set_clear_forms(csr : Int, label : String) -> Unit raise {
     encode_csr(csr, 0, 0x2U, 7),
     encode_csr(csr, 5, 0x3U, 8),
     encode_csr(csr, 0, 0x2U, 9),
+    encode_csr(csr, 1, 0x6U, 10),
+    encode_csr(csr, 0, 0x2U, 11),
+    encode_csr(csr, 1, 0x7U, 12),
+    encode_csr(csr, 0, 0x2U, 13),
+    encode_csr(csr, 3, 0x6U, 14),
+    encode_csr(csr, 0, 0x2U, 15),
   ])
   let runner = make_runner(default_machine_config())
   runner.load_program(program, 0U)
-  match runner.run(10) {
+  match runner.run(16) {
     Running => ()
     _ => fail("expected trap-vector set/clear program to run for " + label)
   }
-  // CSRRS/CSRRC first derive a candidate trap-vector value, then the WARL
-  // boundary keeps only 4-byte-aligned BASE plus MODE=Direct or Vectored.
-  // Reserved mode 3 normalizes to Direct; mode 1 remains Vectored.
+  // Register-source and immediate CSRRS/CSRRC first derive a candidate
+  // trap-vector value, then the WARL boundary keeps only 4-byte-aligned BASE
+  // plus MODE=Direct or Vectored. Reserved mode 3 normalizes to Direct; mode 1
+  // remains Vectored.
   assert_eq(runner.read_reg(3), 4U)
   assert_eq(runner.read_reg(4), 4U)
   assert_eq(runner.read_reg(6), 4U)
   assert_eq(runner.read_reg(7), 5U)
   assert_eq(runner.read_reg(8), 5U)
   assert_eq(runner.read_reg(9), 4U)
+  assert_eq(runner.read_reg(10), 4U)
+  assert_eq(runner.read_reg(11), 5U)
+  assert_eq(runner.read_reg(12), 5U)
+  assert_eq(runner.read_reg(13), 4U)
+  assert_eq(runner.read_reg(14), 4U)
+  assert_eq(runner.read_reg(15), 4U)
   assert_eq(runner.read_csr(csr), 4U)
 }
 

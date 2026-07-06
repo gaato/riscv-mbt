@@ -1226,7 +1226,8 @@ official coverage improve.
   supervisor timer and external plus machine-timer regressions. Focused
   set/clear CSR-form coverage now also proves that candidate values derived by
   `CSRRS`/`CSRRC` pass through the same WARL boundary for both `mtvec` and
-  `stvec`.
+  `stvec`; immediate `CSRRSI`/`CSRRCI` forms now share that coverage so a
+  five-bit immediate mask cannot bypass Direct/Vectored normalization.
 - EPC CSR writes now normalize `mepc[0]` and `sepc[0]` to zero, and EPC
   visibility follows the active IALIGN. The compressed baseline keeps bit 1
   visible and usable as a return target, while non-`C` profiles mask bit 1 on
