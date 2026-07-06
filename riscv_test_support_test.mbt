@@ -77,6 +77,27 @@ async fn load_manifest_gating_keys() -> Array[String] {
 }
 
 ///|
+async fn load_manifest_keys() -> Array[String] {
+  let manifest = read_manifest_text(official_riscv_tests_manifest_path)
+  let keys : Array[String] = []
+  for raw_line in manifest.split("\n") {
+    let line = raw_line.to_owned().trim().to_owned()
+    if line == "" || line.has_prefix("#") {
+      continue
+    }
+    let fields : Array[String] = []
+    for field in line.split("\t") {
+      fields.push(field.to_owned())
+    }
+    if fields.length() != 4 {
+      abort("invalid riscv-tests manifest line: \{line}")
+    }
+    keys.push(official_riscv_test_case_key(fields[0], fields[1]))
+  }
+  keys
+}
+
+///|
 async fn load_local_rv64gc_source_keys() -> Array[String] {
   // Completion now requires every locally available upstream RV64GC row to be
   // in the always-run gate. Discover that set from the checked-out riscv-tests

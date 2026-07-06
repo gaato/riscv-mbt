@@ -3,6 +3,29 @@
 // are ready to be always-green.
 
 ///|
+fn assert_unique_official_manifest_keys(
+  keys : Array[String],
+  label : String,
+) -> Unit {
+  keys.sort()
+  let duplicates : Array[String] = []
+  let mut index = 1
+  while index < keys.length() {
+    if keys[index] == keys[index - 1] {
+      duplicates.push(keys[index])
+    }
+    index = index + 1
+  }
+  if duplicates.length() != 0 {
+    let mut message = "duplicate official riscv-tests \{label} rows:"
+    for key in duplicates {
+      message = message + "\n" + key
+    }
+    abort(message)
+  }
+}
+
+///|
 async test "refactored execute path keeps official riscv-tests gating subset green" {
   let cases = load_official_riscv_test_cases().filter(fn(test_case) {
     test_case.tier == "gating"
@@ -37,21 +60,10 @@ async test "official RV64GC riscv-tests source rows are all gated" {
 
 ///|
 async test "official riscv-tests gating manifest has unique rows" {
-  let keys = load_manifest_gating_keys()
-  keys.sort()
-  let duplicates : Array[String] = []
-  let mut index = 1
-  while index < keys.length() {
-    if keys[index] == keys[index - 1] {
-      duplicates.push(keys[index])
-    }
-    index = index + 1
-  }
-  if duplicates.length() != 0 {
-    let mut message = "duplicate official riscv-tests gating rows:"
-    for key in duplicates {
-      message = message + "\n" + key
-    }
-    abort(message)
-  }
+  assert_unique_official_manifest_keys(load_manifest_gating_keys(), "gating")
+}
+
+///|
+async test "official riscv-tests manifest has no duplicate rows across tiers" {
+  assert_unique_official_manifest_keys(load_manifest_keys(), "manifest")
 }

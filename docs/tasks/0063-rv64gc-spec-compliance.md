@@ -98,8 +98,9 @@ official coverage improve.
   `rv32ui_gating_test.mbt` now derives the local RV64GC source-row set from
   the checked-out upstream `riscv-tests` tree and fails if any row is missing
   from the manifest's `gating` tier. The same gate now rejects duplicate
-  manifest keys, keeping row promotion one-to-one with the intended official
-  test surface.
+  `gating` keys and duplicate keys anywhere in the manifest, keeping row
+  promotion one-to-one with the intended official test surface rather than
+  allowing a row to appear under multiple tiers.
   Taken branch and jump target alignment now follows the active IALIGN:
   non-C profiles trap halfword-only targets as instruction-address-misaligned,
   while C/RV64GC profiles allow them under IALIGN=16. `JAL` and `JALR` also
@@ -602,8 +603,8 @@ official coverage improve.
   `.S` row under the local upstream RV64GC source suites
   `rv64ui/um/ua/uc/uf/ud` must have a matching manifest row in the `gating`
   tier, not merely a passing handwritten or survey-only equivalent. It also
-  rejects duplicate manifest keys so accidental repeated rows cannot mask the
-  intended coverage accounting.
+  rejects duplicate `gating` keys and duplicate keys anywhere in the manifest
+  so accidental repeated rows cannot mask the intended coverage accounting.
 - `FCVT.W.S`, `FCVT.WU.S`, `FCVT.W.D`, and `FCVT.WU.D` now use a shared
   spec-shaped result helper for NaN/out-of-range clipping and accrued flags.
   The helper sets NV for invalid conversions, sets NX when the rounded valid
