@@ -7787,6 +7787,45 @@ test "sstatus set and clear forms preserve machine only mstatus fields" {
 }
 
 ///|
+test "sstatus immediate set and clear forms preserve machine only fields" {
+  let mstatus = 0x300
+  let sstatus = 0x100
+  let machine_only = 0x21888U.to_uint64() // MIE | MPIE | MPP=M | MPRV
+  let sie = 0x2U.to_uint64()
+  let low_five = 0x1f
+  let program = words_to_bytes([
+    encode_csr(mstatus, 1, 0x1U, 0),
+    encode_csr(sstatus, low_five, 0x6U, 3),
+    encode_csr(mstatus, 0, 0x2U, 4),
+    encode_csr(sstatus, 0, 0x2U, 5),
+    encode_csr(sstatus, low_five, 0x7U, 6),
+    encode_csr(mstatus, 0, 0x2U, 7),
+    encode_csr(sstatus, 0, 0x2U, 8),
+  ])
+  let runner = make_runner(rv64_machine_config())
+  runner.cpu.write_reg(1, machine_only)
+  runner.load_program(program, 0U)
+  match runner.run(7) {
+    Running => ()
+    _ => fail("expected sstatus immediate RMW preservation program to run")
+  }
+  // Immediate CSR set/clear forms provide only a zero-extended five-bit source
+  // mask. Through the `sstatus` alias, that can reach SIE but not higher
+  // supervisor fields such as SPIE/SPP/SUM/MXR, and it must still preserve
+  // `mstatus`-only backing fields outside the alias.
+  assert_eq(runner.read_reg_u64(3) & sie, 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(4) & machine_only, machine_only)
+  assert_eq(runner.read_reg_u64(4) & sie, sie)
+  assert_eq(runner.read_reg_u64(5) & sie, sie)
+  assert_eq(runner.read_reg_u64(6) & sie, sie)
+  assert_eq(runner.read_reg_u64(7) & machine_only, machine_only)
+  assert_eq(runner.read_reg_u64(7) & sie, 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(8) & sie, 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(mstatus) & machine_only, machine_only)
+  assert_eq(runner.read_csr_u64(sstatus) & sie, 0U.to_uint64())
+}
+
+///|
 test "mstatus sd is derived from dirty FS instead of writable storage" {
   let sd_bit = 1U.to_uint64() << 63
   let mstatus_xlen_bits = 0xa00000000UL

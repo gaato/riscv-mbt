@@ -521,7 +521,10 @@ official coverage improve.
   `sstatus` alias writes now also have focused coverage that only the
   supervisor-visible subset is replaced or modified: M-only `mstatus` fields
   such as `MIE`, `MPIE`, `MPP`, and `MPRV` survive both replacement writes and
-  register-source set/clear RMW forms through the supervisor view.
+  register-source or immediate set/clear RMW forms through the supervisor view.
+  The immediate-form coverage also pins the Zicsr five-bit source mask through
+  this alias: `CSRRSI`/`CSRRCI sstatus, 0x1f` can affect `SIE`, but cannot reach
+  higher supervisor status fields such as `SPIE`, `SPP`, `SUM`, or `MXR`.
   `menvcfg` and `senvcfg` now expose no optional environment-feature bits in
   this RV64GC baseline. FIOM, Svpbmt, Svadu, Sstc, cache-block controls,
   pointer masking, landing-pad, shadow-stack, and double-trap controls read
@@ -1489,8 +1492,11 @@ official coverage improve.
 - `sstatus` now exposes and writes the shared `mstatus.FS` field. This keeps
   the RV64GC F/D context-status control path visible through the supervisor
   status CSR instead of only through machine `mstatus`; focused alias coverage
-  also pins replacement and register-source set/clear writes so M-only
-  `mstatus` fields survive supervisor-view updates.
+  also pins replacement, register-source set/clear, and immediate set/clear
+  writes so M-only `mstatus` fields survive supervisor-view updates. The
+  immediate set/clear path is deliberately limited to the Zicsr five-bit source
+  mask, so low visible bits such as `SIE` can change while higher `sstatus`
+  fields remain unreachable from the immediate operand.
 - `mstatus.SD` / `sstatus.SD` now behave as visible summary bits for the
   modeled extension status rather than writable storage: direct SD writes are
   ignored through both status views, `sstatus` set/clear forms cannot store SD

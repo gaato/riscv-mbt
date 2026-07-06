@@ -628,8 +628,11 @@
   register-source and immediate set/clear candidates.
 - `sstatus` alias writes now preserve M-only `mstatus` fields while updating
   only the supervisor-visible subset. Focused coverage pins both replacement
-  writes and register-source set/clear RMW forms so `MIE`, `MPIE`, `MPP`, and
-  `MPRV` survive writes through the supervisor status view.
+  writes plus register-source and immediate set/clear RMW forms so `MIE`,
+  `MPIE`, `MPP`, and `MPRV` survive writes through the supervisor status view.
+  The immediate-form regression also pins the Zicsr five-bit source mask
+  through this alias: `CSRRSI`/`CSRRCI sstatus, 0x1f` can affect `SIE`, but not
+  higher supervisor status fields such as `SPIE`, `SPP`, `SUM`, or `MXR`.
 - `menvcfg` and `senvcfg` now expose no optional environment-feature bits in
   the RV64GC baseline. FIOM, Svpbmt, Svadu, Sstc, cache-block controls, pointer
   masking, landing-pad, shadow-stack, and double-trap controls read back as
