@@ -438,9 +438,9 @@ official coverage improve.
   for the active profile, so M-only profiles no longer leave a raw `MPP=U`
   encoding behind after returning to M-mode.
   The standard debug-mode-only CSR range is now sampled explicitly:
-  `0x7B0` read and write forms trap as illegal instruction from M-mode because
-  this RV64GC baseline does not implement Debug Mode or expose those addresses
-  as ordinary machine storage.
+  `0x7B0`, `0x7B7`, and `0x7BF` read and write forms trap as illegal
+  instruction from M-mode because this RV64GC baseline does not implement Debug
+  Mode or expose those addresses as ordinary machine storage.
   The remaining audit is a spec pass over remaining WARL behavior,
   read-only/write-ignored fields, and privilege-visible side effects for every
   CSR currently exposed by `riscv_decode.mbt`.

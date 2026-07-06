@@ -367,6 +367,9 @@
   Suppression is also pinned for absent CSRs: suppressed-read write forms still
   require a supported writable CSR, and zero-mask set/clear forms still require
   a supported readable CSR.
+  The debug-mode-only CSR range is now sampled at `0x7B0`, `0x7B7`, and
+  `0x7BF`, with read and write forms trapping from M-mode because this baseline
+  does not implement Debug Mode.
   Read-only CSR coverage now spans all write-attempting standard forms:
   `CSRRW[I]`, `CSRRS[I]`, and `CSRRC[I]` with a nonzero source all trap, while
   zero-mask `CSRRS[I]` / `CSRRC[I]` remain legal pure reads. The RMW executor
