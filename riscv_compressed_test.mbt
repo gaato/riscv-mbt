@@ -1193,43 +1193,54 @@ test "rv64c architectural hints execute as no-ops" {
 
 ///|
 test "rv64c slli uses six bit unsigned shift amount" {
-  let runner = make_runner(rv64_machine_config())
-  runner.load_program(
-    mixed_program_bytes([
-      (4, encode_i(1, 0, 0x0U, 9, 0x13U)),
-      (2, encode_c_slli(9, 40).reinterpret_as_uint()),
-    ]),
-    0U,
-  )
-  match runner.run(2) {
-    Running => ()
-    _ => fail("expected rv64 c.slli with shamt 40 to run")
+  // RV64C interprets bit 12 plus bits 6:2 as a six-bit shift amount. Sweep
+  // the high half of the range so C.SLLI cannot regress into RV32C's reserved
+  // shamt[5]=1 behavior or a five-bit shift mask.
+  for shamt in 32..<=63 {
+    let runner = make_runner(rv64_machine_config())
+    runner.load_program(
+      mixed_program_bytes([
+        (4, encode_i(1, 0, 0x0U, 9, 0x13U)),
+        (2, encode_c_slli(9, shamt).reinterpret_as_uint()),
+      ]),
+      0U,
+    )
+    match runner.run(2) {
+      Running => ()
+      _ => fail("expected rv64 c.slli with high shamt to run")
+    }
+    assert_eq(runner.read_reg_u64(9), 1U.to_uint64() << shamt)
   }
-  assert_eq(runner.read_reg_u64(9), 1U.to_uint64() << 40)
 }
 
 ///|
 test "rv64c right shifts use six bit unsigned shift amount" {
   // RV64C uses bit 12 plus bits 6:2 as a six-bit shift amount for the
-  // compressed right shifts. Keep SRLI zero-fill and SRAI sign-fill behavior
-  // distinct while exercising a shamt value that RV32C reserves.
-  let runner = make_runner(rv64_machine_config())
-  runner.cpu.write_reg(8, 0x8000000000000000UL)
-  runner.cpu.write_reg(9, 0x8000000000000000UL)
-  runner.load_program(
-    mixed_program_bytes([
-      (2, encode_c_srli(8, 40).reinterpret_as_uint()),
-      (2, encode_c_srai(9, 40).reinterpret_as_uint()),
-    ]),
-    0U,
-  )
-  match runner.run(2) {
-    Running => ()
-    _ => fail("expected rv64 compressed right shifts with shamt 40 to run")
+  // compressed right shifts. Sweep the high range while keeping SRLI
+  // zero-fill and SRAI sign-fill behavior distinct.
+  let input = 0x8000000000000000UL
+  for shamt in 32..<=63 {
+    let runner = make_runner(rv64_machine_config())
+    runner.cpu.write_reg(8, input)
+    runner.cpu.write_reg(9, input)
+    runner.load_program(
+      mixed_program_bytes([
+        (2, encode_c_srli(8, shamt).reinterpret_as_uint()),
+        (2, encode_c_srai(9, shamt).reinterpret_as_uint()),
+      ]),
+      0U,
+    )
+    match runner.run(2) {
+      Running => ()
+      _ => fail("expected rv64 compressed right shifts with high shamt to run")
+    }
+    assert_eq(runner.read_reg_u64(8), input >> shamt)
+    assert_eq(
+      runner.read_reg_u64(9),
+      (input.reinterpret_as_int64() >> shamt).reinterpret_as_uint64(),
+    )
+    assert_eq(runner.pc_u64(), 4U.to_uint64())
   }
-  assert_eq(runner.read_reg_u64(8), 0x800000U.to_uint64())
-  assert_eq(runner.read_reg_u64(9), 0xffffffffff800000UL)
-  assert_eq(runner.pc_u64(), 4U.to_uint64())
 }
 
 ///|

@@ -984,8 +984,8 @@ official coverage improve.
   `C.SRLI shamt=0`, and `C.SRAI shamt=0` as no-ops, including the
   overlapping `C.SLLI rd=x0, shamt=0` hint spelling.
 - RV64C high-shift coverage now executes `C.SLLI`, `C.SRLI`, and `C.SRAI`
-  with `shamt[5]=1` as legal six-bit shifts, while the RV32C profile keeps the
-  same encodings reserved.
+  across the full high `shamt[5]=1` range as legal six-bit shifts, while the
+  RV32C profile keeps the same encodings reserved.
 - RV64C high-shamt hint coverage now keeps `C.SLLI rd=x0, shamt[5]=1` as a
   no-op, paired with the existing RV32C rejection of the same custom-extension
   code points.
