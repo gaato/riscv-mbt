@@ -6713,8 +6713,10 @@ test "trap entry from user updates mstatus trap fields" {
 }
 
 ///|
-test "mtvec direct target masks low bits and ignores mode dispatch" {
+test "machine synchronous exceptions use mtvec base in vectored mode" {
   let program = words_to_bytes([
+    // Write mtvec=0x15: BASE becomes 0x14 and MODE=Vectored. ECALL is a
+    // synchronous exception, so it must jump to BASE, not BASE + 4*cause.
     encode_csr(0x305, 0x15, 0x5U, 0),
     encode_ecall(),
     encode_i(0, 0, 0x0U, 0, 0x13U),
@@ -6732,6 +6734,8 @@ test "mtvec direct target masks low bits and ignores mode dispatch" {
     Running => ()
     _ => fail("expected trap redirection to running state")
   }
+  // If vectored mode were incorrectly applied to this synchronous exception,
+  // machine ECALL cause 11 would target 0x14 + 44 instead of this BASE slot.
   assert_eq(runner.pc(), 20U)
   match runner.step() {
     Running => ()

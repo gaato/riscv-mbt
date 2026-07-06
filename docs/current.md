@@ -461,12 +461,13 @@
   single-read internally, using the same old CSR value for `rd` and writeback derivation
   instead of reading the CSR a second time.
 - Trap-vector CSR writes now normalize `mtvec` and `stvec` to the modeled WARL
-  surface: aligned BASE plus Direct or Vectored MODE only. A delegated
-  supervisor-timer regression covers Vectored `stvec` dispatch to
-  `BASE + 4*cause`, and a machine-timer regression covers Vectored `mtvec`
-  dispatch to `BASE + 4*cause`. Register-source set/clear forms are now pinned
-  for both trap-vector CSRs as well: derived reserved MODE values normalize to
-  Direct, while MODE=1 remains Vectored.
+  surface: aligned BASE plus Direct or Vectored MODE only. Machine synchronous
+  exceptions now explicitly cover the Vectored-mode rule that exceptions still
+  enter at BASE. A delegated supervisor-timer regression covers Vectored
+  `stvec` dispatch to `BASE + 4*cause`, and a machine-timer regression covers
+  Vectored `mtvec` dispatch to `BASE + 4*cause`. Register-source set/clear
+  forms are now pinned for both trap-vector CSRs as well: derived reserved MODE
+  values normalize to Direct, while MODE=1 remains Vectored.
 - EPC CSR writes now clear hardwired bit 0 for `mepc` and `sepc`, and `MRET` /
   `SRET` mask the same bit when consuming EPC values prepared internally. Bit 1
   remains representable for the RV64GC compressed-instruction baseline. CSR set
