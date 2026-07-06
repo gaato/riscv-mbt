@@ -5880,6 +5880,53 @@ test "mstatus sd is derived from dirty FS instead of writable storage" {
     fs_dirty.read_csr_u64(0x100),
     sd_bit | sstatus_xlen_bits | 0x6000U.to_uint64(),
   )
+
+  let write_sstatus_then_read_views = words_to_bytes([
+    encode_csr(0x100, 1, 0x1U, 0),
+    encode_csr(0x300, 0, 0x2U, 2),
+    encode_csr(0x100, 0, 0x2U, 3),
+  ])
+  let sstatus_sd_only = make_runner(rv64_machine_config())
+  sstatus_sd_only.cpu.write_reg(1, sd_bit)
+  sstatus_sd_only.load_program(write_sstatus_then_read_views, 0U)
+  match sstatus_sd_only.run(3) {
+    Running => ()
+    _ => fail("expected sstatus SD-only write test to run")
+  }
+  assert_eq(sstatus_sd_only.read_reg_u64(2), mstatus_xlen_bits)
+  assert_eq(sstatus_sd_only.read_reg_u64(3), sstatus_xlen_bits)
+
+  let sstatus_rmw_sd = make_runner(rv64_machine_config())
+  sstatus_rmw_sd.cpu.write_reg(1, sd_bit | 0x6000U.to_uint64())
+  sstatus_rmw_sd.cpu.write_reg(4, sd_bit)
+  sstatus_rmw_sd.load_program(
+    words_to_bytes([
+      encode_csr(0x100, 1, 0x1U, 0),
+      encode_csr(0x100, 4, 0x3U, 5),
+      encode_csr(0x300, 0, 0x2U, 6),
+      encode_csr(0x100, 0, 0x2U, 7),
+    ]),
+    0U,
+  )
+  match sstatus_rmw_sd.run(4) {
+    Running => ()
+    _ => fail("expected sstatus SD RMW write test to run")
+  }
+  // `sstatus` exposes the same read-only SD summary as `mstatus`. Writing or
+  // clearing SD through the alias cannot store the summary bit directly; it
+  // remains derived from whether FS is Dirty after the candidate write.
+  assert_eq(
+    sstatus_rmw_sd.read_reg_u64(5),
+    sd_bit | sstatus_xlen_bits | 0x6000U.to_uint64(),
+  )
+  assert_eq(
+    sstatus_rmw_sd.read_reg_u64(6),
+    sd_bit | mstatus_xlen_bits | 0x6000U.to_uint64(),
+  )
+  assert_eq(
+    sstatus_rmw_sd.read_reg_u64(7),
+    sd_bit | sstatus_xlen_bits | 0x6000U.to_uint64(),
+  )
 }
 
 ///|

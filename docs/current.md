@@ -478,7 +478,8 @@
 - `sstatus` now exposes and writes the shared `mstatus.FS` field, matching the
   RV64GC F/D context-status path used by supervisor software.
 - `mstatus.SD` / `sstatus.SD` are now read as derived summary bits for dirty
-  modeled extension state: direct writes to SD are ignored, while FS=Dirty sets
+  modeled extension state: direct writes to SD are ignored through both status
+  views, `sstatus` set/clear forms cannot store SD directly, and FS=Dirty sets
   SD in the visible RV64 status view.
 - `mstatus` now drops unsupported status storage before applying the modeled
   WARL rules. User-interrupt, VS, XS, and other WPRI/reserved bits read back as

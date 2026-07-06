@@ -1138,7 +1138,8 @@ official coverage improve.
   `mstatus` fields survive supervisor-view updates.
 - `mstatus.SD` / `sstatus.SD` now behave as visible summary bits for the
   modeled extension status rather than writable storage: direct SD writes are
-  ignored, and FS=Dirty derives SD=1 on the RV64 status views.
+  ignored through both status views, `sstatus` set/clear forms cannot store SD
+  directly, and FS=Dirty derives SD=1 on the RV64 status views.
 - `mstatus` writes now retain only the implemented status field surface. A
   write-all-ones regression verifies that unsupported user-interrupt, VS, XS,
   and WPRI/reserved storage is cleared before the existing endian, fixed-XLEN,
