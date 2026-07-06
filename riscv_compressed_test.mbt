@@ -474,6 +474,69 @@ test "rv64c compressed control transfers allow halfword targets" {
 }
 
 ///|
+test "rv64c compressed zero-offset control transfers stay legal" {
+  // A zero immediate is reserved for some compressed instructions, but not for
+  // CJ/CB-format control transfers. A taken zero-offset C.J/C.B* is just a
+  // self-target, while an untaken branch still retires to the next halfword.
+  let jump = make_runner(rv64_machine_config())
+  jump.load_program(
+    mixed_program_bytes([(2, encode_c_j(0).reinterpret_as_uint())]),
+    0U,
+  )
+  match jump.step() {
+    Running => ()
+    _ => fail("expected zero-offset c.j to run")
+  }
+  assert_eq(jump.pc_u64(), 0U.to_uint64())
+
+  let branch_eq_taken = make_runner(rv64_machine_config())
+  branch_eq_taken.load_program(
+    mixed_program_bytes([(2, encode_c_beqz(8, 0).reinterpret_as_uint())]),
+    0U,
+  )
+  match branch_eq_taken.step() {
+    Running => ()
+    _ => fail("expected taken zero-offset c.beqz to run")
+  }
+  assert_eq(branch_eq_taken.pc_u64(), 0U.to_uint64())
+
+  let branch_eq_not_taken = make_runner(rv64_machine_config())
+  branch_eq_not_taken.cpu.write_reg(8, 1U.to_uint64())
+  branch_eq_not_taken.load_program(
+    mixed_program_bytes([(2, encode_c_beqz(8, 0).reinterpret_as_uint())]),
+    0U,
+  )
+  match branch_eq_not_taken.step() {
+    Running => ()
+    _ => fail("expected untaken zero-offset c.beqz to run")
+  }
+  assert_eq(branch_eq_not_taken.pc_u64(), 2U.to_uint64())
+
+  let branch_ne_taken = make_runner(rv64_machine_config())
+  branch_ne_taken.cpu.write_reg(8, 1U.to_uint64())
+  branch_ne_taken.load_program(
+    mixed_program_bytes([(2, encode_c_bnez(8, 0).reinterpret_as_uint())]),
+    0U,
+  )
+  match branch_ne_taken.step() {
+    Running => ()
+    _ => fail("expected taken zero-offset c.bnez to run")
+  }
+  assert_eq(branch_ne_taken.pc_u64(), 0U.to_uint64())
+
+  let branch_ne_not_taken = make_runner(rv64_machine_config())
+  branch_ne_not_taken.load_program(
+    mixed_program_bytes([(2, encode_c_bnez(8, 0).reinterpret_as_uint())]),
+    0U,
+  )
+  match branch_ne_not_taken.step() {
+    Running => ()
+    _ => fail("expected untaken zero-offset c.bnez to run")
+  }
+  assert_eq(branch_ne_not_taken.pc_u64(), 2U.to_uint64())
+}
+
+///|
 test "rv64c compressed control transfers sign extend backward offsets" {
   // The same 2-byte-scaled control immediates are signed. Start execution at
   // the control instruction so a bad zero-extension would jump forward into
