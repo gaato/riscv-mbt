@@ -233,11 +233,14 @@ official coverage improve.
   signed/unsigned AMO.D min/max comparisons, natural-address alignment traps
   for LR/SC/AMO W/D operations, and the architectural rule that a failed,
   non-trapping SC still consumes the hart reservation before any later matching
-  SC can observe it. A later LR also
-  replaces the previous hart reservation, so SC cannot pair with an older LR in
-  program order. The reservation-set model is documented as the exact physical
-  byte range loaded by the most recent LR, and mixed-width SC attempts at the
-  same address now have focused regression coverage for deterministic failure.
+  SC can observe it. The recovery path is covered for both W and D forms: a
+  fresh LR after that failed SC can establish a new reservation and a matching
+  SC can succeed, proving the failure does not poison later LR/SC pairs. A
+  later LR also replaces the previous hart reservation, so SC cannot pair with
+  an older LR in program order. The reservation-set model is documented as the
+  exact physical byte range loaded by the most recent LR, and mixed-width SC
+  attempts at the same address now have focused regression coverage for
+  deterministic failure.
   The xRET policy is also explicit: `MRET`/`SRET` do not clear live
   reservations, which is permitted by the privileged spec, and `MRET`
   preserving a live LR reservation for a following SC is covered. The A/C
@@ -603,6 +606,9 @@ official coverage improve.
   governed by the emulator's existing EEI behavior.
 - A-extension failed-SC coverage now includes both `SC.W` and `SC.D` without a
   live reservation, proving the nonzero status result and no-store behavior.
+- A-extension LR/SC recovery coverage now also proves that a failed mismatched
+  `SC.W` or `SC.D` consumes only the old reservation: a later fresh LR can
+  establish a new W/D reservation and the matching SC can still succeed.
 - A-extension successful LR/SC coverage now includes both `LR.W`/`SC.W` and
   `LR.D`/`SC.D`, proving full-width load-reserved results, zero success status,
   and the committed store-conditional value.

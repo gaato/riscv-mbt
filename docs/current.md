@@ -559,12 +559,15 @@
   pairs are covered, failed `SC.W`/`SC.D` without a live reservation are
   both covered as nonzero-status, no-store operations, and a failed mismatched
   `SC.W` is now covered as consuming the hart reservation before any later
-  matching `SC.W` can succeed. A later `LR.W` to a different address is also
-  covered as replacing the previous reservation, so SC cannot pair with an
-  older LR in program order. The reservation-set model is documented as the
-  exact physical byte range loaded by the most recent LR, and mixed-width SC
-  attempts at the same address are covered as deterministic failures under that
-  model. The xRET policy is explicit and covered for both `MRET` and `SRET`:
+  matching `SC.W` can succeed. The recovery path is also covered for both W and
+  D forms: after a failed mismatched SC consumes the old reservation, a later
+  fresh LR can establish a new reservation and the matching SC can still
+  succeed. A later `LR.W` to a different address is also covered as replacing
+  the previous reservation, so SC cannot pair with an older LR in program
+  order. The reservation-set model is documented as the exact physical byte
+  range loaded by the most recent LR, and mixed-width SC attempts at the same
+  address are covered as deterministic failures under that model. The xRET
+  policy is explicit and covered for both `MRET` and `SRET`:
   trap returns do not implicitly clear live reservations, which is permitted by
   the privileged spec. Compressed integer instructions between `LR.W` and
   `SC.W` are now

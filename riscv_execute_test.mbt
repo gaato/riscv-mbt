@@ -15054,6 +15054,119 @@ test "failed SC clears the hart reservation before a later matching SC" {
 }
 
 ///|
+test "fresh LR SC word pair can succeed after a failed SC consumed the old reservation" {
+  // A failed SC is a real reservation event: it consumes the old reservation,
+  // reports failure, and leaves memory untouched. It must not poison the hart
+  // permanently; a later LR can establish a fresh reservation that a matching
+  // SC.W may satisfy.
+  let runner = make_runner(virt_machine_config())
+  let addr_a = runner.cpu.pc + 0x100U.to_uint64()
+  let addr_b = runner.cpu.pc + 0x108U.to_uint64()
+  runner.bus.store_u32(addr_a, 11U.to_uint64())
+  runner.bus.store_u32(addr_b, 22U.to_uint64())
+  runner.cpu.write_reg(1, addr_a)
+  runner.cpu.write_reg(2, addr_b)
+  runner.cpu.write_reg(5, 33U.to_uint64())
+  runner.cpu.write_reg(6, 44U.to_uint64())
+  let pc0 = runner.cpu.pc
+  runner.bus.store_u32(pc0, encode_amo(0x02U, 0, 1, 0x2U, 3).to_uint64())
+  runner.bus.store_u32(
+    pc0 + 4U.to_uint64(),
+    encode_amo(0x03U, 5, 2, 0x2U, 4).to_uint64(),
+  )
+  runner.bus.store_u32(
+    pc0 + 8U.to_uint64(),
+    encode_amo(0x02U, 0, 1, 0x2U, 7).to_uint64(),
+  )
+  runner.bus.store_u32(
+    pc0 + 12U.to_uint64(),
+    encode_amo(0x03U, 6, 1, 0x2U, 8).to_uint64(),
+  )
+
+  match runner.step() {
+    Running => ()
+    _ => fail("expected first lr.w to run")
+  }
+  assert_eq(runner.read_reg_u64(3), 11U.to_uint64())
+  match runner.step() {
+    Running => ()
+    _ => fail("expected mismatched sc.w to retire as failure")
+  }
+  assert_eq(runner.read_reg_u64(4), 1U.to_uint64())
+  assert_eq(runner.bus.load_u32(addr_b), 22U.to_uint64())
+  match runner.step() {
+    Running => ()
+    _ => fail("expected fresh lr.w to run after failed sc.w")
+  }
+  assert_eq(runner.read_reg_u64(7), 11U.to_uint64())
+  match runner.step() {
+    Running => ()
+    _ => fail("expected fresh matching sc.w to succeed")
+  }
+  assert_eq(runner.read_reg_u64(8), 0U.to_uint64())
+  assert_eq(runner.bus.load_u32(addr_a), 44U.to_uint64())
+  assert_eq(runner.bus.load_u32(addr_b), 22U.to_uint64())
+}
+
+///|
+test "fresh LR SC doubleword pair can succeed after a failed SC consumed the old reservation" {
+  // Keep the doubleword path symmetric with the word path. This matters for
+  // RV64GC userspace because mutex and atomic library code can freely mix
+  // LR/SC.W and LR/SC.D depending on the size of the atomic object.
+  let runner = make_runner(virt_machine_config())
+  let addr_a = runner.cpu.pc + 0x100U.to_uint64()
+  let addr_b = runner.cpu.pc + 0x108U.to_uint64()
+  let original_a = 0x1111222233334444UL
+  let original_b = 0x5555666677778888UL
+  let failed_replacement = 0x9999aaaabbbbccccUL
+  let final_replacement = 0xddddeeeeffff0001UL
+  runner.bus.store_u64(addr_a, original_a)
+  runner.bus.store_u64(addr_b, original_b)
+  runner.cpu.write_reg(1, addr_a)
+  runner.cpu.write_reg(2, addr_b)
+  runner.cpu.write_reg(5, failed_replacement)
+  runner.cpu.write_reg(6, final_replacement)
+  let pc0 = runner.cpu.pc
+  runner.bus.store_u32(pc0, encode_amo(0x02U, 0, 1, 0x3U, 3).to_uint64())
+  runner.bus.store_u32(
+    pc0 + 4U.to_uint64(),
+    encode_amo(0x03U, 5, 2, 0x3U, 4).to_uint64(),
+  )
+  runner.bus.store_u32(
+    pc0 + 8U.to_uint64(),
+    encode_amo(0x02U, 0, 1, 0x3U, 7).to_uint64(),
+  )
+  runner.bus.store_u32(
+    pc0 + 12U.to_uint64(),
+    encode_amo(0x03U, 6, 1, 0x3U, 8).to_uint64(),
+  )
+
+  match runner.step() {
+    Running => ()
+    _ => fail("expected first lr.d to run")
+  }
+  assert_eq(runner.read_reg_u64(3), original_a)
+  match runner.step() {
+    Running => ()
+    _ => fail("expected mismatched sc.d to retire as failure")
+  }
+  assert_eq(runner.read_reg_u64(4), 1U.to_uint64())
+  assert_eq(runner.bus.load_u64(addr_b), original_b)
+  match runner.step() {
+    Running => ()
+    _ => fail("expected fresh lr.d to run after failed sc.d")
+  }
+  assert_eq(runner.read_reg_u64(7), original_a)
+  match runner.step() {
+    Running => ()
+    _ => fail("expected fresh matching sc.d to succeed")
+  }
+  assert_eq(runner.read_reg_u64(8), 0U.to_uint64())
+  assert_eq(runner.bus.load_u64(addr_a), final_replacement)
+  assert_eq(runner.bus.load_u64(addr_b), original_b)
+}
+
+///|
 test "a later LR replaces the reservation used by SC" {
   // SC pairs with the most recent LR in program order. A later LR to a
   // different address makes the older address unreserved even when no store or
