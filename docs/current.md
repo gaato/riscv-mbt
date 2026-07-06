@@ -109,7 +109,9 @@
   results back to double precision for legal non-RNE modes, including NX/OF/UF
   result flags. Scalar `FDIV.S/D`, `FMUL.S/D`, and fused multiply-add family
   underflow coverage now pins subnormal tiny quotients/products accruing UF and
-  NX. `FCLASS.S` /`FCLASS.D`
+  NX, and positive `FMADD.S/D` overflow coverage now pins the fused final
+  rounding boundary: RNE/RUP select infinity, RTZ/RDN select the largest finite
+  result, and all modes accrue OF|NX. `FCLASS.S` /`FCLASS.D`
   now decode and execute the architectural 10-bit classification mask for zero,
   subnormal, normal, infinity, signaling-NaN, and quiet-NaN values. Double
   `FSQRT.D` now derives finite results for all legal rounding modes from exact

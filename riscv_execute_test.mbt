@@ -3200,6 +3200,74 @@ test "rv64fd fused multiply-add family accrues underflow and inexact for tiny pr
 }
 
 ///|
+test "rv64fd fused multiply-add overflow follows rounding mode" {
+  let runner = make_runner(rv64fd_machine_config())
+  let csr_fcsr = 0x003
+  let overflow_inexact = 0x05U.to_uint64()
+  runner.cpu.write_freg(1, exec_test_nan_box_single(0x7f7fffffU))
+  runner.cpu.write_freg(2, exec_test_nan_box_single(0x40000000U))
+  runner.cpu.write_freg(3, exec_test_nan_box_single(0x00000000U))
+  runner.cpu.write_freg(20, 0x7fefffffffffffffUL)
+  runner.cpu.write_freg(21, 0x4000000000000000UL)
+  runner.cpu.write_freg(22, 0x0000000000000000UL)
+  runner.load_program(
+    words_to_bytes([
+      encode_fp_r4(3, 0x0U, 2, 1, 0x0U, 4, 0x43U),
+      encode_csr(csr_fcsr, 0, 0x2U, 5),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(3, 0x0U, 2, 1, 0x1U, 6, 0x43U),
+      encode_csr(csr_fcsr, 0, 0x2U, 7),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(3, 0x0U, 2, 1, 0x2U, 8, 0x43U),
+      encode_csr(csr_fcsr, 0, 0x2U, 9),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(3, 0x0U, 2, 1, 0x3U, 10, 0x43U),
+      encode_csr(csr_fcsr, 0, 0x2U, 11),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(22, 0x1U, 21, 20, 0x0U, 12, 0x43U),
+      encode_csr(csr_fcsr, 0, 0x2U, 13),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(22, 0x1U, 21, 20, 0x1U, 14, 0x43U),
+      encode_csr(csr_fcsr, 0, 0x2U, 15),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(22, 0x1U, 21, 20, 0x2U, 16, 0x43U),
+      encode_csr(csr_fcsr, 0, 0x2U, 17),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r4(22, 0x1U, 21, 20, 0x3U, 18, 0x43U),
+      encode_csr(csr_fcsr, 0, 0x2U, 19),
+    ]),
+    0U,
+  )
+  match runner.run(23) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected overflowing fused multiply-add paths to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  // These cases overflow only at the fused final rounding step. IEEE/RISC-V
+  // requires OF|NX, while the selected overflow result depends on rm: nearest
+  // and +inf round to infinity for a positive result, zero and -inf round to
+  // the largest finite value.
+  assert_eq(runner.read_freg_u64(4), exec_test_nan_box_single(0x7f800000U))
+  assert_eq(runner.read_reg_u64(5) & overflow_inexact, overflow_inexact)
+  assert_eq(runner.read_freg_u64(6), exec_test_nan_box_single(0x7f7fffffU))
+  assert_eq(runner.read_reg_u64(7) & overflow_inexact, overflow_inexact)
+  assert_eq(runner.read_freg_u64(8), exec_test_nan_box_single(0x7f7fffffU))
+  assert_eq(runner.read_reg_u64(9) & overflow_inexact, overflow_inexact)
+  assert_eq(runner.read_freg_u64(10), exec_test_nan_box_single(0x7f800000U))
+  assert_eq(runner.read_reg_u64(11) & overflow_inexact, overflow_inexact)
+  assert_eq(runner.read_freg_u64(12), 0x7ff0000000000000UL)
+  assert_eq(runner.read_reg_u64(13) & overflow_inexact, overflow_inexact)
+  assert_eq(runner.read_freg_u64(14), 0x7fefffffffffffffUL)
+  assert_eq(runner.read_reg_u64(15) & overflow_inexact, overflow_inexact)
+  assert_eq(runner.read_freg_u64(16), 0x7fefffffffffffffUL)
+  assert_eq(runner.read_reg_u64(17) & overflow_inexact, overflow_inexact)
+  assert_eq(runner.read_freg_u64(18), 0x7ff0000000000000UL)
+  assert_eq(runner.read_reg_u64(19) & overflow_inexact, overflow_inexact)
+}
+
+///|
 test "rv64fd sqrt honors non-rne rounding modes" {
   let runner = make_runner(rv64fd_machine_config())
   let csr_fcsr = 0x003

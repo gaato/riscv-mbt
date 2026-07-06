@@ -149,7 +149,9 @@ official coverage improve.
   addends produce canonical NaNs without flags, while signaling NaN addends
   produce canonical NaNs with NV. Exact finite FMA results now also have a
   flag-clean baseline across all four opcodes in both S and D, every legal
-  static `rm`, and every legal dynamic `frm`.
+  static `rm`, and every legal dynamic `frm`. Positive `FMADD.S/D` overflow is
+  now covered at the fused final rounding boundary: RNE/RUP select infinity,
+  RTZ/RDN select the largest finite value, and all cases accrue OF|NX.
   Exact widening `FCVT.D.S` and exact
   RV32-width-to-double `FCVT.D.W[U]` now treat the otherwise unaffected `rm`
   field as architecturally significant for legal/reserved static and dynamic
@@ -882,6 +884,9 @@ official coverage improve.
   an exact +0 addend: the tests isolate the fused single-rounding path while
   requiring the same subnormal tiny-product UF and NX sticky flags for
   `FMADD`, `FMSUB`, `FNMSUB`, and `FNMADD` in both S and D formats.
+- Positive `FMADD.S/D` overflow now has matching rounding-mode coverage at the
+  fused final rounding step. RNE and RUP produce positive infinity, RTZ and RDN
+  produce the largest finite value, and every case accrues OF|NX.
 - The double-precision fused multiply-add family now accepts legal static and
   dynamic non-RNE modes and routes finite nonzero exact fused results through the
   exact-rational-to-double helper. This covers `FMADD.D`, `FMSUB.D`,
