@@ -8177,14 +8177,17 @@ test "pmp csrs stay WARL zero across set and clear forms" {
 ///|
 fn expect_absent_csr_form_family_traps(csr : Int, name : String) -> Unit raise {
   // Unsupported CSR addresses trap before Zicsr read/write suppression can
-  // make a form harmless. CSRRW[I] rd=x0 suppresses the read side, and
-  // CSRRS/CSRRC[I] with a zero mask suppress the write side, but an absent CSR
-  // still has no architectural endpoint for the remaining access.
+  // make a form harmless. Direct CSRRW[I] forms touch both sides of the CSR,
+  // CSRRW[I] rd=x0 suppresses only the read side, and CSRRS/CSRRC[I] with a
+  // zero mask suppress only the write side. An absent CSR has no architectural
+  // endpoint for whichever side remains.
   let forms = [
     encode_csr(csr, 0, 0x2U, 1),
     encode_csr(csr, 0, 0x3U, 2),
     encode_csr(csr, 0, 0x6U, 3),
     encode_csr(csr, 0, 0x7U, 4),
+    encode_csr(csr, 1, 0x1U, 9),
+    encode_csr(csr, 1, 0x5U, 10),
     encode_csr(csr, 1, 0x1U, 0),
     encode_csr(csr, 1, 0x5U, 0),
     encode_csr(csr, 1, 0x2U, 5),
@@ -8543,20 +8546,11 @@ test "csr address privilege bits gate supervisor and machine csrs" {
 }
 
 ///|
-test "unsupported csr access traps as illegal instruction" {
-  let raw = encode_csr(0x7A0, 0, 0x2U, 1)
-  let runner = make_runner(default_machine_config())
-  runner.load_program(words_to_bytes([raw]), 0U)
-  match runner.step() {
-    Trap(info) => {
-      match info.cause {
-        IllegalInstruction => ()
-        _ => fail("expected illegal instruction cause")
-      }
-      assert_eq(info.trap_value, raw.to_uint64())
-    }
-    _ => fail("expected illegal instruction trap")
-  }
+test "unsupported CSR form family traps as illegal instruction" {
+  // 0x7A0 is outside the modeled CSR surface and is not tied to an optional
+  // extension block such as Debug, HPM, or Smrnmi. Use it as the generic
+  // unsupported-address representative for the whole Zicsr form family.
+  expect_absent_csr_form_family_traps(0x7A0, "unsupported CSR")
 }
 
 ///|
@@ -8569,37 +8563,6 @@ test "debug mode only csrs trap from machine mode" {
   // or the direct-write path.
   for debug_only in [0x7B0, 0x7B7, 0x7BF] {
     expect_absent_csr_form_family_traps(debug_only, "debug-mode-only CSR")
-  }
-}
-
-///|
-test "zicsr suppression does not make unsupported csrs legal" {
-  // Zicsr suppression selects which side effects are skipped, not whether an
-  // absent CSR exists. Suppressed-read write forms still need a writable CSR,
-  // and zero-mask set/clear forms still need a readable CSR.
-  let unsupported = 0x7A0
-  let forms = [
-    encode_csr(unsupported, 1, 0x1U, 0), // CSRRW rd=x0 suppresses read only
-    encode_csr(unsupported, 1, 0x5U, 0), // CSRRWI rd=x0 suppresses read only
-    encode_csr(unsupported, 0, 0x2U, 2), // CSRRS rs1=x0 suppresses write only
-    encode_csr(unsupported, 0, 0x3U, 3), // CSRRC rs1=x0 suppresses write only
-    encode_csr(unsupported, 0, 0x6U, 4), // CSRRSI uimm=0 suppresses write only
-    encode_csr(unsupported, 0, 0x7U, 5), // CSRRCI uimm=0 suppresses write only
-  ]
-  for raw in forms {
-    let runner = make_runner(default_machine_config())
-    runner.cpu.write_reg(1, 1U.to_uint64())
-    runner.load_program(words_to_bytes([raw]), 0U)
-    match runner.step() {
-      Trap(info) => {
-        match info.cause {
-          IllegalInstruction => ()
-          _ => fail("expected illegal instruction cause")
-        }
-        assert_eq(info.trap_value, raw.to_uint64())
-      }
-      _ => fail("expected unsupported CSR suppression form to trap")
-    }
   }
 }
 

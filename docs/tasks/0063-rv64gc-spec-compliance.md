@@ -464,9 +464,11 @@ official coverage improve.
   addresses all trap unless the configured profile advertises `MISA.V`.
   In the optional vector profile, the read-only `vl`, `vtype`, and `vlenb`
   CSRs now reject both direct write and nonzero set/clear CSR forms.
-  Zicsr suppression is also pinned against absent CSRs: `CSRRW[I] rd=x0`
-  still traps when the write side names an unsupported CSR, and zero-mask
-  `CSRRS/CSRRC[I]` still traps when the read side names an unsupported CSR.
+  Zicsr suppression is also pinned against absent CSRs: a generic unsupported
+  CSR address now traps across direct `CSRRW[I]`, suppressed-read
+  `CSRRW[I] rd=x0`, zero-mask read-only `CSRRS/CSRRC[I]`, and nonzero
+  set/clear forms, because an absent CSR has no architectural endpoint for
+  either the read side or the write side.
   Profile legality now also makes supervisor state conditional on `MISA.S`:
   no-`S` profiles reject supervisor CSRs, `SRET`, and `SFENCE.VMA`, and
   `mstatus` WARL normalization clears supervisor return state instead of
@@ -796,9 +798,10 @@ official coverage improve.
   read-modify-write paths single-read: the old CSR value returned to `rd` is
   the same value used to derive the writeback value, avoiding a second visible
   CSR read when the form has already performed the architectural read side.
-- Zicsr suppression no longer has an untested absent-CSR edge: suppressed-read
-  write forms still require a supported writable CSR, and zero-mask set/clear
-  forms still require a supported readable CSR.
+- Zicsr suppression no longer has an untested absent-CSR edge: a generic
+  unsupported CSR address traps across direct `CSRRW[I]`, suppressed-read
+  `CSRRW[I] rd=x0`, zero-mask read-only `CSRRS/CSRRC[I]`, and nonzero
+  set/clear forms.
 - `A` decode now treats reserved AMO `funct5` values and the reserved
   nonzero-`rs2` LR encoding as illegal, while preserving the `aq`/`rl` ordering
   bits in the decoded instruction value. AMO W/D execution is also
