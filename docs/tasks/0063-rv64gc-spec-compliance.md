@@ -276,9 +276,12 @@ official coverage improve.
   reservation-breaking writes under the interpreter's serialized multi-hart
   step model. Because each guest instruction completes its memory transaction
   before the next hart observes the shared bus, the model is stronger than the
-  RVWMO visibility constraints that aq/rl annotate. The remaining audit is
-  broader LR/SC forward-progress/eventual-success behavior beyond the current
-  interpreter scheduling model.
+  RVWMO visibility constraints that aq/rl annotate. A two-hart retry sequence
+  now covers the deterministic forward-progress floor this interpreter can
+  prove: an interfering store makes the first `SC.W` fail, but a later fresh
+  `LR.W`/`SC.W` pair succeeds once no further conflicting write occurs. The
+  remaining audit is broader LR/SC scheduler/eventual-success behavior beyond
+  that deterministic reservation model.
 - `C`: compressed decode/execute coverage exists in
   `riscv_compressed_test.mbt`, and the upstream `rv64uc-p-rvc` binary is now
   part of the gating manifest. The RV64C reserved/hint audit now covers

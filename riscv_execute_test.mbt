@@ -16808,6 +16808,64 @@ test "store from another hart invalidates LR.W reservation" {
 }
 
 ///|
+test "LR SC word retry succeeds after interfering store stops" {
+  let harts = make_smp_runners(virt_machine_config(), 2)
+  let hart0 = harts[0]
+  let hart1 = harts[1]
+  let pc0 = hart0.cpu.pc
+  let addr = pc0 + 0x100U.to_uint64()
+  hart0.bus.store_u32(addr, 77U.to_uint64())
+  hart0.cpu.write_reg(1, addr)
+  hart0.cpu.write_reg(5, 88U.to_uint64())
+  hart0.cpu.write_reg(6, 123U.to_uint64())
+  hart1.cpu.write_reg(1, addr)
+  hart1.cpu.write_reg(9, 99U.to_uint64())
+  hart0.bus.store_u32(pc0, encode_amo(0x02U, 0, 1, 0x2U, 3).to_uint64())
+  hart0.bus.store_u32(
+    pc0 + 4U.to_uint64(),
+    encode_amo(0x03U, 5, 1, 0x2U, 4).to_uint64(),
+  )
+  hart0.bus.store_u32(
+    pc0 + 8U.to_uint64(),
+    encode_amo(0x02U, 0, 1, 0x2U, 7).to_uint64(),
+  )
+  hart0.bus.store_u32(
+    pc0 + 12U.to_uint64(),
+    encode_amo(0x03U, 6, 1, 0x2U, 8).to_uint64(),
+  )
+  match hart0.step() {
+    Running => ()
+    _ => fail("expected hart0 first LR.W to run")
+  }
+  hart1.bus.store_u32(pc0, encode_s(0, 9, 1, 0x2U, 0x23U).to_uint64())
+  match hart1.step() {
+    Running => ()
+    _ => fail("expected hart1 interfering SW to run")
+  }
+  match hart0.step() {
+    Running => ()
+    _ => fail("expected hart0 first SC.W to run")
+  }
+  match hart0.step() {
+    Running => ()
+    _ => fail("expected hart0 retry LR.W to run")
+  }
+  match hart0.step() {
+    Running => ()
+    _ => fail("expected hart0 retry SC.W to run")
+  }
+  // The first SC must fail because hart 1 wrote the reserved word after LR.
+  // Once the retry loop executes a fresh LR and no later conflicting write
+  // occurs, this deterministic interpreter must not introduce a spurious SC
+  // failure. That is the forward-progress floor the model can actually prove.
+  assert_eq(hart0.read_reg_u64(3), 77U.to_uint64())
+  assert_eq(hart0.read_reg_u64(4), 1U.to_uint64())
+  assert_eq(hart0.read_reg_u64(7), 99U.to_uint64())
+  assert_eq(hart0.read_reg_u64(8), 0U.to_uint64())
+  assert_eq(hart0.bus.load_u32(addr), 123U.to_uint64())
+}
+
+///|
 test "ordered atomic operation from another hart invalidates LR reservations" {
   let word_harts = make_smp_runners(virt_machine_config(), 2)
   let word_lr_hart = word_harts[0]

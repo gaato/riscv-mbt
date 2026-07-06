@@ -679,10 +679,12 @@
   AMOs from another hart are now covered as reservation-breaking writes under
   the interpreter's serialized memory model; successful `SC.W`/`SC.D` from
   another hart now have matching reservation-invalidation coverage as
-  conditional stores. That model is stronger than the RVWMO visibility
-  constraints that aq/rl annotate. The remaining A-extension
-  audit is broader LR/SC forward-progress/eventual-success behavior beyond the
-  current interpreter scheduler.
+  conditional stores. A two-hart retry case now also proves that after an
+  interfering store makes the first `SC.W` fail, a fresh `LR.W`/`SC.W` pair can
+  succeed once interference stops. That model is stronger than the RVWMO
+  visibility constraints that aq/rl annotate. The remaining A-extension audit
+  is broader LR/SC scheduler/eventual-success behavior beyond the deterministic
+  reservation model.
 
 ## Known Blockers
 
