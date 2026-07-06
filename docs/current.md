@@ -150,7 +150,8 @@
   NV under RNE/RUP, plus the lower S/D `-0.5` edge where RNE/RTZ produce valid
   inexact zero but RDN rounds invalid. Dynamic `rm=111` coverage now also
   checks those word-boundary rules through `fcsr.frm`, using `fflags` clears
-  that leave the current rounding mode intact.
+  that leave the current rounding mode intact; the F-only single-source paths
+  now have matching dynamic checks for word and long outputs.
   `FCVT.LU.S/D` now has matching unsigned-long lower-edge coverage for `-0.5`,
   proving the same rounded-result validity rule on the RV64-width output path;
   RMM coverage also pins FCVT.L.D ties-away behavior on representable `+9.5`

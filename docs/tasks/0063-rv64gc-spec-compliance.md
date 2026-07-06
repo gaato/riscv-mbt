@@ -565,7 +565,10 @@ official coverage improve.
   with NX under RNE/RTZ but invalid with NV under RDN for both S and D sources.
   Dynamic `rm=111` coverage now repeats the word-boundary check through
   `fcsr.frm` for signed RDN and unsigned RMM cases, and uses `fflags` clears so
-  the test also proves the selected dynamic rounding mode is preserved.
+  the test also proves the selected dynamic rounding mode is preserved. The
+  F-only single-source conversion paths now also have dynamic `frm` coverage
+  for `FCVT.W.S`, `FCVT.WU.S`, `FCVT.L.S`, and `FCVT.LU.S`, using exact small
+  ties for the rounding-source check and `-0.5` for unsigned invalid rounding.
   Float-to-integer conversions now also have explicit reserved-rounding
   regressions for representative word, unsigned-word, and long forms,
   including dynamic `rm=111` with a reserved `frm`.

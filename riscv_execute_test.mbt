@@ -4736,6 +4736,94 @@ test "rv64fd dynamic frm long conversion uses fcsr rounding" {
 }
 
 ///|
+test "rv64f dynamic frm single-source integer conversions use fcsr rounding" {
+  let csr_fflags = 0x001
+  let csr_fcsr = 0x003
+  let fcsr_frm_shift = 5
+  let invalid = 0x10U.to_uint64()
+  let inexact = 0x01U.to_uint64()
+  let frm_mask = 0x7U << fcsr_frm_shift
+  let rdn_frm = 0x2U << fcsr_frm_shift
+  let rmm_frm = 0x4U << fcsr_frm_shift
+
+  let rdn = make_runner(rv64f_machine_config())
+  // This is the F-only version of the dynamic conversion contract. Single
+  // precision cannot represent useful half-unit values near the 32/64-bit
+  // upper integer limits, so exact small ties prove the rounding-mode source
+  // while -0.5 proves the unsigned invalid path after dynamic directed rounding.
+  rdn.cpu.write_freg(1, exec_test_nan_box_single(0x41180000U)) // +9.5f.
+  rdn.cpu.write_freg(2, exec_test_nan_box_single(0xbf000000U)) // -0.5f.
+  rdn.cpu.write_csr(csr_fcsr, rdn_frm.to_uint64())
+  rdn.load_program(
+    words_to_bytes([
+      encode_fcvt_w_s(1, 0x7U, 10),
+      encode_csr(csr_fflags, 0, 0x2U, 11),
+      encode_csr(csr_fflags, 0, 0x1U, 0),
+      encode_fcvt_l_s(1, 0x7U, 12),
+      encode_csr(csr_fflags, 0, 0x2U, 13),
+      encode_csr(csr_fflags, 0, 0x1U, 0),
+      encode_fcvt_wu_s(2, 0x7U, 14),
+      encode_csr(csr_fflags, 0, 0x2U, 15),
+      encode_csr(csr_fflags, 0, 0x1U, 0),
+      encode_fcvt_lu_s(2, 0x7U, 16),
+      encode_csr(csr_fflags, 0, 0x2U, 17),
+    ]),
+    0U,
+  )
+  match rdn.run(11) {
+    Running => ()
+    _ => fail("expected dynamic RDN single-source conversion path to run")
+  }
+  assert_eq(rdn.read_reg_u64(10), 9U.to_uint64())
+  assert_eq(rdn.read_reg_u64(11) & 0x1fU.to_uint64(), inexact)
+  assert_eq(rdn.read_reg_u64(12), 9U.to_uint64())
+  assert_eq(rdn.read_reg_u64(13) & 0x1fU.to_uint64(), inexact)
+  assert_eq(rdn.read_reg_u64(14), 0U.to_uint64())
+  assert_eq(rdn.read_reg_u64(15) & 0x1fU.to_uint64(), invalid)
+  assert_eq(rdn.read_reg_u64(16), 0U.to_uint64())
+  assert_eq(rdn.read_reg_u64(17) & 0x1fU.to_uint64(), invalid)
+  assert_eq(rdn.read_csr(csr_fcsr) & frm_mask, rdn_frm)
+
+  let rmm = make_runner(rv64f_machine_config())
+  // RMM is easy to miss because it is encoded beside the IEEE rounding modes
+  // but has different half-way behavior. Cover both word and long outputs from
+  // single-precision sources through dynamic rm=111.
+  rmm.cpu.write_freg(1, exec_test_nan_box_single(0x41180000U)) // +9.5f.
+  rmm.cpu.write_freg(2, exec_test_nan_box_single(0xc1180000U)) // -9.5f.
+  rmm.cpu.write_freg(3, exec_test_nan_box_single(0xbf000000U)) // -0.5f.
+  rmm.cpu.write_csr(csr_fcsr, rmm_frm.to_uint64())
+  rmm.load_program(
+    words_to_bytes([
+      encode_fcvt_w_s(1, 0x7U, 10),
+      encode_csr(csr_fflags, 0, 0x2U, 11),
+      encode_csr(csr_fflags, 0, 0x1U, 0),
+      encode_fcvt_l_s(2, 0x7U, 12),
+      encode_csr(csr_fflags, 0, 0x2U, 13),
+      encode_csr(csr_fflags, 0, 0x1U, 0),
+      encode_fcvt_wu_s(3, 0x7U, 14),
+      encode_csr(csr_fflags, 0, 0x2U, 15),
+      encode_csr(csr_fflags, 0, 0x1U, 0),
+      encode_fcvt_lu_s(3, 0x7U, 16),
+      encode_csr(csr_fflags, 0, 0x2U, 17),
+    ]),
+    0U,
+  )
+  match rmm.run(11) {
+    Running => ()
+    _ => fail("expected dynamic RMM single-source conversion path to run")
+  }
+  assert_eq(rmm.read_reg_u64(10), 10U.to_uint64())
+  assert_eq(rmm.read_reg_u64(11) & 0x1fU.to_uint64(), inexact)
+  assert_eq(rmm.read_reg_u64(12), (-10L).reinterpret_as_uint64())
+  assert_eq(rmm.read_reg_u64(13) & 0x1fU.to_uint64(), inexact)
+  assert_eq(rmm.read_reg_u64(14), 0U.to_uint64())
+  assert_eq(rmm.read_reg_u64(15) & 0x1fU.to_uint64(), invalid)
+  assert_eq(rmm.read_reg_u64(16), 0U.to_uint64())
+  assert_eq(rmm.read_reg_u64(17) & 0x1fU.to_uint64(), invalid)
+  assert_eq(rmm.read_csr(csr_fcsr) & frm_mask, rmm_frm)
+}
+
+///|
 test "rv64fd unsigned long conversion checks negative half after rounding" {
   let csr_fcsr = 0x003
   let invalid = 0x10U.to_uint64()
