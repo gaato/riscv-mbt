@@ -406,20 +406,29 @@ test "misaligned jump targets do not write link registers" {
 }
 
 ///|
-test "multiply instruction traps when M extension is not advertised" {
-  let runner = make_runner(wb_rv64_without_m_machine_config())
-  let raw = wb_encode_r(0x01U, 2, 1, 0x0U, 3, 0x33U) // mul x3, x1, x2
-  runner.load_program(wb_word_program(raw), 0U)
-  match runner.step() {
-    Trap(info) => {
-      match info.cause {
-        IllegalInstruction => ()
-        _ => fail("expected M instruction to trap without MISA.M")
+test "M extension instructions trap when M extension is not advertised" {
+  let m_extension_representatives = [
+    wb_encode_r(0x01U, 2, 1, 0x0U, 3, 0x33U), // MUL
+    wb_encode_r(0x01U, 2, 1, 0x5U, 3, 0x33U), // DIVU
+    wb_encode_r(0x01U, 2, 1, 0x7U, 3, 0x33U), // REMU
+    wb_encode_r(0x01U, 2, 1, 0x0U, 3, 0x3bU), // MULW
+    wb_encode_r(0x01U, 2, 1, 0x4U, 3, 0x3bU), // DIVW
+    wb_encode_r(0x01U, 2, 1, 0x6U, 3, 0x3bU), // REMW
+  ]
+  for raw in m_extension_representatives {
+    let runner = make_runner(wb_rv64_without_m_machine_config())
+    runner.load_program(wb_word_program(raw), 0U)
+    match runner.step() {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected M instruction to trap without MISA.M")
+        }
+        assert_eq(info.faulting_pc, 0U.to_uint64())
+        assert_eq(info.trap_value, raw.to_uint64())
       }
-      assert_eq(info.faulting_pc, 0U.to_uint64())
-      assert_eq(info.trap_value, raw.to_uint64())
+      _ => fail("expected M instruction trap without MISA.M")
     }
-    _ => fail("expected M instruction trap without MISA.M")
   }
 }
 
