@@ -7096,10 +7096,22 @@ test "rv32 counter high-half csrs are readable" {
 
 ///|
 test "rv64 counter high-half csrs are absent" {
-  // cycleh/timeh/instreth and the machine high-half aliases are RV32-only.
-  // On RV64 the architectural counters are already XLEN-wide, so these CSR
-  // numbers are not implemented read aliases.
-  let cases = [0xC80, 0xC81, 0xC82, 0xB80, 0xB82]
+  // cycleh/timeh/instreth, machine high-half aliases, and the HPM high-half
+  // ranges are RV32-only. On RV64 the architectural counters are already
+  // XLEN-wide, so these CSR numbers are not implemented read aliases.
+  let cases = [
+    0xC80, // cycleh
+     0xC81, // timeh
+     0xC82, // instreth
+     0xB80, // mcycleh
+     0xB82, // minstreth
+     0xC83, // hpmcounter3h
+     0xC9F, // hpmcounter31h
+     0xB83, // mhpmcounter3h
+     0xB9F, // mhpmcounter31h
+     0x723, // mhpmevent3h
+     0x73F, // mhpmevent31h
+  ]
   for csr in cases {
     let raw = encode_csr(csr, 0, 0x2U, 1)
     let runner = make_runner(rv64_machine_config())
@@ -7247,12 +7259,16 @@ test "counteren csrs expose only base counter enable bits" {
 test "hpm counter csrs trap when hpm counters are not implemented" {
   // mcounteren/scounteren expose HPM enable bits as read-only zero because the
   // matching hpmcounter, mhpmcounter, and mhpmevent CSR surface is absent in
-  // this RV64GC profile. Keep that as an absent-CSR contract rather than
-  // silently creating zero-valued compatibility storage.
+  // this RV64GC profile. Check both ends of each family so the emulator cannot
+  // accidentally implement only the first slot as zero-valued compatibility
+  // storage.
   let representative_hpm_csrs = [
     0xC03, // hpmcounter3
+     0xC1F, // hpmcounter31
      0xB03, // mhpmcounter3
+     0xB1F, // mhpmcounter31
      0x323, // mhpmevent3
+     0x33F, // mhpmevent31
   ]
   for csr in representative_hpm_csrs {
     let read_raw = encode_csr(csr, 0, 0x2U, 1)

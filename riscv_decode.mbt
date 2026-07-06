@@ -1048,10 +1048,14 @@ fn is_read_only_csr(csr : Int) -> Bool {
 fn is_rv32_only_csr(csr : Int) -> Bool {
   // High-half counter CSRs exist to let RV32 software observe or update the
   // upper half of 64-bit counters. In RV64 the base counter CSRs are already
-  // XLEN-wide, so these addresses are not part of the implemented CSR surface.
+  // XLEN-wide, so these addresses are not part of the CSR surface even if the
+  // matching low-half counter family is otherwise implemented later.
   match csr {
     CSR_CYCLEH | CSR_TIMEH | CSR_INSTRETH | CSR_MCYCLEH | CSR_MINSTRETH => true
-    _ => false
+    _ =>
+      (csr >= CSR_HPMCOUNTER3H && csr <= CSR_HPMCOUNTER31H) ||
+      (csr >= CSR_MHPMCOUNTER3H && csr <= CSR_MHPMCOUNTER31H) ||
+      (csr >= CSR_MHPMEVENT3H && csr <= CSR_MHPMEVENT31H)
   }
 }
 

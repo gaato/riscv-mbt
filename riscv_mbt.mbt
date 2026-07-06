@@ -819,6 +819,12 @@ const CSR_MCYCLEH : Int = 0xB80
 const CSR_MINSTRETH : Int = 0xB82
 
 ///|
+const CSR_MHPMCOUNTER3H : Int = 0xB83
+
+///|
+const CSR_MHPMCOUNTER31H : Int = 0xB9F
+
+///|
 const MCOUNTINHIBIT_CY_BIT : UInt64 = 0x1
 
 ///|
@@ -827,6 +833,12 @@ const MCOUNTINHIBIT_IR_BIT : UInt64 = 0x4
 ///|
 const MCOUNTINHIBIT_WRITABLE_MASK : UInt64 = MCOUNTINHIBIT_CY_BIT |
   MCOUNTINHIBIT_IR_BIT
+
+///|
+const CSR_MHPMEVENT3H : Int = 0x723
+
+///|
+const CSR_MHPMEVENT31H : Int = 0x73F
 
 ///|
 const CSR_MENVCFG : Int = 0x30A
@@ -851,6 +863,12 @@ const CSR_TIMEH : Int = 0xC81
 
 ///|
 const CSR_INSTRETH : Int = 0xC82
+
+///|
+const CSR_HPMCOUNTER3H : Int = 0xC83
+
+///|
+const CSR_HPMCOUNTER31H : Int = 0xC9F
 
 ///|
 const CSR_MHARTID : Int = 0xF14

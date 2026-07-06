@@ -213,8 +213,10 @@
   limited to SSI/STI/SEI (`0x222`); machine-only causes remain read-only zero.
 - `mcounteren` and `scounteren` now expose only CY/TM/IR (`0x7`) as writable
   WARL bits. HPM counter-enable bits read back as zero because the matching
-  `hpmcounter` CSRs are not implemented in the current RV64GC profile. In an
-  M+U profile without S-mode, `mcounteren` gates U-mode counter reads directly
+  `hpmcounter` CSRs are not implemented in the current RV64GC profile. Focused
+  coverage now checks first/last low-half HPM counter and event-selector CSR
+  slots as absent rather than zero-valued compatibility storage. In an M+U
+  profile without S-mode, `mcounteren` gates U-mode counter reads directly
   because there is no supervisor `scounteren` layer.
 - `mcountinhibit` is now modeled for the exposed architectural counters. CY
   and IR are writable, HPM inhibit bits read back as zero because HPM counters
@@ -230,8 +232,9 @@
   handler makes `raise_trap` continue with `Running`, for both synchronous
   exceptions, execute-stage faults, and machine-timer interrupts.
   RV32-only counter high-half CSRs are now excluded through the shared CSR
-  support classifier on RV64, so `cycleh`/`timeh`/`instreth` and
-  `mcycleh`/`minstreth` trap instead of reaching ad hoc executor checks.
+  support classifier on RV64, so `cycleh`/`timeh`/`instreth`,
+  `mcycleh`/`minstreth`, and the first/last HPM high-half aliases trap instead
+  of reaching ad hoc executor checks.
 - `mie` now exposes only the modeled standard interrupt-enable bits
   MSI/MTI/MEI and SSI/STI/SEI (`0xaaa`), while `mip` readback is masked to the
   same implemented pending-bit surface. CSR writes to `mip` affect only the
