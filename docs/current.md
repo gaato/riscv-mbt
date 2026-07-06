@@ -479,6 +479,8 @@
   preserving legal U/S/M return-mode encodings.
 - `MRET` and `SRET` now clear `mstatus.MPRV` when returning to a privilege mode
   below M, while preserving `MPRV` for `MRET` returns that stay in M-mode.
+- MPRV data-access coverage now also pins the SUM interaction: M-mode loads
+  using `MPRV=1, MPP=S` fault on U pages with SUM clear and succeed with SUM set.
 - Sv39 now keeps SUM data-only: supervisor loads/stores may access U pages when
   SUM is set, but supervisor instruction fetches from U pages fault regardless
   of SUM.

@@ -6216,6 +6216,69 @@ test "rv64 mprv makes machine load and store follow Sv39 using mpp privilege" {
 }
 
 ///|
+test "rv64 mprv applies sum when mpp selects supervisor data access" {
+  let pte_v = 0x1U.to_uint64()
+  let pte_r = 0x2U.to_uint64()
+  let pte_w = 0x4U.to_uint64()
+  let pte_u = 0x10U.to_uint64()
+  let pte_a = 0x40U.to_uint64()
+  let pte_d = 0x80U.to_uint64()
+  let mstatus_mprv = 0x20000U.to_uint64()
+  let mstatus_sum = 0x40000U.to_uint64()
+  let mstatus_mpp_s = 0x800U.to_uint64()
+  let load_program = words_to_bytes([
+    encode_i(0x100, 0, 0x0U, 1, 0x13U),
+    encode_i(0, 1, 0x6U, 10, 0x03U),
+  ])
+
+  let no_sum = make_runner(rv64_machine_config())
+  exec_test_setup_basic_sv39_map(no_sum)
+  no_sum.load_program_u64(
+    exec_test_u64_to_le_bytes(
+      exec_test_make_pte(
+        4U.to_uint64(),
+        pte_v | pte_r | pte_w | pte_u | pte_a | pte_d,
+      ),
+    ),
+    0x3000U.to_uint64(),
+  )
+  no_sum.cpu.write_csr(0x180, exec_test_sv39_satp(1U.to_uint64()))
+  no_sum.cpu.write_csr(0x300, mstatus_mprv | mstatus_mpp_s)
+  no_sum.load_program(load_program, 0U)
+  expect_step_running(no_sum, "expected address setup before MPRV SUM fault")
+  match no_sum.step() {
+    Trap(info) => {
+      match info.cause {
+        LoadPageFault => ()
+        _ => fail("expected MPRV MPP=S access to U page without SUM to fault")
+      }
+      assert_eq(info.trap_value, 0x100U.to_uint64())
+    }
+    _ => fail("expected MPRV MPP=S access to U page without SUM to trap")
+  }
+
+  let with_sum = make_runner(rv64_machine_config())
+  exec_test_setup_basic_sv39_map(with_sum)
+  with_sum.load_program_u64(
+    exec_test_u64_to_le_bytes(
+      exec_test_make_pte(
+        4U.to_uint64(),
+        pte_v | pte_r | pte_w | pte_u | pte_a | pte_d,
+      ),
+    ),
+    0x3000U.to_uint64(),
+  )
+  with_sum.cpu.write_csr(0x180, exec_test_sv39_satp(1U.to_uint64()))
+  with_sum.cpu.write_csr(0x300, mstatus_mprv | mstatus_mpp_s | mstatus_sum)
+  with_sum.load_program(load_program, 0U)
+  match with_sum.run(2) {
+    Running => ()
+    _ => fail("expected MPRV MPP=S access to U page with SUM to run")
+  }
+  assert_eq(with_sum.read_reg_u64(10), 0x12345678U.to_uint64())
+}
+
+///|
 test "rv64 mprv does not affect machine instruction fetch privilege" {
   let program = words_to_bytes([
     encode_i(8, 0, 0x0U, 2, 0x13U),
