@@ -1332,7 +1332,9 @@ official coverage improve.
 - `satp` now shares that `TVM` interception rule at the CSR access layer:
   S-mode reads and writes raise illegal instruction when `mstatus.TVM` is set,
   including write forms that suppress the old-value read. Focused regressions
-  cover both read and write attempts.
+  cover both read and write attempts. Pure-read zero-mask `CSRRS`, `CSRRC`,
+  `CSRRSI`, and `CSRRCI` forms are now covered with `rd=x0` as well, proving
+  that `rd=x0` does not suppress the `satp` read side under TVM.
 - Unsupported `satp.MODE` writes are now ignored as a whole write. The focused
   RV64 regression seeds a valid Sv39 `satp`, attempts to write unsupported
   Sv48 MODE on the current Sv39-only implementation, and verifies the old value

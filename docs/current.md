@@ -533,7 +533,10 @@
   for the active profile, so no-`U` MRET-to-M keeps the stored stack-bottom
   field at M instead of relying on read-time WARL normalization.
 - `satp` CSR reads and writes now use the same `TVM` interception rule: S-mode
-  access traps when `mstatus.TVM` is set, while M-mode remains allowed.
+  access traps when `mstatus.TVM` is set, while M-mode remains allowed. The
+  coverage now also includes pure-read zero-mask `CSRRS`, `CSRRC`, `CSRRSI`,
+  and `CSRRCI` forms with `rd=x0`, proving those forms still read `satp` and
+  cannot hide the TVM intercept.
 - `satp` writes with unsupported MODE values now follow the privileged WARL
   rule that the whole write has no effect; the previous address-space selector
   is preserved instead of being cleared to Bare. Register-source set/clear
