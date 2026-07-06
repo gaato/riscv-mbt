@@ -611,6 +611,12 @@ official coverage improve.
   The pass keeps the platform layout identical for every custom profile while
   reducing repeated `MachineConfig` copy blocks; measure the next
   roughly-3000-line feature-growth window from this checkpoint.
+- Refactor/tuning checkpoint `4c92e1e` consolidated FP status dirtiness
+  assertions behind `expect_fp_status_case` in `riscv_execute_test.mbt`.
+  The pass keeps the same `mstatus.FS`, `SD`, and `fflags` coverage while
+  reducing repeated run/status assertion boilerplate in the S/D comparison and
+  conversion cases; measure the next roughly-3000-line feature-growth window
+  from this checkpoint.
 - Control-flow execution now checks taken branch, `JAL`, and `JALR` targets
   against the active profile's IALIGN. Non-C profiles raise
   instruction-address-misaligned on 2-byte-only targets and report the branch or
