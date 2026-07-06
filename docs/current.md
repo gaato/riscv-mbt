@@ -702,7 +702,10 @@
   the privileged spec. Compressed integer instructions between `LR.W` and
   `SC.W` are now
   covered as preserving the single-hart reservation when no store or device
-  write intervenes, pinning the C/A constrained-sequence boundary. Signed AMO
+  write intervenes, pinning the C/A constrained-sequence boundary. Same-hart
+  AMO.W/AMO.D operations between LR and SC now also break the live reservation:
+  the AMO commits its read-modify-write result and the following SC fails
+  without overwriting that result. Signed AMO
   min/max coverage now includes both
   `AMOMIN.W` and full-width `AMOMIN.D`/`AMOMAX.D`
   comparisons across the sign boundary, and unsigned AMO.D min/max coverage

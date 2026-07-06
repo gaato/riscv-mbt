@@ -728,12 +728,13 @@ official coverage improve.
   `LR.D` byte range does not over-invalidate the reservation, so the following
   `SC.D` can still succeed.
 - A-extension reservation invalidation coverage now also treats AMO.W and
-  AMO.D operations from another hart as reservation-breaking stores, not only
-  plain integer stores and device writes. The same path now uses aq+rl ordered
-  AMOs, pinning that the order annotation does not bypass the serialized
-  write/invalidation transaction. Successful `SC.W`/`SC.D` operations from
-  another hart now have matching coverage as conditional stores that invalidate
-  the losing hart's overlapping reservation.
+  AMO.D operations as reservation-breaking stores, not only plain integer
+  stores and device writes. Same-hart AMOs between LR and SC now prove the AMO
+  commits while the following SC fails without overwriting the AMO result; the
+  cross-hart path uses aq+rl ordered AMOs, pinning that the order annotation
+  does not bypass the serialized write/invalidation transaction. Successful
+  `SC.W`/`SC.D` operations from another hart now have matching coverage as
+  conditional stores that invalidate the losing hart's overlapping reservation.
 - A-extension/privileged interaction coverage now pins the implementation's
   legal xRET policy: both `MRET` and `SRET` preserve a live LR reservation for
   a following SC instead of implicitly clearing it.

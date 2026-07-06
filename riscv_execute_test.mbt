@@ -17261,6 +17261,91 @@ test "store between LR.W and SC.W invalidates the reservation" {
 }
 
 ///|
+test "AMO between LR and SC invalidates the same hart reservation" {
+  let word_runner = make_runner(virt_machine_config())
+  let word_addr = word_runner.cpu.pc + 0x100U.to_uint64()
+  word_runner.bus.store_u32(word_addr, 77U.to_uint64())
+  word_runner.cpu.write_reg(1, word_addr)
+  word_runner.cpu.write_reg(5, 88U.to_uint64())
+  word_runner.cpu.write_reg(6, 22U.to_uint64())
+  let word_pc = word_runner.cpu.pc
+  word_runner.bus.store_u32(
+    word_pc,
+    encode_amo(0x02U, 0, 1, 0x2U, 3).to_uint64(),
+  )
+  word_runner.bus.store_u32(
+    word_pc + 4U.to_uint64(),
+    encode_amo(0x00U, 6, 1, 0x2U, 7).to_uint64(),
+  )
+  word_runner.bus.store_u32(
+    word_pc + 8U.to_uint64(),
+    encode_amo(0x03U, 5, 1, 0x2U, 4).to_uint64(),
+  )
+  match word_runner.step() {
+    Running => ()
+    _ => fail("expected LR.W before same-hart AMO to run")
+  }
+  match word_runner.step() {
+    Running => ()
+    _ => fail("expected same-hart AMO.W to run")
+  }
+  match word_runner.step() {
+    Running => ()
+    _ => fail("expected SC.W after same-hart AMO to run")
+  }
+  // An AMO is a write-side memory operation, even when it belongs to the same
+  // hart as the outstanding LR. The AMO commits its read-modify-write result,
+  // invalidates the reservation, and the following SC reports failure without
+  // overwriting the AMO result.
+  assert_eq(word_runner.read_reg_u64(3), 77U.to_uint64())
+  assert_eq(word_runner.read_reg_u64(7), 77U.to_uint64())
+  assert_eq(word_runner.read_reg_u64(4), 1U.to_uint64())
+  assert_eq(word_runner.bus.load_u32(word_addr), 99U.to_uint64())
+
+  let double_runner = make_runner(virt_machine_config())
+  let double_addr = double_runner.cpu.pc + 0x100U.to_uint64()
+  let double_original = 0x1122334455667788UL
+  let double_amo_source = 0x10U.to_uint64()
+  let double_sc_source = 0xfedcba9876543210UL
+  double_runner.bus.store_u64(double_addr, double_original)
+  double_runner.cpu.write_reg(1, double_addr)
+  double_runner.cpu.write_reg(5, double_sc_source)
+  double_runner.cpu.write_reg(6, double_amo_source)
+  let double_pc = double_runner.cpu.pc
+  double_runner.bus.store_u32(
+    double_pc,
+    encode_amo(0x02U, 0, 1, 0x3U, 3).to_uint64(),
+  )
+  double_runner.bus.store_u32(
+    double_pc + 4U.to_uint64(),
+    encode_amo(0x00U, 6, 1, 0x3U, 7).to_uint64(),
+  )
+  double_runner.bus.store_u32(
+    double_pc + 8U.to_uint64(),
+    encode_amo(0x03U, 5, 1, 0x3U, 4).to_uint64(),
+  )
+  match double_runner.step() {
+    Running => ()
+    _ => fail("expected LR.D before same-hart AMO to run")
+  }
+  match double_runner.step() {
+    Running => ()
+    _ => fail("expected same-hart AMO.D to run")
+  }
+  match double_runner.step() {
+    Running => ()
+    _ => fail("expected SC.D after same-hart AMO to run")
+  }
+  assert_eq(double_runner.read_reg_u64(3), double_original)
+  assert_eq(double_runner.read_reg_u64(7), double_original)
+  assert_eq(double_runner.read_reg_u64(4), 1U.to_uint64())
+  assert_eq(
+    double_runner.bus.load_u64(double_addr),
+    double_original + double_amo_source,
+  )
+}
+
+///|
 test "store from another hart invalidates LR.W reservation" {
   let harts = make_smp_runners(virt_machine_config(), 2)
   let hart0 = harts[0]
