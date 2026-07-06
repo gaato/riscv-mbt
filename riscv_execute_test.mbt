@@ -8189,9 +8189,22 @@ test "pmp csrs stay WARL zero across set and clear forms" {
 ///|
 test "mnstatus traps when Smrnmi is absent" {
   let mnstatus = 0x744
-  let read_raw = encode_csr(mnstatus, 0, 0x2U, 1)
-  let write_raw = encode_csr(mnstatus, 1, 0x1U, 0)
-  for raw in [read_raw, write_raw] {
+  // Smrnmi adds mnstatus as RNMI state. RV64GC does not include Smrnmi, so the
+  // CSR is address-absent: Zicsr read/write suppression rules cannot make any
+  // form legal because there is no readable or writable CSR endpoint.
+  let forms = [
+    encode_csr(mnstatus, 0, 0x2U, 1),
+    encode_csr(mnstatus, 0, 0x3U, 2),
+    encode_csr(mnstatus, 0, 0x6U, 3),
+    encode_csr(mnstatus, 0, 0x7U, 4),
+    encode_csr(mnstatus, 1, 0x1U, 0),
+    encode_csr(mnstatus, 1, 0x5U, 0),
+    encode_csr(mnstatus, 1, 0x2U, 5),
+    encode_csr(mnstatus, 1, 0x3U, 6),
+    encode_csr(mnstatus, 1, 0x6U, 7),
+    encode_csr(mnstatus, 1, 0x7U, 8),
+  ]
+  for raw in forms {
     let runner = make_runner(rv64_machine_config())
     runner.cpu.write_reg(1, 1U.to_uint64())
     runner.load_program(words_to_bytes([raw]), 0U)
