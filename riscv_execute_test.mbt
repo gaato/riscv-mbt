@@ -1036,6 +1036,75 @@ test "rv64fd min and max select numeric operand but flag signaling nan" {
 }
 
 ///|
+test "rv64fd min and max all nan cases split quiet and signaling flags" {
+  let csr_fcsr = 0x003
+  let invalid_only = 0x10U.to_uint64()
+  let canonical_single = exec_test_nan_box_single(0x7fc00000U)
+  let canonical_double = 0x7ff8000000000000UL
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_freg(1, exec_test_nan_box_single(0x7fc01234U))
+  runner.cpu.write_freg(2, exec_test_nan_box_single(0x7fc05678U))
+  runner.cpu.write_freg(3, exec_test_nan_box_single(0x7f800001U))
+  runner.cpu.write_freg(4, exec_test_nan_box_single(0x7f800002U))
+  runner.cpu.write_freg(5, 0x7ff8000000001234UL)
+  runner.cpu.write_freg(6, 0x7ff8000000005678UL)
+  runner.cpu.write_freg(7, 0x7ff0000000000001UL)
+  runner.cpu.write_freg(8, 0x7ff0000000000002UL)
+  runner.load_program(
+    words_to_bytes([
+      encode_fp_r(0x14U, 2, 1, 0x0U, 9),
+      encode_csr(csr_fcsr, 0, 0x2U, 10),
+      encode_fp_r(0x14U, 2, 1, 0x1U, 11),
+      encode_csr(csr_fcsr, 0, 0x2U, 12),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x14U, 4, 3, 0x0U, 13),
+      encode_csr(csr_fcsr, 0, 0x2U, 14),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x14U, 4, 3, 0x1U, 15),
+      encode_csr(csr_fcsr, 0, 0x2U, 16),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x15U, 6, 5, 0x0U, 17),
+      encode_csr(csr_fcsr, 0, 0x2U, 18),
+      encode_fp_r(0x15U, 6, 5, 0x1U, 19),
+      encode_csr(csr_fcsr, 0, 0x2U, 20),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x15U, 8, 7, 0x0U, 21),
+      encode_csr(csr_fcsr, 0, 0x2U, 22),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x15U, 8, 7, 0x1U, 23),
+      encode_csr(csr_fcsr, 0, 0x2U, 24),
+    ]),
+    0U,
+  )
+  match runner.run(21) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected all-NaN min/max paths to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  // minimumNumber/maximumNumber returns the canonical NaN when both operands
+  // are NaNs. Quiet all-NaN cases are flag-clean; any signaling NaN in the pair
+  // still raises NV even though the result is the same canonical NaN.
+  assert_eq(runner.read_freg_u64(9), canonical_single)
+  assert_eq(runner.read_reg_u64(10) & 0x1fU.to_uint64(), 0U.to_uint64())
+  assert_eq(runner.read_freg_u64(11), canonical_single)
+  assert_eq(runner.read_reg_u64(12) & 0x1fU.to_uint64(), 0U.to_uint64())
+  assert_eq(runner.read_freg_u64(13), canonical_single)
+  assert_eq(runner.read_reg_u64(14) & 0x1fU.to_uint64(), invalid_only)
+  assert_eq(runner.read_freg_u64(15), canonical_single)
+  assert_eq(runner.read_reg_u64(16) & 0x1fU.to_uint64(), invalid_only)
+  assert_eq(runner.read_freg_u64(17), canonical_double)
+  assert_eq(runner.read_reg_u64(18) & 0x1fU.to_uint64(), 0U.to_uint64())
+  assert_eq(runner.read_freg_u64(19), canonical_double)
+  assert_eq(runner.read_reg_u64(20) & 0x1fU.to_uint64(), 0U.to_uint64())
+  assert_eq(runner.read_freg_u64(21), canonical_double)
+  assert_eq(runner.read_reg_u64(22) & 0x1fU.to_uint64(), invalid_only)
+  assert_eq(runner.read_freg_u64(23), canonical_double)
+  assert_eq(runner.read_reg_u64(24) & 0x1fU.to_uint64(), invalid_only)
+}
+
+///|
 test "rv64f single comparisons write integer results" {
   let runner = make_runner(rv64f_machine_config())
   runner.cpu.write_freg(1, exec_test_f32_bits(1.0).to_uint64())

@@ -221,9 +221,12 @@ official coverage improve.
   that still return the numeric operand while accruing NV, and the all-NaN
   minimumNumber/maximumNumber split: quiet all-NaN inputs produce the canonical
   NaN without NV, while signaling all-NaN inputs produce the canonical NaN and
-  accrue NV for both S and D. Focused S/D arithmetic coverage now also pins
-  that `fflags` are accrued state across independent FP instructions: NX, UF,
-  OF, DZ, and NV remain set until software explicitly clears `fcsr`. Exact scalar S/D
+  accrue NV for both S and D. That all-NaN split now has direct focused
+  coverage for both `FMIN` and `FMAX` in single and double precision, separate
+  from the numeric-selection signaling-NaN tests. Focused S/D arithmetic
+  coverage now also pins that `fflags` are accrued state across independent FP
+  instructions: NX, UF, OF, DZ, and NV remain set until software explicitly
+  clears `fcsr`. Exact scalar S/D
   add, subtract, multiply, divide, and square-root coverage now also sweeps
   every legal static rounding mode plus dynamic `frm`, proving exact results
   leave `fflags` clear while still validating the rounding-mode field. The remaining
