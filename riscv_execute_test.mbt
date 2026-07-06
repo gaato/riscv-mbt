@@ -8164,6 +8164,34 @@ test "zero-valued nonzero csr source still writes read-only csrs" {
 }
 
 ///|
+test "nonzero read-only csr set clear writes trap with rd x0" {
+  // rd=x0 discards the old value, but it is not read suppression for
+  // CSRRS/CSRRC[I]. With a nonzero source mask these forms still read and then
+  // attempt a write, so address-encoded read-only CSRs must reject them.
+  for
+    raw in [
+      encode_csr(0xF14, 1, 0x2U, 0), // CSRRS x0, mhartid, x1
+      encode_csr(0xF15, 1, 0x3U, 0), // CSRRC x0, mconfigptr, x1
+      encode_csr(0xC00, 1, 0x6U, 0), // CSRRSI x0, cycle, 1
+      encode_csr(0xC02, 1, 0x7U, 0), // CSRRCI x0, instret, 1
+    ] {
+    let runner = make_runner(rv64_machine_config())
+    runner.cpu.write_reg(1, 1U.to_uint64())
+    runner.load_program(words_to_bytes([raw]), 0U)
+    match runner.step() {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected read-only CSR write to trap as illegal")
+        }
+        assert_eq(info.trap_value, raw.to_uint64())
+      }
+      _ => fail("expected rd=x0 read-only CSR set/clear write to trap")
+    }
+  }
+}
+
+///|
 test "read-only counter csrs reject every non-suppressed write form" {
   // cycle/time/instret are user-visible counter aliases. They may be read when
   // privilege and counteren permit it, but writes must target the machine

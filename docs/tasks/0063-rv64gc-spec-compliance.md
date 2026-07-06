@@ -359,10 +359,11 @@ official coverage improve.
   higher-privilege CSRs by avoiding the read. The read-only CSR coverage now
   also pins the value-vs-encoding edge for register set/clear forms:
   `CSRRS/CSRRC` with `rs1!=x0` trap as writes even when `x[rs1]` contains zero;
-  only the encoded `rs1=x0` forms are pure reads. Those pure-read
-  `CSRRS/CSRRC[I]` forms are also now covered with `rd=x0`, proving that
-  `rd=x0` does not suppress their CSR read side and therefore cannot hide an
-  absent-CSR illegal-instruction trap. `mtvec` and `stvec` writes now normalize
+  `rd=x0` does not make nonzero set/clear writes harmless, and only the encoded
+  `rs1=x0` forms are pure reads. Those pure-read `CSRRS/CSRRC[I]` forms are
+  also now covered with `rd=x0`, proving that `rd=x0` does not suppress their
+  CSR read side and therefore cannot hide an absent-CSR illegal-instruction
+  trap. `mtvec` and `stvec` writes now normalize
   to the modeled WARL surface: 4-byte-aligned BASE plus Direct or Vectored MODE
   only, with vectored supervisor-timer dispatch covered by a focused
   regression. `mepc` and `sepc` now clear bit 0 on writes,
@@ -890,9 +891,10 @@ official coverage improve.
   `CSRRS/CSRRC[I]` with a zero register or immediate mask skips the CSR write
   path. Regression coverage keeps zero-mask set/clear legal for
   address-encoded read-only CSRs and keeps all nonzero-source write forms
-  (`CSRRW[I]`, `CSRRS[I]`, and `CSRRC[I]`) illegal for read-only CSRs. The
-  read-only set/clear coverage now explicitly exercises both register-source
-  and immediate-source zero and nonzero masks across the exposed
+  (`CSRRW[I]`, `CSRRS[I]`, and `CSRRC[I]`) illegal for read-only CSRs,
+  including set/clear forms with `rd=x0`. The read-only set/clear coverage now
+  explicitly exercises both register-source and immediate-source zero and
+  nonzero masks across the exposed
   machine-information CSRs and the read-only counter aliases `cycle`, `time`,
   and `instret`. Machine-information coverage now also checks every
   non-suppressed write form for every identity CSR, not only sampled IDs. The
