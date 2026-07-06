@@ -289,9 +289,13 @@ official coverage improve.
   reservation-breaking writes under the interpreter's serialized multi-hart
   step model. Because each guest instruction completes its memory transaction
   before the next hart observes the shared bus, the model is stronger than the
-  RVWMO visibility constraints that aq/rl annotate. A two-hart retry sequence
-  now covers the deterministic forward-progress floor this interpreter can
-  prove: an interfering store makes the first `SC.W` fail, but a later fresh
+  RVWMO visibility constraints that aq/rl annotate. The complementary
+  read-side case is covered too: another hart's `LR.W` to the same bytes does
+  not invalidate the first hart's live reservation, while the first hart's
+  later successful `SC.W` still invalidates the second hart's reservation. A
+  two-hart retry sequence now covers the deterministic forward-progress floor
+  this interpreter can prove: an interfering store makes the first `SC.W` fail,
+  but a later fresh
   `LR.W`/`SC.W` pair succeeds once no further conflicting write occurs. The
   remaining audit is broader LR/SC scheduler/eventual-success behavior beyond
   that deterministic reservation model.
