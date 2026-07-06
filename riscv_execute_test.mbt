@@ -7966,6 +7966,31 @@ test "rv64 status exposes fixed lower privilege xlen fields" {
   assert_eq(runner.read_reg_u64(11) & uxl_64, uxl_64)
   assert_eq(runner.read_csr_u64(mstatus) & sxl_uxl_64, sxl_uxl_64)
   assert_eq(runner.read_csr_u64(sstatus) & uxl_64, uxl_64)
+
+  let immediate_runner = make_runner(rv64_machine_config())
+  immediate_runner.load_program(
+    words_to_bytes([
+      encode_csr(mstatus, 0x1f, 0x6U, 1),
+      encode_csr(mstatus, 0, 0x2U, 2),
+      encode_csr(sstatus, 0x1f, 0x7U, 3),
+      encode_csr(sstatus, 0, 0x2U, 4),
+    ]),
+    0U,
+  )
+  match immediate_runner.run(4) {
+    Running => ()
+    _ => fail("expected immediate status xlen csr program to run")
+  }
+  // Immediate set/clear can only provide low-five-bit source masks, so it
+  // cannot address the high SXL/UXL fields directly. The writeback candidate
+  // still runs through the same WARL boundary and preserves the fixed RV64
+  // lower-privilege XLEN values.
+  assert_eq(immediate_runner.read_reg_u64(1) & sxl_uxl_64, sxl_uxl_64)
+  assert_eq(immediate_runner.read_reg_u64(2) & sxl_uxl_64, sxl_uxl_64)
+  assert_eq(immediate_runner.read_reg_u64(3) & uxl_64, uxl_64)
+  assert_eq(immediate_runner.read_reg_u64(4) & uxl_64, uxl_64)
+  assert_eq(immediate_runner.read_csr_u64(mstatus) & sxl_uxl_64, sxl_uxl_64)
+  assert_eq(immediate_runner.read_csr_u64(sstatus) & uxl_64, uxl_64)
 }
 
 ///|
@@ -8034,6 +8059,33 @@ test "status endian control fields are read only zero" {
   }
   assert_eq(sstatus_runner.read_reg_u64(2) & ube, 0U.to_uint64())
   assert_eq(sstatus_runner.read_csr_u64(sstatus) & ube, 0U.to_uint64())
+
+  let immediate_runner = make_runner(rv64_machine_config())
+  immediate_runner.load_program(
+    words_to_bytes([
+      encode_csr(mstatus, 0x1f, 0x6U, 1),
+      encode_csr(mstatus, 0, 0x2U, 2),
+      encode_csr(sstatus, 0x1f, 0x6U, 3),
+      encode_csr(sstatus, 0, 0x2U, 4),
+    ]),
+    0U,
+  )
+  match immediate_runner.run(4) {
+    Running => ()
+    _ => fail("expected immediate endian-control csr program to run")
+  }
+  // The immediate CSR source mask cannot name the high MBE/SBE bits, but it
+  // can derive a candidate for low UBE. The little-endian-only WARL surface
+  // must still read every endian control field as zero.
+  assert_eq(immediate_runner.read_reg_u64(1) & endian_bits, 0U.to_uint64())
+  assert_eq(immediate_runner.read_reg_u64(2) & endian_bits, 0U.to_uint64())
+  assert_eq(immediate_runner.read_reg_u64(3) & ube, 0U.to_uint64())
+  assert_eq(immediate_runner.read_reg_u64(4) & ube, 0U.to_uint64())
+  assert_eq(
+    immediate_runner.read_csr_u64(mstatus) & endian_bits,
+    0U.to_uint64(),
+  )
+  assert_eq(immediate_runner.read_csr_u64(sstatus) & ube, 0U.to_uint64())
 }
 
 ///|

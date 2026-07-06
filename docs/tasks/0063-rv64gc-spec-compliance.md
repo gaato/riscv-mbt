@@ -1342,13 +1342,17 @@ official coverage improve.
   that derive the reserved candidate from an old visible value.
 - RV64 `mstatus.SXL`/`mstatus.UXL` and `sstatus.UXL` now behave as fixed
   lower-mode XLEN fields for this emulator profile. Focused regressions cover
-  reset visibility plus replacement-write and register-source set/clear
-  candidate normalization through both `mstatus` and `sstatus`, while RV32
-  status behavior remains unchanged.
+  reset visibility plus replacement-write, register-source set/clear, and
+  immediate set/clear candidate normalization through both `mstatus` and
+  `sstatus`, while RV32 status behavior remains unchanged. The immediate path
+  is intentionally unable to address the high XLEN fields directly, but it
+  still proves that low-five-bit RMW candidates preserve the fixed RV64 view.
 - `mstatus.MBE`/`SBE`/`UBE` and `sstatus.UBE` now behave as read-only-zero WARL
   fields for the current little-endian-only profile. A focused CSR regression
-  covers replacement writes and register-source set/clear candidates through
-  both `mstatus` and `sstatus`.
+  covers replacement writes plus register-source and immediate set/clear
+  candidates through both `mstatus` and `sstatus`; the immediate coverage pins
+  the low `UBE` candidate path while the high `MBE`/`SBE` fields remain
+  unreachable from the five-bit source mask.
 - `sip`/`sie` are now delegated views of `mip`/`mie` instead of unconditional
   aliases for SSI/STI/SEI. Focused regressions cover non-delegated readback,
   delegated `sie` writes, `sie` set/clear forms that affect only delegated

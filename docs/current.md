@@ -246,9 +246,11 @@
   trap/translation/indirect/timer CSRs trap across the full Zicsr form family
   until the hypervisor extension is implemented.
 - RV64 `mstatus.SXL`/`mstatus.UXL` and `sstatus.UXL` are now visible as fixed
-  64-bit lower-privilege XLEN fields. Replacement writes and register-source
-  set/clear candidates that try to clear or change them are normalized back to
-  the modeled SXLEN=UXLEN=64 profile.
+  64-bit lower-privilege XLEN fields. Replacement writes plus register-source
+  and immediate set/clear candidates that try to clear or change them are
+  normalized back to the modeled SXLEN=UXLEN=64 profile. The immediate source
+  mask cannot address the high XLEN fields directly, but it still exercises the
+  low-five-bit RMW path through the same WARL boundary.
 - Post-decode profile legality now rejects extension instructions when the
   active machine profile does not advertise the matching base extension bit.
   The current focused coverage includes 16-bit compressed encodings without
@@ -262,7 +264,9 @@
 - The status endian-control fields now match the emulator's little-endian-only
   memory system: `mstatus.MBE`, `mstatus.SBE`, and `mstatus.UBE`, plus
   `sstatus.UBE`, are visible where appropriate but normalize to read-only zero
-  on replacement writes and register-source set/clear candidates.
+  on replacement writes plus register-source and immediate set/clear
+  candidates. Immediate-form coverage pins the low `UBE` candidate path while
+  high `MBE`/`SBE` remain unreachable from the five-bit source mask.
 - `sip` and `sie` now behave as `mip`/`mie` views restricted by `mideleg`.
   Non-delegated supervisor interrupt bits read as zero through the supervisor
   CSRs, `sie` writes affect only delegated SSI/STI/SEI enable bits, and `sip`
