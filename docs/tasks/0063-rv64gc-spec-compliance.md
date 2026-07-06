@@ -187,6 +187,8 @@ official coverage improve.
   and `FMV.X.W` still require FS enabled, but they do not dirty an otherwise
   clean FP context because they only observe FP state; integer-result
   conversions that update `fflags` now dirty FS through the `fcsr` side effect.
+  Ordered NaN comparisons now have matching coverage for the integer-result
+  NV-flag path.
   The
   `fflags`, `frm`, and `fcsr` CSR aliases are now governed by the same FS state,
   so both read and write attempts trap when FS=Off. Writes to absent `fcsr` bits
@@ -858,7 +860,8 @@ official coverage improve.
   or `fcsr` move the visible status from FS=Initial to FS=Dirty with `SD` set.
   FP stores and integer-result FP instructions that only read FP state keep
   FS=Initial and leave `SD` clear, while integer-result conversions that update
-  `fflags` dirty FS through that `fcsr` write.
+  `fflags` and ordered NaN comparisons that accrue NV dirty FS through that
+  `fcsr` write.
 - Floating-point CSR access is now FS-gated. Focused regressions cover both
   read forms and write-only `CSRRW rd=x0` forms for `fflags`, `frm`, and
   `fcsr`, preserving Zicsr read suppression while still trapping writes to

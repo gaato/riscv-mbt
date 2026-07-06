@@ -1799,6 +1799,24 @@ test "rv64f fp status dirtiness follows actual fp state writes" {
   assert_eq(integer_result_flag_writer.read_reg_u64(3) & fs_dirty, fs_dirty)
   assert_eq(integer_result_flag_writer.read_reg_u64(3) & sd_bit, sd_bit)
   assert_eq(integer_result_flag_writer.read_csr_u64(fflags), 0x01U.to_uint64())
+
+  let comparison_flag_writer = make_runner(rv64f_machine_config())
+  comparison_flag_writer.cpu.write_freg(1, 0x7fc00000U.to_uint64())
+  comparison_flag_writer.cpu.write_freg(2, exec_test_f32_bits(1.0).to_uint64())
+  comparison_flag_writer.load_program(
+    words_to_bytes([encode_fle_s(1, 2, 4), encode_csr(mstatus, 0, 0x2U, 5)]),
+    0U,
+  )
+  match comparison_flag_writer.run(2) {
+    Running => ()
+    _ => fail("expected NaN comparison and mstatus read to run")
+  }
+  // Ordered comparisons also write integer destinations, but NaN operands
+  // accrue NV in fflags. That CSR state update must dirty FS just like FCVT.
+  assert_eq(comparison_flag_writer.read_reg_u64(4), 0U.to_uint64())
+  assert_eq(comparison_flag_writer.read_reg_u64(5) & fs_dirty, fs_dirty)
+  assert_eq(comparison_flag_writer.read_reg_u64(5) & sd_bit, sd_bit)
+  assert_eq(comparison_flag_writer.read_csr_u64(fflags), 0x10U.to_uint64())
 }
 
 ///|
