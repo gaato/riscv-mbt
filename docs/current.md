@@ -237,6 +237,9 @@
   returning the old visible value. `time` remains tied to CLINT `mtime` rather
   than the inhibit mechanism. The `cycle` and `instret` user-visible counters now shadow
   writable machine `mcycle` and `minstret` state instead of aliasing `mtime`.
+  Machine `mcycle` and `minstret` now also have deterministic set/clear
+  CSR-form coverage with CY/IR inhibited, proving register-source forms
+  preserve full XLEN state and immediate forms affect only low source bits.
   Synchronous exception coverage now explicitly pins illegal instructions,
   `ECALL`, `EBREAK`, and `C.EBREAK` as non-retiring instructions for `instret`.
   Interrupt coverage also pins a pending machine-timer interrupt as a

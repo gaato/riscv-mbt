@@ -355,7 +355,9 @@ official coverage improve.
   CY/IR write mask while returning the old visible value. `time` continues to
   reflect CLINT `mtime` because the privileged spec excludes `mtime` from mcountinhibit. The
   unprivileged `cycle` and `instret` CSRs now shadow writable machine `mcycle`
-  and `minstret` state instead of aliasing CLINT `mtime`; focused coverage also
+  and `minstret` state instead of aliasing CLINT `mtime`; deterministic
+  CY/IR-inhibited coverage now also pins full-XLEN machine-counter set/clear
+  forms separately from those read-only unprivileged shadows; focused coverage also
   pins that illegal instructions, `ECALL`, `EBREAK`, and `C.EBREAK` are
   synchronous traps that do not retire into `instret`; machine-timer
   interrupts are also covered as between-instruction events that leave
@@ -1008,7 +1010,10 @@ official coverage improve.
   `cycle` and `instret` stay stable, proves `time` still advances, and verifies
   writable `mcycle`/`minstret` back the unprivileged counter shadows. Nonzero
   set/clear CSR forms now also prove the same CY/IR mask is applied to RMW
-  writeback. A separate regression verifies that illegal-instruction, `ECALL`, `EBREAK`, and
+  writeback. Machine `mcycle` and `minstret` now also have deterministic
+  set/clear CSR-form coverage with CY/IR inhibited, proving register-source
+  forms preserve full XLEN state and immediate forms affect only low source
+  bits. A separate regression verifies that illegal-instruction, `ECALL`, `EBREAK`, and
   `C.EBREAK` synchronous traps update trap state without incrementing
   `instret`. Another regression verifies that a pending machine-timer
   interrupt enters the trap path before fetching the next instruction and does

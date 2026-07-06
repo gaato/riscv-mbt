@@ -7798,6 +7798,62 @@ test "machine counter csrs back unprivileged counter shadows" {
 }
 
 ///|
+fn expect_machine_counter_set_clear_forms(
+  csr : Int,
+  label : String,
+) -> Unit raise {
+  let mcountinhibit = 0x320
+  let set_mask = 0x00f000f000f000f0UL
+  let clear_mask = 0x000000f0000000f0UL
+  let after_clear = set_mask & (clear_mask ^ 0xffffffffffffffffUL)
+  let after_immediate_set = after_clear | 0x1fU.to_uint64()
+  let final_value = after_immediate_set &
+    (0x0fU.to_uint64() ^ 0xffffffffffffffffUL)
+  let program = words_to_bytes([
+    encode_i(5, 0, 0x0U, 5, 0x13U),
+    encode_csr(mcountinhibit, 5, 0x1U, 0),
+    encode_csr(csr, 0, 0x1U, 0),
+    encode_csr(csr, 1, 0x2U, 2),
+    encode_csr(csr, 0, 0x2U, 3),
+    encode_csr(csr, 10, 0x3U, 4),
+    encode_csr(csr, 0, 0x2U, 5),
+    encode_csr(csr, 0x1f, 0x6U, 6),
+    encode_csr(csr, 0, 0x2U, 7),
+    encode_csr(csr, 0x0f, 0x7U, 8),
+    encode_csr(csr, 0, 0x2U, 11),
+  ])
+  let runner = make_runner(rv64_machine_config())
+  runner.cpu.write_reg(1, set_mask)
+  runner.cpu.write_reg(10, clear_mask)
+  runner.load_program(program, 0U)
+  match runner.run(11) {
+    Running => ()
+    _ =>
+      fail("expected machine counter CSR set/clear program to run for " + label)
+  }
+  // Inhibit CY and IR, then reset the selected counter before the set/clear
+  // sequence. That keeps this test focused on storage semantics instead of the
+  // already-covered rule that mcountinhibit takes effect after its own write
+  // retires. Register-source forms preserve full XLEN counter state; immediate
+  // forms naturally affect only low source bits.
+  assert_eq(runner.read_reg_u64(2), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(3), set_mask)
+  assert_eq(runner.read_reg_u64(4), set_mask)
+  assert_eq(runner.read_reg_u64(5), after_clear)
+  assert_eq(runner.read_reg_u64(6), after_clear)
+  assert_eq(runner.read_reg_u64(7), after_immediate_set)
+  assert_eq(runner.read_reg_u64(8), after_immediate_set)
+  assert_eq(runner.read_reg_u64(11), final_value)
+  assert_eq(runner.read_csr_u64(csr), final_value)
+}
+
+///|
+test "machine counter csrs preserve full xlen across set and clear forms" {
+  expect_machine_counter_set_clear_forms(0xB00, "mcycle")
+  expect_machine_counter_set_clear_forms(0xB02, "minstret")
+}
+
+///|
 test "environment config csrs expose no optional feature bits" {
   let menvcfg = 0x30A
   let senvcfg = 0x10A
