@@ -8564,35 +8564,11 @@ test "debug mode only csrs trap from machine mode" {
   // The standard CSR map reserves 0x7B0..0x7BF for debug-mode-only CSRs. This
   // emulator has no Debug Mode, so even M-mode software must see these
   // addresses as illegal rather than as generic machine storage. Cover the
-  // endpoints and an interior address across read, suppressed-read write, and
-  // set/clear forms so the whole reserved nibble stays classified as
-  // debug-only, not just the first CSR or the direct-write path.
+  // endpoints and an interior address across the whole Zicsr form family so
+  // the reserved nibble stays classified as debug-only, not just the first CSR
+  // or the direct-write path.
   for debug_only in [0x7B0, 0x7B7, 0x7BF] {
-    for
-      raw in [
-        encode_csr(debug_only, 0, 0x2U, 1),
-        encode_csr(debug_only, 1, 0x1U, 0),
-        encode_csr(debug_only, 1, 0x5U, 0),
-        encode_csr(debug_only, 1, 0x2U, 2),
-        encode_csr(debug_only, 1, 0x3U, 3),
-        encode_csr(debug_only, 1, 0x6U, 4),
-        encode_csr(debug_only, 1, 0x7U, 5),
-      ] {
-      let runner = make_runner(rv64_machine_config())
-      runner.cpu.write_reg(1, 1U.to_uint64())
-      runner.load_program(words_to_bytes([raw]), 0U)
-      match runner.step() {
-        Trap(info) => {
-          match info.cause {
-            IllegalInstruction => ()
-            _ => fail("expected illegal instruction cause")
-          }
-          assert_eq(info.faulting_pc, 0U.to_uint64())
-          assert_eq(info.trap_value, raw.to_uint64())
-        }
-        _ => fail("expected debug-mode-only CSR access to trap")
-      }
-    }
+    expect_absent_csr_form_family_traps(debug_only, "debug-mode-only CSR")
   }
 }
 
