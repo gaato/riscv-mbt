@@ -600,8 +600,10 @@ official coverage improve.
   patterns as ordinary stored state.
   `mstatus.MPP` now treats reserved privilege encoding 2 as a WARL value and
   normalizes it to U-mode in this implemented U/S/M profile on replacement
-  writes and register-source set/clear candidates. Optional vector CSRs are
-  also pinned as absent from the non-`V` RV64FD/RV64GC baseline: the
+  writes plus register-source and immediate set/clear candidates; immediate
+  forms cannot name the high MPP field directly, but they still preserve the
+  normalized privilege value through the RMW writeback boundary. Optional
+  vector CSRs are also pinned as absent from the non-`V` RV64FD/RV64GC baseline: the
   modeled `vstart`, `vxsat`, `vxrm`, `vcsr`, `vl`, `vtype`, and `vlenb`
   addresses all trap across the full Zicsr form family unless the configured
   profile advertises `MISA.V`.
@@ -1338,8 +1340,10 @@ official coverage improve.
   stored.
 - `mstatus.MPP` now treats reserved privilege encoding 2 as a WARL value and
   normalizes it to U-mode on visible `mstatus` writes. A focused CSR
-  regression now covers replacement writes plus register-source set/clear forms
-  that derive the reserved candidate from an old visible value.
+  regression now covers replacement writes, register-source set/clear forms
+  that derive the reserved candidate from an old visible value, and immediate
+  set/clear forms that cannot name MPP directly but must preserve the
+  already-normalized privilege value through the same WARL boundary.
 - RV64 `mstatus.SXL`/`mstatus.UXL` and `sstatus.UXL` now behave as fixed
   lower-mode XLEN fields for this emulator profile. Focused regressions cover
   reset visibility plus replacement-write, register-source set/clear, and

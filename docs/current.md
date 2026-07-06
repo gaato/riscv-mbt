@@ -529,8 +529,10 @@
   but the stored value still clears hardwired bit 0. CSR clear forms now cover
   the same write-boundary rule for `CSRRC`/`CSRRCI`.
 - `mstatus.MPP` now normalizes the reserved privilege encoding 2 to U-mode on
-  replacement writes and register-source set/clear candidates, while
-  preserving legal U/S/M return-mode encodings.
+  replacement writes plus register-source and immediate set/clear candidates,
+  while preserving legal U/S/M return-mode encodings. Immediate forms cannot
+  name the high MPP field directly, but they still preserve the normalized
+  privilege value through the same RMW writeback boundary.
 - `MRET` and `SRET` now clear `mstatus.MPRV` when returning to a privilege mode
   below M, with coverage for `MRET` to U and `SRET` to S/U, while preserving
   `MPRV` for `MRET` returns that stay in M-mode.

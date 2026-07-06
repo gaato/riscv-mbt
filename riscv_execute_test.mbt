@@ -9348,6 +9348,34 @@ test "mstatus mpp normalizes reserved privilege encoding across csr forms" {
   assert_eq(runner.read_reg_u64(7) & mpp_mask, mpp_machine)
   assert_eq(runner.read_reg_u64(8) & mpp_mask, 0U.to_uint64())
   assert_eq(runner.read_csr_u64(mstatus) & mpp_mask, 0U.to_uint64())
+
+  let immediate_runner = make_runner(default_machine_config())
+  immediate_runner.cpu.write_reg(1, 0x1000U.to_uint64())
+  immediate_runner.cpu.write_reg(5, mpp_machine)
+  immediate_runner.load_program(
+    words_to_bytes([
+      encode_csr(mstatus, 1, 0x1U, 0),
+      encode_csr(mstatus, 0x1f, 0x6U, 2),
+      encode_csr(mstatus, 0, 0x2U, 3),
+      encode_csr(mstatus, 5, 0x1U, 0),
+      encode_csr(mstatus, 0x1f, 0x7U, 4),
+      encode_csr(mstatus, 0, 0x2U, 6),
+    ]),
+    0U,
+  )
+  match immediate_runner.run(6) {
+    Running => ()
+    _ => fail("expected immediate reserved-mpp csr program to run")
+  }
+  // The Zicsr immediate source is only five bits wide, so CSRRSI/CSRRCI cannot
+  // name the MPP field directly. They still perform a visible-value RMW and
+  // must preserve the already-normalized MPP value through the mstatus WARL
+  // boundary, whether that value is canonicalized U or legal M.
+  assert_eq(immediate_runner.read_reg_u64(2) & mpp_mask, 0U.to_uint64())
+  assert_eq(immediate_runner.read_reg_u64(3) & mpp_mask, 0U.to_uint64())
+  assert_eq(immediate_runner.read_reg_u64(4) & mpp_mask, mpp_machine)
+  assert_eq(immediate_runner.read_reg_u64(6) & mpp_mask, mpp_machine)
+  assert_eq(immediate_runner.read_csr_u64(mstatus) & mpp_mask, mpp_machine)
 }
 
 ///|
