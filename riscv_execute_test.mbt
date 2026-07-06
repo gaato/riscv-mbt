@@ -1714,6 +1714,28 @@ test "rv64f fp register writes mark mstatus fs dirty" {
 }
 
 ///|
+fn expect_fp_status_case(
+  runner : Runner,
+  steps : Int,
+  status_reg : Int,
+  expected_fs : UInt64,
+  expected_sd : UInt64,
+  expected_fflags : UInt64,
+  label : String,
+) -> Unit raise {
+  match runner.run(steps) {
+    Running => ()
+    _ => fail("expected " + label + " and mstatus read to run")
+  }
+  // These focused cases distinguish integer-result FP instructions that only
+  // observe FP state from those that also mutate fcsr through fflags.
+  let mstatus = runner.read_reg_u64(status_reg)
+  assert_eq(mstatus & 0x6000U.to_uint64(), expected_fs)
+  assert_eq(mstatus & (1U.to_uint64() << 63), expected_sd)
+  assert_eq(runner.read_csr_u64(0x001), expected_fflags)
+}
+
+///|
 test "rv64f fp status dirtiness follows actual fp state writes" {
   let mstatus = 0x300
   let fflags = 0x001
@@ -1725,13 +1747,13 @@ test "rv64f fp status dirtiness follows actual fp state writes" {
 
   for
     write_case in [
-      (fflags, 0x01U.to_uint64(), "fflags"),
-      (frm, 0x02U.to_uint64(), "frm"),
-      (fcsr, 0x41U.to_uint64(), "fcsr"),
+      (fflags, 0x01U.to_uint64(), 0x01U.to_uint64(), "fflags"),
+      (frm, 0x02U.to_uint64(), 0U.to_uint64(), "frm"),
+      (fcsr, 0x41U.to_uint64(), 0x01U.to_uint64(), "fcsr"),
     ] {
     let csr_writer = make_runner(rv64f_machine_config())
     match write_case {
-      (csr, value, label) => {
+      (csr, value, expected_fflags, label) => {
         csr_writer.cpu.write_reg(1, value)
         csr_writer.load_program(
           words_to_bytes([
@@ -1740,15 +1762,12 @@ test "rv64f fp status dirtiness follows actual fp state writes" {
           ]),
           0U,
         )
-        match csr_writer.run(2) {
-          Running => ()
-          _ => fail("expected " + label + " write and mstatus read to run")
-        }
         // FS tracks the whole floating-point context, not just f0-f31. The
         // privileged spec includes fflags, frm, and fcsr in that state, so
         // writes through any alias make an Initial context Dirty with SD set.
-        assert_eq(csr_writer.read_reg_u64(2) & fs_dirty, fs_dirty)
-        assert_eq(csr_writer.read_reg_u64(2) & sd_bit, sd_bit)
+        expect_fp_status_case(
+          csr_writer, 2, 2, fs_dirty, sd_bit, expected_fflags, label,
+        )
         assert_eq(csr_writer.read_csr_u64(mstatus) & fs_dirty, fs_dirty)
       }
     }
@@ -1764,17 +1783,20 @@ test "rv64f fp status dirtiness follows actual fp state writes" {
     ]),
     0U,
   )
-  match integer_result.run(3) {
-    Running => ()
-    _ => fail("expected integer-result FP instructions to run")
-  }
   // FCLASS and FMV.X.W read FP state but write only integer registers. They
   // still require FS!=Off, but they must not mark an otherwise clean FP
   // context Dirty merely because they observed it.
+  expect_fp_status_case(
+    integer_result,
+    3,
+    4,
+    fs_initial,
+    0U.to_uint64(),
+    0U.to_uint64(),
+    "integer-result FP instructions",
+  )
   assert_eq(integer_result.read_reg_u64(2), 1U.to_uint64() << 6)
   assert_eq(integer_result.read_reg_u64(3), 0x3f800000U.to_uint64())
-  assert_eq(integer_result.read_reg_u64(4) & fs_dirty, fs_initial)
-  assert_eq(integer_result.read_reg_u64(4) & sd_bit, 0U.to_uint64())
   assert_eq(integer_result.read_csr_u64(mstatus) & fs_dirty, fs_initial)
 
   let quiet_comparison_reader = make_runner(rv64f_machine_config())
@@ -1784,16 +1806,18 @@ test "rv64f fp status dirtiness follows actual fp state writes" {
     words_to_bytes([encode_feq_s(1, 2, 5), encode_csr(mstatus, 0, 0x2U, 6)]),
     0U,
   )
-  match quiet_comparison_reader.run(2) {
-    Running => ()
-    _ => fail("expected quiet NaN equality comparison and mstatus read to run")
-  }
   // FEQ is the quiet comparison form. A quiet NaN result still writes an
   // integer zero, but it does not touch fflags and therefore must not dirty FS.
+  expect_fp_status_case(
+    quiet_comparison_reader,
+    2,
+    6,
+    fs_initial,
+    0U.to_uint64(),
+    0U.to_uint64(),
+    "quiet NaN equality comparison",
+  )
   assert_eq(quiet_comparison_reader.read_reg_u64(5), 0U.to_uint64())
-  assert_eq(quiet_comparison_reader.read_reg_u64(6) & fs_dirty, fs_initial)
-  assert_eq(quiet_comparison_reader.read_reg_u64(6) & sd_bit, 0U.to_uint64())
-  assert_eq(quiet_comparison_reader.read_csr_u64(fflags), 0U.to_uint64())
 
   let integer_result_flag_writer = make_runner(rv64f_machine_config())
   integer_result_flag_writer.cpu.write_freg(
@@ -1807,16 +1831,18 @@ test "rv64f fp status dirtiness follows actual fp state writes" {
     ]),
     0U,
   )
-  match integer_result_flag_writer.run(2) {
-    Running => ()
-    _ => fail("expected integer-result conversion and mstatus read to run")
-  }
   // FCVT.W.S writes an integer destination, but an inexact conversion updates
   // fflags. That fcsr side effect is enough to dirty the FP context.
+  expect_fp_status_case(
+    integer_result_flag_writer,
+    2,
+    3,
+    fs_dirty,
+    sd_bit,
+    0x01U.to_uint64(),
+    "integer-result conversion",
+  )
   assert_eq(integer_result_flag_writer.read_reg_u64(2), 2U.to_uint64())
-  assert_eq(integer_result_flag_writer.read_reg_u64(3) & fs_dirty, fs_dirty)
-  assert_eq(integer_result_flag_writer.read_reg_u64(3) & sd_bit, sd_bit)
-  assert_eq(integer_result_flag_writer.read_csr_u64(fflags), 0x01U.to_uint64())
 
   let comparison_flag_writer = make_runner(rv64f_machine_config())
   comparison_flag_writer.cpu.write_freg(1, 0x7fc00000U.to_uint64())
@@ -1825,16 +1851,18 @@ test "rv64f fp status dirtiness follows actual fp state writes" {
     words_to_bytes([encode_fle_s(1, 2, 4), encode_csr(mstatus, 0, 0x2U, 5)]),
     0U,
   )
-  match comparison_flag_writer.run(2) {
-    Running => ()
-    _ => fail("expected NaN comparison and mstatus read to run")
-  }
   // Ordered comparisons also write integer destinations, but NaN operands
   // accrue NV in fflags. That CSR state update must dirty FS just like FCVT.
+  expect_fp_status_case(
+    comparison_flag_writer,
+    2,
+    5,
+    fs_dirty,
+    sd_bit,
+    0x10U.to_uint64(),
+    "NaN comparison",
+  )
   assert_eq(comparison_flag_writer.read_reg_u64(4), 0U.to_uint64())
-  assert_eq(comparison_flag_writer.read_reg_u64(5) & fs_dirty, fs_dirty)
-  assert_eq(comparison_flag_writer.read_reg_u64(5) & sd_bit, sd_bit)
-  assert_eq(comparison_flag_writer.read_csr_u64(fflags), 0x10U.to_uint64())
 
   let double_quiet_comparison_reader = make_runner(rv64fd_machine_config())
   double_quiet_comparison_reader.cpu.write_freg(1, 0x7ff8000000000000UL)
@@ -1843,20 +1871,16 @@ test "rv64f fp status dirtiness follows actual fp state writes" {
     words_to_bytes([encode_feq_d(1, 2, 5), encode_csr(mstatus, 0, 0x2U, 6)]),
     0U,
   )
-  match double_quiet_comparison_reader.run(2) {
-    Running => ()
-    _ => fail("expected quiet double NaN comparison and mstatus read to run")
-  }
-  assert_eq(double_quiet_comparison_reader.read_reg_u64(5), 0U.to_uint64())
-  assert_eq(
-    double_quiet_comparison_reader.read_reg_u64(6) & fs_dirty,
+  expect_fp_status_case(
+    double_quiet_comparison_reader,
+    2,
+    6,
     fs_initial,
-  )
-  assert_eq(
-    double_quiet_comparison_reader.read_reg_u64(6) & sd_bit,
     0U.to_uint64(),
+    0U.to_uint64(),
+    "quiet double NaN comparison",
   )
-  assert_eq(double_quiet_comparison_reader.read_csr_u64(fflags), 0U.to_uint64())
+  assert_eq(double_quiet_comparison_reader.read_reg_u64(5), 0U.to_uint64())
 
   let double_comparison_flag_writer = make_runner(rv64fd_machine_config())
   double_comparison_flag_writer.cpu.write_freg(1, 0x7ff8000000000000UL)
@@ -1865,17 +1889,16 @@ test "rv64f fp status dirtiness follows actual fp state writes" {
     words_to_bytes([encode_fle_d(1, 2, 4), encode_csr(mstatus, 0, 0x2U, 5)]),
     0U,
   )
-  match double_comparison_flag_writer.run(2) {
-    Running => ()
-    _ => fail("expected ordered double NaN comparison and mstatus read to run")
-  }
-  assert_eq(double_comparison_flag_writer.read_reg_u64(4), 0U.to_uint64())
-  assert_eq(double_comparison_flag_writer.read_reg_u64(5) & fs_dirty, fs_dirty)
-  assert_eq(double_comparison_flag_writer.read_reg_u64(5) & sd_bit, sd_bit)
-  assert_eq(
-    double_comparison_flag_writer.read_csr_u64(fflags),
+  expect_fp_status_case(
+    double_comparison_flag_writer,
+    2,
+    5,
+    fs_dirty,
+    sd_bit,
     0x10U.to_uint64(),
+    "ordered double NaN comparison",
   )
+  assert_eq(double_comparison_flag_writer.read_reg_u64(4), 0U.to_uint64())
 }
 
 ///|
