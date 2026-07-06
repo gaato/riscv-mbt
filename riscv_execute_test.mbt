@@ -1652,6 +1652,33 @@ test "rv64f fcsr reserved high bits read as zero" {
   }
   assert_eq(runner.read_reg(2), 0xffU)
   assert_eq(runner.read_csr(csr_fcsr), 0xffU)
+
+  let rmw_runner = make_runner(rv64f_machine_config())
+  rmw_runner.load_program(
+    words_to_bytes([
+      encode_u(0xfffff000U, 1, 0x37U),
+      encode_i(-1, 1, 0x0U, 1, 0x13U),
+      encode_csr(csr_fcsr, 1, 0x2U, 3),
+      encode_csr(csr_fcsr, 0, 0x2U, 4),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_csr(csr_fcsr, 0x1f, 0x6U, 5),
+      encode_csr(csr_fcsr, 0, 0x2U, 6),
+    ]),
+    0U,
+  )
+  match rmw_runner.run(7) {
+    Running => ()
+    _ => fail("expected fcsr reserved-bit RMW program to run")
+  }
+  // `fcsr` exposes `fflags` plus `frm` in bits 7:0. Register-source RMW forms
+  // may derive an all-ones candidate, and immediate RMW forms can set low
+  // flags, but absent standard-extension fields in bits 31:8 remain
+  // read-as-zero/write-ignored through the shared fcsr write boundary.
+  assert_eq(rmw_runner.read_reg(3), 0U)
+  assert_eq(rmw_runner.read_reg(4), 0xffU)
+  assert_eq(rmw_runner.read_reg(5), 0U)
+  assert_eq(rmw_runner.read_reg(6), 0x1fU)
+  assert_eq(rmw_runner.read_csr(csr_fcsr), 0x1fU)
 }
 
 ///|

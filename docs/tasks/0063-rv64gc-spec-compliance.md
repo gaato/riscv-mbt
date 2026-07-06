@@ -1009,8 +1009,9 @@ official coverage improve.
   `frm` view, while `frm=111` can still be stored as CSR state even though
   dynamic use of that reserved rounding mode traps elsewhere.
 - `fcsr` reserved high bits now have focused regression coverage. A CSR write
-  of all ones leaves only visible bits 7:0 readable, matching the F extension
-  rule for absent standard-extension fields in bits 31:8.
+  of all ones leaves only visible bits 7:0 readable, and register-source or
+  immediate set forms cannot make absent standard-extension fields in bits 31:8
+  sticky through an RMW candidate.
 - `Zifencei` now has an execute regression for the key same-hart contract:
   fetch and decode an instruction, store a different instruction to the same
   address, execute `FENCE.I`, jump back, and require the replacement instruction
