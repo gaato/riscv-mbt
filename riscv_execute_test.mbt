@@ -1835,6 +1835,47 @@ test "rv64f fp status dirtiness follows actual fp state writes" {
   assert_eq(comparison_flag_writer.read_reg_u64(5) & fs_dirty, fs_dirty)
   assert_eq(comparison_flag_writer.read_reg_u64(5) & sd_bit, sd_bit)
   assert_eq(comparison_flag_writer.read_csr_u64(fflags), 0x10U.to_uint64())
+
+  let double_quiet_comparison_reader = make_runner(rv64fd_machine_config())
+  double_quiet_comparison_reader.cpu.write_freg(1, 0x7ff8000000000000UL)
+  double_quiet_comparison_reader.cpu.write_freg(2, exec_test_f64_bits(1.0))
+  double_quiet_comparison_reader.load_program(
+    words_to_bytes([encode_feq_d(1, 2, 5), encode_csr(mstatus, 0, 0x2U, 6)]),
+    0U,
+  )
+  match double_quiet_comparison_reader.run(2) {
+    Running => ()
+    _ => fail("expected quiet double NaN comparison and mstatus read to run")
+  }
+  assert_eq(double_quiet_comparison_reader.read_reg_u64(5), 0U.to_uint64())
+  assert_eq(
+    double_quiet_comparison_reader.read_reg_u64(6) & fs_dirty,
+    fs_initial,
+  )
+  assert_eq(
+    double_quiet_comparison_reader.read_reg_u64(6) & sd_bit,
+    0U.to_uint64(),
+  )
+  assert_eq(double_quiet_comparison_reader.read_csr_u64(fflags), 0U.to_uint64())
+
+  let double_comparison_flag_writer = make_runner(rv64fd_machine_config())
+  double_comparison_flag_writer.cpu.write_freg(1, 0x7ff8000000000000UL)
+  double_comparison_flag_writer.cpu.write_freg(2, exec_test_f64_bits(1.0))
+  double_comparison_flag_writer.load_program(
+    words_to_bytes([encode_fle_d(1, 2, 4), encode_csr(mstatus, 0, 0x2U, 5)]),
+    0U,
+  )
+  match double_comparison_flag_writer.run(2) {
+    Running => ()
+    _ => fail("expected ordered double NaN comparison and mstatus read to run")
+  }
+  assert_eq(double_comparison_flag_writer.read_reg_u64(4), 0U.to_uint64())
+  assert_eq(double_comparison_flag_writer.read_reg_u64(5) & fs_dirty, fs_dirty)
+  assert_eq(double_comparison_flag_writer.read_reg_u64(5) & sd_bit, sd_bit)
+  assert_eq(
+    double_comparison_flag_writer.read_csr_u64(fflags),
+    0x10U.to_uint64(),
+  )
 }
 
 ///|

@@ -188,11 +188,11 @@
   memory, so they leave an otherwise clean `mstatus.FS=Initial` context clean.
   Integer-result FP instructions such as `FCLASS.S` and `FMV.X.W` still require
   FS enabled, but they do not dirty an otherwise clean FP context because they
-  only observe FP state. Quiet `FEQ.S` NaN comparisons now have matching
+  only observe FP state. Quiet `FEQ.S/D` NaN comparisons now have matching
   coverage that they leave FS clean when they do not update `fflags`;
   integer-result conversions that update `fflags` do dirty FS through the
-  `fcsr` side effect, and ordered NaN comparisons have matching coverage for
-  the NV flag path.
+  `fcsr` side effect, and ordered S/D NaN comparisons have matching coverage
+  for the NV flag path.
   The `fflags`, `frm`, and `fcsr` CSR aliases are also FS-gated: read and
   write attempts trap when FS is Off. Alias writes now explicitly preserve the
   untouched field, including `fflags` writes and clears that leave `frm`
