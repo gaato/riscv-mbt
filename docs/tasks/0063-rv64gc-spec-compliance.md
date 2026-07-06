@@ -239,8 +239,9 @@ official coverage improve.
   per-hart physical byte-range reservations, with regressions for
   reservation success/failure for word and doubleword LR/SC, same-hart store
   invalidation, cross-hart store invalidation, overlapping LR.D reservation
-  invalidation, cross-hart AMO.W/AMO.D invalidation, device writes to bytes
-  accessed by LR, RV64 AMO.W sign-extension, low-word bitwise AMO.W operations,
+  invalidation, cross-hart AMO.W/AMO.D invalidation, successful cross-hart
+  `SC.W`/`SC.D` invalidation, device writes to bytes accessed by LR, RV64
+  AMO.W sign-extension, low-word bitwise AMO.W operations,
   full-width AMOSWAP.D,
   AMOADD.D wraparound, and bitwise AMO.D operations, signed AMO.W and
   signed/unsigned AMO.D min/max comparisons, natural-address alignment traps
@@ -687,7 +688,9 @@ official coverage improve.
   AMO.D operations from another hart as reservation-breaking stores, not only
   plain integer stores and device writes. The same path now uses aq+rl ordered
   AMOs, pinning that the order annotation does not bypass the serialized
-  write/invalidation transaction.
+  write/invalidation transaction. Successful `SC.W`/`SC.D` operations from
+  another hart now have matching coverage as conditional stores that invalidate
+  the losing hart's overlapping reservation.
 - A-extension/privileged interaction coverage now pins the implementation's
   legal xRET policy: both `MRET` and `SRET` preserve a live LR reservation for
   a following SC instead of implicitly clearing it.

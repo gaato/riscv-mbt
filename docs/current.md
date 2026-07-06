@@ -658,8 +658,10 @@
   comparisons across the sign boundary, and unsigned AMO.D min/max coverage
   now pins `AMOMINU.D`/`AMOMAXU.D` on the same bit patterns. Ordered aq+rl
   AMOs from another hart are now covered as reservation-breaking writes under
-  the interpreter's serialized memory model; that model is stronger than the
-  RVWMO visibility constraints that aq/rl annotate. The remaining A-extension
+  the interpreter's serialized memory model; successful `SC.W`/`SC.D` from
+  another hart now have matching reservation-invalidation coverage as
+  conditional stores. That model is stronger than the RVWMO visibility
+  constraints that aq/rl annotate. The remaining A-extension
   audit is broader LR/SC forward-progress/eventual-success behavior beyond the
   current interpreter scheduler.
 

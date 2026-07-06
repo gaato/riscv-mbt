@@ -16613,6 +16613,93 @@ test "ordered atomic operation from another hart invalidates LR reservations" {
 }
 
 ///|
+test "successful SC from another hart invalidates LR reservations" {
+  let word_harts = make_smp_runners(virt_machine_config(), 2)
+  let word_winner = word_harts[0]
+  let word_loser = word_harts[1]
+  let word_pc = word_winner.cpu.pc
+  let word_addr = word_pc + 0x100U.to_uint64()
+  word_winner.bus.store_u32(word_addr, 77U.to_uint64())
+  word_winner.cpu.write_reg(1, word_addr)
+  word_winner.cpu.write_reg(5, 88U.to_uint64())
+  word_loser.cpu.write_reg(1, word_addr)
+  word_loser.cpu.write_reg(5, 99U.to_uint64())
+  word_winner.bus.store_u32(
+    word_pc,
+    encode_amo(0x02U, 0, 1, 0x2U, 3).to_uint64(),
+  )
+  word_winner.bus.store_u32(
+    word_pc + 4U.to_uint64(),
+    encode_amo(0x03U, 5, 1, 0x2U, 4).to_uint64(),
+  )
+  match word_winner.step() {
+    Running => ()
+    _ => fail("expected hart0 LR.W to run")
+  }
+  match word_loser.step() {
+    Running => ()
+    _ => fail("expected hart1 LR.W to run")
+  }
+  match word_winner.step() {
+    Running => ()
+    _ => fail("expected hart0 SC.W to run")
+  }
+  assert_eq(word_winner.read_reg_u64(4), 0U.to_uint64())
+  assert_eq(word_winner.bus.load_u32(word_addr), 88U.to_uint64())
+  match word_loser.step() {
+    Running => ()
+    _ => fail("expected hart1 SC.W to run")
+  }
+  // A successful SC is a store to the reserved bytes. It must therefore break
+  // other harts' reservations just like an ordinary store or AMO, even though
+  // the storing instruction itself was conditional on its own reservation.
+  assert_eq(word_loser.read_reg_u64(4), 1U.to_uint64())
+  assert_eq(word_loser.bus.load_u32(word_addr), 88U.to_uint64())
+
+  let double_harts = make_smp_runners(virt_machine_config(), 2)
+  let double_winner = double_harts[0]
+  let double_loser = double_harts[1]
+  let double_pc = double_winner.cpu.pc
+  let double_addr = double_pc + 0x100U.to_uint64()
+  let double_original = 0x1122334455667788UL
+  let double_winner_value = 0x8877665544332211UL
+  let double_loser_value = 0xfedcba9876543210UL
+  double_winner.bus.store_u64(double_addr, double_original)
+  double_winner.cpu.write_reg(1, double_addr)
+  double_winner.cpu.write_reg(5, double_winner_value)
+  double_loser.cpu.write_reg(1, double_addr)
+  double_loser.cpu.write_reg(5, double_loser_value)
+  double_winner.bus.store_u32(
+    double_pc,
+    encode_amo(0x02U, 0, 1, 0x3U, 3).to_uint64(),
+  )
+  double_winner.bus.store_u32(
+    double_pc + 4U.to_uint64(),
+    encode_amo(0x03U, 5, 1, 0x3U, 4).to_uint64(),
+  )
+  match double_winner.step() {
+    Running => ()
+    _ => fail("expected hart0 LR.D to run")
+  }
+  match double_loser.step() {
+    Running => ()
+    _ => fail("expected hart1 LR.D to run")
+  }
+  match double_winner.step() {
+    Running => ()
+    _ => fail("expected hart0 SC.D to run")
+  }
+  assert_eq(double_winner.read_reg_u64(4), 0U.to_uint64())
+  assert_eq(double_winner.bus.load_u64(double_addr), double_winner_value)
+  match double_loser.step() {
+    Running => ()
+    _ => fail("expected hart1 SC.D to run")
+  }
+  assert_eq(double_loser.read_reg_u64(4), 1U.to_uint64())
+  assert_eq(double_loser.bus.load_u64(double_addr), double_winner_value)
+}
+
+///|
 test "overlapping store from another hart invalidates LR.D reservation" {
   let harts = make_smp_runners(virt_machine_config(), 2)
   let hart0 = harts[0]
