@@ -6076,21 +6076,29 @@ test "mstatus clears unsupported status bits" {
       encode_csr(mstatus, 0, 0x2U, 5),
       encode_csr(mstatus, 1, 0x3U, 6),
       encode_csr(mstatus, 0, 0x2U, 7),
+      encode_csr(mstatus, 0x1f, 0x6U, 8),
+      encode_csr(mstatus, 0, 0x2U, 9),
+      encode_csr(mstatus, 0x1f, 0x7U, 10),
+      encode_csr(mstatus, 0, 0x2U, 11),
     ]),
     0U,
   )
-  match rmw_runner.run(5) {
+  match rmw_runner.run(9) {
     Running => ()
     _ => fail("expected mstatus unsupported-bit RMW program to run")
   }
-  // CSRRS/CSRRC derive candidates from a visible status value, but the final
-  // write still passes through the mstatus WARL filter. Unsupported
-  // user-interrupt, VS, XS, and WPRI/reserved storage therefore never becomes
-  // observable state.
+  // CSRRS/CSRRC and their immediate forms derive candidates from a visible
+  // status value, but the final write still passes through the mstatus WARL
+  // filter. Unsupported user-interrupt, VS, XS, and WPRI/reserved storage
+  // therefore never becomes observable state.
   assert_eq(rmw_runner.read_reg_u64(4), 0xa00000000UL)
   assert_eq(rmw_runner.read_reg_u64(5), normalized_mstatus)
   assert_eq(rmw_runner.read_reg_u64(6), normalized_mstatus)
   assert_eq(rmw_runner.read_reg_u64(7), 0xa00000000UL)
+  assert_eq(rmw_runner.read_reg_u64(8), 0xa00000000UL)
+  assert_eq(rmw_runner.read_reg_u64(9), 0xa0000000aUL)
+  assert_eq(rmw_runner.read_reg_u64(10), 0xa0000000aUL)
+  assert_eq(rmw_runner.read_reg_u64(11), 0xa00000000UL)
   assert_eq(rmw_runner.read_csr_u64(mstatus), 0xa00000000UL)
 }
 

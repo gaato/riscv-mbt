@@ -1143,8 +1143,8 @@ official coverage improve.
 - `mstatus` writes now retain only the implemented status field surface. A
   write-all-ones regression verifies that unsupported user-interrupt, VS, XS,
   and WPRI/reserved storage is cleared before the existing endian, fixed-XLEN,
-  MPP, and SD-derived normalization runs; register-source set/clear candidates
-  now have matching coverage.
+  MPP, and SD-derived normalization runs; register-source and immediate
+  set/clear candidates now have matching coverage.
 - `menvcfg`/`senvcfg` no longer retain arbitrary compatibility storage bits.
   A write-all-ones regression pins the current baseline behavior: all optional
   environment controls read as zero until their corresponding extensions are
