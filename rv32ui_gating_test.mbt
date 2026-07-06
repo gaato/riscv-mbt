@@ -27,8 +27,29 @@ async test "official RV64GC riscv-tests source rows are all gated" {
   }
   missing.sort()
   if missing.length() != 0 {
-    let mut message = "missing RV64GC official riscv-tests gating rows:"
+    let mut message = "missing \{missing.length()} of \{source_keys.length()} local RV64GC official riscv-tests gating rows:"
     for key in missing {
+      message = message + "\n" + key
+    }
+    abort(message)
+  }
+}
+
+///|
+async test "official riscv-tests gating manifest has unique rows" {
+  let keys = load_manifest_gating_keys()
+  keys.sort()
+  let duplicates : Array[String] = []
+  let mut index = 1
+  while index < keys.length() {
+    if keys[index] == keys[index - 1] {
+      duplicates.push(keys[index])
+    }
+    index = index + 1
+  }
+  if duplicates.length() != 0 {
+    let mut message = "duplicate official riscv-tests gating rows:"
+    for key in duplicates {
       message = message + "\n" + key
     }
     abort(message)
