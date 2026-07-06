@@ -734,7 +734,9 @@ official coverage improve.
   cross-hart path uses aq+rl ordered AMOs, pinning that the order annotation
   does not bypass the serialized write/invalidation transaction. Successful
   `SC.W`/`SC.D` operations from another hart now have matching coverage as
-  conditional stores that invalidate the losing hart's overlapping reservation.
+  conditional stores that invalidate the losing hart's overlapping reservation,
+  while failed remote `SC.W`/`SC.D` operations are pinned as non-store events
+  that report failure without invalidating another hart's live reservation.
 - A-extension/privileged interaction coverage now pins the implementation's
   legal xRET policy: both `MRET` and `SRET` preserve a live LR reservation for
   a following SC instead of implicitly clearing it.

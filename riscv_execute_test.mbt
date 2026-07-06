@@ -17746,6 +17746,92 @@ test "successful SC from another hart invalidates LR reservations" {
 }
 
 ///|
+test "failed SC from another hart preserves existing reservation" {
+  let word_harts = make_smp_runners(virt_machine_config(), 2)
+  let word_lr_hart = word_harts[0]
+  let word_failed_sc_hart = word_harts[1]
+  let word_pc = word_lr_hart.cpu.pc
+  let word_addr = word_pc + 0x100U.to_uint64()
+  word_lr_hart.bus.store_u32(word_addr, 77U.to_uint64())
+  word_lr_hart.cpu.write_reg(1, word_addr)
+  word_lr_hart.cpu.write_reg(5, 88U.to_uint64())
+  word_failed_sc_hart.cpu.write_reg(1, word_addr)
+  word_failed_sc_hart.cpu.write_reg(6, 99U.to_uint64())
+  word_lr_hart.bus.store_u32(
+    word_pc,
+    encode_amo(0x02U, 0, 1, 0x2U, 3).to_uint64(),
+  )
+  word_lr_hart.bus.store_u32(
+    word_pc + 4U.to_uint64(),
+    encode_amo(0x03U, 5, 1, 0x2U, 4).to_uint64(),
+  )
+  match word_lr_hart.step() {
+    Running => ()
+    _ => fail("expected hart0 LR.W to run")
+  }
+  word_failed_sc_hart.bus.store_u32(
+    word_pc,
+    encode_amo(0x03U, 6, 1, 0x2U, 7).to_uint64(),
+  )
+  match word_failed_sc_hart.step() {
+    Running => ()
+    _ => fail("expected hart1 failed SC.W to run")
+  }
+  // A failed SC is not a memory write. It consumes only the executing hart's
+  // reservation state, so another hart's live reservation remains usable.
+  assert_eq(word_failed_sc_hart.read_reg_u64(7), 1U.to_uint64())
+  assert_eq(word_failed_sc_hart.bus.load_u32(word_addr), 77U.to_uint64())
+  match word_lr_hart.step() {
+    Running => ()
+    _ => fail("expected hart0 SC.W after failed remote SC to run")
+  }
+  assert_eq(word_lr_hart.read_reg_u64(4), 0U.to_uint64())
+  assert_eq(word_lr_hart.bus.load_u32(word_addr), 88U.to_uint64())
+
+  let double_harts = make_smp_runners(virt_machine_config(), 2)
+  let double_lr_hart = double_harts[0]
+  let double_failed_sc_hart = double_harts[1]
+  let double_pc = double_lr_hart.cpu.pc
+  let double_addr = double_pc + 0x100U.to_uint64()
+  let double_original = 0x1122334455667788UL
+  let double_success_value = 0x8877665544332211UL
+  let double_failed_value = 0xfedcba9876543210UL
+  double_lr_hart.bus.store_u64(double_addr, double_original)
+  double_lr_hart.cpu.write_reg(1, double_addr)
+  double_lr_hart.cpu.write_reg(5, double_success_value)
+  double_failed_sc_hart.cpu.write_reg(1, double_addr)
+  double_failed_sc_hart.cpu.write_reg(6, double_failed_value)
+  double_lr_hart.bus.store_u32(
+    double_pc,
+    encode_amo(0x02U, 0, 1, 0x3U, 3).to_uint64(),
+  )
+  double_lr_hart.bus.store_u32(
+    double_pc + 4U.to_uint64(),
+    encode_amo(0x03U, 5, 1, 0x3U, 4).to_uint64(),
+  )
+  match double_lr_hart.step() {
+    Running => ()
+    _ => fail("expected hart0 LR.D to run")
+  }
+  double_failed_sc_hart.bus.store_u32(
+    double_pc,
+    encode_amo(0x03U, 6, 1, 0x3U, 7).to_uint64(),
+  )
+  match double_failed_sc_hart.step() {
+    Running => ()
+    _ => fail("expected hart1 failed SC.D to run")
+  }
+  assert_eq(double_failed_sc_hart.read_reg_u64(7), 1U.to_uint64())
+  assert_eq(double_failed_sc_hart.bus.load_u64(double_addr), double_original)
+  match double_lr_hart.step() {
+    Running => ()
+    _ => fail("expected hart0 SC.D after failed remote SC to run")
+  }
+  assert_eq(double_lr_hart.read_reg_u64(4), 0U.to_uint64())
+  assert_eq(double_lr_hart.bus.load_u64(double_addr), double_success_value)
+}
+
+///|
 test "overlapping store from another hart invalidates LR.D reservation" {
   let harts = make_smp_runners(virt_machine_config(), 2)
   let hart0 = harts[0]

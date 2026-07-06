@@ -713,10 +713,12 @@
   AMOs from another hart are now covered as reservation-breaking writes under
   the interpreter's serialized memory model; successful `SC.W`/`SC.D` from
   another hart now have matching reservation-invalidation coverage as
-  conditional stores. The complementary read-side cases are covered too:
-  another hart's plain `LW`, plain `LD`, or `LR.W` to the same bytes does not
-  invalidate the first hart's live reservation, while the first hart's later
-  successful `SC.W` still invalidates the second hart's reservation. A
+  conditional stores, while failed remote `SC.W`/`SC.D` operations are now
+  covered as non-store events that leave unrelated live reservations intact.
+  The complementary read-side cases are covered too: another hart's plain
+  `LW`, plain `LD`, or `LR.W` to the same bytes does not invalidate the first
+  hart's live reservation, while the first hart's later successful `SC.W` still
+  invalidates the second hart's reservation. A
   two-hart retry case now also proves that after an
   interfering store makes the first `SC.W` fail, a fresh `LR.W`/`SC.W` pair can
   succeed once interference stops. That model is stronger than the RVWMO
