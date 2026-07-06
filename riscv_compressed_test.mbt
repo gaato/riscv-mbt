@@ -845,6 +845,62 @@ test "rv64dc compressed floating double memory follows fp state dirtiness" {
 }
 
 ///|
+test "rv64dc compressed floating double memory preserves payloads without flags" {
+  let fcsr = 0x003
+  let existing_nx = 0x01U.to_uint64()
+  let register_payload = 0x7ff0000000012345UL
+  let stack_payload = 0x7ff8000000054321UL
+
+  let store_runner = make_runner(rv64fd_machine_config())
+  store_runner.cpu.write_csr(fcsr, existing_nx)
+  store_runner.cpu.write_reg(2, 0x400U.to_uint64())
+  store_runner.cpu.write_reg(10, 0x300U.to_uint64())
+  store_runner.cpu.write_freg(8, register_payload)
+  store_runner.cpu.write_freg(9, stack_payload)
+  store_runner.load_program(
+    mixed_program_bytes([
+      (2, encode_c_fsd(8, 10, 16).reinterpret_as_uint()),
+      (2, encode_c_fsdsp(9, 16).reinterpret_as_uint()),
+      (4, encode_csr(fcsr, 0, 0x2U, 5)),
+    ]),
+    0U,
+  )
+  match store_runner.run(3) {
+    Running => ()
+    _ => fail("expected compressed FP stores and fcsr read to run")
+  }
+  // C.FSD and C.FSDSP are memory transfers, not arithmetic operations. They
+  // preserve raw double payloads and do not accrue or clear fflags.
+  assert_eq(store_runner.bus.load_u64(0x310U.to_uint64()), register_payload)
+  assert_eq(store_runner.bus.load_u64(0x410U.to_uint64()), stack_payload)
+  assert_eq(store_runner.read_reg_u64(5) & 0x1fU.to_uint64(), existing_nx)
+
+  let load_runner = make_runner(rv64fd_machine_config())
+  load_runner.cpu.write_csr(fcsr, existing_nx)
+  load_runner.cpu.write_reg(2, 0x400U.to_uint64())
+  load_runner.cpu.write_reg(10, 0x300U.to_uint64())
+  load_runner.bus.store_u64(0x310U.to_uint64(), register_payload)
+  load_runner.bus.store_u64(0x410U.to_uint64(), stack_payload)
+  load_runner.load_program(
+    mixed_program_bytes([
+      (2, encode_c_fld(8, 10, 16).reinterpret_as_uint()),
+      (2, encode_c_fldsp(9, 16).reinterpret_as_uint()),
+      (4, encode_csr(fcsr, 0, 0x2U, 5)),
+    ]),
+    0U,
+  )
+  match load_runner.run(3) {
+    Running => ()
+    _ => fail("expected compressed FP loads and fcsr read to run")
+  }
+  // Loads are raw bit transfers too. Even signaling-NaN-looking payloads stay
+  // opaque here and do not produce NV.
+  assert_eq(load_runner.read_freg_u64(8), register_payload)
+  assert_eq(load_runner.read_freg_u64(9), stack_payload)
+  assert_eq(load_runner.read_reg_u64(5) & 0x1fU.to_uint64(), existing_nx)
+}
+
+///|
 test "rv64gc compressed memory zero offsets stay legal" {
   // Unlike C.ADDI4SPN, C.ADDI16SP, and C.LUI, compressed memory forms do not
   // reserve a zero immediate. Keep offset zero on the ordinary load/store path
