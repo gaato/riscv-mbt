@@ -8805,10 +8805,12 @@ test "debug mode only csrs trap from machine mode" {
 }
 
 ///|
-test "writes to read-only csrs trap as illegal instruction" {
+test "direct writes to read-only csrs trap as illegal instruction" {
   // The CSR address encoding marks these baseline CSRs read-only. Any CSR
   // instruction form that would write them must trap, even when the backing
-  // value is otherwise readable and useful to firmware.
+  // value is otherwise readable and useful to firmware. Cover both CSRRW and
+  // CSRRWI so the immediate direct-write form cannot slip past the read-only
+  // classification.
   let read_only_csrs = [
     0xF11, // mvendorid
      0xF12, // marchid
@@ -8820,18 +8822,19 @@ test "writes to read-only csrs trap as illegal instruction" {
      0xC02, // instret
   ]
   for csr in read_only_csrs {
-    let raw = encode_csr(csr, 1, 0x1U, 0)
-    let runner = make_runner(default_machine_config())
-    runner.load_program(words_to_bytes([raw]), 0U)
-    match runner.step() {
-      Trap(info) => {
-        match info.cause {
-          IllegalInstruction => ()
-          _ => fail("expected illegal instruction cause")
+    for raw in [encode_csr(csr, 1, 0x1U, 0), encode_csr(csr, 1, 0x5U, 0)] {
+      let runner = make_runner(default_machine_config())
+      runner.load_program(words_to_bytes([raw]), 0U)
+      match runner.step() {
+        Trap(info) => {
+          match info.cause {
+            IllegalInstruction => ()
+            _ => fail("expected illegal instruction cause")
+          }
+          assert_eq(info.trap_value, raw.to_uint64())
         }
-        assert_eq(info.trap_value, raw.to_uint64())
+        _ => fail("expected direct read-only CSR write to trap")
       }
-      _ => fail("expected illegal instruction trap")
     }
   }
 }

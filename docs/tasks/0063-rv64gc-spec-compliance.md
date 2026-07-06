@@ -444,7 +444,7 @@ official coverage improve.
   samples the exposed machine-information read-only set
   (`mvendorid`, `marchid`, `mimpid`, `mhartid`, and `mconfigptr`) and now also
   pins the user-visible read-only counter aliases `cycle`, `time`, and
-  `instret`.
+  `instret`, including both direct register-source and immediate write forms.
   `mcause` and `scause` now expose the modeled WLRL cause surface on explicit
   CSR writes and reads: the interrupt flag and low five exception-code bits are
   retained, while unsupported high platform/custom cause-code storage is masked
