@@ -451,6 +451,10 @@ official coverage improve.
   traps that do not retire. Trap-vector entry now also suppresses retirement
   when the trap handler address is nonzero and `raise_trap` returns `Running`,
   including both system-instruction traps and execute-stage faults.
+  Supervisor-to-machine synchronous trap entry now has focused status-stack
+  coverage as well: a non-delegated S-mode `ECALL` writes `mepc`/`mcause`/
+  `mtval`, records `MPP=S`, copies the old `MIE` into `MPIE`, clears `MIE`,
+  and enters M-mode.
   RV32-only high-half counter CSRs are now filtered by the shared CSR support
   classifier on RV64: `cycleh`, `timeh`, `instreth`, `mcycleh`, and
   `minstreth` are readable where modeled for RV32 but absent from the RV64GC
@@ -1300,7 +1304,10 @@ official coverage improve.
   synchronous trap entry through nonzero `mtvec` is not counted as a retired
   instruction even though execution continues at the handler. The same
   non-retiring rule is covered for execute-stage load faults and for
-  machine-timer interrupt entry through nonzero `mtvec`.
+  machine-timer interrupt entry through nonzero `mtvec`. Non-delegated
+  supervisor `ECALL` now separately pins machine trap-entry status stacking:
+  `MPP=S`, `MPIE=old MIE`, `MIE=0`, and the machine trap CSRs are written with
+  the S-mode faulting PC and cause.
 - RV32-only high-half counter CSR legality is now centralized in the CSR
   support classifier. Focused coverage keeps `cycleh`, `timeh`, and `instreth`
   readable on RV32, and verifies `cycleh`, `timeh`, `instreth`, `mcycleh`, and

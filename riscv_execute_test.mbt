@@ -7065,6 +7065,40 @@ test "trap entry from user updates mstatus trap fields" {
 }
 
 ///|
+test "trap entry from supervisor updates machine status stack fields" {
+  let program = words_to_bytes([
+    encode_i(24, 0, 0x0U, 5, 0x13U),
+    encode_csr(0x341, 5, 0x1U, 0),
+    encode_u(0x00001000U, 1, 0x37U),
+    encode_i(-1920, 1, 0x0U, 1, 0x13U),
+    encode_csr(0x300, 1, 0x1U, 0),
+    encode_mret(),
+    encode_ecall(),
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(7) {
+    Trap(info) =>
+      match info.cause {
+        EnvironmentCallFromSMode => ()
+        _ => fail("expected supervisor ecall trap")
+      }
+    _ => fail("expected supervisor ecall to trap to machine")
+  }
+  // The ECALL is not delegated, so trap entry targets M-mode. It snapshots the
+  // prior S-mode privilege into MPP, copies the old MIE into MPIE, clears MIE,
+  // and records the synchronous exception in the machine trap CSRs.
+  assert_eq(runner.read_csr(0x341), 24U)
+  assert_eq(runner.read_csr(0x342), 9U)
+  assert_eq(runner.read_csr(0x343), 0U)
+  assert_eq(runner.read_csr(0x300), 0x880U)
+  match runner.privilege_mode() {
+    Machine => ()
+    _ => fail("expected machine mode after non-delegated supervisor trap")
+  }
+}
+
+///|
 test "machine synchronous exceptions use mtvec base in vectored mode" {
   let program = words_to_bytes([
     // Write mtvec=0x15: BASE becomes 0x14 and MODE=Vectored. ECALL is a
