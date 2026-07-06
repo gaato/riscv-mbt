@@ -245,12 +245,13 @@ official coverage improve.
   `C.EBREAK`, `C.ADDIW rd=x0`, nonzero `C.LUI rd=x0`, `C.SLLI rd=x0`,
   6-bit RV64 `C.SLLI` shift amounts, legal `C.ADDIW imm=0` sign-extension
   behavior, `C.FLDSP f0`, and the RV32C custom-extension `shamt[5]=1` space for
-  `C.SLLI`, `C.SRLI`, and `C.SRAI`, including the `C.SLLI rd=x0` hint-looking
-  form, while RV64C keeps high-shamt `C.SLLI rd=x0` forms as hints. The
+  `C.SLLI`, `C.SRLI`, and `C.SRAI`, including the full RV64C
+  `C.SLLI rd=x0` hint shift range, while RV64C keeps high-shamt
+  `C.SLLI rd=x0` forms as hints. The
   zero-immediate reserved space for
   `C.LUI` and `C.ADDI16SP` is now pinned by focused RV64C regressions across
   the full destination split, keeping reserved traps distinct from the nearby
-  positive and negative nonzero `rd=x0` hint encodings.
+  full signed six-bit nonzero `rd=x0` hint encodings.
   Integer stack-load reserved forms for `C.LWSP rd=x0` and `C.LDSP rd=x0` are
   now covered, with adjacent stack stores from `x0` kept legal.
   `C.LUI` now has coverage for positive, negative, and most-negative

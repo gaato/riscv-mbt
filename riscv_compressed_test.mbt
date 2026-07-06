@@ -1155,24 +1155,40 @@ test "rv64c right shift zero-shamt forms execute as hints" {
 
 ///|
 test "rv64c architectural hints execute as no-ops" {
-  let runner = make_runner(rv64_machine_config())
-  runner.load_program(
-    mixed_program_bytes([
-      (2, encode_c_lui(0, 1).reinterpret_as_uint()),
-      (2, encode_c_lui(0, 31).reinterpret_as_uint()),
-      (2, encode_c_lui(0, -1).reinterpret_as_uint()),
-      (2, encode_c_slli(0, 0).reinterpret_as_uint()),
-      (2, encode_c_slli(0, 1).reinterpret_as_uint()),
-      (2, encode_c_slli(0, 63).reinterpret_as_uint()),
-    ]),
-    0U,
-  )
-  match runner.run(6) {
-    Running => ()
-    _ => fail("expected compressed hints to execute as no-ops")
+  // C.LUI rd=x0 is a HINT only for nonzero immediates; the zero-immediate
+  // form is covered separately as reserved. Sweep the signed six-bit nonzero
+  // space so both positive and negative encodings stay harmless no-ops.
+  for imm in -32..<=31 {
+    if imm != 0 {
+      let lui_hint = make_runner(rv64_machine_config())
+      lui_hint.load_program(
+        mixed_program_bytes([(2, encode_c_lui(0, imm).reinterpret_as_uint())]),
+        0U,
+      )
+      match lui_hint.step() {
+        Running => ()
+        _ => fail("expected c.lui x0 hint to execute as a no-op")
+      }
+      assert_eq(lui_hint.pc_u64(), 2U.to_uint64())
+      assert_eq(lui_hint.read_reg_u64(0), 0U.to_uint64())
+    }
   }
-  assert_eq(runner.pc_u64(), 12U.to_uint64())
-  assert_eq(runner.read_reg_u64(0), 0U.to_uint64())
+
+  // C.SLLI rd=x0 is also a HINT. Under RV64C the shamt field is six bits, so
+  // cover the whole 0..63 range rather than only the low-shift examples.
+  for shamt in 0..<=63 {
+    let slli_hint = make_runner(rv64_machine_config())
+    slli_hint.load_program(
+      mixed_program_bytes([(2, encode_c_slli(0, shamt).reinterpret_as_uint())]),
+      0U,
+    )
+    match slli_hint.step() {
+      Running => ()
+      _ => fail("expected c.slli x0 hint to execute as a no-op")
+    }
+    assert_eq(slli_hint.pc_u64(), 2U.to_uint64())
+    assert_eq(slli_hint.read_reg_u64(0), 0U.to_uint64())
+  }
 }
 
 ///|
