@@ -393,7 +393,9 @@
   `BASE + 4*cause`.
 - EPC CSR writes now clear hardwired bit 0 for `mepc` and `sepc`, and `MRET` /
   `SRET` mask the same bit when consuming EPC values prepared internally. Bit 1
-  remains representable for the RV64GC compressed-instruction baseline.
+  remains representable for the RV64GC compressed-instruction baseline. CSR set
+  forms are now pinned too: `CSRRS`/`CSRRSI` may derive an odd candidate EPC,
+  but the stored value still clears hardwired bit 0.
 - `mstatus.MPP` now normalizes the reserved privilege encoding 2 to U-mode on
   visible CSR writes, while preserving legal U/S/M return-mode encodings.
 - `MRET` and `SRET` now clear `mstatus.MPRV` when returning to a privilege mode

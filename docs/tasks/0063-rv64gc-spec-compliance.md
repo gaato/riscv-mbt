@@ -965,7 +965,9 @@ official coverage improve.
 - EPC CSR writes now normalize `mepc[0]` and `sepc[0]` to zero, and EPC
   visibility follows the active IALIGN. The compressed baseline keeps bit 1
   visible and usable as a return target, while non-`C` profiles mask bit 1 on
-  CSR reads and on the implicit `MRET`/`SRET` EPC read.
+  CSR reads and on the implicit `MRET`/`SRET` EPC read. Focused coverage now
+  also pins `CSRRS`/`CSRRSI` set forms, which can derive an odd candidate EPC
+  from an aligned stored value before the hardwired-zero bit is cleared.
 - `mstatus.MPP` now treats reserved privilege encoding 2 as a WARL value and
   normalizes it to U-mode on visible `mstatus`/`sstatus` writes. A focused CSR
   regression covers readback of the normalized field.

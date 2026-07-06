@@ -6800,6 +6800,38 @@ test "epc csrs clear bit zero on write and trap return" {
 }
 
 ///|
+test "epc set forms clear hardwired bit zero" {
+  let mepc = 0x341
+  let sepc = 0x141
+  let program = words_to_bytes([
+    encode_i(13, 0, 0x0U, 1, 0x13U),
+    encode_csr(mepc, 1, 0x2U, 2),
+    encode_csr(mepc, 1, 0x6U, 3),
+    encode_csr(mepc, 0, 0x2U, 4),
+    encode_csr(sepc, 1, 0x2U, 5),
+    encode_csr(sepc, 1, 0x6U, 6),
+    encode_csr(sepc, 0, 0x2U, 7),
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(7) {
+    Running => ()
+    _ => fail("expected epc CSR set-form program to run")
+  }
+  // CSRRS and CSRRSI derive the candidate value from the old EPC plus a set
+  // mask. The hardwired-zero bit must be cleared after that derivation, not
+  // only on plain CSRRW writes.
+  assert_eq(runner.read_reg(2), 0U)
+  assert_eq(runner.read_reg(3), 12U)
+  assert_eq(runner.read_reg(4), 12U)
+  assert_eq(runner.read_reg(5), 0U)
+  assert_eq(runner.read_reg(6), 12U)
+  assert_eq(runner.read_reg(7), 12U)
+  assert_eq(runner.read_csr(mepc), 12U)
+  assert_eq(runner.read_csr(sepc), 12U)
+}
+
+///|
 test "mstatus mpp normalizes reserved privilege encoding" {
   let program = words_to_bytes([
     encode_u(0x00001000U, 1, 0x37U),
