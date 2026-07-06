@@ -446,6 +446,10 @@ official coverage improve.
   now also distinguishes this writable WARL-zero surface from address-encoded
   read-only CSRs: nonzero `CSRRS`/`CSRRC` and immediate set/clear forms retire,
   return the old zero value, and still read back zero after normalization.
+  Sstc's `stimecmp` CSR and RV32-only `stimecmph` high-half alias are now
+  covered separately as absent optional-extension CSRs across the full Zicsr
+  form family, so the WARL-zero environment bit cannot be mistaken for an
+  implemented supervisor timer-compare register.
   `pmpcfg0` and `pmpaddr0` now read as zero because PMP access enforcement is
   not implemented. The OpenSBI smoke still boots and reports `PMP Count: 0`,
   avoiding the old mismatch where firmware could configure protection rules the

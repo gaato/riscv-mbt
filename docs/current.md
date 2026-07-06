@@ -511,6 +511,9 @@
   zero because those extensions are not implemented. Nonzero set/clear CSR
   forms now also retire and still read back zero, pinning these CSRs as
   writable WARL-zero rather than address-encoded read-only storage.
+- The Sstc supervisor timer-compare CSRs are now explicitly absent from the
+  RV64GC baseline: `stimecmp` and the RV32-only `stimecmph` alias trap across
+  the full Zicsr form family instead of appearing as zero-valued timer storage.
 - `pmpcfg0` and `pmpaddr0` now read as zero because PMP access enforcement is
   not implemented. The OpenSBI smoke still boots and now reports `PMP Count: 0`,
   which is more accurate than accepting protection rules the emulator would

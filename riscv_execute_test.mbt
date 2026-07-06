@@ -9414,6 +9414,18 @@ test "csr address privilege bits gate supervisor and machine csrs" {
 }
 
 ///|
+test "sstc supervisor timer compare csrs trap when extension is absent" {
+  // Sstc is outside RV64GC. Keeping stimecmp absent is distinct from exposing
+  // the STCE enable bit as WARL-zero in menvcfg/senvcfg: software must not see
+  // a writable supervisor timer-compare CSR unless the extension is modeled.
+  expect_absent_csr_form_family_traps(0x14D, "stimecmp")
+  // stimecmph is the RV32 high-half alias for the same 64-bit compare value.
+  // It is absent both because Sstc is absent and because this is an RV64GC
+  // profile, where the full-width stimecmp CSR would be the architectural view.
+  expect_absent_csr_form_family_traps(0x15D, "stimecmph")
+}
+
+///|
 test "trigger module csrs trap when debug triggers are absent" {
   // The standard trigger CSR block starts at tselect=0x7A0. This emulator does
   // not implement a Trigger Module or Debug Mode, so these addresses must stay
