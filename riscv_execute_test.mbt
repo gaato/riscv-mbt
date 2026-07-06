@@ -7192,6 +7192,57 @@ test "satp write traps as illegal from supervisor mode when tvm is set" {
 }
 
 ///|
+test "satp nonzero set and immediate write forms trap under tvm" {
+  let satp = 0x180
+  let mstatus = 0x300
+  let mepc = 0x341
+  let original_satp = exec_test_sv39_satp(0x123U.to_uint64())
+  let write_source = 0x4000000000000000UL
+  for
+    raw in [
+      encode_csr(satp, 2, 0x2U, 3), // CSRRS with rs1=x2 is a write.
+      encode_csr(satp, 2, 0x3U, 3), // CSRRC with rs1=x2 is a write.
+      encode_csr(satp, 1, 0x5U, 0), // CSRRWI rd=x0 suppresses only the read.
+      encode_csr(satp, 1, 0x6U, 3), // CSRRSI with uimm!=0 is a write.
+      encode_csr(satp, 1, 0x7U, 3), // CSRRCI with uimm!=0 is a write.
+    ] {
+    let program = words_to_bytes([
+      encode_i(28, 0, 0x0U, 5, 0x13U),
+      encode_csr(mepc, 5, 0x1U, 0),
+      encode_u(0x00101000U, 1, 0x37U),
+      encode_i(-1920, 1, 0x0U, 1, 0x13U),
+      encode_csr(mstatus, 1, 0x1U, 0),
+      encode_i(1, 0, 0x0U, 2, 0x13U),
+      encode_mret(),
+      raw,
+    ])
+    let runner = make_runner(default_machine_config())
+    runner.cpu.write_csr(satp, original_satp)
+    runner.cpu.write_reg(2, write_source)
+    runner.load_program(program, 0U)
+    match runner.run(8) {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected illegal instruction for satp write form with tvm")
+        }
+        assert_eq(info.faulting_pc, 28U.to_uint64())
+        assert_eq(info.trap_value, raw.to_uint64())
+      }
+      _ => fail("expected satp write form with tvm to trap")
+    }
+    // TVM rejects the access before the CSR write side can alter the address
+    // space selector. This matters for suppressed-read writes as well as RMW
+    // forms that would otherwise derive a candidate from the old value.
+    assert_eq(runner.read_csr_u64(satp), original_satp)
+    match runner.privilege_mode() {
+      Machine => ()
+      _ => fail("expected illegal satp write trap to enter machine mode")
+    }
+  }
+}
+
+///|
 test "satp write with unsupported mode preserves previous value" {
   let runner = make_runner(rv64_machine_config())
   let csr_satp = 0x180

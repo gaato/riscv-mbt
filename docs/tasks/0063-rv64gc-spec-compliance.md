@@ -1416,7 +1416,10 @@ official coverage improve.
   including write forms that suppress the old-value read. Focused regressions
   cover both read and write attempts. Pure-read zero-mask `CSRRS`, `CSRRC`,
   `CSRRSI`, and `CSRRCI` forms are now covered with `rd=x0` as well, proving
-  that `rd=x0` does not suppress the `satp` read side under TVM.
+  that `rd=x0` does not suppress the `satp` read side under TVM. Nonzero
+  `CSRRS[I]` and `CSRRC[I]` write forms plus `CSRRWI rd=x0` are now covered
+  separately, proving the TVM write-side trap fires before any candidate value
+  can update the stored address-space selector.
 - Unsupported `satp.MODE` writes are now ignored as a whole write. The focused
   RV64 regression seeds a valid Sv39 `satp`, attempts to write unsupported
   Sv48 MODE on the current Sv39-only implementation, and verifies the old value

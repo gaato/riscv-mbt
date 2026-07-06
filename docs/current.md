@@ -583,7 +583,9 @@
   access traps when `mstatus.TVM` is set, while M-mode remains allowed. The
   coverage now also includes pure-read zero-mask `CSRRS`, `CSRRC`, `CSRRSI`,
   and `CSRRCI` forms with `rd=x0`, proving those forms still read `satp` and
-  cannot hide the TVM intercept.
+  cannot hide the TVM intercept. The nonzero `CSRRS[I]`/`CSRRC[I]` write forms
+  and `CSRRWI rd=x0` are now covered too, proving TVM rejects the write side
+  before any derived candidate can alter the stored address-space selector.
 - `satp` writes with unsupported MODE values now follow the privileged WARL
   rule that the whole write has no effect; the previous address-space selector
   is preserved instead of being cleared to Bare. Register-source set/clear
