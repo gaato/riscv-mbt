@@ -144,6 +144,15 @@ test "decode AMO accepts aqrl bits and rejects reserved encodings" {
     Unknown(_) => ()
     _ => fail("expected reserved AMO.D funct5 to decode as unknown")
   }
+  // The A extension only defines word and doubleword widths here. Valid AMO
+  // operations with byte/halfword/future funct3 values must remain reserved
+  // instead of being silently rounded to the nearest implemented width.
+  for funct3 in [0x0U, 0x1U, 0x4U, 0x7U] {
+    match decode(encode_r(0x00U << 2, 2, 1, funct3, 3, 0x2fU)) {
+      Unknown(_) => ()
+      _ => fail("expected AMO with reserved funct3 to decode as unknown")
+    }
+  }
   match decode(encode_r(0x02U << 2, 2, 1, 0x2U, 3, 0x2fU)) {
     Unknown(_) => ()
     _ => fail("expected LR.W with nonzero rs2 to decode as unknown")

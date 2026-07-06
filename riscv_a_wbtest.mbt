@@ -85,6 +85,18 @@ test "A extension rejects reserved AMO encodings before execution" {
     reserved_double_op,
     make_runner(rv64_machine_config()),
   )
+  // funct3 is the atomic width selector. RV64A defines W and D only, so other
+  // width slots must trap even when the AMO operation code itself is valid.
+  let reserved_low_width = wb_encode_amo(0x00U, 2, 1, 0x0U, 3)
+  wb_expect_illegal_atomic(
+    reserved_low_width,
+    make_runner(rv64_machine_config()),
+  )
+  let reserved_high_width = wb_encode_amo(0x00U, 2, 1, 0x7U, 3)
+  wb_expect_illegal_atomic(
+    reserved_high_width,
+    make_runner(rv64_machine_config()),
+  )
 
   // LR.W/LR.D reserve rs2 as zero. Keeping this at decode/profile-legality
   // time avoids constructing an LR instruction with an impossible source.
