@@ -345,7 +345,10 @@ official coverage improve.
   masking: high source bits are ignored when writing the five-bit `fflags` view
   or three-bit `frm` view. The write-side coverage includes suppressed-read
   `CSRRW[I] rd=x0` forms, so lower privilege modes cannot write
-  higher-privilege CSRs by avoiding the read. `mtvec` and `stvec` writes now
+  higher-privilege CSRs by avoiding the read. The read-only CSR coverage now
+  also pins the value-vs-encoding edge for register set/clear forms:
+  `CSRRS/CSRRC` with `rs1!=x0` trap as writes even when `x[rs1]` contains zero;
+  only the encoded `rs1=x0` forms are pure reads. `mtvec` and `stvec` writes now
   normalize to the modeled WARL surface: 4-byte-aligned BASE plus Direct or
   Vectored MODE only, with vectored supervisor-timer dispatch covered by a
   focused regression. `mepc` and `sepc` now clear bit 0 on writes,
@@ -1062,7 +1065,9 @@ official coverage improve.
   was attempted first. The same read-only CSR coverage now spans nonzero-source
   `CSRRS[I]` and `CSRRC[I]` for both machine-information CSRs and the
   user-visible base counter aliases `cycle`, `time`, and `instret`, while
-  zero-mask variants remain legal pure reads.
+  zero-mask variants remain legal pure reads. A separate regression now covers
+  the `rs1!=x0` but `x[rs1]=0` case, keeping write suppression tied to the
+  encoded source register rather than the runtime mask value.
 - Trap-vector CSR writes now normalize `mtvec` and `stvec` at the visible CSR
   boundary. The modeled WARL surface preserves the aligned BASE, stores MODE=1
   for Vectored, maps Direct and reserved MODE values to MODE=0, and keeps

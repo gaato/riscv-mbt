@@ -8015,6 +8015,43 @@ test "zero-mask set and clear forms read address-read-only csrs" {
 }
 
 ///|
+test "zero-valued nonzero csr source still writes read-only csrs" {
+  // Zicsr write suppression is encoded, not value-dependent: CSRRS/CSRRC with
+  // rs1=x0 are pure reads, but rs1!=x0 still attempts a whole-CSR write even
+  // when x[rs1] happens to contain zero. Read-only CSRs must therefore trap.
+  let read_only_csrs = [
+    0xF11, // mvendorid
+    0xF12, // marchid
+    0xF13, // mimpid
+    0xF14, // mhartid
+    0xF15, // mconfigptr
+    0xC00, // cycle
+    0xC01, // time
+    0xC02, // instret
+  ]
+  for csr in read_only_csrs {
+    for raw in [encode_csr(csr, 1, 0x2U, 2), encode_csr(csr, 1, 0x3U, 3)] {
+      let runner = make_runner(default_machine_config())
+      runner.cpu.write_reg(1, 0U.to_uint64())
+      runner.load_program(words_to_bytes([raw]), 0U)
+      match runner.step() {
+        Trap(info) => {
+          match info.cause {
+            IllegalInstruction => ()
+            _ => fail("expected illegal instruction cause")
+          }
+          assert_eq(info.trap_value, raw.to_uint64())
+        }
+        _ =>
+          fail(
+            "expected zero-valued nonzero-source read-only CSR write to trap",
+          )
+      }
+    }
+  }
+}
+
+///|
 test "read-only counter csrs reject every non-suppressed write form" {
   // cycle/time/instret are user-visible counter aliases. They may be read when
   // privilege and counteren permit it, but writes must target the machine
