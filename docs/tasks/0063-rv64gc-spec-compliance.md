@@ -359,10 +359,13 @@ official coverage improve.
   higher-privilege CSRs by avoiding the read. The read-only CSR coverage now
   also pins the value-vs-encoding edge for register set/clear forms:
   `CSRRS/CSRRC` with `rs1!=x0` trap as writes even when `x[rs1]` contains zero;
-  only the encoded `rs1=x0` forms are pure reads. `mtvec` and `stvec` writes now
-  normalize to the modeled WARL surface: 4-byte-aligned BASE plus Direct or
-  Vectored MODE only, with vectored supervisor-timer dispatch covered by a
-  focused regression. `mepc` and `sepc` now clear bit 0 on writes,
+  only the encoded `rs1=x0` forms are pure reads. Those pure-read
+  `CSRRS/CSRRC[I]` forms are also now covered with `rd=x0`, proving that
+  `rd=x0` does not suppress their CSR read side and therefore cannot hide an
+  absent-CSR illegal-instruction trap. `mtvec` and `stvec` writes now normalize
+  to the modeled WARL surface: 4-byte-aligned BASE plus Direct or Vectored MODE
+  only, with vectored supervisor-timer dispatch covered by a focused
+  regression. `mepc` and `sepc` now clear bit 0 on writes,
   preserve bit 1 for RV64GC/IALIGN=16, and mask bit 1 on visible reads plus
   xRET target reads when `MISA.C` is absent and IALIGN=32. Focused profile
   coverage now also pins that bit 1 remains writable backing storage in
@@ -899,8 +902,8 @@ official coverage improve.
   CSR read when the form has already performed the architectural read side.
 - Zicsr suppression no longer has an untested absent-CSR edge: a generic
   unsupported CSR address traps across direct `CSRRW[I]`, suppressed-read
-  `CSRRW[I] rd=x0`, zero-mask read-only `CSRRS/CSRRC[I]`, and nonzero
-  set/clear forms.
+  `CSRRW[I] rd=x0`, zero-mask read-only `CSRRS/CSRRC[I]` including
+  `rd=x0`, and nonzero set/clear forms.
 - `A` decode now treats reserved AMO `funct5` values and the reserved
   nonzero-`rs2` LR encoding as illegal, while preserving the `aq`/`rl` ordering
   bits in the decoded instruction value. AMO W/D execution is also

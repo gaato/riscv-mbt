@@ -8087,6 +8087,46 @@ test "zero-mask set and clear forms read address-read-only csrs" {
 }
 
 ///|
+test "zero-mask set and clear forms with rd x0 still read csrs" {
+  // Zicsr read suppression is specific to CSRRW[I] rd=x0. CSRRS/CSRRC with a
+  // zero mask suppress only the write side, so rd=x0 must not skip the CSR
+  // read or hide an absent-address illegal-instruction trap.
+  let read_only = make_runner(virt_machine_config())
+  read_only.load_program_u64(
+    words_to_bytes([
+      encode_csr(0xF14, 0, 0x2U, 0), // CSRRS x0, mhartid, x0
+      encode_csr(0xF15, 0, 0x7U, 0), // CSRRCI x0, mconfigptr, 0
+    ]),
+    0x80000000U.to_uint64(),
+  )
+  match read_only.run(2) {
+    Running => ()
+    _ => fail("expected rd=x0 zero-mask reads of read-only CSRs to run")
+  }
+
+  for
+    raw in [
+      encode_csr(0x7A0, 0, 0x2U, 0), // CSRRS x0, absent CSR, x0
+      encode_csr(0x7A0, 0, 0x3U, 0), // CSRRC x0, absent CSR, x0
+      encode_csr(0x7A0, 0, 0x6U, 0), // CSRRSI x0, absent CSR, 0
+      encode_csr(0x7A0, 0, 0x7U, 0), // CSRRCI x0, absent CSR, 0
+    ] {
+    let absent = make_runner(rv64_machine_config())
+    absent.load_program(words_to_bytes([raw]), 0U)
+    match absent.step() {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected absent CSR read to trap as illegal instruction")
+        }
+        assert_eq(info.trap_value, raw.to_uint64())
+      }
+      _ => fail("expected rd=x0 zero-mask read of absent CSR to trap")
+    }
+  }
+}
+
+///|
 test "zero-valued nonzero csr source still writes read-only csrs" {
   // Zicsr write suppression is encoded, not value-dependent: CSRRS/CSRRC with
   // rs1=x0 are pure reads, but rs1!=x0 still attempts a whole-CSR write even
