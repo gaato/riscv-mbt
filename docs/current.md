@@ -301,9 +301,10 @@
   is intentionally left on the existing EEI path.
   AMO.W bitwise regressions now pin low-word operation with sign-extended
   old-word results in `rd`.
-  Focused AMO.D regressions now also pin full-width swap and bitwise behavior
-  for AMOSWAP.D, AMOXOR.D, AMOAND.D, and AMOOR.D, keeping those doubleword
-  operations distinct from the AMO.W low-word/sign-extension path.
+  Focused AMO.D regressions now also pin full-width swap, add wraparound, and
+  bitwise behavior for AMOSWAP.D, AMOADD.D, AMOXOR.D, AMOAND.D, and AMOOR.D,
+  keeping those doubleword operations distinct from the AMO.W
+  low-word/sign-extension path.
 
 - The first RV64C reserved/hint correction slice for Task 0063 is in place.
   `EBREAK` and `C.EBREAK` now raise the architectural breakpoint exception,

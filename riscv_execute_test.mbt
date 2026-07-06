@@ -13142,6 +13142,27 @@ test "AMOADD.D loads old value and stores sum" {
 }
 
 ///|
+test "AMOADD.D wraps at full XLEN width" {
+  let runner = make_runner(virt_machine_config())
+  let addr = runner.cpu.pc + 0x100U.to_uint64()
+  // AMOADD.D is a full 64-bit fetch-and-add. Like ordinary integer addition,
+  // overflow is ignored and only the low XLEN bits are stored back.
+  runner.bus.store_u64(addr, 0xffffffffffffffffUL)
+  runner.cpu.write_reg(1, addr)
+  runner.cpu.write_reg(2, 2U.to_uint64())
+  runner.bus.store_u32(
+    runner.cpu.pc,
+    encode_amo(0x00U, 2, 1, 0x3U, 3).to_uint64(),
+  )
+  match runner.step() {
+    Running => ()
+    _ => fail("expected amoadd.d wraparound path to run")
+  }
+  assert_eq(runner.read_reg_u64(3), 0xffffffffffffffffUL)
+  assert_eq(runner.bus.load_u64(addr), 1U.to_uint64())
+}
+
+///|
 test "AMOSWAP.D and bitwise AMO.D operate on full doublewords" {
   // AMO.D uses the full XLEN source and memory value. This separates the
   // doubleword operations from AMO.W, whose result is computed from low words

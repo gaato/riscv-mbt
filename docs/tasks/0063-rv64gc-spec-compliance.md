@@ -209,11 +209,12 @@ official coverage improve.
   reservation success/failure for word and doubleword LR/SC, same-hart store
   invalidation, cross-hart store invalidation, overlapping LR.D reservation
   invalidation, device writes to bytes accessed by LR, RV64 AMO.W
-  sign-extension, low-word bitwise AMO.W operations, full-width AMOSWAP.D and
-  bitwise AMO.D operations, signed AMO.W and signed/unsigned AMO.D min/max
-  comparisons, natural-address alignment traps for LR/SC/AMO W/D operations,
-  and the architectural rule that a failed, non-trapping SC still consumes the
-  hart reservation before any later matching SC can observe it. A later LR also
+  sign-extension, low-word bitwise AMO.W operations, full-width AMOSWAP.D,
+  AMOADD.D wraparound, and bitwise AMO.D operations, signed AMO.W and
+  signed/unsigned AMO.D min/max comparisons, natural-address alignment traps
+  for LR/SC/AMO W/D operations, and the architectural rule that a failed,
+  non-trapping SC still consumes the hart reservation before any later matching
+  SC can observe it. A later LR also
   replaces the previous hart reservation, so SC cannot pair with an older LR in
   program order. The reservation-set model is documented as the exact physical
   byte range loaded by the most recent LR, and mixed-width SC attempts at the
@@ -533,6 +534,9 @@ official coverage improve.
   `AMOMIN.D`/`AMOMAX.D` comparisons across the 64-bit sign boundary.
 - A-extension unsigned min/max coverage now includes full-width
   `AMOMINU.D`/`AMOMAXU.D` comparisons on the same sign-boundary bit patterns.
+- A-extension doubleword add coverage now includes full-XLEN AMOADD.D
+  wraparound, keeping D-width fetch-and-add distinct from AMO.W low-word
+  truncation.
 - Sv39 permission checks now keep SUM limited to supervisor data accesses:
   S-mode loads/stores to U pages can proceed when SUM is set, but S-mode
   instruction fetches from U pages raise instruction page faults regardless of
