@@ -374,9 +374,9 @@ official coverage improve.
   nonzero set/clear forms plus the first/last HPM high-half aliases.
   `mie` now exposes only the modeled standard interrupt-enable bits
   MSI/MTI/MEI and SSI/STI/SEI (`0xaaa`), while `mip` readback is masked to the
-  same implemented pending-bit surface. Nonzero `mie` set/clear forms now also
-  apply that mask while returning the old visible value, including the immediate
-  form's low-five source-mask limit. Writes to `mip` affect only the
+  same implemented pending-bit surface. Nonzero `mie`/`mip` set/clear forms now
+  also apply their masks while returning the old visible value, including the
+  immediate form's low-five source-mask limit. Writes to `mip` affect only the
   software-writable S-level pending bits; machine-level pending bits are
   supplied by CLINT/PLIC state. The mask is now profile-aware: no-`S` profiles
   expose only MSI/MTI/MEI, `mip` writes cannot retain absent S-level pending
@@ -1034,9 +1034,9 @@ official coverage improve.
   first/last HPM high-half counter and event-selector aliases.
 - `mip`/`mie` no longer retain arbitrary interrupt bits. Focused regressions
   cover write-all-ones `mie` readback, `mip` writes limited to S-level pending
-  bits, nonzero `mie` set/clear writeback masking, no-`S` profiles exposing
-  only machine interrupt bits, and the existing delegated `sie`/`sip` view
-  behavior after masking. Focused `sip` set/clear coverage now proves the
+  bits, nonzero `mie`/`mip` set/clear writeback masking, no-`S` profiles
+  exposing only machine interrupt bits, and the existing delegated `sie`/`sip`
+  view behavior after masking. Focused `sip` set/clear coverage now proves the
   delegated supervisor pending view can mutate only software SSIP, not timer or
   external pending state.
 - `mip.SEIP` now separates the software-writable pending bit from the PLIC

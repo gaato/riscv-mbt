@@ -7105,6 +7105,43 @@ test "mip writes affect only supervisor pending software bits" {
 }
 
 ///|
+test "mip set and clear forms affect only writable supervisor software pending bits" {
+  let mip = 0x344
+  let supervisor_pending = 0x222U.to_uint64()
+  let ssip = 0x2U.to_uint64()
+  let program = words_to_bytes([
+    encode_i(-1, 0, 0x0U, 1, 0x13U),
+    encode_csr(mip, 1, 0x2U, 2),
+    encode_csr(mip, 0, 0x2U, 3),
+    encode_csr(mip, 1, 0x3U, 4),
+    encode_csr(mip, 0, 0x2U, 5),
+    encode_csr(mip, 0x1f, 0x6U, 6),
+    encode_csr(mip, 0, 0x2U, 7),
+    encode_csr(mip, 0x1e, 0x7U, 8),
+    encode_csr(mip, 0, 0x2U, 9),
+  ])
+  let runner = make_runner(virt_machine_config())
+  runner.load_program_u64(program, 0x80000000U.to_uint64())
+  match runner.run(9) {
+    Running => ()
+    _ => fail("expected MIP set/clear form program to run")
+  }
+  // In this baseline, machine timer/external pending bits are driven by
+  // CLINT/PLIC state, not by CSR writes. MIP RMW forms can mutate only the
+  // software pending bits modeled as writable storage; the immediate source is
+  // still limited to the architectural five-bit CSR immediate field.
+  assert_eq(runner.read_reg_u64(2), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(3) & supervisor_pending, supervisor_pending)
+  assert_eq(runner.read_reg_u64(4) & supervisor_pending, supervisor_pending)
+  assert_eq(runner.read_reg_u64(5) & supervisor_pending, 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(6), 0U.to_uint64())
+  assert_eq(runner.read_reg_u64(7) & supervisor_pending, ssip)
+  assert_eq(runner.read_reg_u64(8) & supervisor_pending, ssip)
+  assert_eq(runner.read_reg_u64(9) & supervisor_pending, 0U.to_uint64())
+  assert_eq(runner.read_csr_u64(mip) & supervisor_pending, 0U.to_uint64())
+}
+
+///|
 test "mie exposes only modeled interrupt enable bits" {
   let program = words_to_bytes([
     encode_i(-1, 0, 0x0U, 1, 0x13U),

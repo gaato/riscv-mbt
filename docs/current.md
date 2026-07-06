@@ -257,9 +257,9 @@
   ad hoc executor checks.
 - `mie` now exposes only the modeled standard interrupt-enable bits
   MSI/MTI/MEI and SSI/STI/SEI (`0xaaa`), while `mip` readback is masked to the
-  same implemented pending-bit surface. Nonzero `mie` set/clear forms now also
-  apply the same interrupt-enable mask, with immediate forms limited to their
-  low-five source mask. CSR writes to `mip` affect only the
+  same implemented pending-bit surface. Nonzero `mie`/`mip` set/clear forms now
+  also apply their masks, with immediate forms limited to their low-five source
+  mask. CSR writes to `mip` affect only the
   software-writable S-level pending bits; machine-level pending bits come from
   CLINT/PLIC state. No-`S` profiles now reduce that surface to machine
   MSI/MTI/MEI only, so writes cannot synthesize absent supervisor pending or
