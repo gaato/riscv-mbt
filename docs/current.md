@@ -586,7 +586,9 @@
   `rv64ua`, `rv64uc`, `rv64uf`, and `rv64ud` are now treated as a hard
   completion gate: every locally available/buildable source row must be present
   in the manifest as `gating`, and `rv32ui_gating_test.mbt` now checks that
-  source-tree-to-manifest coverage mechanically. Broader official coverage for
+  source-tree-to-manifest coverage mechanically. The same gate now also rejects
+  an empty local baseline source suite, so a broken partial `riscv-tests`
+  checkout cannot satisfy completion vacuously. Broader official coverage for
   optional non-baseline extensions remains survey-only until those extensions
   become part of the active target.
 - The official QEMU cross-check path remains RV32-only; RV64 system-emulator cross-checking is still deferred.

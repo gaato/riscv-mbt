@@ -59,6 +59,31 @@ async test "official RV64GC riscv-tests source rows are all gated" {
 }
 
 ///|
+async test "official RV64GC riscv-tests source suites are populated" {
+  let counts = count_local_rv64gc_source_rows_by_suite()
+  let empty : Array[String] = []
+  for count in counts {
+    let fields : Array[String] = []
+    for field in count.split("=") {
+      fields.push(field.to_owned())
+    }
+    if fields.length() != 2 {
+      abort("malformed RV64GC source suite count: \{count}")
+    }
+    if fields[1] == "0" {
+      empty.push(count)
+    }
+  }
+  if empty.length() != 0 {
+    let mut message = "empty local RV64GC official riscv-tests source suites:"
+    for count in empty {
+      message = message + "\n" + count
+    }
+    abort(message)
+  }
+}
+
+///|
 async test "official riscv-tests gating manifest has unique rows" {
   assert_unique_official_manifest_keys(load_manifest_gating_keys(), "gating")
 }

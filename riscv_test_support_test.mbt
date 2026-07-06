@@ -126,6 +126,31 @@ async fn load_local_rv64gc_source_keys() -> Array[String] {
 }
 
 ///|
+async fn count_local_rv64gc_source_rows_by_suite() -> Array[String] {
+  // A present-but-empty suite would make the manifest coverage check pass
+  // vacuously. Keep a compact `suite=count` diagnostic so the gating test
+  // proves that every baseline source suite is actually populated.
+  let counts : Array[String] = []
+  for suite in official_rv64gc_riscv_tests_suites {
+    let dir = "\{official_riscv_tests_isa_dir_rv64}/\{suite}"
+    let entries = @fs.readdir(dir, sort=true) catch {
+      _ =>
+        abort(
+          "missing official RV64 riscv-tests source suite: \{dir}; run ./scripts/build-riscv-tests-official.sh first",
+        )
+    }
+    let mut count = 0
+    for entry in entries {
+      if entry.has_suffix(".S") {
+        count = count + 1
+      }
+    }
+    counts.push("\{suite}=\{count}")
+  }
+  counts
+}
+
+///|
 async fn load_official_riscv_test_cases() -> Array[OfficialRiscvTestCase] {
   // The manifest is the allowlist for always-run official tests. Keep expansion
   // explicit so adding a broad upstream suite is a conscious verification step.

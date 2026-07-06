@@ -1312,3 +1312,7 @@ official coverage improve.
   defaults" now describe their actual role as exact representative dispatch
   checks, while stricter rounding/flag/NaN coverage remains in the dedicated
   surrounding rows.
+- The official RV64GC source-row gate now also fails if a local baseline source
+  suite exists but contains no `.S` rows. This prevents a broken or partial
+  `riscv-tests` checkout from satisfying the completion gate vacuously before
+  the manifest coverage check compares source rows against `gating`.
