@@ -2880,6 +2880,74 @@ test "rv64fd add sub mul honor dynamic rounding mode" {
 }
 
 ///|
+test "rv64fd scalar add and multiply overflow follows rounding mode" {
+  let runner = make_runner(rv64fd_machine_config())
+  let csr_fcsr = 0x003
+  let overflow_inexact = 0x05U.to_uint64()
+  runner.cpu.write_freg(1, exec_test_nan_box_single(0x7f7fffffU))
+  runner.cpu.write_freg(2, exec_test_nan_box_single(0xff7fffffU))
+  runner.cpu.write_freg(3, exec_test_nan_box_single(0x40000000U))
+  runner.cpu.write_freg(4, 0x7fefffffffffffffUL)
+  runner.cpu.write_freg(5, 0xffefffffffffffffUL)
+  runner.cpu.write_freg(6, 0x4000000000000000UL)
+  runner.load_program(
+    words_to_bytes([
+      encode_fp_r(0x00U, 1, 1, 0x0U, 10),
+      encode_csr(csr_fcsr, 0, 0x2U, 11),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x00U, 1, 1, 0x1U, 12),
+      encode_csr(csr_fcsr, 0, 0x2U, 13),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x08U, 3, 2, 0x2U, 14),
+      encode_csr(csr_fcsr, 0, 0x2U, 15),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x08U, 3, 2, 0x3U, 16),
+      encode_csr(csr_fcsr, 0, 0x2U, 17),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x01U, 4, 4, 0x0U, 18),
+      encode_csr(csr_fcsr, 0, 0x2U, 19),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x01U, 4, 4, 0x1U, 20),
+      encode_csr(csr_fcsr, 0, 0x2U, 21),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x09U, 6, 5, 0x2U, 22),
+      encode_csr(csr_fcsr, 0, 0x2U, 23),
+      encode_csr(csr_fcsr, 0, 0x1U, 0),
+      encode_fp_r(0x09U, 6, 5, 0x3U, 24),
+      encode_csr(csr_fcsr, 0, 0x2U, 25),
+    ]),
+    0U,
+  )
+  match runner.run(23) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected scalar overflowing add/multiply paths to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  // Scalar add/multiply use the same exact-rational rounding helpers as FMA,
+  // but this pins the non-fused path directly. Positive overflow follows the
+  // nearest/zero split; negative overflow follows the sign-directed RDN/RUP
+  // split. Each path must accrue OF|NX and no unrelated flag is required here.
+  assert_eq(runner.read_freg_u64(10), exec_test_nan_box_single(0x7f800000U))
+  assert_eq(runner.read_reg_u64(11) & overflow_inexact, overflow_inexact)
+  assert_eq(runner.read_freg_u64(12), exec_test_nan_box_single(0x7f7fffffU))
+  assert_eq(runner.read_reg_u64(13) & overflow_inexact, overflow_inexact)
+  assert_eq(runner.read_freg_u64(14), exec_test_nan_box_single(0xff800000U))
+  assert_eq(runner.read_reg_u64(15) & overflow_inexact, overflow_inexact)
+  assert_eq(runner.read_freg_u64(16), exec_test_nan_box_single(0xff7fffffU))
+  assert_eq(runner.read_reg_u64(17) & overflow_inexact, overflow_inexact)
+  assert_eq(runner.read_freg_u64(18), 0x7ff0000000000000UL)
+  assert_eq(runner.read_reg_u64(19) & overflow_inexact, overflow_inexact)
+  assert_eq(runner.read_freg_u64(20), 0x7fefffffffffffffUL)
+  assert_eq(runner.read_reg_u64(21) & overflow_inexact, overflow_inexact)
+  assert_eq(runner.read_freg_u64(22), 0xfff0000000000000UL)
+  assert_eq(runner.read_reg_u64(23) & overflow_inexact, overflow_inexact)
+  assert_eq(runner.read_freg_u64(24), 0xffefffffffffffffUL)
+  assert_eq(runner.read_reg_u64(25) & overflow_inexact, overflow_inexact)
+}
+
+///|
 test "rv64fd add sub mul preserve exact zero signs" {
   let runner = make_runner(rv64fd_machine_config())
   runner.cpu.write_freg(1, exec_test_f64_bits(0.0))

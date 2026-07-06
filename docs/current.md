@@ -107,7 +107,10 @@
   RISC-V-specific rule that `FNMSUB`/`FNMADD` negate only the product term.
   `FADD.D`, `FSUB.D`, `FMUL.D`, and `FDIV.D` now round exact-rational finite
   results back to double precision for legal non-RNE modes, including NX/OF/UF
-  result flags. Scalar `FDIV.S/D`, `FMUL.S/D`, and fused multiply-add family
+  result flags. Scalar `FADD.S/D` and `FMUL.S/D` overflow now has direct
+  signed rounding-mode coverage for infinity-vs-largest-finite result
+  selection and OF|NX accrual. Scalar `FDIV.S/D`, `FMUL.S/D`, and fused
+  multiply-add family
   underflow coverage now pins subnormal tiny quotients/products accruing UF and
   NX, and positive `FMADD.S/D` overflow coverage now pins the fused final
   rounding boundary: RNE/RUP select infinity, RTZ/RDN select the largest finite
