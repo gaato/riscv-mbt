@@ -7568,6 +7568,44 @@ test "delegated user ecall traps to stvec with supervisor trap state" {
 }
 
 ///|
+test "delegated supervisor ecall stacks supervisor trap status fields" {
+  let program = words_to_bytes([
+    encode_i(512, 0, 0x0U, 2, 0x13U),
+    encode_csr(0x302, 2, 0x1U, 0),
+    encode_i(32, 0, 0x0U, 5, 0x13U),
+    encode_csr(0x341, 5, 0x1U, 0),
+    encode_u(0x00001000U, 1, 0x37U),
+    encode_i(-2046, 1, 0x0U, 1, 0x13U),
+    encode_csr(0x300, 1, 0x1U, 0),
+    encode_mret(),
+    encode_ecall(),
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(9) {
+    Trap(info) =>
+      match info.cause {
+        EnvironmentCallFromSMode => ()
+        _ => fail("expected delegated supervisor ecall trap")
+      }
+    _ => fail("expected delegated supervisor ecall to trap")
+  }
+  // Horizontal delegation does not lower privilege: the trap is handled in
+  // S-mode, but the supervisor status stack still records the interrupted
+  // S-mode context. SPP captures S, SPIE captures the old SIE=1, and SIE is
+  // cleared before the handler runs.
+  assert_eq(runner.read_csr(0x141), 32U)
+  assert_eq(runner.read_csr(0x142), 9U)
+  assert_eq(runner.read_csr(0x143), 0U)
+  assert_eq(runner.read_csr(0x100), 0x120U)
+  assert_eq(runner.read_csr(0x300), 0x1a0U)
+  match runner.privilege_mode() {
+    Supervisor => ()
+    _ => fail("expected supervisor mode after delegated supervisor trap")
+  }
+}
+
+///|
 test "supervisor synchronous exceptions use stvec base in vectored mode" {
   let program = words_to_bytes([
     encode_i(33, 0, 0x0U, 6, 0x13U),

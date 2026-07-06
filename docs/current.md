@@ -293,6 +293,9 @@
   Non-delegated S-mode `ECALL` now has focused machine trap-entry coverage,
   pinning `mepc`/`mcause`/`mtval`, `MPP=S`, `MPIE=old MIE`, `MIE=0`, and the
   privilege transition back to M-mode.
+  Delegated S-mode `ECALL` now has matching horizontal supervisor trap-entry
+  coverage, pinning `sepc`/`scause`/`stval`, `SPP=S`, `SPIE=old SIE`, `SIE=0`,
+  and continued S-mode execution.
   RV32-only counter high-half CSRs are now excluded through the shared CSR
   support classifier on RV64, so `cycleh`/`timeh`/`instreth`,
   `mcycleh`/`minstreth`, and the first/last HPM high-half aliases trap across

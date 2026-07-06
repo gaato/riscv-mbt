@@ -455,6 +455,9 @@ official coverage improve.
   coverage as well: a non-delegated S-mode `ECALL` writes `mepc`/`mcause`/
   `mtval`, records `MPP=S`, copies the old `MIE` into `MPIE`, clears `MIE`,
   and enters M-mode.
+  Horizontal delegated supervisor trap entry is also pinned: a delegated
+  S-mode `ECALL` writes `sepc`/`scause`/`stval`, records `SPP=S`, copies the
+  old `SIE` into `SPIE`, clears `SIE`, and remains in S-mode.
   RV32-only high-half counter CSRs are now filtered by the shared CSR support
   classifier on RV64: `cycleh`, `timeh`, `instreth`, `mcycleh`, and
   `minstreth` are readable where modeled for RV32 but absent from the RV64GC
