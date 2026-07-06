@@ -258,7 +258,8 @@ official coverage improve.
   Shared 6-bit signed compressed immediates now have focused coverage through
   `C.ADDI`, `C.LI`, and `C.ANDI`.
   `C.ADDI4SPN` now has high unsigned stack-offset coverage for the scattered
-  CIW immediate path, in addition to the zero-immediate reserved case.
+  CIW immediate path, and its zero-immediate reserved coverage spans every
+  compressed destination field rather than only one sampled `rd'`.
   Register-based `C.LW`/`C.SW` now have high zero-extended offset coverage for
   the scattered CL/CS memory immediate path.
   Quadrant-0 `funct3=100` is now pinned as reserved under RV64C and RV64DC,
@@ -955,8 +956,10 @@ official coverage improve.
 - Shared RV64C 6-bit signed immediate coverage now pins `C.ADDI`, `C.LI`, and
   `C.ANDI`, keeping the CI and CB immediate decode paths from regressing into
   zero-extension.
-- RV64C `C.ADDI4SPN` coverage now pins the high unsigned `nzuimm=1020`
-  stack-offset path through the scattered CIW immediate decoder.
+- RV64C `C.ADDI4SPN` coverage now pins both sides of the CIW immediate
+  boundary: the high unsigned `nzuimm=1020` stack-offset path through the
+  scattered decoder, and the zero-immediate reserved family for every
+  compressed destination `rd'`.
 - RV64C `C.LW`/`C.SW` coverage now pins the high unsigned `uimm=124`
   register-based memory offset through the scattered CL/CS decoder while
   preserving the ordinary RV64 `LW` sign-extension result.

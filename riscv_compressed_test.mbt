@@ -893,11 +893,16 @@ test "compressed mixed-width integration covers addi4spn and ALU subgroup" {
 }
 
 ///|
-test "c.addi4spn with zero immediate remains illegal" {
-  expect_compressed_illegal(
-    default_machine_config(),
-    encode_c_addi4spn(8, 0).reinterpret_as_uint(),
-  )
+test "c.addi4spn zero immediate remains illegal for every compressed destination" {
+  // CIW encodes rd as the compact x8..x15 register field. The C spec reserves
+  // nzuimm=0 for the whole C.ADDI4SPN family, so the destination bits must not
+  // accidentally make any zero-immediate form decode as a valid stack add.
+  for rd in 8..<=15 {
+    expect_compressed_illegal(
+      default_machine_config(),
+      encode_c_addi4spn(rd, 0).reinterpret_as_uint(),
+    )
+  }
 }
 
 ///|
