@@ -1706,28 +1706,37 @@ test "rv64fd fused multiply-add single paths honor non-rne rounding modes" {
 }
 
 ///|
-test "rv64fd fused multiply-add single path does not round intermediate product" {
+test "rv64fd fused multiply-add single family does not round intermediate product" {
   let runner = make_runner(rv64fd_machine_config())
   let csr_fcsr = 0x003
   // (1 + 2^-23) * (1 - 2^-24) is just below the RNE midpoint above 1.0, so a
-  // separately rounded multiply would become exactly 1.0 and then cancel with
-  // -1.0. FMADD.S must instead add the exact product and round once, producing
-  // the exactly representable positive single just below 2^-24.
+  // separately rounded multiply would become exactly 1.0 and then cancel. Each
+  // FMA opcode must instead apply its effective product/addend signs to the
+  // exact product and round once.
   runner.cpu.write_freg(1, exec_test_nan_box_single(0x3f800001U))
   runner.cpu.write_freg(2, exec_test_nan_box_single(0x3f7fffffU))
-  runner.cpu.write_freg(3, exec_test_nan_box_single(exec_test_f32_bits(-1.0)))
+  runner.cpu.write_freg(3, exec_test_nan_box_single(exec_test_f32_bits(1.0)))
+  runner.cpu.write_freg(4, exec_test_nan_box_single(exec_test_f32_bits(-1.0)))
   runner.load_program(
-    words_to_bytes([encode_fp_r4(3, 0x0U, 2, 1, 0x0U, 4, 0x43U)]),
+    words_to_bytes([
+      encode_fp_r4(4, 0x0U, 2, 1, 0x0U, 5, 0x43U),
+      encode_fp_r4(3, 0x0U, 2, 1, 0x0U, 6, 0x47U),
+      encode_fp_r4(3, 0x0U, 2, 1, 0x0U, 7, 0x4bU),
+      encode_fp_r4(4, 0x0U, 2, 1, 0x0U, 8, 0x4fU),
+    ]),
     0U,
   )
-  match runner.step() {
+  match runner.run(4) {
     Running => ()
     Trap(info) =>
       fail(
-        "expected fused single-rounding FMADD.S to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+        "expected fused single-rounding FMA.S family to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
       )
   }
-  assert_eq(runner.read_freg_u64(4), exec_test_nan_box_single(0x337ffffeU))
+  assert_eq(runner.read_freg_u64(5), exec_test_nan_box_single(0x337ffffeU))
+  assert_eq(runner.read_freg_u64(6), exec_test_nan_box_single(0x337ffffeU))
+  assert_eq(runner.read_freg_u64(7), exec_test_nan_box_single(0xb37ffffeU))
+  assert_eq(runner.read_freg_u64(8), exec_test_nan_box_single(0xb37ffffeU))
   assert_eq(runner.read_csr(csr_fcsr) & 0x1fU, 0U)
 }
 
@@ -1992,28 +2001,37 @@ test "rv64fd fused multiply-add double paths honor non-rne rounding modes" {
 }
 
 ///|
-test "rv64fd fused multiply-add double path does not round intermediate product" {
+test "rv64fd fused multiply-add double family does not round intermediate product" {
   let runner = make_runner(rv64fd_machine_config())
   let csr_fcsr = 0x003
   // This mirrors the single-precision fused-contract regression at binary64
   // precision. Separately rounding the product gives exactly 1.0, which would
-  // cancel with -1.0. The fused operation keeps the exact product through the
-  // addend and produces the exact positive double just below 2^-53.
+  // cancel. The fused operation keeps the exact product through the effective
+  // addend for every FMA opcode.
   runner.cpu.write_freg(1, 0x3ff0000000000001UL)
   runner.cpu.write_freg(2, 0x3fefffffffffffffUL)
-  runner.cpu.write_freg(3, exec_test_f64_bits(-1.0))
+  runner.cpu.write_freg(3, exec_test_f64_bits(1.0))
+  runner.cpu.write_freg(4, exec_test_f64_bits(-1.0))
   runner.load_program(
-    words_to_bytes([encode_fp_r4(3, 0x1U, 2, 1, 0x0U, 4, 0x43U)]),
+    words_to_bytes([
+      encode_fp_r4(4, 0x1U, 2, 1, 0x0U, 5, 0x43U),
+      encode_fp_r4(3, 0x1U, 2, 1, 0x0U, 6, 0x47U),
+      encode_fp_r4(3, 0x1U, 2, 1, 0x0U, 7, 0x4bU),
+      encode_fp_r4(4, 0x1U, 2, 1, 0x0U, 8, 0x4fU),
+    ]),
     0U,
   )
-  match runner.step() {
+  match runner.run(4) {
     Running => ()
     Trap(info) =>
       fail(
-        "expected fused single-rounding FMADD.D to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+        "expected fused single-rounding FMA.D family to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
       )
   }
-  assert_eq(runner.read_freg_u64(4), 0x3c9ffffffffffffeUL)
+  assert_eq(runner.read_freg_u64(5), 0x3c9ffffffffffffeUL)
+  assert_eq(runner.read_freg_u64(6), 0x3c9ffffffffffffeUL)
+  assert_eq(runner.read_freg_u64(7), 0xbc9ffffffffffffeUL)
+  assert_eq(runner.read_freg_u64(8), 0xbc9ffffffffffffeUL)
   assert_eq(runner.read_csr(csr_fcsr) & 0x1fU, 0U)
 }
 

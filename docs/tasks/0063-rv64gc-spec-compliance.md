@@ -855,8 +855,9 @@ official coverage improve.
   opcodes, not only a representative `FMADD.S`.
   A separate regression pins exact-zero signs for finite cancellation and
   negative-zero product/addend inputs. Another regression now pins the core
-  fused contract directly: an `FMADD.S` case whose separately rounded product
-  would cancel to zero instead produces the exact positive nonzero fused result.
+  fused contract directly for all four `FMA.S` opcodes: cases whose separately
+  rounded products would cancel to zero instead produce the exact positive or
+  negative nonzero fused result after applying each opcode's effective signs.
 - Double-precision add/sub/mul now have corresponding non-RNE coverage.
   Focused regressions cover `2^53 + 1` add/sub and `(1 + 2^-52)^2` multiply,
   where RTZ and RUP select adjacent double-precision results and accrue NX.
@@ -875,9 +876,10 @@ official coverage improve.
   Dynamic `rm=111` with `frm=RTZ` now covers all four double-precision FMA
   opcodes, not only a representative `FMADD.D`.
   Separate regressions pin exact-zero signs for finite cancellation and
-  negative-zero product/addend inputs, plus the core fused contract where a
-  separately rounded product would cancel to zero but `FMADD.D` produces the
-  exact positive nonzero fused result.
+  negative-zero product/addend inputs, plus the core fused contract for all
+  four `FMA.D` opcodes where a separately rounded product would cancel to zero
+  but the fused operation produces the exact positive or negative nonzero result
+  after applying each opcode's effective signs.
 - Double-precision sqrt now has matching non-RNE coverage. A focused regression
   covers `FSQRT.D sqrt(2.0)`, where RTZ and RUP select adjacent
   double-precision results and accrue NX. A dynamic `rm=111` regression now
