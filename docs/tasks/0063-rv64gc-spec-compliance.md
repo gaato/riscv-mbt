@@ -905,6 +905,11 @@ official coverage improve.
   nonzero divisors. Legal static non-RNE quotients execute where they change the
   result, NX/OF/UF come from the shared helper, and exact zero quotient signs are
   handled explicitly.
+- Scalar `FDIV.S/D` overflow now has focused signed rounding-mode coverage for
+  finite nonzero divisors. Positive quotients select infinity under RNE and the
+  largest finite value under RTZ, while negative quotients select negative
+  infinity under RDN and the largest finite negative value under RUP. Every
+  sampled path accrues OF|NX, keeping this distinct from the DZ special case.
 - Scalar `FDIV.S/D` now has focused underflow flag coverage: minimum-normal
   operands divided by three round to subnormal quotients and accrue both UF and
   NX under tininess-after-rounding.

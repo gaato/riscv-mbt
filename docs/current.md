@@ -110,10 +110,12 @@
   result flags. Scalar `FADD.S/D`, `FSUB.S/D`, and `FMUL.S/D` overflow now has
   direct signed rounding-mode coverage for infinity-vs-largest-finite result
   selection and OF|NX accrual, including `FSUB`'s distinct RHS-sign opcode
-  path. Scalar `FDIV.S/D`, `FMUL.S/D`, and fused
-  multiply-add family
-  underflow coverage now pins subnormal tiny quotients/products accruing UF and
-  NX, and positive `FMADD.S/D` overflow coverage now pins the fused final
+  path. Scalar `FDIV.S/D` overflow now has matching finite-nonzero quotient
+  coverage for the same signed infinity-vs-largest-finite boundary, separate
+  from divide-by-zero handling. Scalar `FDIV.S/D`, `FMUL.S/D`, and fused
+  multiply-add family underflow coverage now pins subnormal tiny
+  quotients/products accruing UF and NX, and positive `FMADD.S/D` overflow
+  coverage now pins the fused final
   rounding boundary: RNE/RUP select infinity, RTZ/RDN select the largest finite
   result, and all modes accrue OF|NX. Negative `FMADD.S/D` overflow now mirrors
   that boundary: RNE/RDN select negative infinity, RTZ/RUP select the largest
