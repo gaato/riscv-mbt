@@ -497,6 +497,9 @@
   rejects those bits instead of silently ignoring them.
 - Sv39 non-leaf PTEs now reject reserved D/A/U bits before descending to the
   next page-table level. Those bits remain leaf-only state in this baseline.
+- Sv39 now names and covers the reserved `W=1,R=0` PTE encoding explicitly,
+  including writable-executable leaf-looking forms and the fact that fetch,
+  load, and store each raise their own page-fault cause.
 - Sv39 hardware-managed leaf A/D coverage now includes the cold-store case:
   a store through a writable leaf with both bits clear sets A and D together.
 - Return-instruction legality is now enforced for the modeled privileged

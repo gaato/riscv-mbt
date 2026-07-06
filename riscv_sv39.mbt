@@ -77,6 +77,15 @@ fn pte_reserved_bits_clear(pte : UInt64) -> Bool {
 }
 
 ///|
+fn pte_reserved_rw_encoding_clear(pte : UInt64) -> Bool {
+  // The privileged translation algorithm reserves every PTE with W=1 and R=0,
+  // even if X=1 would otherwise make it look like an executable leaf. Writable
+  // pages must also be readable, so reject this encoding before deciding
+  // whether the PTE is a pointer or a leaf.
+  (pte & PTE_R) != 0U.to_uint64() || (pte & PTE_W) == 0U.to_uint64()
+}
+
+///|
 fn pte_is_leaf(pte : UInt64) -> Bool {
   (pte & PTE_R) != 0U.to_uint64() || (pte & PTE_X) != 0U.to_uint64()
 }
@@ -125,9 +134,7 @@ pub fn sv39_translate(
     if !pte_reserved_bits_clear(pte) {
       return TranslateFault(fault)
     }
-    // Invalid PTE: V=0 or (W=1 and R=0)
-    if (pte & PTE_V) == 0U.to_uint64() ||
-      ((pte & PTE_R) == 0U.to_uint64() && (pte & PTE_W) != 0U.to_uint64()) {
+    if (pte & PTE_V) == 0U.to_uint64() || !pte_reserved_rw_encoding_clear(pte) {
       return TranslateFault(fault)
     }
     if !pte_non_leaf_reserved_bits_clear(pte) {
@@ -313,8 +320,7 @@ fn Runner::record_page_table_walk(
     if !pte_reserved_bits_clear(pte) {
       return
     }
-    if (pte & PTE_V) == 0U.to_uint64() ||
-      ((pte & PTE_R) == 0U.to_uint64() && (pte & PTE_W) != 0U.to_uint64()) {
+    if (pte & PTE_V) == 0U.to_uint64() || !pte_reserved_rw_encoding_clear(pte) {
       return
     }
     if !pte_non_leaf_reserved_bits_clear(pte) {

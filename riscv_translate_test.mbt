@@ -98,7 +98,8 @@ test "sv39 translate faults on reserved W without R" {
   let bus = Bus::new(0U.to_uint64(), 0x10000)
   let root_ppn = 1U.to_uint64()
   let satp = test_sv39_satp(root_ppn)
-  // PTE with W=1, R=0 is reserved
+  // PTE with W=1, R=0 is reserved even before it can be classified as a
+  // pointer or leaf.
   let bad_pte = test_make_pte(0U.to_uint64(), test_pte_v | test_pte_w)
   bus.store_u64(root_ppn * 4096U.to_uint64(), bad_pte)
   match
@@ -109,6 +110,79 @@ test "sv39 translate faults on reserved W without R" {
         _ => fail("expected StorePageFault")
       }
     TranslatedAddr(_) => fail("expected page fault for reserved W+!R")
+  }
+}
+
+///|
+test "sv39 reserved writable unreadable leaf encodings fault for every access type" {
+  // The R/W/X field check is not just a store-permission failure. The
+  // privileged walk rejects W=1,R=0 as a reserved PTE encoding, including the
+  // W+X shape that might otherwise be mistaken for an executable leaf.
+  for
+    flags in [
+      test_pte_v | test_pte_w | test_pte_a | test_pte_d,
+      test_pte_v | test_pte_w | test_pte_x | test_pte_a | test_pte_d,
+    ] {
+    let fetch_bus = Bus::new(0U.to_uint64(), 0x10000)
+    let fetch_satp = test_setup_identity_map(fetch_bus, flags)
+    match
+      sv39_translate(
+        fetch_bus,
+        fetch_satp,
+        0U.to_uint64(),
+        Fetch,
+        Supervisor,
+        false,
+        true,
+      ) {
+      TranslateFault(cause) =>
+        match cause {
+          InstructionPageFault => ()
+          _ => fail("expected InstructionPageFault")
+        }
+      TranslatedAddr(_) =>
+        fail("expected reserved W=1,R=0 leaf encoding to fault on fetch")
+    }
+    let load_bus = Bus::new(0U.to_uint64(), 0x10000)
+    let load_satp = test_setup_identity_map(load_bus, flags)
+    match
+      sv39_translate(
+        load_bus,
+        load_satp,
+        0U.to_uint64(),
+        Load,
+        Supervisor,
+        false,
+        true,
+      ) {
+      TranslateFault(cause) =>
+        match cause {
+          LoadPageFault => ()
+          _ => fail("expected LoadPageFault")
+        }
+      TranslatedAddr(_) =>
+        fail("expected reserved W=1,R=0 leaf encoding to fault on load")
+    }
+    let store_bus = Bus::new(0U.to_uint64(), 0x10000)
+    let store_satp = test_setup_identity_map(store_bus, flags)
+    match
+      sv39_translate(
+        store_bus,
+        store_satp,
+        0U.to_uint64(),
+        Store,
+        Supervisor,
+        false,
+        true,
+      ) {
+      TranslateFault(cause) =>
+        match cause {
+          StorePageFault => ()
+          _ => fail("expected StorePageFault")
+        }
+      TranslatedAddr(_) =>
+        fail("expected reserved W=1,R=0 leaf encoding to fault on store")
+    }
   }
 }
 

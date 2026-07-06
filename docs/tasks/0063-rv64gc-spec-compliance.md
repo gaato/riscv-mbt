@@ -693,6 +693,10 @@ official coverage improve.
 - Sv39 non-leaf PTEs now raise page faults when D, A, or U is set. Those bits
   are reserved for pointer PTEs in this baseline and are checked before the
   walker descends to the next page-table level.
+- Sv39 now explicitly names and covers the reserved `W=1,R=0` PTE encoding.
+  The focused regression includes both writable-only and writable-executable
+  leaf-looking forms, and verifies that fetch, load, and store report the
+  original access type's page-fault cause.
 - Sv39 hardware-managed leaf A/D coverage now includes the cold-store case:
   a store through a writable leaf with both bits clear sets A and D together.
 - `FCLASS.S` and `FCLASS.D` now decode and execute the architectural 10-bit
