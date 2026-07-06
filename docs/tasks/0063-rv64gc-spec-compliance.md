@@ -678,9 +678,11 @@ official coverage improve.
   rounding helper instead of relying on host-default conversion. The helper
   supports RNE, RTZ, RDN, RUP, RMM, valid dynamic `frm`, and NX accrual when
   discarded integer bits make the conversion inexact. The RV64 long-to-double
-  path now also has dynamic-`frm` coverage at the binary64 precision boundary:
-  signed negative RDN and unsigned positive RMM halfway cases select the
-  directed result and accrue NX. Rounded integer-to-float conversions now also
+  path now also has exact and inexact coverage at the binary64 precision
+  boundary: exact signed and unsigned `2^53` conversions sweep every legal
+  static mode, exercise dynamic `frm`, preserve `frm`, and leave `fflags`
+  clear, while signed negative RDN and unsigned positive RMM halfway cases
+  select the directed inexact result and accrue NX. Rounded integer-to-float conversions now also
   have explicit reserved-rounding regressions: static `rm=101/110` and dynamic
   `rm=111` with reserved `frm` trap before executing `FCVT.S.W`,
   `FCVT.S.LU`, or `FCVT.D.L`.

@@ -3948,6 +3948,54 @@ test "rv64fd long to double conversion honors non-rne rounding modes" {
 }
 
 ///|
+test "rv64fd exact long to double conversions stay flag clean" {
+  let csr_fcsr = 0x003
+  let fcsr_frm_shift = 5
+  let legal_static_modes = [0U, 1U, 2U, 3U, 4U]
+  for rm in legal_static_modes {
+    let runner = make_runner(rv64fd_machine_config())
+    runner.cpu.write_reg(1, 0xffe0000000000000UL)
+    runner.cpu.write_reg(2, 0x0020000000000000UL)
+    runner.load_program(
+      words_to_bytes([encode_fcvt_d_l(1, rm, 3), encode_fcvt_d_lu(2, rm, 4)]),
+      0U,
+    )
+    match runner.run(2) {
+      Running => ()
+      Trap(info) =>
+        fail(
+          "expected exact fcvt.d.l paths to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+        )
+    }
+    // Magnitudes up to 2^53 are exactly representable in binary64. Legal
+    // rounding modes therefore select the same result and must not accrue NX.
+    assert_eq(runner.read_freg_u64(3), 0xc340000000000000UL)
+    assert_eq(runner.read_freg_u64(4), 0x4340000000000000UL)
+    assert_eq(runner.read_csr(csr_fcsr) & 0x1fU, 0U)
+  }
+
+  let dynamic_runner = make_runner(rv64fd_machine_config())
+  dynamic_runner.cpu.write_reg(1, 0xffe0000000000000UL)
+  dynamic_runner.cpu.write_reg(2, 0x0020000000000000UL)
+  dynamic_runner.cpu.write_csr(csr_fcsr, 0x2U.to_uint64() << fcsr_frm_shift)
+  dynamic_runner.load_program(
+    words_to_bytes([encode_fcvt_d_l(1, 0x7U, 3), encode_fcvt_d_lu(2, 0x7U, 4)]),
+    0U,
+  )
+  match dynamic_runner.run(2) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected dynamic exact fcvt.d.l paths to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(dynamic_runner.read_freg_u64(3), 0xc340000000000000UL)
+  assert_eq(dynamic_runner.read_freg_u64(4), 0x4340000000000000UL)
+  assert_eq(dynamic_runner.read_csr(csr_fcsr) & 0x1fU, 0U)
+  assert_eq((dynamic_runner.read_csr(csr_fcsr) >> fcsr_frm_shift) & 0x7U, 0x2U)
+}
+
+///|
 test "rv64fd long to double conversion honors dynamic directed rounding" {
   let csr_fcsr = 0x003
   let fcsr_frm_shift = 5
