@@ -8699,6 +8699,36 @@ test "epc set forms clear hardwired bit zero" {
 }
 
 ///|
+test "epc clear forms keep hardwired bit zero" {
+  let mepc = 0x341
+  let sepc = 0x141
+  let program = words_to_bytes([
+    encode_i(13, 0, 0x0U, 1, 0x13U),
+    encode_csr(mepc, 1, 0x1U, 0),
+    encode_csr(mepc, 0x0c, 0x7U, 2),
+    encode_csr(mepc, 0, 0x2U, 3),
+    encode_csr(sepc, 1, 0x1U, 0),
+    encode_csr(sepc, 1, 0x3U, 4),
+    encode_csr(sepc, 0, 0x2U, 5),
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(7) {
+    Running => ()
+    _ => fail("expected epc CSR clear-form program to run")
+  }
+  // CSRRC and CSRRCI also pass through the EPC write boundary. Even when the
+  // clear mask leaves bit 0 set in the derived candidate, the stored EPC keeps
+  // architectural bit 0 hardwired to zero.
+  assert_eq(runner.read_reg(2), 12U)
+  assert_eq(runner.read_reg(3), 0U)
+  assert_eq(runner.read_reg(4), 12U)
+  assert_eq(runner.read_reg(5), 0U)
+  assert_eq(runner.read_csr(mepc), 0U)
+  assert_eq(runner.read_csr(sepc), 0U)
+}
+
+///|
 test "mstatus mpp normalizes reserved privilege encoding across csr forms" {
   let mstatus = 0x300
   let mpp_mask = 0x1800U.to_uint64()

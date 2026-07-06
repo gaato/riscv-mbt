@@ -1260,7 +1260,9 @@ official coverage improve.
   writable bit 1 behind the masked visible value. Register-source set and
   clear forms now preserve that hidden bit when the source mask addresses other
   bits, matching Zicsr's rule that bits outside the source mask are
-  unaffected.
+  unaffected. Register-source and immediate clear forms now also pin the
+  hardwired bit-0 rule, so `CSRRC`/`CSRRCI` cannot leave an odd EPC candidate
+  stored.
 - `mstatus.MPP` now treats reserved privilege encoding 2 as a WARL value and
   normalizes it to U-mode on visible `mstatus` writes. A focused CSR
   regression now covers replacement writes plus register-source set/clear forms

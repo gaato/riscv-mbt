@@ -489,7 +489,8 @@
   `SRET` mask the same bit when consuming EPC values prepared internally. Bit 1
   remains representable for the RV64GC compressed-instruction baseline. CSR set
   forms are now pinned too: `CSRRS`/`CSRRSI` may derive an odd candidate EPC,
-  but the stored value still clears hardwired bit 0.
+  but the stored value still clears hardwired bit 0. CSR clear forms now cover
+  the same write-boundary rule for `CSRRC`/`CSRRCI`.
 - `mstatus.MPP` now normalizes the reserved privilege encoding 2 to U-mode on
   replacement writes and register-source set/clear candidates, while
   preserving legal U/S/M return-mode encodings.
