@@ -5894,18 +5894,38 @@ test "rv64 status exposes fixed lower privilege xlen fields" {
   assert_eq(runner.read_csr_u64(sstatus) & 0x800000000UL, 0U.to_uint64())
 
   let program = words_to_bytes([
+    encode_i(-1, 0, 0x0U, 3, 0x13U),
     encode_csr(mstatus, 0, 0x1U, 0),
     encode_csr(sstatus, 0, 0x1U, 0),
     encode_csr(mstatus, 0, 0x2U, 1),
     encode_csr(sstatus, 0, 0x2U, 2),
+    encode_csr(mstatus, 3, 0x2U, 4),
+    encode_csr(mstatus, 0, 0x2U, 5),
+    encode_csr(mstatus, 3, 0x3U, 6),
+    encode_csr(mstatus, 0, 0x2U, 7),
+    encode_csr(sstatus, 3, 0x2U, 8),
+    encode_csr(sstatus, 0, 0x2U, 9),
+    encode_csr(sstatus, 3, 0x3U, 10),
+    encode_csr(sstatus, 0, 0x2U, 11),
   ])
   runner.load_program(program, 0U)
-  match runner.run(4) {
+  match runner.run(13) {
     Running => ()
     _ => fail("expected status xlen csr program to run")
   }
+  // This RV64 profile hardwires SXL/UXL to the implemented XLEN. Replacement
+  // writes and RMW-derived candidates are both normalized back to 64-bit
+  // lower-privilege modes.
   assert_eq(runner.read_reg_u64(1) & sxl_uxl_64, sxl_uxl_64)
   assert_eq(runner.read_reg_u64(2) & uxl_64, uxl_64)
+  assert_eq(runner.read_reg_u64(4) & sxl_uxl_64, sxl_uxl_64)
+  assert_eq(runner.read_reg_u64(5) & sxl_uxl_64, sxl_uxl_64)
+  assert_eq(runner.read_reg_u64(6) & sxl_uxl_64, sxl_uxl_64)
+  assert_eq(runner.read_reg_u64(7) & sxl_uxl_64, sxl_uxl_64)
+  assert_eq(runner.read_reg_u64(8) & uxl_64, uxl_64)
+  assert_eq(runner.read_reg_u64(9) & uxl_64, uxl_64)
+  assert_eq(runner.read_reg_u64(10) & uxl_64, uxl_64)
+  assert_eq(runner.read_reg_u64(11) & uxl_64, uxl_64)
   assert_eq(runner.read_csr_u64(mstatus) & sxl_uxl_64, sxl_uxl_64)
   assert_eq(runner.read_csr_u64(sstatus) & uxl_64, uxl_64)
 }

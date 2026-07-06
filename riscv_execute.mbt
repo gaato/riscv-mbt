@@ -1240,12 +1240,19 @@ fn Runner::csr_rmw_write_base(
   csr : Int,
   visible_old : UInt64,
 ) -> UInt64 {
-  // CSRRS/CSRRC normally write from the value read into rd. mip.SEIP is the
-  // architectural exception: reads include the external PLIC signal E, but the
-  // read-modify-write sequence updates only the software bit B. Use the stored
-  // CSR value as the write base for mip so E is never copied into B.
+  // CSRRS/CSRRC normally write from the value read into rd. Some filtered
+  // aliases expose derived or externally supplied bits that must not become
+  // writable merely because software used a read-modify-write CSR form.
   if csr == CSR_MIP {
+    // mip.SEIP reads include the external PLIC signal E, but the RMW sequence
+    // updates only the software bit B. Use the stored CSR value as the write
+    // base so E is never copied into B.
     legalize_mip_csr(self.cpu.read_csr(CSR_MIP), self.config.extensions)
+  } else if csr == CSR_SSTATUS {
+    // sstatus is a filtered view of mstatus. Its visible read includes fixed
+    // WARL fields such as UXL, so derive RMW candidates from stored mstatus
+    // bits and let write_csr_visible/legalize_mstatus_csr reapply fixed fields.
+    self.cpu.read_csr(CSR_MSTATUS) & SSTATUS_VISIBLE_MASK
   } else {
     visible_old
   }

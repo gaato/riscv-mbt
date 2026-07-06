@@ -1005,8 +1005,9 @@ official coverage improve.
   regression covers readback of the normalized field.
 - RV64 `mstatus.SXL`/`mstatus.UXL` and `sstatus.UXL` now behave as fixed
   lower-mode XLEN fields for this emulator profile. Focused regressions cover
-  reset visibility and write normalization through both `mstatus` and
-  `sstatus`, while RV32 status behavior remains unchanged.
+  reset visibility plus replacement-write and register-source set/clear
+  candidate normalization through both `mstatus` and `sstatus`, while RV32
+  status behavior remains unchanged.
 - `mstatus.MBE`/`SBE`/`UBE` and `sstatus.UBE` now behave as read-only-zero WARL
   fields for the current little-endian-only profile. A focused CSR regression
   covers replacement writes and register-source set/clear candidates through

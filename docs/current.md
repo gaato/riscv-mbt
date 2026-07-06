@@ -189,8 +189,9 @@
   an integer S-mode profile keeps `mstatus.FS` writable for context-status
   bookkeeping.
 - RV64 `mstatus.SXL`/`mstatus.UXL` and `sstatus.UXL` are now visible as fixed
-  64-bit lower-privilege XLEN fields. Writes that try to clear or change them
-  are normalized back to the modeled SXLEN=UXLEN=64 profile.
+  64-bit lower-privilege XLEN fields. Replacement writes and register-source
+  set/clear candidates that try to clear or change them are normalized back to
+  the modeled SXLEN=UXLEN=64 profile.
 - Post-decode profile legality now rejects extension instructions when the
   active machine profile does not advertise the matching base extension bit.
   The current focused coverage includes 16-bit compressed encodings without
