@@ -471,8 +471,10 @@
   Focused regressions cover the decode and execute behavior, including legal
   `C.JR`/`C.JALR` expansion through `JALR` and the compressed `C.JALR`
   `pc + 2` link address. Post-decode profile legality now also rejects all
-  16-bit compressed encodings when `MISA.C` is not advertised, keeping the
-  permissive decoder while making the executing profile authoritative. The
+  16-bit compressed encodings when `MISA.C` is not advertised, with coverage
+  sampling `C.NOP`, `C.ADDI`, `C.LD`, and `C.EBREAK` rather than one integer
+  alias only. This keeps the permissive decoder while making the executing
+  profile authoritative. The
   current task list no longer has a named RV64GC-baseline compressed
   reserved/hint gap; remaining C work is a final table-driven sweep if a future
   spec pass or official row exposes an omitted code point.

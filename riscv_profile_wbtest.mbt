@@ -173,20 +173,30 @@ fn wb_encode_sret() -> UInt {
 }
 
 ///|
-test "compressed instruction traps when C extension is not advertised" {
-  let runner = make_runner(wb_rv64_without_c_machine_config())
-  let raw = 0x0405U // c.addi x8, 1
-  runner.load_program(wb_halfword_program(raw), 0U)
-  match runner.step() {
-    Trap(info) => {
-      match info.cause {
-        IllegalInstruction => ()
-        _ => fail("expected compressed instruction to trap without MISA.C")
+test "compressed instructions trap when C extension is not advertised" {
+  // Decode is intentionally permissive for C shapes, but profile legality must
+  // reject every 16-bit instruction when MISA.C is absent. Sample hints,
+  // ordinary integer aliases, memory aliases, and trap-like compressed forms.
+  for
+    raw in [
+      0x0001U, // c.nop
+       0x0405U, // c.addi x8, 1
+       0x6000U, // c.ld with zero offset and compact register fields
+       0x9002U, // c.ebreak
+    ] {
+    let runner = make_runner(wb_rv64_without_c_machine_config())
+    runner.load_program(wb_halfword_program(raw), 0U)
+    match runner.step() {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected compressed instruction to trap without MISA.C")
+        }
+        assert_eq(info.faulting_pc, 0U.to_uint64())
+        assert_eq(info.trap_value, raw.to_uint64())
       }
-      assert_eq(info.faulting_pc, 0U.to_uint64())
-      assert_eq(info.trap_value, raw.to_uint64())
+      _ => fail("expected compressed instruction trap without MISA.C")
     }
-    _ => fail("expected compressed instruction trap without MISA.C")
   }
 }
 

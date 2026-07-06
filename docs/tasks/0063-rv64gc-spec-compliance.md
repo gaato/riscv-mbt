@@ -1305,6 +1305,10 @@ official coverage improve.
 - Fetch/decode now also pins the all-zero halfword as the C extension's other
   permanently illegal sentinel, while keeping the broader `C.ADDI4SPN`
   zero-immediate reserved behavior intact.
+- No-`C` profile coverage now samples multiple decoded 16-bit families
+  (`C.NOP`, `C.ADDI`, `C.LD`, and `C.EBREAK`), pinning that post-decode
+  profile legality rejects compressed instructions when `MISA.C` is absent
+  beyond one representative integer path.
 - Compressed `C.ADD rd=x0, rs2!=x0` now executes as an architectural hint
   across the whole nonzero source range. The `rs2=x2..x5` encodings also have
   named focused coverage as the compressed Zihintntl locality hints, so they
