@@ -1589,37 +1589,35 @@ test "rv64f fcsr reserved high bits read as zero" {
 test "rv64f traps floating-point csr access when mstatus fs is off" {
   let fp_csrs = [0x001, 0x002, 0x003]
   for csr in fp_csrs {
-    let read_raw = encode_csr(csr, 0, 0x2U, 1)
-    let read_runner = make_runner(rv64f_machine_config())
-    read_runner.cpu.write_csr(0x300, 0U.to_uint64())
-    read_runner.load_program(words_to_bytes([read_raw]), 0U)
-    match read_runner.step() {
-      Trap(info) => {
-        match info.cause {
-          IllegalInstruction => ()
-          _ => fail("expected illegal instruction cause")
+    let forms = [
+      encode_csr(csr, 1, 0x1U, 2), // CSRRW reads old value, then writes.
+      encode_csr(csr, 1, 0x1U, 0), // CSRRW rd=x0 suppresses only the read.
+      encode_csr(csr, 1, 0x2U, 2), // CSRRS with a nonzero register mask.
+      encode_csr(csr, 0, 0x2U, 2), // CSRRS with x0 is still a read.
+      encode_csr(csr, 1, 0x3U, 2), // CSRRC with a nonzero register mask.
+      encode_csr(csr, 0, 0x3U, 2), // CSRRC with x0 is still a read.
+      encode_csr(csr, 1, 0x5U, 2), // CSRRWI reads old value, then writes.
+      encode_csr(csr, 1, 0x5U, 0), // CSRRWI rd=x0 suppresses only the read.
+      encode_csr(csr, 1, 0x6U, 2), // CSRRSI with a nonzero immediate mask.
+      encode_csr(csr, 0, 0x6U, 2), // CSRRSI uimm=0 is still a read.
+      encode_csr(csr, 1, 0x7U, 2), // CSRRCI with a nonzero immediate mask.
+      encode_csr(csr, 0, 0x7U, 2), // CSRRCI uimm=0 is still a read.
+    ]
+    for raw in forms {
+      let runner = make_runner(rv64f_machine_config())
+      runner.cpu.write_csr(0x300, 0U.to_uint64())
+      runner.cpu.write_reg(1, 1U.to_uint64())
+      runner.load_program(words_to_bytes([raw]), 0U)
+      match runner.step() {
+        Trap(info) => {
+          match info.cause {
+            IllegalInstruction => ()
+            _ => fail("expected illegal instruction cause")
+          }
+          assert_eq(info.trap_value, raw.to_uint64())
         }
-        assert_eq(info.trap_value, read_raw.to_uint64())
+        _ => fail("expected floating-point csr form to trap when FS=Off")
       }
-      _ => fail("expected floating-point csr read to trap when FS=Off")
-    }
-
-    let write_raw = encode_csr(csr, 1, 0x1U, 0)
-    let write_runner = make_runner(rv64f_machine_config())
-    write_runner.cpu.write_csr(0x300, 0U.to_uint64())
-    write_runner.load_program(
-      words_to_bytes([encode_i(1, 0, 0x0U, 1, 0x13U), write_raw]),
-      0U,
-    )
-    match write_runner.run(2) {
-      Trap(info) => {
-        match info.cause {
-          IllegalInstruction => ()
-          _ => fail("expected illegal instruction cause")
-        }
-        assert_eq(info.trap_value, write_raw.to_uint64())
-      }
-      _ => fail("expected floating-point csr write to trap when FS=Off")
     }
   }
 }

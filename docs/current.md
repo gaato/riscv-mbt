@@ -204,13 +204,15 @@
   `fcsr` side effect, and ordered S/D NaN comparisons have matching coverage
   for the NV flag path.
   The `fflags`, `frm`, and `fcsr` CSR aliases are also FS-gated: read and
-  write attempts trap when FS is Off. Alias writes now explicitly preserve the
-  untouched field, including `fflags` writes and clears that leave `frm`
-  intact. Alias writes now also prove that high source bits are ignored for the
-  five-bit `fflags` view and three-bit `frm` view. Writes to absent `fcsr` bits 31:8 are
+  write attempts trap when FS is Off. The FS-off coverage now samples the full
+  Zicsr form family, including suppressed-read `CSRRW[I]`, nonzero set/clear,
+  and zero-mask read forms. Alias writes now explicitly preserve the untouched
+  field, including `fflags` writes and clears that leave `frm` intact. Alias
+  writes now also prove that high source bits are ignored for the five-bit
+  `fflags` view and three-bit `frm` view. Writes to absent `fcsr` bits 31:8 are
   now covered by regression as ignored-on-write/read-as-zero. A no-`F` profile
-  regression also pins those floating-point CSR addresses as absent even when
-  an integer S-mode profile keeps `mstatus.FS` writable for context-status
+  regression also pins those floating-point CSR addresses as absent even when an
+  integer S-mode profile keeps `mstatus.FS` writable for context-status
   bookkeeping.
 - Optional standard CSR allocations outside RV64GC are now sampled as absent
   across the full Zicsr form family. The covered boundary includes Zicfiss

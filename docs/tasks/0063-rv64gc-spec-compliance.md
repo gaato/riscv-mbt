@@ -929,18 +929,18 @@ official coverage improve.
   conversions that update `fflags`, and ordered S/D NaN comparisons that
   accrue NV dirty FS through that `fcsr` write.
 - Floating-point CSR access is now FS-gated. Focused regressions cover both
-  read forms and write-only `CSRRW rd=x0` forms for `fflags`, `frm`, and
-  `fcsr`, preserving Zicsr read suppression while still trapping writes to
-  FS-governed state when FS=Off. Pure reads and zero-mask set/clear forms over
-  those FP CSRs now also have coverage that they leave an Initial FP context
-  clean instead of incorrectly promoting `mstatus.FS` to Dirty. The alias
-  field split is now pinned more directly: writes through the `fflags` view
-  replace only accrued exception flags and leave the current `frm` intact,
-  including the zero write used to clear flags. Alias writes now also prove
-  field-width masking: high source bits are ignored for the five-bit `fflags`
-  view and the three-bit `frm` view, while `frm=111` can still be stored as
-  CSR state even though dynamic use of that reserved rounding mode traps
-  elsewhere.
+  the full Zicsr form family for `fflags`, `frm`, and `fcsr`: read forms,
+  write-only `CSRRW[I] rd=x0` forms that suppress only the read side, nonzero
+  register/immediate set-clear forms, and zero-mask read forms all trap when
+  FS=Off. Pure reads and zero-mask set/clear forms over those FP CSRs now also
+  have coverage that they leave an Initial FP context clean instead of
+  incorrectly promoting `mstatus.FS` to Dirty. The alias field split is now
+  pinned more directly: writes through the `fflags` view replace only accrued
+  exception flags and leave the current `frm` intact, including the zero write
+  used to clear flags. Alias writes now also prove field-width masking: high
+  source bits are ignored for the five-bit `fflags` view and the three-bit
+  `frm` view, while `frm=111` can still be stored as CSR state even though
+  dynamic use of that reserved rounding mode traps elsewhere.
 - `fcsr` reserved high bits now have focused regression coverage. A CSR write
   of all ones leaves only visible bits 7:0 readable, matching the F extension
   rule for absent standard-extension fields in bits 31:8.
