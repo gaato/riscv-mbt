@@ -400,8 +400,9 @@ official coverage improve.
   Machine-information readback coverage now pins `mvendorid`, `marchid`,
   `mimpid`, and `mconfigptr` to zero and `mhartid` to the runner hart ID.
   `misa` now behaves as a fixed WARL machine ISA CSR for the current runner
-  profile: write forms retire but read back the configured ISA. The read-only
-  CSR trap coverage samples the exposed machine-information read-only set
+  profile: `CSRRW[I]`, nonzero `CSRRS[I]`, and nonzero `CSRRC[I]` retire but
+  read back the configured ISA. The read-only CSR trap coverage samples the
+  exposed machine-information read-only set
   (`mvendorid`, `marchid`, `mimpid`, `mhartid`, and `mconfigptr`) and now also
   pins the user-visible read-only counter aliases `cycle`, `time`, and
   `instret`.
@@ -1092,5 +1093,5 @@ official coverage improve.
   implementation IDs and `mconfigptr` read as zero, while `mhartid` reports the
   current runner hart ID.
 - `misa` is no longer treated as address-encoded read-only. Focused regressions
-  cover fixed WARL behavior: write forms retire and preserve the runner's
-  configured ISA bits.
+  cover fixed WARL behavior across `CSRRW[I]`, nonzero `CSRRS[I]`, and nonzero
+  `CSRRC[I]`: writes retire and preserve the runner's configured ISA bits.

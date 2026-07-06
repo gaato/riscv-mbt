@@ -468,7 +468,8 @@
   CSR and returns zero, indicating that this platform has no standard
   configuration data structure and relies on the existing device-tree path.
   `misa` now behaves as a fixed WARL machine ISA CSR for the current runner
-  profile: write forms retire but read back the configured ISA. Read-only
+  profile: `CSRRW[I]`, nonzero `CSRRS[I]`, and nonzero `CSRRC[I]` retire but
+  read back the configured ISA. Read-only
   write-trap coverage samples the exposed read-only machine information set:
   `mvendorid`, `marchid`, `mimpid`, `mhartid`, `mconfigptr`, plus the read-only
   `time` counter.

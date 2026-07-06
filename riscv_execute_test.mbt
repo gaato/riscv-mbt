@@ -6774,32 +6774,33 @@ test "csr write forms still trap on read-only csrs even when old value is suppre
 ///|
 test "misa writes preserve the fixed WARL ISA profile" {
   let misa = 0x301
-  let read_misa = encode_csr(misa, 0, 0x2U, 2)
   let runner = make_runner(rv64fd_machine_config())
   let original = runner.read_csr_u64(misa)
-  runner.cpu.write_reg(1, 0U.to_uint64())
   runner.load_program(
     words_to_bytes([
+      encode_i(-1, 0, 0x0U, 1, 0x13U),
       encode_csr(misa, 1, 0x1U, 3),
-      read_misa,
+      encode_csr(misa, 0, 0x2U, 2),
       encode_csr(misa, 1, 0x2U, 4),
-      read_misa,
+      encode_csr(misa, 0, 0x2U, 7),
       encode_csr(misa, 1, 0x3U, 5),
-      read_misa,
+      encode_csr(misa, 0, 0x2U, 8),
       encode_csr(misa, 0, 0x5U, 6),
-      read_misa,
+      encode_csr(misa, 0, 0x2U, 9),
+      encode_csr(misa, 0x1f, 0x6U, 10),
+      encode_csr(misa, 0, 0x2U, 11),
+      encode_csr(misa, 0x1f, 0x7U, 12),
+      encode_csr(misa, 0, 0x2U, 13),
     ]),
     0U,
   )
-  match runner.run(8) {
+  match runner.run(13) {
     Running => ()
     _ => fail("expected fixed-WARL misa writes to retire")
   }
-  assert_eq(runner.read_reg_u64(2), original)
-  assert_eq(runner.read_reg_u64(3), original)
-  assert_eq(runner.read_reg_u64(4), original)
-  assert_eq(runner.read_reg_u64(5), original)
-  assert_eq(runner.read_reg_u64(6), original)
+  for rd in 2..<=13 {
+    assert_eq(runner.read_reg_u64(rd), original)
+  }
   assert_eq(runner.read_csr_u64(misa), original)
 }
 
