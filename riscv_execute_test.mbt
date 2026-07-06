@@ -1716,6 +1716,40 @@ test "rv64f traps on reserved arithmetic rounding mode" {
 }
 
 ///|
+test "reserved fp rounding trap does not mutate fp state" {
+  let csr_mstatus = 0x300
+  let csr_fcsr = 0x003
+  let fs_mask = 0x6000U.to_uint64()
+  let fs_initial = 0x2000U.to_uint64()
+  let initial_fcsr = (0x4U.to_uint64() << 5) | 0x1fU.to_uint64()
+  let initial_dest = exec_test_nan_box_single(exec_test_f32_bits(-13.0))
+  let raw = encode_fp_r(0x00U, 2, 1, 0x5U, 3)
+  let runner = make_runner(rv64fd_machine_config())
+  runner.cpu.write_csr(csr_mstatus, fs_initial)
+  runner.cpu.write_csr(csr_fcsr, initial_fcsr)
+  runner.cpu.write_freg(1, exec_test_nan_box_single(exec_test_f32_bits(1.0)))
+  runner.cpu.write_freg(2, exec_test_nan_box_single(exec_test_f32_bits(2.0)))
+  runner.cpu.write_freg(3, initial_dest)
+  runner.load_program(words_to_bytes([raw]), 0U)
+  match runner.step() {
+    Trap(info) => {
+      match info.cause {
+        IllegalInstruction => ()
+        _ => fail("expected reserved FP rounding to trap as illegal")
+      }
+      assert_eq(info.trap_value, raw.to_uint64())
+    }
+    _ => fail("expected reserved FP rounding mode to trap")
+  }
+  // Reserved rounding encodings are allowed to report illegal instruction, but
+  // the faulting instruction still does not retire. Trap entry must not leak a
+  // partial FP write, new fflags, frm changes, or an FS dirty transition.
+  assert_eq(runner.read_freg_u64(3), initial_dest)
+  assert_eq(runner.read_csr_u64(csr_fcsr), initial_fcsr)
+  assert_eq(runner.read_csr_u64(csr_mstatus) & fs_mask, fs_initial)
+}
+
+///|
 test "rv64 without f rejects scalar f instructions as illegal" {
   let fp_words = [encode_flw(0, 0, 1), encode_fp_r(0x00U, 2, 1, 0x0U, 3)]
   for raw in fp_words {

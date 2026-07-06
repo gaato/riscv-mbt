@@ -149,7 +149,10 @@
   field for legal/reserved static and dynamic encodings, so legal non-RNE forms
   execute and reserved forms trap instead of being silently accepted. Exact
   widening `FCVT.D.S` also now accrues NV for signaling single-precision NaNs
-  before writing the canonical double-precision NaN result.
+  before writing the canonical double-precision NaN result. Reserved-rounding
+  trap coverage also pins the non-retirement boundary: the trapped FP
+  instruction leaves the destination FP register, existing `fflags`/`frm`, and
+  `mstatus.FS` unchanged.
   Float-to-integer conversion regressions now also pin exact RNE invalid
   boundaries for `FCVT.L.D` at `+2^63`, `FCVT.LU.D` at `+2^64`, and RNE
   NaN/infinity clipping before any host integer cast. Exact integral

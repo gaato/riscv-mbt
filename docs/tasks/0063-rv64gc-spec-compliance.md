@@ -164,7 +164,10 @@ official coverage improve.
   results do not accrue `fflags`. The RV32-width-to-double coverage now sweeps
   all legal static modes, checks dynamic `frm`, keeps signed `W` source
   interpretation distinct from unsigned `WU`, and proves exact results do not
-  accrue `fflags`.
+  accrue `fflags`. Reserved-rounding trap coverage now also proves the
+  non-retirement boundary: a trapped FP instruction leaves `fd`, the existing
+  `fflags`/`frm` state, and `mstatus.FS` unchanged instead of leaking partial
+  side effects before trap entry.
   `FCVT.S.D` now has explicit NaN narrowing coverage: quiet NaNs
   produce the canonical NaN-boxed single result without NV, while signaling
   NaNs produce the same canonical result and accrue NV. `FDIV.S/D` coverage now
