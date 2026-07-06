@@ -1361,10 +1361,12 @@ pub fn decode(raw : UInt) -> Instruction {
   match raw & 0x7fU {
     0x0fU =>
       match funct3(raw) {
-        // Base implementations must treat reserved FENCE fm/pred/succ
-        // combinations as normal fences, and must ignore rd/rs1. Keep decode
-        // broad so a later reserved-encoding audit does not turn architectural
-        // forward compatibility into an illegal-instruction trap.
+        // FENCE.TSO is a standard fm=1000/RW/RW encoding, and normal FENCE is
+        // a conservative implementation of its ordering contract. Other
+        // reserved fm/pred/succ combinations must still be treated as normal
+        // fences by base implementations. Keep decode broad so a later audit
+        // does not turn architectural forward compatibility into an
+        // illegal-instruction trap.
         0x0U => Fence
         // Zifencei similarly reserves imm/rs1/rd for finer-grain future
         // fences but requires base implementations to ignore those fields.

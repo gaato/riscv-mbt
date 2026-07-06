@@ -9524,10 +9524,15 @@ test "fence.i flushes only the executing hart fetch state" {
 }
 
 ///|
-test "fence reserved fields retire as conservative fences" {
+test "fence.tso and reserved fence fields retire as conservative fences" {
   let program = words_to_bytes([
     encode_i(11, 0, 0x0U, 2, 0x13U),
+    // FENCE.TSO is a standard encoding. This single-hart interpreter may
+    // conservatively execute it as an ordinary full FENCE because that orders
+    // at least as much as the weaker TSO fence requires.
     encode_fence_fields(0x8U, 0x3U, 0x3U, 2, 3),
+    // Other nonzero fm/pred/succ combinations are reserved for future use, but
+    // base implementations are still required to retire them as normal fences.
     encode_fence_fields(0x7U, 0x5U, 0xaU, 4, 5),
     encode_i(13, 0, 0x0U, 6, 0x13U),
   ])
@@ -9535,7 +9540,7 @@ test "fence reserved fields retire as conservative fences" {
   runner.load_program(program, 0U)
   match runner.run(4) {
     Running => ()
-    _ => fail("expected reserved fence field sequence to retire")
+    _ => fail("expected fence.tso/reserved fence field sequence to retire")
   }
   assert_eq(runner.read_reg_u64(2), 11U.to_uint64())
   assert_eq(runner.read_reg_u64(3), 0U.to_uint64())
