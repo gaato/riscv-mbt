@@ -549,6 +549,10 @@
   while still flushing the local decode/fetch state. FENCE.I now also has
   M/S/U privilege-mode coverage, pinning that it retires as an unprivileged
   Zifencei instruction without changing privilege mode.
+- `SFENCE.VMA` TVM interception now covers nonzero address and ASID operand
+  fields. S-mode traps before the emulator flushes translations when
+  `mstatus.TVM` is set, regardless of whether `rs1`, `rs2`, or both are
+  nonzero.
 - `WFI` now enforces the modeled privilege/TW legality rule before using the
   existing CLINT timer fast-forward: U-mode traps, and S-mode traps when
   `mstatus.TW` is set.

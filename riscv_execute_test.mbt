@@ -6580,6 +6580,45 @@ test "sfence.vma traps as illegal from supervisor mode when tvm is set" {
 }
 
 ///|
+test "sfence.vma tvm intercept ignores address and asid operands" {
+  for
+    raw in [
+      encode_sfence_vma(1, 0),
+      encode_sfence_vma(0, 2),
+      encode_sfence_vma(3, 4),
+    ] {
+    let program = words_to_bytes([
+      encode_i(24, 0, 0x0U, 5, 0x13U),
+      encode_csr(0x341, 5, 0x1U, 0),
+      encode_u(0x00101000U, 1, 0x37U),
+      encode_i(-1920, 1, 0x0U, 1, 0x13U),
+      encode_csr(0x300, 1, 0x1U, 0),
+      encode_mret(),
+      raw,
+    ])
+    let runner = make_runner(default_machine_config())
+    runner.load_program(program, 0U)
+    let flushes_before = runner.translate_cache_flush_count()
+    match runner.run(7) {
+      Trap(info) => {
+        match info.cause {
+          IllegalInstruction => ()
+          _ => fail("expected illegal instruction for sfence.vma with tvm")
+        }
+        assert_eq(info.trap_value, raw.to_uint64())
+      }
+      _ => fail("expected sfence.vma with tvm to trap before operand handling")
+    }
+    assert_eq(runner.translate_cache_flush_count(), flushes_before)
+    assert_eq(runner.pc(), 24U)
+    match runner.privilege_mode() {
+      Machine => ()
+      _ => fail("expected illegal sfence.vma trap to enter machine mode")
+    }
+  }
+}
+
+///|
 test "satp read traps as illegal from supervisor mode when tvm is set" {
   let program = words_to_bytes([
     encode_i(24, 0, 0x0U, 5, 0x13U),

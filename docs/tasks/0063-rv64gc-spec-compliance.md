@@ -607,8 +607,9 @@ official coverage improve.
   while still flushing local fetch state. Privilege-mode coverage now also
   pins that `FENCE.I` retires in M-mode, S-mode, and U-mode without changing
   privilege, keeping it out of the privileged SYSTEM checks used by WFI, xRET,
-  and `SFENCE.VMA`. SMP coverage now also pins that the flush is local to the
-  executing hart rather than a global decode-cache shootdown. The remaining
+  and `SFENCE.VMA`. `SFENCE.VMA` TVM interception now also has operand coverage
+  for nonzero `rs1`/`rs2` forms. SMP coverage now pins that the flush is local
+  to the executing hart rather than a global decode-cache shootdown. The remaining
   audit is broader official coverage and any future instruction-cache model
   beyond the current fetch/decode-cache shape.
 
@@ -1328,7 +1329,9 @@ official coverage improve.
 - `SFENCE.VMA` now enforces the privileged legality checks before flushing the
   emulator translation cache: U-mode raises illegal instruction, and S-mode
   raises illegal instruction when `mstatus.TVM` is set. M-mode execution keeps
-  the existing translation-cache flush behavior.
+  the existing translation-cache flush behavior. The TVM coverage now includes
+  nonzero address and ASID operand fields, proving the trap is tied to the
+  instruction execution attempt itself and happens before the flush side effect.
 - `satp` now shares that `TVM` interception rule at the CSR access layer:
   S-mode reads and writes raise illegal instruction when `mstatus.TVM` is set,
   including write forms that suppress the old-value read. Focused regressions
