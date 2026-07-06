@@ -238,7 +238,9 @@
   Machine profiles now also canonicalize the architectural extension
   dependency that `D` depends on `F`: a requested `D`-without-`F` profile clears
   both F/D bits, so internal test configs cannot expose or execute an
-  impossible `misa.D`-without-`misa.F` profile.
+  impossible `misa.D`-without-`misa.F` profile. The profile regression now
+  checks the exact full `misa` readback after this canonicalization, not only
+  the cleared dependency bits.
 - The status endian-control fields now match the emulator's little-endian-only
   memory system: `mstatus.MBE`, `mstatus.SBE`, and `mstatus.UBE`, plus
   `sstatus.UBE`, are visible where appropriate but normalize to read-only zero
@@ -537,10 +539,12 @@
   reads keep user-mode return state absent by clearing `UXL`, clearing
   `MPRV` because there is no U-mode effective-privilege target, clearing `TW`
   because there are no modes below M after `S` is also absent, and normalizing
-  `MPP=U` back to M-mode. Profiles with neither `F` nor `S` now also keep
-  `mstatus.FS` read-only zero, making the derived `SD` summary read as zero;
-  S-mode integer profiles intentionally retain the existing writable `FS`
-  status path for supervisor context-status coverage.
+  `MPP=U` back to M-mode. Exact `misa` readback for the canonicalized no-`U`
+  profile is now pinned as a full advertised-ISA word, not just as cleared
+  `S`/`U` bits. Profiles with neither `F` nor `S` now also keep `mstatus.FS`
+  read-only zero, making the derived `SD` summary read as zero; S-mode integer
+  profiles intentionally retain the existing writable `FS` status path for
+  supervisor context-status coverage.
 - Compatibility CSR classification now follows those mode dependencies:
   `satp`, `medeleg`, `mideleg`, `scounteren`, and `senvcfg` are absent without
   `S`, while `mcounteren` is absent without `U`. Counter access follows the

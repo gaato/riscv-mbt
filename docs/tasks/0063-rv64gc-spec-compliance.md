@@ -213,7 +213,9 @@ official coverage improve.
   exact-rational double-precision NX checks. Machine profiles now canonicalize
   the architectural dependency that `D` depends on `F`: a requested
   `D`-without-`F` profile clears both F/D bits, so white-box configs cannot
-  expose or execute an impossible `misa.D`-without-`misa.F` profile. Focused
+  expose or execute an impossible `misa.D`-without-`misa.F` profile. The
+  regression now also pins the exact full `misa` value exposed after this
+  canonicalization, not only the cleared dependency bits. Focused
   `FMIN/FMAX` coverage now pins signed-zero selection in S and D, numeric
   selection against quiet NaNs in S and D, signaling-NaN-with-numeric cases
   that still return the numeric operand while accruing NV, and the all-NaN
@@ -590,7 +592,9 @@ official coverage improve.
   applies the privileged dependency that `S` depends on `U`, and no-`U`
   profiles clear `mstatus.UXL`, clear `MPRV` because U-mode is absent, clear
   `TW` because there are no modes below M after `S` is also absent, and
-  normalize `MPP=U` back to M-mode. Profiles with neither `F` nor `S` now keep
+  normalize `MPP=U` back to M-mode. Exact `misa` readback for that
+  canonicalized no-`U` profile is now pinned as a full advertised-ISA word, not
+  just as cleared `S`/`U` bits. Profiles with neither `F` nor `S` now keep
   `mstatus.FS` read-only zero, so the derived `SD` summary also reads as zero;
   S-mode integer profiles keep the emulator's existing writable `FS` path for
   supervisor context-status coverage.

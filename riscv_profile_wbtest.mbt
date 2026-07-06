@@ -595,6 +595,14 @@ test "mstatus write cannot expose supervisor return state without S" {
 test "requesting no-U profile canonicalizes away S as well" {
   let runner = make_runner(wb_rv64_without_u_machine_config())
   let misa = runner.cpu.read_csr(CSR_MISA)
+  let expected_misa = (2U.to_uint64() << 62) |
+    (current_base_extensions() & bit_not(MISA_EXT_S | MISA_EXT_U))
+  // `S` depends on `U` in the supported privileged profile. Check the whole
+  // exposed ISA word, not just the two cleared bits, so a future normalizer
+  // cannot accidentally drop unrelated base extensions while fixing the
+  // dependency pair.
+  assert_eq(misa, expected_misa)
+  assert_eq(runner.read_csr_u64(CSR_MISA), expected_misa)
   assert_eq(misa & MISA_EXT_U, 0U.to_uint64())
   assert_eq(misa & MISA_EXT_S, 0U.to_uint64())
   assert_eq(runner.config.extensions & MISA_EXT_U, 0U.to_uint64())
@@ -702,6 +710,12 @@ test "mret resets MPP to least implemented mode without U" {
 test "requesting D without F canonicalizes both extensions away" {
   let runner = make_runner(wb_rv64_d_only_requested_machine_config())
   let misa = runner.cpu.read_csr(CSR_MISA)
+  let expected_misa = (2U.to_uint64() << 62) | current_base_extensions()
+  // `D` depends on `F`. The canonicalized profile must read exactly like the
+  // ordinary integer RV64 baseline, then FP instructions must still trap via
+  // the already-normalized execution profile below.
+  assert_eq(misa, expected_misa)
+  assert_eq(runner.read_csr_u64(CSR_MISA), expected_misa)
   assert_eq(misa & (MISA_EXT_D | MISA_EXT_F), 0U.to_uint64())
   assert_eq(
     runner.config.extensions & (MISA_EXT_D | MISA_EXT_F),
