@@ -275,9 +275,9 @@ official coverage improve.
   `C.ADDI rd!=x0` across all nonzero destinations, and the full signed
   six-bit `C.LI rd=x0` hint immediate range as no-ops.
   Zero-shift HINT coverage now pins `C.SLLI`, `C.SRLI`, and `C.SRAI` with
-  `shamt=0` as no-ops, including the combined `C.SLLI rd=x0, shamt=0`
-  encoding. High-shamt RV64C coverage now pins `C.SLLI`, `C.SRLI`, and
-  `C.SRAI` as six-bit shift operations.
+  `shamt=0` as no-ops across their destination fields, including the combined
+  `C.SLLI rd=x0, shamt=0` encoding. High-shamt RV64C coverage now pins
+  `C.SLLI`, `C.SRLI`, and `C.SRAI` as six-bit shift operations.
   Register-based RV64C integer double load/store coverage now pins
   `C.LD`/`C.SD` as legal RV64C aliases and rejects those integer double aliases
   in the RV32C profile. The same integer double aliases now also have high

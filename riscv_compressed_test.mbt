@@ -1102,26 +1102,55 @@ test "rv64c addi nop and li hint forms execute as no-ops" {
 
 ///|
 test "rv64c right shift zero-shamt forms execute as hints" {
-  let runner = make_runner(rv64_machine_config())
-  runner.cpu.write_reg(8, 0x80000000U.to_uint64())
-  runner.cpu.write_reg(9, 0x80000000U.to_uint64())
-  runner.cpu.write_reg(10, 0x12345678U.to_uint64())
-  runner.load_program(
-    mixed_program_bytes([
-      (2, encode_c_srli(8, 0).reinterpret_as_uint()),
-      (2, encode_c_srai(9, 0).reinterpret_as_uint()),
-      (2, encode_c_slli(10, 0).reinterpret_as_uint()),
-    ]),
-    0U,
-  )
-  match runner.run(3) {
-    Running => ()
-    _ => fail("expected compressed zero-shift hints to execute as no-ops")
+  // The compressed shift-immediate encodings reserve shamt=0 as HINT space.
+  // Cover every destination shape: C.SRLI/C.SRAI use the compact x8..x15
+  // register field, while C.SLLI uses the full rd field including x0.
+  for rd in 8..<=15 {
+    let srli = make_runner(rv64_machine_config())
+    srli.cpu.write_reg(rd, 0x80000000U.to_uint64())
+    srli.load_program(
+      mixed_program_bytes([(2, encode_c_srli(rd, 0).reinterpret_as_uint())]),
+      0U,
+    )
+    match srli.step() {
+      Running => ()
+      _ => fail("expected c.srli zero-shamt hint to execute as a no-op")
+    }
+    assert_eq(srli.pc_u64(), 2U.to_uint64())
+    assert_eq(srli.read_reg_u64(rd), 0x80000000U.to_uint64())
+
+    let srai = make_runner(rv64_machine_config())
+    srai.cpu.write_reg(rd, 0x80000000U.to_uint64())
+    srai.load_program(
+      mixed_program_bytes([(2, encode_c_srai(rd, 0).reinterpret_as_uint())]),
+      0U,
+    )
+    match srai.step() {
+      Running => ()
+      _ => fail("expected c.srai zero-shamt hint to execute as a no-op")
+    }
+    assert_eq(srai.pc_u64(), 2U.to_uint64())
+    assert_eq(srai.read_reg_u64(rd), 0x80000000U.to_uint64())
   }
-  assert_eq(runner.pc_u64(), 6U.to_uint64())
-  assert_eq(runner.read_reg_u64(8), 0x80000000U.to_uint64())
-  assert_eq(runner.read_reg_u64(9), 0x80000000U.to_uint64())
-  assert_eq(runner.read_reg_u64(10), 0x12345678U.to_uint64())
+
+  for rd in 0..<=31 {
+    let slli = make_runner(rv64_machine_config())
+    slli.cpu.write_reg(rd, 0x12345678U.to_uint64())
+    slli.load_program(
+      mixed_program_bytes([(2, encode_c_slli(rd, 0).reinterpret_as_uint())]),
+      0U,
+    )
+    match slli.step() {
+      Running => ()
+      _ => fail("expected c.slli zero-shamt hint to execute as a no-op")
+    }
+    assert_eq(slli.pc_u64(), 2U.to_uint64())
+    if rd == 0 {
+      assert_eq(slli.read_reg_u64(0), 0U.to_uint64())
+    } else {
+      assert_eq(slli.read_reg_u64(rd), 0x12345678U.to_uint64())
+    }
+  }
 }
 
 ///|
