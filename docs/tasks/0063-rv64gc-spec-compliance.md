@@ -418,7 +418,8 @@ official coverage improve.
   `mcause` and `scause` now expose the modeled WLRL cause surface on explicit
   CSR writes and reads: the interrupt flag and low five exception-code bits are
   retained, while unsupported high platform/custom cause-code storage is masked
-  away.
+  away. Nonzero set/clear CSR forms now also apply the same modeled WLRL mask,
+  with immediate forms naturally limited to the low five source-mask bits.
   The plain trap-handling storage CSRs now have focused coverage at the visible
   instruction boundary: `mscratch`/`mtval` preserve full RV64 XLEN values in
   M-mode, and `sscratch`/`stval` preserve full RV64 XLEN values after an

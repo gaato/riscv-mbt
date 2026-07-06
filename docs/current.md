@@ -213,6 +213,10 @@
   limited to SSI/STI/SEI (`0x222`); machine-only causes remain read-only zero.
   Nonzero set/clear CSR forms now also apply the same delegation masks, with
   immediate forms naturally limited to the low five source-mask bits.
+- `mcause` and `scause` now expose only the modeled WLRL cause surface: the
+  interrupt flag and low five exception-code bits are retained, while high
+  platform/custom cause-code storage is masked away. Focused coverage now
+  applies that mask to explicit writes and nonzero set/clear CSR forms.
 - `mcounteren` and `scounteren` now expose only CY/TM/IR (`0x7`) as writable
   WARL bits. HPM counter-enable bits read back as zero because the matching
   `hpmcounter` CSRs are not implemented in the current RV64GC profile. Nonzero

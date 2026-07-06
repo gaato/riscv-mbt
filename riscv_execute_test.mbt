@@ -6946,6 +6946,13 @@ test "cause csrs keep modeled WLRL interrupt and exception-code bits" {
 }
 
 ///|
+test "cause csrs mask unsupported bits across set and clear forms" {
+  let modeled_cause_mask = (1U.to_uint64() << 63) | 0x1fU.to_uint64()
+  expect_masked_csr_set_clear_forms(0x342, modeled_cause_mask, "mcause")
+  expect_masked_csr_set_clear_forms(0x142, modeled_cause_mask, "scause")
+}
+
+///|
 test "csr read forms may read read-only csrs without writing them" {
   let read_misa_csrrs = encode_csr(0x301, 0, 0x2U, 2)
   let read_misa_csrrc = encode_csr(0x301, 0, 0x3U, 3)
