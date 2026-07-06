@@ -498,7 +498,9 @@
 - FENCE reserved-field behavior is now pinned by decode and execute coverage:
   `FENCE.TSO` and future-reserved `fm`/pred/succ combinations retire as
   conservative base fences, and FENCE.I ignores its unused imm/rs1/rd fields
-  while still flushing the local decode/fetch state.
+  while still flushing the local decode/fetch state. FENCE.I now also has
+  M/S/U privilege-mode coverage, pinning that it retires as an unprivileged
+  Zifencei instruction without changing privilege mode.
 - `WFI` now enforces the modeled privilege/TW legality rule before using the
   existing CLINT timer fast-forward: U-mode traps, and S-mode traps when
   `mstatus.TW` is set.

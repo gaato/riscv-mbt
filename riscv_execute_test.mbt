@@ -9692,6 +9692,90 @@ test "fence.i flushes only the executing hart fetch state" {
 }
 
 ///|
+test "fence.i retires without privilege transition in every implemented mode" {
+  // Zifencei is an unprivileged ISA extension. Linux may choose a syscall ABI
+  // for user instruction-stream synchronization, but the architectural
+  // instruction itself must not be accidentally routed through the privileged
+  // SYSTEM-instruction checks used by WFI, xRET, or SFENCE.VMA.
+  let machine = make_runner(virt_machine_config())
+  let machine_base = machine.cpu.pc
+  machine.load_program_u64(words_to_bytes([encode_fence_i()]), machine_base)
+  let machine_flushes = machine.decode_cache_flush_count()
+  match machine.step() {
+    Running => ()
+    _ => fail("expected machine-mode fence.i to retire")
+  }
+  assert_eq(machine.pc_u64(), machine_base + 4U.to_uint64())
+  assert_eq(
+    machine.decode_cache_flush_count(),
+    machine_flushes + 1U.to_uint64(),
+  )
+  match machine.privilege_mode() {
+    Machine => ()
+    _ => fail("machine-mode fence.i changed privilege mode")
+  }
+
+  let supervisor = make_runner(virt_machine_config())
+  let supervisor_base = supervisor.cpu.pc
+  supervisor.cpu.write_csr(0x300, 0x800U.to_uint64()) // mstatus.MPP=S
+  supervisor.cpu.write_csr(0x341, supervisor_base + 4U.to_uint64()) // mepc at FENCE.I
+  supervisor.load_program_u64(
+    words_to_bytes([encode_mret(), encode_fence_i()]),
+    supervisor_base,
+  )
+  match supervisor.step() {
+    Running => ()
+    _ => fail("expected mret to enter supervisor mode before fence.i")
+  }
+  match supervisor.privilege_mode() {
+    Supervisor => ()
+    _ => fail("expected supervisor mode before fence.i")
+  }
+  let supervisor_flushes = supervisor.decode_cache_flush_count()
+  match supervisor.step() {
+    Running => ()
+    _ => fail("expected supervisor-mode fence.i to retire")
+  }
+  assert_eq(supervisor.pc_u64(), supervisor_base + 8U.to_uint64())
+  assert_eq(
+    supervisor.decode_cache_flush_count(),
+    supervisor_flushes + 1U.to_uint64(),
+  )
+  match supervisor.privilege_mode() {
+    Supervisor => ()
+    _ => fail("supervisor-mode fence.i changed privilege mode")
+  }
+
+  let user = make_runner(virt_machine_config())
+  let user_base = user.cpu.pc
+  user.cpu.write_csr(0x300, 0U.to_uint64()) // mstatus.MPP=U
+  user.cpu.write_csr(0x341, user_base + 4U.to_uint64()) // mepc at FENCE.I
+  user.load_program_u64(
+    words_to_bytes([encode_mret(), encode_fence_i()]),
+    user_base,
+  )
+  match user.step() {
+    Running => ()
+    _ => fail("expected mret to enter user mode before fence.i")
+  }
+  match user.privilege_mode() {
+    User => ()
+    _ => fail("expected user mode before fence.i")
+  }
+  let user_flushes = user.decode_cache_flush_count()
+  match user.step() {
+    Running => ()
+    _ => fail("expected user-mode fence.i to retire")
+  }
+  assert_eq(user.pc_u64(), user_base + 8U.to_uint64())
+  assert_eq(user.decode_cache_flush_count(), user_flushes + 1U.to_uint64())
+  match user.privilege_mode() {
+    User => ()
+    _ => fail("user-mode fence.i changed privilege mode")
+  }
+}
+
+///|
 test "fence.tso and reserved fence fields retire as conservative fences" {
   let program = words_to_bytes([
     encode_i(11, 0, 0x0U, 2, 0x13U),

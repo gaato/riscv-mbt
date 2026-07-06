@@ -564,9 +564,11 @@ official coverage improve.
   base FENCE/Zifencei field contract is also pinned: the standard `FENCE.TSO`
   encoding and future-reserved `FENCE` fm/pred/succ configurations retire as
   conservative base fences, and `FENCE.I` ignores its unused imm/rs1/rd fields
-  while still flushing local fetch state. SMP coverage now also pins that the
-  flush is local to the executing hart rather than a global decode-cache
-  shootdown. The remaining
+  while still flushing local fetch state. Privilege-mode coverage now also
+  pins that `FENCE.I` retires in M-mode, S-mode, and U-mode without changing
+  privilege, keeping it out of the privileged SYSTEM checks used by WFI, xRET,
+  and `SFENCE.VMA`. SMP coverage now also pins that the flush is local to the
+  executing hart rather than a global decode-cache shootdown. The remaining
   audit is broader official coverage and any future instruction-cache model
   beyond the current fetch/decode-cache shape.
 
@@ -866,6 +868,9 @@ official coverage improve.
   a conservative normal fence, that base implementations treat reserved
   `FENCE` configurations as normal fences, and that `FENCE.I` ignores unused
   fields for forward compatibility.
+- `FENCE.I` privilege coverage now explicitly enters M-mode, S-mode, and
+  U-mode, retires the instruction in each mode, observes the local decode-cache
+  flush, and checks that no privilege transition occurs.
 - `Zicsr` execution now models the architectural read/write suppression table
   directly: `CSRRW[I]` with `rd=x0` skips the CSR read path, while
   `CSRRS/CSRRC[I]` with a zero register or immediate mask skips the CSR write
