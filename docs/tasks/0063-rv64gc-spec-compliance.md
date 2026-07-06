@@ -683,6 +683,9 @@ official coverage improve.
 - MPRV data-access coverage also pins the sibling MXR interaction: the same
   `MPP=S` path faults when loading an execute-only page with MXR clear and
   succeeds with MXR set.
+- MPRV data-access coverage now also pins the `MPP=U` sibling path: MXR still
+  permits loads from execute-only user pages, while supervisor pages remain
+  inaccessible under effective user privilege even if SUM is set.
 - Sv39 PTE bits 63:54 now raise page faults when set. The current RV64GC
   baseline does not implement Svnapot, Svpbmt, or future reserved PTE metadata,
   so both the walker and cache-walk bookkeeping reject those bits rather than
@@ -1306,7 +1309,9 @@ official coverage improve.
   also pins the complementary fetch rule: M-mode instruction fetch keeps using
   M privilege even when MPRV redirects loads/stores through MPP, and the
   MPRV-plus-MPP=S data path observes SUM and MXR for supervisor-style data
-  accesses.
+  accesses. The `MPP=U` data path now has matching coverage for MXR on
+  execute-only user pages and for rejecting supervisor pages under effective
+  user privilege.
 - Return-instruction privilege checks now match the modeled privileged surface:
   `MRET` raises illegal instruction outside M-mode, `SRET` raises illegal
   instruction from U-mode, and S-mode `SRET` raises illegal instruction when

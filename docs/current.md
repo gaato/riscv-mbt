@@ -486,6 +486,9 @@
   using `MPRV=1, MPP=S` fault on U pages with SUM clear and succeed with SUM set.
 - MPRV data-access coverage also pins MXR: the same `MPP=S` path faults when
   loading an execute-only page with MXR clear and succeeds with MXR set.
+- MPRV data-access coverage now also includes `MPP=U`: MXR permits loads from
+  execute-only user pages, while supervisor pages remain inaccessible even if
+  SUM is set.
 - Sv39 now keeps SUM data-only: supervisor loads/stores may access U pages when
   SUM is set, but supervisor instruction fetches from U pages fault regardless
   of SUM.

@@ -6336,6 +6336,93 @@ test "rv64 mprv applies mxr when mpp selects supervisor data access" {
 }
 
 ///|
+test "rv64 mprv applies user data access rules when mpp selects user" {
+  let pte_v = 0x1U.to_uint64()
+  let pte_r = 0x2U.to_uint64()
+  let pte_x = 0x8U.to_uint64()
+  let pte_u = 0x10U.to_uint64()
+  let pte_a = 0x40U.to_uint64()
+  let pte_d = 0x80U.to_uint64()
+  let mstatus_mprv = 0x20000U.to_uint64()
+  let mstatus_sum = 0x40000U.to_uint64()
+  let mstatus_mxr = 0x80000U.to_uint64()
+  let load_program = words_to_bytes([
+    encode_i(0x100, 0, 0x0U, 1, 0x13U),
+    encode_i(0, 1, 0x6U, 10, 0x03U),
+  ])
+
+  let no_mxr = make_runner(rv64_machine_config())
+  exec_test_setup_basic_sv39_map(no_mxr)
+  no_mxr.load_program_u64(
+    exec_test_u64_to_le_bytes(
+      // MPP=U selects user-mode protection. MXR still controls whether this
+      // execute-only user leaf can be read through an M-mode load.
+      exec_test_make_pte(4U.to_uint64(), pte_v | pte_x | pte_u | pte_a | pte_d),
+    ),
+    0x3000U.to_uint64(),
+  )
+  no_mxr.cpu.write_csr(0x180, exec_test_sv39_satp(1U.to_uint64()))
+  no_mxr.cpu.write_csr(0x300, mstatus_mprv)
+  no_mxr.load_program(load_program, 0U)
+  expect_step_running(
+    no_mxr, "expected address setup before MPRV MPP=U MXR fault",
+  )
+  match no_mxr.step() {
+    Trap(info) => {
+      match info.cause {
+        LoadPageFault => ()
+        _ => fail("expected MPRV MPP=U load from execute-only page to fault")
+      }
+      assert_eq(info.trap_value, 0x100U.to_uint64())
+    }
+    _ => fail("expected MPRV MPP=U load from execute-only page to trap")
+  }
+
+  let with_mxr = make_runner(rv64_machine_config())
+  exec_test_setup_basic_sv39_map(with_mxr)
+  with_mxr.load_program_u64(
+    exec_test_u64_to_le_bytes(
+      exec_test_make_pte(4U.to_uint64(), pte_v | pte_x | pte_u | pte_a | pte_d),
+    ),
+    0x3000U.to_uint64(),
+  )
+  with_mxr.cpu.write_csr(0x180, exec_test_sv39_satp(1U.to_uint64()))
+  with_mxr.cpu.write_csr(0x300, mstatus_mprv | mstatus_mxr)
+  with_mxr.load_program(load_program, 0U)
+  match with_mxr.run(2) {
+    Running => ()
+    _ =>
+      fail("expected MPRV MPP=U load from execute-only U page with MXR to run")
+  }
+  assert_eq(with_mxr.read_reg_u64(10), 0x12345678U.to_uint64())
+
+  let supervisor_page = make_runner(rv64_machine_config())
+  exec_test_setup_basic_sv39_map(supervisor_page)
+  supervisor_page.load_program_u64(
+    exec_test_u64_to_le_bytes(
+      exec_test_make_pte(4U.to_uint64(), pte_v | pte_r | pte_a | pte_d),
+    ),
+    0x3000U.to_uint64(),
+  )
+  supervisor_page.cpu.write_csr(0x180, exec_test_sv39_satp(1U.to_uint64()))
+  supervisor_page.cpu.write_csr(0x300, mstatus_mprv | mstatus_sum | mstatus_mxr)
+  supervisor_page.load_program(load_program, 0U)
+  expect_step_running(
+    supervisor_page, "expected address setup before MPRV MPP=U supervisor-page fault",
+  )
+  match supervisor_page.step() {
+    Trap(info) => {
+      match info.cause {
+        LoadPageFault => ()
+        _ => fail("expected MPRV MPP=U access to supervisor page to fault")
+      }
+      assert_eq(info.trap_value, 0x100U.to_uint64())
+    }
+    _ => fail("expected MPRV MPP=U access to supervisor page to trap")
+  }
+}
+
+///|
 test "rv64 mprv does not affect machine instruction fetch privilege" {
   let program = words_to_bytes([
     encode_i(8, 0, 0x0U, 2, 0x13U),
