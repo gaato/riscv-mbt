@@ -8187,22 +8187,22 @@ test "pmp csrs stay WARL zero across set and clear forms" {
 }
 
 ///|
-test "mnstatus traps when Smrnmi is absent" {
-  let mnstatus = 0x744
-  // Smrnmi adds mnstatus as RNMI state. RV64GC does not include Smrnmi, so the
-  // CSR is address-absent: Zicsr read/write suppression rules cannot make any
-  // form legal because there is no readable or writable CSR endpoint.
+fn expect_absent_csr_form_family_traps(csr : Int, name : String) -> Unit raise {
+  // Unsupported CSR addresses trap before Zicsr read/write suppression can
+  // make a form harmless. CSRRW[I] rd=x0 suppresses the read side, and
+  // CSRRS/CSRRC[I] with a zero mask suppress the write side, but an absent CSR
+  // still has no architectural endpoint for the remaining access.
   let forms = [
-    encode_csr(mnstatus, 0, 0x2U, 1),
-    encode_csr(mnstatus, 0, 0x3U, 2),
-    encode_csr(mnstatus, 0, 0x6U, 3),
-    encode_csr(mnstatus, 0, 0x7U, 4),
-    encode_csr(mnstatus, 1, 0x1U, 0),
-    encode_csr(mnstatus, 1, 0x5U, 0),
-    encode_csr(mnstatus, 1, 0x2U, 5),
-    encode_csr(mnstatus, 1, 0x3U, 6),
-    encode_csr(mnstatus, 1, 0x6U, 7),
-    encode_csr(mnstatus, 1, 0x7U, 8),
+    encode_csr(csr, 0, 0x2U, 1),
+    encode_csr(csr, 0, 0x3U, 2),
+    encode_csr(csr, 0, 0x6U, 3),
+    encode_csr(csr, 0, 0x7U, 4),
+    encode_csr(csr, 1, 0x1U, 0),
+    encode_csr(csr, 1, 0x5U, 0),
+    encode_csr(csr, 1, 0x2U, 5),
+    encode_csr(csr, 1, 0x3U, 6),
+    encode_csr(csr, 1, 0x6U, 7),
+    encode_csr(csr, 1, 0x7U, 8),
   ]
   for raw in forms {
     let runner = make_runner(rv64_machine_config())
@@ -8212,13 +8212,23 @@ test "mnstatus traps when Smrnmi is absent" {
       Trap(info) => {
         match info.cause {
           IllegalInstruction => ()
-          _ => fail("expected illegal instruction cause for absent Smrnmi CSR")
+          _ => fail("expected illegal instruction cause for absent \{name}")
         }
         assert_eq(info.trap_value, raw.to_uint64())
       }
-      _ => fail("expected absent Smrnmi CSR access to trap")
+      _ => fail("expected absent \{name} access to trap")
     }
   }
+}
+
+///|
+test "Smrnmi CSRs trap when extension is absent" {
+  // Smrnmi owns the RNMI state CSRs. RV64GC does not include Smrnmi, so the
+  // whole block is address-absent rather than compatibility storage.
+  expect_absent_csr_form_family_traps(0x740, "mnscratch")
+  expect_absent_csr_form_family_traps(0x741, "mnepc")
+  expect_absent_csr_form_family_traps(0x742, "mncause")
+  expect_absent_csr_form_family_traps(0x744, "mnstatus")
 }
 
 ///|
