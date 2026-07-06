@@ -8394,6 +8394,34 @@ test "sret clears mprv when returning below machine mode" {
 }
 
 ///|
+test "sret clears mprv when returning to user mode" {
+  let program = words_to_bytes([
+    encode_i(24, 0, 0x0U, 5, 0x13U),
+    encode_csr(0x141, 5, 0x1U, 0),
+    encode_u(0x00020000U, 1, 0x37U),
+    encode_i(32, 1, 0x0U, 1, 0x13U),
+    encode_csr(0x300, 1, 0x1U, 0),
+    encode_sret(),
+    encode_i(1, 0, 0x0U, 2, 0x13U),
+  ])
+  let runner = make_runner(default_machine_config())
+  runner.load_program(program, 0U)
+  match runner.run(7) {
+    Running => ()
+    _ => fail("expected sret to user mode to run")
+  }
+  // S-mode software cannot normally create MPRV state itself. This M-mode SRET
+  // path is a direct regression for the shared xRET helper: when SPP names U,
+  // SRET must clear MPRV just like the already-covered SPP=S path.
+  assert_eq(runner.read_reg(2), 1U)
+  match runner.privilege_mode() {
+    User => ()
+    _ => fail("expected user privilege restored from spp")
+  }
+  assert_eq(runner.read_csr(0x300), 0x22U)
+}
+
+///|
 test "mret traps as illegal below machine mode" {
   let program = words_to_bytes([
     encode_i(24, 0, 0x0U, 5, 0x13U),

@@ -494,7 +494,8 @@
   replacement writes and register-source set/clear candidates, while
   preserving legal U/S/M return-mode encodings.
 - `MRET` and `SRET` now clear `mstatus.MPRV` when returning to a privilege mode
-  below M, while preserving `MPRV` for `MRET` returns that stay in M-mode.
+  below M, with coverage for `MRET` to U and `SRET` to S/U, while preserving
+  `MPRV` for `MRET` returns that stay in M-mode.
 - MPRV data-access coverage now also pins the SUM interaction: M-mode loads
   using `MPRV=1, MPP=S` fault on U pages with SUM clear and succeed with SUM set.
 - MPRV data-access coverage also pins MXR: the same `MPP=S` path faults when

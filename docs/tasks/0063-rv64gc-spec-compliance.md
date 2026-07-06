@@ -1340,8 +1340,8 @@ official coverage improve.
 - `MRET` and `SRET` now apply the privileged-spec `MPRV` return rule: when the
   return target is below M-mode, `mstatus.MPRV` is cleared so later data
   accesses cannot continue using the old MPP override. Focused regressions cover
-  MRET-to-U, SRET-to-S, and the MRET-to-M preservation case. MPRV coverage now
-  also pins the complementary fetch rule: M-mode instruction fetch keeps using
+  MRET-to-U, SRET-to-S, SRET-to-U, and the MRET-to-M preservation case. MPRV
+  coverage now also pins the complementary fetch rule: M-mode instruction fetch keeps using
   M privilege even when MPRV redirects loads/stores through MPP, and the
   MPRV-plus-MPP=S data path observes SUM and MXR for supervisor-style data
   accesses. The `MPP=U` data path now has matching coverage for MXR on
