@@ -1500,3 +1500,9 @@ official coverage improve.
   suite exists but contains no `.S` rows. This prevents a broken or partial
   `riscv-tests` checkout from satisfying the completion gate vacuously before
   the manifest coverage check compares source rows against `gating`.
+- The official RV64GC source-row gate is now bidirectional. In addition to
+  requiring every local baseline `.S` source row to be present in `gating`, it
+  rejects stale RV64GC `gating` manifest rows whose local source file is no
+  longer present. A local count check before the change had 110 baseline
+  RV64GC source rows and 110 baseline RV64GC gating rows, with no mismatches in
+  either direction; the new test keeps that invariant mechanical.

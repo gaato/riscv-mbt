@@ -59,6 +59,26 @@ async test "official RV64GC riscv-tests source rows are all gated" {
 }
 
 ///|
+async test "official RV64GC riscv-tests gating rows have local sources" {
+  let source_keys = load_local_rv64gc_source_keys()
+  let gating_keys = load_manifest_rv64gc_gating_keys()
+  let stale : Array[String] = []
+  for key in gating_keys {
+    if !source_keys.contains(key) {
+      stale.push(key)
+    }
+  }
+  stale.sort()
+  if stale.length() != 0 {
+    let mut message = "stale \{stale.length()} of \{gating_keys.length()} RV64GC official riscv-tests gating rows without local source files:"
+    for key in stale {
+      message = message + "\n" + key
+    }
+    abort(message)
+  }
+}
+
+///|
 async test "official RV64GC riscv-tests source suites are populated" {
   let counts = count_local_rv64gc_source_rows_by_suite()
   let empty : Array[String] = []

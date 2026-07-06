@@ -77,6 +77,44 @@ async fn load_manifest_gating_keys() -> Array[String] {
 }
 
 ///|
+fn is_official_rv64gc_riscv_tests_suite(suite : String) -> Bool {
+  // Keep the RV64GC source-completeness gate scoped to the six ISA suites that
+  // encode RV64IMAFDC_Zicsr_Zifencei behavior. Privileged, hypervisor, RV32,
+  // and future extension suites are tracked separately so they cannot
+  // accidentally redefine this task's completion boundary.
+  official_rv64gc_riscv_tests_suites.contains(suite)
+}
+
+///|
+async fn load_manifest_rv64gc_gating_keys() -> Array[String] {
+  // This is the manifest side of the bidirectional source gate. The companion
+  // source-tree discovery proves no local upstream row is omitted; this helper
+  // proves the manifest does not carry stale RV64GC rows whose source vanished.
+  let manifest = read_manifest_text(official_riscv_tests_manifest_path)
+  let keys : Array[String] = []
+  for raw_line in manifest.split("\n") {
+    let line = raw_line.to_owned().trim().to_owned()
+    if line == "" || line.has_prefix("#") {
+      continue
+    }
+    let fields : Array[String] = []
+    for field in line.split("\t") {
+      fields.push(field.to_owned())
+    }
+    if fields.length() != 4 {
+      abort("invalid riscv-tests manifest line: \{line}")
+    }
+    let suite = fields[0]
+    let name = fields[1]
+    let tier = fields[3]
+    if tier == "gating" && is_official_rv64gc_riscv_tests_suite(suite) {
+      keys.push(official_riscv_test_case_key(suite, name))
+    }
+  }
+  keys
+}
+
+///|
 async fn load_manifest_keys() -> Array[String] {
   let manifest = read_manifest_text(official_riscv_tests_manifest_path)
   let keys : Array[String] = []

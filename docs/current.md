@@ -351,10 +351,12 @@
   gated, completing the local official `rv64um` source rows. As of this pass,
   every local official source row for the RV64GC-relevant suites
   (`rv64ui/um/ua/uc/uf/ud`) is in `gating`; remaining local official rows are
-  optional non-baseline extensions such as Zba/Zbb/Zfh. The gate now also
-  rejects duplicate manifest rows, so row promotion cannot hide accidental
-  repeated entries. Base `SLLI` now rejects reserved high immediate bits, and
-  the RV32 profile gate rejects
+  optional non-baseline extensions such as Zba/Zbb/Zfh. The gate derives that
+  source-row set from the local official-test checkout, rejects missing or
+  empty baseline source suites, rejects stale RV64GC manifest `gating` rows
+  whose source files are no longer present, and rejects duplicate manifest rows
+  so row promotion cannot hide accidental repeated entries. Base `SLLI` now
+  rejects reserved high immediate bits, and the RV32 profile gate rejects
   `SLLI`/`SRLI`/`SRAI shamt[5]=1` rather than executing those encodings as
   six-bit shifts.
 
