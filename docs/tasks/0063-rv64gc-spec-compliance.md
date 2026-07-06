@@ -152,6 +152,10 @@ official coverage improve.
   static `rm`, and every legal dynamic `frm`. Positive `FMADD.S/D` overflow is
   now covered at the fused final rounding boundary: RNE/RUP select infinity,
   RTZ/RDN select the largest finite value, and all cases accrue OF|NX.
+  Exact-zero FMA coverage now also isolates the zero-product plus signed-zero
+  addend path in S and D, including same-signed zero preservation and
+  opposite-signed cancellation under `RDN` after applying each opcode's
+  effective product/addend signs.
   Exact widening `FCVT.D.S` and exact
   RV32-width-to-double `FCVT.D.W[U]` now treat the otherwise unaffected `rm`
   field as architecturally significant for legal/reserved static and dynamic
@@ -1148,6 +1152,10 @@ official coverage improve.
   fused contract directly for all four `FMA.S` opcodes: cases whose separately
   rounded products would cancel to zero instead produce the exact positive or
   negative nonzero fused result after applying each opcode's effective signs.
+  The zero-product plus signed-zero addend path is now covered separately, so
+  `FMADD.S` and `FNMSUB.S` prove same-signed zero preservation and `RDN`
+  negative-zero selection for opposite-signed exact cancellation after opcode
+  sign adjustment.
 - Double-precision add/sub/mul now have corresponding non-RNE coverage.
   Focused regressions cover `2^53 + 1` add/sub and `(1 + 2^-52)^2` multiply,
   where RTZ and RUP select adjacent double-precision results and accrue NX.
@@ -1170,6 +1178,9 @@ official coverage improve.
   four `FMA.D` opcodes where a separately rounded product would cancel to zero
   but the fused operation produces the exact positive or negative nonzero result
   after applying each opcode's effective signs.
+  The zero-product plus signed-zero addend path is also covered directly for
+  double precision, matching the single-precision checks for same-signed zeros
+  and round-down cancellation after effective sign adjustment.
 - Double-precision sqrt now has matching non-RNE coverage. A focused regression
   covers `FSQRT.D sqrt(2.0)`, where RTZ and RUP select adjacent
   double-precision results and accrue NX. A dynamic `rm=111` regression now

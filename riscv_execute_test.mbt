@@ -2717,6 +2717,80 @@ test "rv64fd fused multiply-add double paths preserve exact zero signs" {
 }
 
 ///|
+test "rv64fd fused multiply-add zero product and zero addend keep IEEE signs" {
+  let csr_fcsr = 0x003
+  let single = make_runner(rv64fd_machine_config())
+  let single_pos_zero = exec_test_nan_box_single(0x00000000U)
+  let single_neg_zero = exec_test_nan_box_single(0x80000000U)
+  let single_pos_one = exec_test_nan_box_single(exec_test_f32_bits(1.0))
+  single.cpu.write_freg(1, single_pos_zero)
+  single.cpu.write_freg(2, single_neg_zero)
+  single.cpu.write_freg(3, single_pos_one)
+  single.cpu.write_freg(4, single_pos_zero)
+  single.cpu.write_freg(5, single_neg_zero)
+  single.load_program(
+    words_to_bytes([
+      // Exact zero FMA results are sensitive to the effective product and
+      // addend signs. This pins the zero-product path separately from the
+      // nonzero cancellation regressions above.
+      encode_fp_r4(4, 0x0U, 3, 1, 0x0U, 6, 0x43U),
+      encode_fp_r4(5, 0x0U, 3, 2, 0x0U, 7, 0x43U),
+      encode_fp_r4(5, 0x0U, 3, 1, 0x0U, 8, 0x43U),
+      encode_fp_r4(5, 0x0U, 3, 1, 0x2U, 9, 0x43U),
+      encode_fp_r4(4, 0x0U, 3, 2, 0x0U, 10, 0x4bU),
+      encode_fp_r4(4, 0x0U, 3, 1, 0x2U, 11, 0x4bU),
+    ]),
+    0U,
+  )
+  match single.run(6) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected zero-product single FMA signs to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(single.read_freg_u64(6), single_pos_zero)
+  assert_eq(single.read_freg_u64(7), single_neg_zero)
+  assert_eq(single.read_freg_u64(8), single_pos_zero)
+  assert_eq(single.read_freg_u64(9), single_neg_zero)
+  assert_eq(single.read_freg_u64(10), single_pos_zero)
+  assert_eq(single.read_freg_u64(11), single_neg_zero)
+  assert_eq(single.read_csr(csr_fcsr) & 0x1fU, 0U)
+
+  let double = make_runner(rv64fd_machine_config())
+  double.cpu.write_freg(1, 0x0000000000000000UL)
+  double.cpu.write_freg(2, 0x8000000000000000UL)
+  double.cpu.write_freg(3, exec_test_f64_bits(1.0))
+  double.cpu.write_freg(4, 0x0000000000000000UL)
+  double.cpu.write_freg(5, 0x8000000000000000UL)
+  double.load_program(
+    words_to_bytes([
+      encode_fp_r4(4, 0x1U, 3, 1, 0x0U, 6, 0x43U),
+      encode_fp_r4(5, 0x1U, 3, 2, 0x0U, 7, 0x43U),
+      encode_fp_r4(5, 0x1U, 3, 1, 0x0U, 8, 0x43U),
+      encode_fp_r4(5, 0x1U, 3, 1, 0x2U, 9, 0x43U),
+      encode_fp_r4(4, 0x1U, 3, 2, 0x0U, 10, 0x4bU),
+      encode_fp_r4(4, 0x1U, 3, 1, 0x2U, 11, 0x4bU),
+    ]),
+    0U,
+  )
+  match double.run(6) {
+    Running => ()
+    Trap(info) =>
+      fail(
+        "expected zero-product double FMA signs to run, got trap cause=\{trap_cause_name(info.cause)} pc=\{info.faulting_pc.to_string()} tv=\{info.trap_value.to_string()}",
+      )
+  }
+  assert_eq(double.read_freg_u64(6), 0x0000000000000000UL)
+  assert_eq(double.read_freg_u64(7), 0x8000000000000000UL)
+  assert_eq(double.read_freg_u64(8), 0x0000000000000000UL)
+  assert_eq(double.read_freg_u64(9), 0x8000000000000000UL)
+  assert_eq(double.read_freg_u64(10), 0x0000000000000000UL)
+  assert_eq(double.read_freg_u64(11), 0x8000000000000000UL)
+  assert_eq(double.read_csr(csr_fcsr) & 0x1fU, 0U)
+}
+
+///|
 test "rv64fd fused multiply-add exact finite results stay flag clean" {
   let csr_fcsr = 0x003
   let fcsr_frm_shift = 5

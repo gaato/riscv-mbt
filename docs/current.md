@@ -96,7 +96,9 @@
   rounding modes and NX. Single and double fused multiply-add now use
   exact-rational fused products for finite nonzero results under legal static
   and dynamic non-RNE modes, reject reserved static/dynamic rounding encodings,
-  and handle exact-zero fused result signs explicitly. NaN fused operations now write
+  and handle exact-zero fused result signs explicitly, including zero-product
+  plus signed-zero addend cases where the FMA opcode's effective product/addend
+  signs decide whether round-down selects `-0`. NaN fused operations now write
   canonical NaNs for quiet/signaling addend and multiplicand cases, accruing NV
   only for signaling NaNs. Invalid fused operations also accrue NV for
   `infinity * zero` and
