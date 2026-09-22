@@ -125,3 +125,31 @@ rv64ua	amoor_d	rv64ia	gating
 rv64ua	amoswap_d	rv64ia	gating
 rv64ua	amoxor_d	rv64ia	gating
 rv64ua	lrsc	rv64ia	gating
+# rv64mi/rv64si: privileged-architecture rows for the RV64GC baseline (ADR 0010).
+# breakpoint needs Sdtrig trigger CSRs and pmpaddr needs PMP; both are deliberately
+# unimplemented, so those two rows stay survey-only and are listed as inapplicable
+# in riscv_test_support_test.mbt.
+rv64mi	csr	rv64imafdc	gating
+rv64mi	illegal	rv64imafdc	gating
+rv64mi	instret_overflow	rv64imafdc	gating
+rv64mi	ld-misaligned	rv64imafdc	gating
+rv64mi	lh-misaligned	rv64imafdc	gating
+rv64mi	lw-misaligned	rv64imafdc	gating
+rv64mi	ma_addr	rv64imafdc	gating
+rv64mi	ma_fetch	rv64imafdc	gating
+rv64mi	mcsr	rv64imafdc	gating
+rv64mi	sbreak	rv64imafdc	gating
+rv64mi	scall	rv64imafdc	gating
+rv64mi	sd-misaligned	rv64imafdc	gating
+rv64mi	sh-misaligned	rv64imafdc	gating
+rv64mi	sw-misaligned	rv64imafdc	gating
+rv64mi	zicntr	rv64imafdc	gating
+rv64mi	breakpoint	rv64imafdc	survey
+rv64mi	pmpaddr	rv64imafdc	survey
+rv64si	csr	rv64imafdc	gating
+rv64si	dirty	rv64imafdc	gating
+rv64si	icache-alias	rv64imafdc	gating
+rv64si	ma_fetch	rv64imafdc	gating
+rv64si	sbreak	rv64imafdc	gating
+rv64si	scall	rv64imafdc	gating
+rv64si	wfi	rv64imafdc	gating

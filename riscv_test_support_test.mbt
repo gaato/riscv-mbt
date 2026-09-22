@@ -22,7 +22,21 @@ let official_riscv_tests_isa_dir_rv64 = "_build/riscv-tests-src-rv64/isa"
 
 ///|
 let official_rv64gc_riscv_tests_suites : ReadOnlyArray[String] = [
-  "rv64ui", "rv64um", "rv64ua", "rv64uc", "rv64uf", "rv64ud",
+  "rv64ui", "rv64um", "rv64ua", "rv64uc", "rv64uf", "rv64ud", "rv64mi", "rv64si",
+]
+
+///|
+/// Official rows whose source exists locally but which exercise features this
+/// emulator deliberately does not implement (ADR 0010). They are excluded from
+/// the source-completeness gate and kept in the manifest as `survey` rows so
+/// the exclusion stays visible instead of silently shrinking the source set.
+///
+/// - `rv64mi/breakpoint` requires the `Sdtrig` trigger CSRs (`tselect`,
+///   `tdata1`, ...); the test handler only tolerates an absent `tcontrol`.
+/// - `rv64mi/pmpaddr` requires PMP; the test fails when `pmpaddr*` probes read
+///   back zero rather than skipping.
+let official_rv64gc_riscv_tests_inapplicable_rows : ReadOnlyArray[String] = [
+  "rv64mi/breakpoint", "rv64mi/pmpaddr",
 ]
 
 ///|
@@ -78,10 +92,12 @@ async fn load_manifest_gating_keys() -> Array[String] {
 
 ///|
 fn is_official_rv64gc_riscv_tests_suite(suite : String) -> Bool {
-  // Keep the RV64GC source-completeness gate scoped to the six ISA suites that
-  // encode RV64IMAFDC_Zicsr_Zifencei behavior. Privileged, hypervisor, RV32,
-  // and future extension suites are tracked separately so they cannot
-  // accidentally redefine this task's completion boundary.
+  // Keep the RV64GC source-completeness gate scoped to the six unprivileged
+  // ISA suites that encode RV64IMAFDC_Zicsr_Zifencei behavior plus the two
+  // privileged suites (`rv64mi`, `rv64si`) that pin the M/S-mode CSR and trap
+  // contract those instructions rely on. Hypervisor, RV32, and optional
+  // extension suites are tracked separately so they cannot accidentally
+  // redefine this task's completion boundary.
   official_rv64gc_riscv_tests_suites.contains(suite)
 }
 
@@ -156,7 +172,11 @@ async fn load_local_rv64gc_source_keys() -> Array[String] {
           Some(name) => name.to_owned()
           None => abort("unreachable .S suffix check failed: \{entry}")
         }
-        keys.push(official_riscv_test_case_key(suite, name))
+        let key = official_riscv_test_case_key(suite, name)
+        if official_rv64gc_riscv_tests_inapplicable_rows.contains(key) {
+          continue
+        }
+        keys.push(key)
       }
     }
   }

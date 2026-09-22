@@ -32,8 +32,16 @@ async test "refactored execute path keeps official riscv-tests gating subset gre
   })
   let mut index = 0
   while index < cases.length() {
-    let result = run_official_riscv_test_case(cases[index])
-    assert_eq(result, 1U)
+    let test_case = cases[index]
+    let result = run_official_riscv_test_case(test_case)
+    if result != 1U {
+      // Name the row: a bare `5 != 1` cannot tell a reviewer which of the
+      // 140-plus gating binaries regressed or which TEST_CASE number failed
+      // (tohost = case * 2 + 1).
+      abort(
+        "official riscv-tests gating row failed: \{test_case.suite}/\{test_case.name} tohost=\{result}",
+      )
+    }
     index = index + 1
   }
 }

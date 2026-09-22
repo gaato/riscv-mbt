@@ -7,6 +7,7 @@ RUN zypper --non-interactive install \
     automake \
     make \
     perl \
+    which \
     socat \
     cross-riscv64-binutils \
     cross-riscv64-elf-gcc16 \

@@ -10738,6 +10738,29 @@ test "instruction fetch faults do not retire into instret" {
 }
 
 ///|
+test "minstret write suppresses its own increment" {
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
+  runner.load_program(
+    @riscv_mbt.words_to_bytes([
+      encode_csr(0x320, 4, 0x7U, 0), // csrci mcountinhibit, 4
+      encode_csr(0xB02, 0, 0x5U, 0), // csrwi minstret, 0
+      encode_csr(0xB02, 0, 0x2U, 10), // csrr a0, minstret
+      encode_csr(0xB02, 0, 0x2U, 11), // csrr a1, minstret
+    ]),
+    0U,
+  )
+  expect_step_running(runner, "expected mcountinhibit clear to retire")
+  expect_step_running(runner, "expected minstret write to retire")
+  assert_eq(runner.read_csr(0xB02), 0U)
+  expect_step_running(runner, "expected first minstret read to retire")
+  assert_eq(runner.cpu.read_reg(10), 0UL)
+  assert_eq(runner.read_csr(0xC02), 1U)
+  expect_step_running(runner, "expected second minstret read to retire")
+  assert_eq(runner.cpu.read_reg(11), 1UL)
+  assert_eq(runner.read_csr(0xC02), 2U)
+}
+
+///|
 test "machine counter csrs back unprivileged counter shadows" {
   let mcountinhibit = 0x320
   let mcycle = 0xB00

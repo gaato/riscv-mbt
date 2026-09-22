@@ -4,7 +4,7 @@
 
 - Active milestone: `v1.0 closure` under [ADR 0010](adr/0010-v1-completion-boundary.md)
 - Current checkpoint: `RV64GC` core, OpenSBI/`virt`-like platform, one-hart and SMP Linux boot, and Alpine rootfs boot natively and in browser Wasm are all in place; the repo builds and tests clean on the pinned MoonBit toolchain
-- Next concrete target: land the `rv64mi` / `rv64si` official `riscv-tests` gate, close Task 0063, push `main`, and tag `v1.0.0`
+- Next concrete target: push `main`, confirm CI and Pages are green, and tag `v1.0.0`
 - Design rule: protect implementation boundaries first, then add instructions
 - Milestone semantics:
   - `RV32IMC` = core completion checkpoint

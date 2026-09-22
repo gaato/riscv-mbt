@@ -1823,6 +1823,13 @@ fn Runner::execute_csr_write_checked(
       return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
     }
     self.write_csr_visible(csr, write_value)
+    // Privileged ISA, "Hardware Performance Monitor": counter writes take
+    // effect after the writing instruction completes. A minstret/minstreth
+    // write therefore replaces its own retirement increment. mcycle already
+    // increments before execution, so its writes naturally take precedence.
+    if csr == CSR_MINSTRET || csr == CSR_MINSTRETH {
+      self.retire_suppressed = true
+    }
   }
   self.write_xlen_reg(rd, old_value)
   self.cpu.pc = next_pc

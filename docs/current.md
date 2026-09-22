@@ -69,12 +69,12 @@
 - [Choose the full-rootfs I/O strategy](tasks/0060-full-rootfs-io-strategy.md) — `done`
 - [Harden full-rootfs Linux usability](tasks/0061-full-rootfs-usability-hardening.md) — `done`
 - [Harden rootfs init and service usability](tasks/0062-rootfs-init-service-usability.md) — `done`
-- [Complete RV64GC spec compliance](tasks/0063-rv64gc-spec-compliance.md) — `doing`
+- [Complete RV64GC spec compliance](tasks/0063-rv64gc-spec-compliance.md) — `done`
 
 ## Next Task
 
-- Next: finish [Task 0063](tasks/0063-rv64gc-spec-compliance.md) by promoting the applicable `rv64mi` / `rv64si` official `riscv-tests` rows to `gating` (with `rv64mi/breakpoint` and `rv64mi/pmpaddr` recorded as inapplicable because Debug Mode triggers and PMP are deliberately not implemented), fixing whatever those rows expose, and extending the RV64GC source-completeness gate in `rv32ui_gating_test.mbt` to cover them.
-- Then: push `main`, confirm CI and the GitHub Pages deploy are green on the pinned toolchain, and tag `v1.0.0`.
+- Next: publish `v1.0`. Push `main` (it is several hundred commits ahead of `origin/main`), confirm the CI and GitHub Pages workflows are green on the pinned toolchain, then tag `v1.0.0`.
+- Task 0063 is `done`: all applicable official `rv64ui`/`um`/`ua`/`uc`/`uf`/`ud`/`mi`/`si` rows are `gating` (144 rows), with `rv64mi/breakpoint` and `rv64mi/pmpaddr` recorded as inapplicable.
 - After `v1.0.0`: start from the post-`v1.0` backlog in [roadmap.md](roadmap.md); do not reopen closed tasks.
 
 ## Toolchain Contract

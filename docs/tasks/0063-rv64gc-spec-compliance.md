@@ -59,7 +59,40 @@ or more OpenRC-specific probing.
 
 ## Status
 
-- `doing`
+- `done`
+
+## Closure Note (2026-09-23)
+
+Closed under [ADR 0010](../adr/0010-v1-completion-boundary.md). The
+completion gate now covers the privileged suites as well as the six
+unprivileged ones:
+
+- `rv64mi` and `rv64si` sources were built through the podman toolchain
+  (`tools/podman/riscv-tests/Containerfile`, which now installs `which`
+  because the Tumbleweed base image dropped it and the upstream
+  `isa/Makefile` uses it to probe for the cross compiler).
+- First survey result: `rv64si` 7/7 pass; `rv64mi` 14/17 pass with
+  `instret_overflow`, `breakpoint`, and `pmpaddr` failing.
+- `instret_overflow` exposed a real gap: a `minstret` write did not suppress
+  the writing instruction's own retirement increment, so the following
+  `csrr` read back 1 instead of the written value. Fixed in
+  `Runner::execute_csr_write_checked` with a focused regression
+  (`minstret write suppresses its own increment`).
+- `rv64mi/breakpoint` (needs `Sdtrig` trigger CSRs) and `rv64mi/pmpaddr`
+  (needs PMP) are recorded as inapplicable in
+  `official_rv64gc_riscv_tests_inapplicable_rows` and kept in the manifest as
+  `survey` rows so the exclusion stays visible.
+- The manifest now carries 144 `gating` rows (15 `rv64mi`, 7 `rv64si`), and
+  the bidirectional source gate in `rv32ui_gating_test.mbt` covers all eight
+  RV64GC suites; it also names the failing row and `tohost` value instead of
+  a bare `5 != 1`.
+- Native integration evidence on the pinned toolchain: `cmd/alpine_probe
+  xlong --auto-root-handoff --post-init-shell-smoke` reaches
+  `post-init-shell-ok`.
+
+The remaining audit items listed in the gap list (deeper F/D flag corners,
+LR/SC forward-progress scheduling, a CSR-by-CSR WARL sweep) are post-`v1.0`
+backlog in `docs/roadmap.md`.
 
 ## Current RV64GC Gap List
 
