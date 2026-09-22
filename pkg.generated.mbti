@@ -566,4 +566,3 @@ pub enum Xlen {
 // Type aliases
 
 // Traits
-

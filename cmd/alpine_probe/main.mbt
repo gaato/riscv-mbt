@@ -320,7 +320,7 @@ async fn run_interactive_console(
             " tval=" +
             info.trap_value.to_string()
           @stdio.stdout.write("\n[riscv-mbt] " + outcome + "\n")
-          return { steps, last_output_steps, outcome, trapped: true, output }
+          return { steps, last_output_steps, outcome, trapped: true, output, }
         }
       }
     }
@@ -333,7 +333,7 @@ async fn run_interactive_console(
     last_output_steps = steps
     @stdio.stdout.write(tail)
   }
-  { steps, last_output_steps, outcome, trapped: false, output }
+  { steps, last_output_steps, outcome, trapped: false, output, }
 }
 
 ///|

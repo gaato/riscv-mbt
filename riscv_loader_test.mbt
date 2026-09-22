@@ -6,7 +6,9 @@ test "load_elf places PT_LOAD segments at linked addresses" {
   let load_addr = 0x80000000U
   let program = [encode_i(5, 0, 0x0U, 1, 0x13U), encode_i(7, 0, 0x0U, 2, 0x13U)]
   let elf = build_test_elf(load_addr, load_addr, program)
-  let runner = make_runner(official_riscv_tests_machine_config())
+  let runner = @riscv_mbt.make_runner(
+    @riscv_mbt.official_riscv_tests_machine_config(),
+  )
   match runner.load_elf(elf) {
     Loaded(info) => {
       assert_eq(info.entry_point, load_addr.to_uint64())
@@ -33,7 +35,9 @@ test "load_elf exposes tohost and signature symbols" {
   let elf = build_test_elf(load_addr, load_addr, [
     encode_i(1, 0, 0x0U, 1, 0x13U),
   ])
-  let runner = make_runner(official_riscv_tests_machine_config())
+  let runner = @riscv_mbt.make_runner(
+    @riscv_mbt.official_riscv_tests_machine_config(),
+  )
   match runner.load_elf(elf) {
     Loaded(info) => {
       match info.tohost_addr {
@@ -62,8 +66,8 @@ test "load_elf accepts ELF64 PT_LOAD segments at linked addresses" {
   let load_addr = 0x80000000U.to_uint64()
   let program = [encode_i(5, 0, 0x0U, 1, 0x13U), encode_i(7, 0, 0x0U, 2, 0x13U)]
   let elf = build_test_elf64(load_addr, load_addr, program)
-  let runner = make_runner(
-    official_riscv_tests_machine_config_for_xlen(xlen64()),
+  let runner = @riscv_mbt.make_runner(
+    @riscv_mbt.official_riscv_tests_machine_config_for_xlen(@riscv_mbt.xlen64()),
   )
   match runner.load_elf(elf) {
     Loaded(info) => {
@@ -91,8 +95,8 @@ test "load_elf exposes tohost and signature symbols for ELF64" {
   let elf = build_test_elf64(load_addr, load_addr, [
     encode_i(1, 0, 0x0U, 1, 0x13U),
   ])
-  let runner = make_runner(
-    official_riscv_tests_machine_config_for_xlen(xlen64()),
+  let runner = @riscv_mbt.make_runner(
+    @riscv_mbt.official_riscv_tests_machine_config_for_xlen(@riscv_mbt.xlen64()),
   )
   match runner.load_elf(elf) {
     Loaded(info) => {

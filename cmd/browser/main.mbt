@@ -2,7 +2,9 @@
 // delegate real guest behavior to BrowserRuntime and the shared Runner.
 
 ///|
-let browser_runtime : Ref[BrowserRuntime] = { val: BrowserRuntime::new_smoke() }
+let browser_runtime : Ref[BrowserRuntime] = {
+  val: BrowserRuntime::new_smoke(),
+}
 
 ///|
 pub fn browser_init() -> Unit {

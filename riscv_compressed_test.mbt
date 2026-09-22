@@ -96,12 +96,15 @@ fn encode_c_bnez(rs1 : Int, offset : Int) -> Int {
 }
 
 ///|
-fn expect_compressed_illegal(config : MachineConfig, raw : UInt) -> Unit raise {
+fn expect_compressed_illegal(
+  config : @riscv_mbt.MachineConfig,
+  raw : UInt,
+) -> Unit raise {
   // Most reserved-C tests need the same single-step contract: decode may expand
   // a shape, but the active profile must report an illegal instruction at the
   // original 16-bit word with the raw halfword preserved in mtval/stval-facing
   // trap metadata.
-  let runner = make_runner(config)
+  let runner = @riscv_mbt.make_runner(config)
   runner.load_program(mixed_program_bytes([(2, raw)]), 0U)
   match runner.step() {
     Trap(info) => {
@@ -324,7 +327,7 @@ fn mixed_program_bytes(parts : Array[(Int, UInt)]) -> Bytes {
 
 ///|
 test "compressed arithmetic instructions expand into the existing execute path" {
-  let runner = make_runner(default_machine_config())
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.default_machine_config())
   runner.load_program(
     mixed_program_bytes([
       (2, encode_c_li(9, 5).reinterpret_as_uint()),
@@ -352,7 +355,7 @@ test "compressed integer instructions are valid inside lr sc sequences" {
   // that are otherwise allowed in constrained LR/SC loops. They must not be
   // treated as reservation-breaking side effects between the LR and matching
   // SC on this single-hart execution path.
-  let runner = make_runner(virt_machine_config())
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.virt_machine_config())
   let addr = runner.cpu.pc + 0x100U.to_uint64()
   runner.bus.store_u32(addr, 77U.to_uint64())
   runner.cpu.write_reg(1, addr)
@@ -380,7 +383,7 @@ test "compressed integer instructions are valid inside lr sc sequences" {
 
 ///|
 test "compressed jumps and branches cross mixed-width boundaries correctly" {
-  let runner = make_runner(default_machine_config())
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.default_machine_config())
   runner.load_program(
     mixed_program_bytes([
       (2, encode_c_jal(6).reinterpret_as_uint()),
@@ -414,7 +417,7 @@ test "rv64c compressed control transfers allow halfword targets" {
   // RVC control-transfer immediates are scaled in 2-byte units. Under IALIGN=16
   // a taken C.J/C.B* target at pc % 4 == 2 is a normal target, not an
   // instruction-address-misaligned trap.
-  let jump = make_runner(rv64_machine_config())
+  let jump = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
   jump.load_program(
     mixed_program_bytes([
       (2, encode_c_j(6).reinterpret_as_uint()),
@@ -433,7 +436,7 @@ test "rv64c compressed control transfers allow halfword targets" {
   assert_eq(jump.read_reg_u64(10), 1U.to_uint64())
   assert_eq(jump.pc_u64(), 8U.to_uint64())
 
-  let branch_eq = make_runner(rv64_machine_config())
+  let branch_eq = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
   branch_eq.load_program(
     mixed_program_bytes([
       (2, encode_c_beqz(8, 6).reinterpret_as_uint()),
@@ -452,7 +455,7 @@ test "rv64c compressed control transfers allow halfword targets" {
   assert_eq(branch_eq.read_reg_u64(11), 1U.to_uint64())
   assert_eq(branch_eq.pc_u64(), 8U.to_uint64())
 
-  let branch_ne = make_runner(rv64_machine_config())
+  let branch_ne = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
   branch_ne.cpu.write_reg(8, 1U.to_uint64())
   branch_ne.load_program(
     mixed_program_bytes([
@@ -478,7 +481,7 @@ test "rv64c compressed zero-offset control transfers stay legal" {
   // A zero immediate is reserved for some compressed instructions, but not for
   // CJ/CB-format control transfers. A taken zero-offset C.J/C.B* is just a
   // self-target, while an untaken branch still retires to the next halfword.
-  let jump = make_runner(rv64_machine_config())
+  let jump = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
   jump.load_program(
     mixed_program_bytes([(2, encode_c_j(0).reinterpret_as_uint())]),
     0U,
@@ -489,7 +492,7 @@ test "rv64c compressed zero-offset control transfers stay legal" {
   }
   assert_eq(jump.pc_u64(), 0U.to_uint64())
 
-  let branch_eq_taken = make_runner(rv64_machine_config())
+  let branch_eq_taken = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
   branch_eq_taken.load_program(
     mixed_program_bytes([(2, encode_c_beqz(8, 0).reinterpret_as_uint())]),
     0U,
@@ -500,7 +503,9 @@ test "rv64c compressed zero-offset control transfers stay legal" {
   }
   assert_eq(branch_eq_taken.pc_u64(), 0U.to_uint64())
 
-  let branch_eq_not_taken = make_runner(rv64_machine_config())
+  let branch_eq_not_taken = @riscv_mbt.make_runner(
+    @riscv_mbt.rv64_machine_config(),
+  )
   branch_eq_not_taken.cpu.write_reg(8, 1U.to_uint64())
   branch_eq_not_taken.load_program(
     mixed_program_bytes([(2, encode_c_beqz(8, 0).reinterpret_as_uint())]),
@@ -512,7 +517,7 @@ test "rv64c compressed zero-offset control transfers stay legal" {
   }
   assert_eq(branch_eq_not_taken.pc_u64(), 2U.to_uint64())
 
-  let branch_ne_taken = make_runner(rv64_machine_config())
+  let branch_ne_taken = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
   branch_ne_taken.cpu.write_reg(8, 1U.to_uint64())
   branch_ne_taken.load_program(
     mixed_program_bytes([(2, encode_c_bnez(8, 0).reinterpret_as_uint())]),
@@ -524,7 +529,9 @@ test "rv64c compressed zero-offset control transfers stay legal" {
   }
   assert_eq(branch_ne_taken.pc_u64(), 0U.to_uint64())
 
-  let branch_ne_not_taken = make_runner(rv64_machine_config())
+  let branch_ne_not_taken = @riscv_mbt.make_runner(
+    @riscv_mbt.rv64_machine_config(),
+  )
   branch_ne_not_taken.load_program(
     mixed_program_bytes([(2, encode_c_bnez(8, 0).reinterpret_as_uint())]),
     0U,
@@ -541,7 +548,7 @@ test "rv64c compressed control transfers sign extend backward offsets" {
   // The same 2-byte-scaled control immediates are signed. Start execution at
   // the control instruction so a bad zero-extension would jump forward into
   // untouched memory instead of back to the marked target.
-  let jump = make_runner(rv64_machine_config())
+  let jump = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
   jump.load_program(
     mixed_program_bytes([
       (2, encode_c_li(10, 1).reinterpret_as_uint()),
@@ -558,7 +565,7 @@ test "rv64c compressed control transfers sign extend backward offsets" {
   assert_eq(jump.read_reg_u64(11), 31U.to_uint64())
   assert_eq(jump.pc_u64(), 0U.to_uint64())
 
-  let branch_eq = make_runner(rv64_machine_config())
+  let branch_eq = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
   branch_eq.load_program(
     mixed_program_bytes([
       (2, encode_c_li(12, 1).reinterpret_as_uint()),
@@ -575,7 +582,7 @@ test "rv64c compressed control transfers sign extend backward offsets" {
   assert_eq(branch_eq.read_reg_u64(13), 31U.to_uint64())
   assert_eq(branch_eq.pc_u64(), 0U.to_uint64())
 
-  let branch_ne = make_runner(rv64_machine_config())
+  let branch_ne = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
   branch_ne.load_program(
     mixed_program_bytes([
       (2, encode_c_li(8, 1).reinterpret_as_uint()),
@@ -599,12 +606,12 @@ test "rv64c rejects rv32-only compressed jal" {
   // slot for C.ADDIW, so a 16-bit JAL x1 expansion must not slip through the
   // shared JAL execute path.
   let raw = encode_c_jal(2).reinterpret_as_uint()
-  expect_compressed_illegal(rv64_machine_config(), raw)
+  expect_compressed_illegal(@riscv_mbt.rv64_machine_config(), raw)
 }
 
 ///|
 test "compressed load and store reuse the normal memory execute path" {
-  let runner = make_runner(default_machine_config())
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.default_machine_config())
   runner.load_program(
     mixed_program_bytes([
       (4, encode_i(32, 0, 0x0U, 10, 0x13U)),
@@ -627,7 +634,7 @@ test "rv64c compressed word memory uses high zero-extended offsets" {
   // C.LW/C.SW offsets are zero-extended and scaled by four, with bits spread
   // across the CL/CS formats. Use the maximum 124-byte offset so the test is
   // about compressed offset reconstruction, not just the ordinary memory path.
-  let runner = make_runner(rv64_machine_config())
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
   runner.cpu.write_reg(10, 0x100U.to_uint64())
   runner.cpu.write_reg(9, 0x80000001U.to_uint64())
   runner.load_program(
@@ -648,7 +655,7 @@ test "rv64c compressed word memory uses high zero-extended offsets" {
 ///|
 test "rv64c compressed double load and store keep rv32c aliases reserved" {
   let raw_value = (0x11223344U.to_uint64() << 32) | 0x55667788U.to_uint64()
-  let runner = make_runner(rv64_machine_config())
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
   runner.cpu.write_reg(10, 32U.to_uint64())
   runner.cpu.write_reg(9, raw_value)
   runner.load_program(
@@ -670,7 +677,7 @@ test "rv64c compressed double load and store keep rv32c aliases reserved" {
   // present, but this integer-only RV32 profile must not decode them as LD/SD.
   for raw_int in [encode_c_ld(11, 10, 16), encode_c_sd(9, 10, 16)] {
     expect_compressed_illegal(
-      default_machine_config(),
+      @riscv_mbt.default_machine_config(),
       raw_int.reinterpret_as_uint(),
     )
   }
@@ -682,7 +689,7 @@ test "rv64c compressed double memory uses high zero-extended offsets" {
   // the maximum 248-byte unsigned offset so integer double memory has the same
   // high-immediate protection as word and floating-double memory forms.
   let raw_value = 0x8877665544332211UL
-  let runner = make_runner(rv64_machine_config())
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
   runner.cpu.write_reg(10, 0x200U.to_uint64())
   runner.cpu.write_reg(9, raw_value)
   runner.load_program(
@@ -703,7 +710,7 @@ test "rv64c compressed double memory uses high zero-extended offsets" {
 ///|
 test "rv64dc compressed floating load and store reuse double memory path" {
   let raw = 0x12345678U.to_uint64()
-  let runner = make_runner(rv64fd_machine_config())
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.rv64fd_machine_config())
   runner.cpu.write_freg(8, raw)
   runner.load_program(
     mixed_program_bytes([
@@ -734,7 +741,7 @@ test "rv64dc compressed floating double memory uses high zero-extended offsets" 
   // offset layouts with the integer double forms, but their legality is tied
   // to MISA.D. Pin the highest register-based and stack-pointer offsets.
   let raw = 0x8877665544332211UL
-  let runner = make_runner(rv64fd_machine_config())
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.rv64fd_machine_config())
   runner.cpu.write_reg(2, 0x500U.to_uint64())
   runner.cpu.write_reg(10, 0x400U.to_uint64())
   runner.cpu.write_freg(8, raw)
@@ -765,7 +772,7 @@ test "rv64dc compressed floating double memory traps when fs is off" {
       encode_c_fldsp(8, 16),
       encode_c_fsdsp(8, 16),
     ] {
-    let runner = make_runner(rv64fd_machine_config())
+    let runner = @riscv_mbt.make_runner(@riscv_mbt.rv64fd_machine_config())
     runner.cpu.write_csr(0x300, 0U.to_uint64())
     runner.load_program(
       mixed_program_bytes([(2, raw.reinterpret_as_uint())]),
@@ -794,7 +801,7 @@ test "rv64dc compressed floating double memory follows fp state dirtiness" {
   let sd_bit = 1U.to_uint64() << 63
   let store_raw = 0x0123456789abcdefUL
 
-  let store_reader = make_runner(rv64fd_machine_config())
+  let store_reader = @riscv_mbt.make_runner(@riscv_mbt.rv64fd_machine_config())
   store_reader.cpu.write_reg(2, 0x400U.to_uint64())
   store_reader.cpu.write_reg(10, 0x300U.to_uint64())
   store_reader.cpu.write_freg(8, store_raw)
@@ -817,7 +824,7 @@ test "rv64dc compressed floating double memory follows fp state dirtiness" {
   assert_eq(store_reader.read_reg_u64(5) & fs_dirty, fs_initial)
   assert_eq(store_reader.read_reg_u64(5) & sd_bit, 0U.to_uint64())
 
-  let load_writer = make_runner(rv64fd_machine_config())
+  let load_writer = @riscv_mbt.make_runner(@riscv_mbt.rv64fd_machine_config())
   let register_load_raw = 0xfedcba9876543210UL
   let stack_load_raw = 0x8877665544332211UL
   load_writer.cpu.write_reg(2, 0x400U.to_uint64())
@@ -851,7 +858,7 @@ test "rv64dc compressed floating double memory preserves payloads without flags"
   let register_payload = 0x7ff0000000012345UL
   let stack_payload = 0x7ff8000000054321UL
 
-  let store_runner = make_runner(rv64fd_machine_config())
+  let store_runner = @riscv_mbt.make_runner(@riscv_mbt.rv64fd_machine_config())
   store_runner.cpu.write_csr(fcsr, existing_nx)
   store_runner.cpu.write_reg(2, 0x400U.to_uint64())
   store_runner.cpu.write_reg(10, 0x300U.to_uint64())
@@ -875,7 +882,7 @@ test "rv64dc compressed floating double memory preserves payloads without flags"
   assert_eq(store_runner.bus.load_u64(0x410U.to_uint64()), stack_payload)
   assert_eq(store_runner.read_reg_u64(5) & 0x1fU.to_uint64(), existing_nx)
 
-  let load_runner = make_runner(rv64fd_machine_config())
+  let load_runner = @riscv_mbt.make_runner(@riscv_mbt.rv64fd_machine_config())
   load_runner.cpu.write_csr(fcsr, existing_nx)
   load_runner.cpu.write_reg(2, 0x400U.to_uint64())
   load_runner.cpu.write_reg(10, 0x300U.to_uint64())
@@ -905,7 +912,7 @@ test "rv64gc compressed memory zero offsets stay legal" {
   // Unlike C.ADDI4SPN, C.ADDI16SP, and C.LUI, compressed memory forms do not
   // reserve a zero immediate. Keep offset zero on the ordinary load/store path
   // for register-based, stack-pointer, and D-extension floating aliases.
-  let runner = make_runner(rv64fd_machine_config())
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.rv64fd_machine_config())
   let word_value = 0x80000001U.to_uint64()
   let double_value = 0x1122334455667788UL
   let float_bits = 0x8877665544332211UL
@@ -956,7 +963,11 @@ test "rv64c compressed floating double forms require d extension" {
     encode_c_fldsp(8, 16),
     encode_c_fsdsp(8, 16),
   ]
-  for config in [rv64_machine_config(), rv64f_machine_config()] {
+  for
+    config in [
+      @riscv_mbt.rv64_machine_config(),
+      @riscv_mbt.rv64f_machine_config(),
+    ] {
     for raw_int in cases {
       let raw = raw_int.reinterpret_as_uint()
       expect_compressed_illegal(config, raw)
@@ -966,7 +977,7 @@ test "rv64c compressed floating double forms require d extension" {
 
 ///|
 test "stack-pointer compressed forms reuse addi shift and memory execute paths" {
-  let runner = make_runner(default_machine_config())
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.default_machine_config())
   runner.load_program(
     mixed_program_bytes([
       (2, encode_c_addi16sp(16).reinterpret_as_uint()),
@@ -991,7 +1002,7 @@ test "rv64c stack word and double memory use high zero-extended offsets" {
   // Stack-pointer forms use CI/CSS layouts rather than the register-based
   // CL/CS layouts. Exercise the highest word and doubleword offsets so the
   // scattered immediate bits stay zero-extended and scaled from x2.
-  let runner = make_runner(rv64_machine_config())
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
   let raw_double = 0x1122334455667788UL
   runner.cpu.write_reg(2, 0x300U.to_uint64())
   runner.cpu.write_reg(13, 0x80000001U.to_uint64())
@@ -1020,7 +1031,7 @@ test "rv64c addi16sp sign extends scaled stack offsets" {
   // a value scaled in 16-byte units. Cover the lower -512 edge, a small
   // negative prologue/epilogue-shaped adjustment, and the high positive edge
   // so the zero-reserved test is not the only ADDI16SP boundary.
-  let runner = make_runner(rv64_machine_config())
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
   runner.cpu.write_reg(2, 0x1000U.to_uint64())
   runner.load_program(
     mixed_program_bytes([
@@ -1043,7 +1054,7 @@ test "rv64c lui sign extends the compressed immediate" {
   // C.LUI carries a nonzero 6-bit immediate into bits 17:12 and sign-extends
   // bit 17 through XLEN. Cover both sides of that boundary plus the most
   // negative 6-bit immediate, which lands at -128 KiB after the LUI shift.
-  let runner = make_runner(rv64_machine_config())
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
   runner.load_program(
     mixed_program_bytes([
       (2, encode_c_lui(11, 31).reinterpret_as_uint()),
@@ -1067,7 +1078,7 @@ test "rv64c addi li and andi sign extend compressed immediates" {
   // These aliases all consume the shared 6-bit signed compressed immediate.
   // Pin them together so future decoder cleanup cannot accidentally treat one
   // of the CI/CB immediate paths as zero-extended.
-  let runner = make_runner(rv64_machine_config())
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
   runner.cpu.write_reg(8, 0x20U.to_uint64())
   runner.cpu.write_reg(10, 0xffU.to_uint64())
   runner.load_program(
@@ -1090,7 +1101,7 @@ test "rv64c addi li and andi sign extend compressed immediates" {
 
 ///|
 test "compressed reusable integer ALU forms expand through existing op helpers" {
-  let runner = make_runner(default_machine_config())
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.default_machine_config())
   runner.load_program(
     mixed_program_bytes([
       (2, encode_c_addi4spn(8, 32).reinterpret_as_uint()),
@@ -1118,7 +1129,7 @@ test "compressed reusable integer ALU forms expand through existing op helpers" 
 
 ///|
 test "compressed mixed-width integration covers addi4spn and ALU subgroup" {
-  let runner = make_runner(default_machine_config())
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.default_machine_config())
   runner.load_program(
     mixed_program_bytes([
       (2, encode_c_addi4spn(8, 32).reinterpret_as_uint()),
@@ -1150,7 +1161,7 @@ test "c.addi4spn zero immediate remains illegal for every compressed destination
   // accidentally make any zero-immediate form decode as a valid stack add.
   for rd in 8..<=15 {
     expect_compressed_illegal(
-      default_machine_config(),
+      @riscv_mbt.default_machine_config(),
       encode_c_addi4spn(rd, 0).reinterpret_as_uint(),
     )
   }
@@ -1161,7 +1172,7 @@ test "rv64c addi4spn decodes high unsigned stack offset" {
   // C.ADDI4SPN is the CIW-format unsigned stack-pointer immediate. The high
   // bits are deliberately scattered, so cover the maximum encoded nzuimm value
   // rather than only the small offsets used in integration tests.
-  let runner = make_runner(rv64_machine_config())
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
   runner.cpu.write_reg(2, 0x1000U.to_uint64())
   runner.load_program(
     mixed_program_bytes([(2, encode_c_addi4spn(15, 1020).reinterpret_as_uint())]),
@@ -1181,25 +1192,31 @@ test "rv64c quadrant zero funct3 100 remains reserved" {
   // C.FLD/C.FSD and integer C.LD/C.SD slots, so keep this code point illegal
   // even when the F/D extensions are otherwise enabled.
   let reserved_q0_funct3_100 = 0x8000U
-  expect_compressed_illegal(rv64_machine_config(), reserved_q0_funct3_100)
-  expect_compressed_illegal(rv64fd_machine_config(), reserved_q0_funct3_100)
+  expect_compressed_illegal(
+    @riscv_mbt.rv64_machine_config(),
+    reserved_q0_funct3_100,
+  )
+  expect_compressed_illegal(
+    @riscv_mbt.rv64fd_machine_config(),
+    reserved_q0_funct3_100,
+  )
 }
 
 ///|
 test "all-ones compressed sentinel traps as a 16-bit illegal instruction" {
-  expect_compressed_illegal(rv64_machine_config(), 0xffffU)
+  expect_compressed_illegal(@riscv_mbt.rv64_machine_config(), 0xffffU)
 }
 
 ///|
 test "all-zero compressed sentinel traps as a 16-bit illegal instruction" {
   // The C extension reserves all-zero as a permanent illegal instruction, not
   // merely as another ordinary ADDI4SPN reserved encoding.
-  expect_compressed_illegal(rv64_machine_config(), 0x0000U)
+  expect_compressed_illegal(@riscv_mbt.rv64_machine_config(), 0x0000U)
 }
 
 ///|
 test "rv64 compressed breakpoint traps as breakpoint" {
-  let runner = make_runner(rv64_machine_config())
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
   runner.load_program(
     mixed_program_bytes([(2, encode_c_add(0, 0).reinterpret_as_uint())]),
     0U,
@@ -1220,7 +1237,7 @@ test "rv64 compressed breakpoint traps as breakpoint" {
 ///|
 test "rv64 compressed breakpoint does not retire into instret" {
   let instret = 0xC02
-  let runner = make_runner(rv64_machine_config())
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
   runner.load_program(
     mixed_program_bytes([
       (2, encode_c_li(9, 1).reinterpret_as_uint()),
@@ -1252,7 +1269,7 @@ test "rv64 compressed breakpoint does not retire into instret" {
 ///|
 test "rv64c addiw with x0 destination remains reserved" {
   let raw = encode_c_addiw(0, 1).reinterpret_as_uint()
-  expect_compressed_illegal(rv64_machine_config(), raw)
+  expect_compressed_illegal(@riscv_mbt.rv64_machine_config(), raw)
 }
 
 ///|
@@ -1261,17 +1278,17 @@ test "rv64c lui and addi16sp zero immediates remain reserved for all destination
   // hint, rd=x2 is C.ADDI16SP, and other destinations are C.LUI. All three
   // subfamilies reserve the zero immediate rather than treating it as a no-op.
   expect_compressed_illegal(
-    rv64_machine_config(),
+    @riscv_mbt.rv64_machine_config(),
     encode_c_lui(0, 0).reinterpret_as_uint(),
   )
   expect_compressed_illegal(
-    rv64_machine_config(),
+    @riscv_mbt.rv64_machine_config(),
     encode_c_addi16sp(0).reinterpret_as_uint(),
   )
   for rd in 1..<=31 {
     if rd != 2 {
       expect_compressed_illegal(
-        rv64_machine_config(),
+        @riscv_mbt.rv64_machine_config(),
         encode_c_lui(rd, 0).reinterpret_as_uint(),
       )
     }
@@ -1284,10 +1301,10 @@ test "rv64c integer stack loads reserve x0 destination" {
   // x0. Keep those neighboring encodings separated in the C reserved audit.
   for raw_int in [encode_c_lwsp(0, 8), encode_c_ldsp(0, 8)] {
     let raw = raw_int.reinterpret_as_uint()
-    expect_compressed_illegal(rv64_machine_config(), raw)
+    expect_compressed_illegal(@riscv_mbt.rv64_machine_config(), raw)
   }
 
-  let store_zero = make_runner(rv64_machine_config())
+  let store_zero = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
   store_zero.load_program(
     mixed_program_bytes([
       (2, encode_c_swsp(0, 8).reinterpret_as_uint()),
@@ -1307,7 +1324,7 @@ test "rv64c addi nop and li hint forms execute as no-ops" {
   // immediate range. C.LI rd=x0 is another immediate HINT family, distinct
   // from ordinary C.LI because writes to x0 are discarded.
   for imm in -32..<=31 {
-    let addi_hint = make_runner(rv64_machine_config())
+    let addi_hint = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
     addi_hint.load_program(
       mixed_program_bytes([(2, encode_c_addi(0, imm).reinterpret_as_uint())]),
       0U,
@@ -1319,7 +1336,7 @@ test "rv64c addi nop and li hint forms execute as no-ops" {
     assert_eq(addi_hint.pc_u64(), 2U.to_uint64())
     assert_eq(addi_hint.read_reg_u64(0), 0U.to_uint64())
 
-    let li_hint = make_runner(rv64_machine_config())
+    let li_hint = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
     li_hint.load_program(
       mixed_program_bytes([(2, encode_c_li(0, imm).reinterpret_as_uint())]),
       0U,
@@ -1336,7 +1353,7 @@ test "rv64c addi nop and li hint forms execute as no-ops" {
   // architectural register value. Cover every nonzero destination so no rd
   // bit pattern is accidentally routed to a reserved or special case.
   for rd in 1..<=31 {
-    let zero_addi = make_runner(rv64_machine_config())
+    let zero_addi = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
     zero_addi.cpu.write_reg(rd, 0x600dU.to_uint64())
     zero_addi.load_program(
       mixed_program_bytes([(2, encode_c_addi(rd, 0).reinterpret_as_uint())]),
@@ -1357,7 +1374,7 @@ test "rv64c right shift zero-shamt forms execute as hints" {
   // Cover every destination shape: C.SRLI/C.SRAI use the compact x8..x15
   // register field, while C.SLLI uses the full rd field including x0.
   for rd in 8..<=15 {
-    let srli = make_runner(rv64_machine_config())
+    let srli = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
     srli.cpu.write_reg(rd, 0x80000000U.to_uint64())
     srli.load_program(
       mixed_program_bytes([(2, encode_c_srli(rd, 0).reinterpret_as_uint())]),
@@ -1370,7 +1387,7 @@ test "rv64c right shift zero-shamt forms execute as hints" {
     assert_eq(srli.pc_u64(), 2U.to_uint64())
     assert_eq(srli.read_reg_u64(rd), 0x80000000U.to_uint64())
 
-    let srai = make_runner(rv64_machine_config())
+    let srai = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
     srai.cpu.write_reg(rd, 0x80000000U.to_uint64())
     srai.load_program(
       mixed_program_bytes([(2, encode_c_srai(rd, 0).reinterpret_as_uint())]),
@@ -1385,7 +1402,7 @@ test "rv64c right shift zero-shamt forms execute as hints" {
   }
 
   for rd in 0..<=31 {
-    let slli = make_runner(rv64_machine_config())
+    let slli = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
     slli.cpu.write_reg(rd, 0x12345678U.to_uint64())
     slli.load_program(
       mixed_program_bytes([(2, encode_c_slli(rd, 0).reinterpret_as_uint())]),
@@ -1411,7 +1428,7 @@ test "rv64c architectural hints execute as no-ops" {
   // space so both positive and negative encodings stay harmless no-ops.
   for imm in -32..<=31 {
     if imm != 0 {
-      let lui_hint = make_runner(rv64_machine_config())
+      let lui_hint = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
       lui_hint.load_program(
         mixed_program_bytes([(2, encode_c_lui(0, imm).reinterpret_as_uint())]),
         0U,
@@ -1428,7 +1445,7 @@ test "rv64c architectural hints execute as no-ops" {
   // C.SLLI rd=x0 is also a HINT. Under RV64C the shamt field is six bits, so
   // cover the whole 0..63 range rather than only the low-shift examples.
   for shamt in 0..<=63 {
-    let slli_hint = make_runner(rv64_machine_config())
+    let slli_hint = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
     slli_hint.load_program(
       mixed_program_bytes([(2, encode_c_slli(0, shamt).reinterpret_as_uint())]),
       0U,
@@ -1448,7 +1465,7 @@ test "rv64c slli uses six bit unsigned shift amount" {
   // the high half of the range so C.SLLI cannot regress into RV32C's reserved
   // shamt[5]=1 behavior or a five-bit shift mask.
   for shamt in 32..<=63 {
-    let runner = make_runner(rv64_machine_config())
+    let runner = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
     runner.load_program(
       mixed_program_bytes([
         (4, encode_i(1, 0, 0x0U, 9, 0x13U)),
@@ -1471,7 +1488,7 @@ test "rv64c right shifts use six bit unsigned shift amount" {
   // zero-fill and SRAI sign-fill behavior distinct.
   let input = 0x8000000000000000UL
   for shamt in 32..<=63 {
-    let runner = make_runner(rv64_machine_config())
+    let runner = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
     runner.cpu.write_reg(8, input)
     runner.cpu.write_reg(9, input)
     runner.load_program(
@@ -1504,7 +1521,7 @@ test "rv32c compressed shifts reserve high shamt bit" {
   ]
   for raw in cases {
     expect_compressed_illegal(
-      default_machine_config(),
+      @riscv_mbt.default_machine_config(),
       raw.reinterpret_as_uint(),
     )
   }
@@ -1517,7 +1534,7 @@ test "rv32c compressed double stack integer forms remain reserved" {
   let cases = [encode_c_ldsp(9, 8), encode_c_sdsp(9, 8)]
   for raw in cases {
     expect_compressed_illegal(
-      default_machine_config(),
+      @riscv_mbt.default_machine_config(),
       raw.reinterpret_as_uint(),
     )
   }
@@ -1525,7 +1542,7 @@ test "rv32c compressed double stack integer forms remain reserved" {
 
 ///|
 test "rv64c compressed word ALU forms sign-extend and stay rv64-only" {
-  let runner = make_runner(rv64_machine_config())
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
   runner.cpu.write_reg(8, 0x00000000ffffffffUL)
   runner.cpu.write_reg(9, 1U.to_uint64())
   runner.cpu.write_reg(10, 0U.to_uint64())
@@ -1547,7 +1564,7 @@ test "rv64c compressed word ALU forms sign-extend and stay rv64-only" {
 
   for raw_int in [encode_c_addw(8, 9), encode_c_subw(10, 11)] {
     let raw = raw_int.reinterpret_as_uint()
-    expect_compressed_illegal(default_machine_config(), raw)
+    expect_compressed_illegal(@riscv_mbt.default_machine_config(), raw)
   }
 }
 
@@ -1555,7 +1572,7 @@ test "rv64c compressed word ALU forms sign-extend and stay rv64-only" {
 test "rv64c compressed word ALU reserved slots trap" {
   for raw_int in [encode_c_word_alu(0x2, 8, 9), encode_c_word_alu(0x3, 8, 9)] {
     let raw = raw_int.reinterpret_as_uint()
-    expect_compressed_illegal(rv64_machine_config(), raw)
+    expect_compressed_illegal(@riscv_mbt.rv64_machine_config(), raw)
   }
 }
 
@@ -1563,7 +1580,7 @@ test "rv64c compressed word ALU reserved slots trap" {
 test "compressed add rd x0 forms execute as hints" {
   for rs2 in 1..<=31 {
     let raw = encode_c_add(0, rs2)
-    let hint_runner = make_runner(rv64_machine_config())
+    let hint_runner = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
     hint_runner.load_program(
       mixed_program_bytes([(2, raw.reinterpret_as_uint())]),
       0U,
@@ -1582,7 +1599,7 @@ test "compressed add rd x0 forms execute as hints" {
 test "compressed add x0 ntl subrange executes as hints" {
   for rs2 in 2..<=5 {
     let raw = encode_c_add(0, rs2)
-    let runner = make_runner(rv64_machine_config())
+    let runner = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
     runner.load_program(
       mixed_program_bytes([(2, raw.reinterpret_as_uint())]),
       0U,
@@ -1604,7 +1621,7 @@ test "compressed add x0 ntl subrange executes as hints" {
 test "compressed mv rd x0 forms execute as hints" {
   for rs2 in 1..<=31 {
     let raw = encode_c_mv(0, rs2)
-    let hint_runner = make_runner(rv64_machine_config())
+    let hint_runner = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
     hint_runner.load_program(
       mixed_program_bytes([(2, raw.reinterpret_as_uint())]),
       0U,
@@ -1622,10 +1639,13 @@ test "compressed mv rd x0 forms execute as hints" {
 ///|
 test "compressed jump-register x0 forms keep reserved and ebreak meanings" {
   let jr_x0 = encode_c_jr(0)
-  expect_compressed_illegal(rv64_machine_config(), jr_x0.reinterpret_as_uint())
+  expect_compressed_illegal(
+    @riscv_mbt.rv64_machine_config(),
+    jr_x0.reinterpret_as_uint(),
+  )
 
   let jalr_x0 = encode_c_jalr(0)
-  let ebreak_runner = make_runner(rv64_machine_config())
+  let ebreak_runner = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
   ebreak_runner.load_program(
     mixed_program_bytes([(2, jalr_x0.reinterpret_as_uint())]),
     0U,
@@ -1648,7 +1668,7 @@ test "compressed jump-register forms use jalr target clearing and 2-byte links" 
   // target intentionally odd so the test proves bit 0 is cleared before the
   // compressed branch lands, while C.JALR still writes pc+2 as its link.
   let target = 9
-  let jr_runner = make_runner(default_machine_config())
+  let jr_runner = @riscv_mbt.make_runner(@riscv_mbt.default_machine_config())
   jr_runner.load_program(
     mixed_program_bytes([
       (4, encode_i(target, 0, 0x0U, 9, 0x13U)),
@@ -1667,7 +1687,7 @@ test "compressed jump-register forms use jalr target clearing and 2-byte links" 
   assert_eq(jr_runner.read_reg(6), 1U)
   assert_eq(jr_runner.pc(), 10U)
 
-  let jalr_runner = make_runner(default_machine_config())
+  let jalr_runner = @riscv_mbt.make_runner(@riscv_mbt.default_machine_config())
   jalr_runner.load_program(
     mixed_program_bytes([
       (4, encode_i(target, 0, 0x0U, 9, 0x13U)),
@@ -1695,7 +1715,7 @@ test "compressed cr rs2 zero forms are jump register forms not hints" {
   // Sweep the nonzero rd/rs1 encodings so a future hint audit cannot turn
   // these branch forms into harmless register no-ops.
   for rd in 1..<=31 {
-    let jr_runner = make_runner(rv64_machine_config())
+    let jr_runner = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
     let jr_target = 8
     jr_runner.cpu.write_reg(rd, jr_target.to_uint64())
     jr_runner.load_program(
@@ -1720,7 +1740,7 @@ test "compressed cr rs2 zero forms are jump register forms not hints" {
     }
     assert_eq(jr_runner.pc_u64(), 10U.to_uint64())
 
-    let jalr_runner = make_runner(rv64_machine_config())
+    let jalr_runner = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
     let jalr_target = 8
     jalr_runner.cpu.write_reg(rd, jalr_target.to_uint64())
     jalr_runner.load_program(
@@ -1752,12 +1772,12 @@ test "compressed cr rs2 zero forms are jump register forms not hints" {
 
 ///|
 test "unsupported compressed instructions still trap as illegal instruction" {
-  expect_compressed_illegal(default_machine_config(), 0x9c25U)
+  expect_compressed_illegal(@riscv_mbt.default_machine_config(), 0x9c25U)
 }
 
 ///|
 test "mixed 16-bit and 32-bit instructions keep sequential pc accounting correct" {
-  let runner = make_runner(default_machine_config())
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.default_machine_config())
   runner.load_program(
     mixed_program_bytes([
       (2, encode_c_li(9, 1).reinterpret_as_uint()),
@@ -1776,7 +1796,7 @@ test "mixed 16-bit and 32-bit instructions keep sequential pc accounting correct
 
 ///|
 test "rv64 carries forward the supported compressed subset through the mixed-width execute path" {
-  let runner = make_runner(rv64_machine_config())
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
   runner.load_program(
     mixed_program_bytes([
       (2, encode_c_li(9, 5).reinterpret_as_uint()),
@@ -1802,7 +1822,7 @@ test "rv64 carries forward the supported compressed subset through the mixed-wid
 
 ///|
 test "rv64c addiw executes where rv32c uses the c.jal opcode quadrant" {
-  let runner = make_runner(rv64_machine_config())
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
   runner.cpu.write_reg(10, 0x00000000ffffffffUL)
   runner.load_program(
     mixed_program_bytes([
@@ -1824,7 +1844,7 @@ test "rv64c addiw sign extends immediate and word result" {
   // C.ADDIW is not just a narrow C.ADDI spelling: it adds the signed CI
   // immediate in the RV64 ADDIW path, truncates to 32 bits, then sign-extends
   // the word result back to XLEN.
-  let runner = make_runner(rv64_machine_config())
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.rv64_machine_config())
   runner.cpu.write_reg(9, 0x0000000080000000UL)
   runner.cpu.write_reg(10, 0x000000007fffffffUL)
   runner.load_program(

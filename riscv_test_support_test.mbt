@@ -211,7 +211,7 @@ async fn load_official_riscv_test_cases() -> Array[OfficialRiscvTestCase] {
     let arch = fields[2]
     let tier = fields[3]
     let path = "\{official_riscv_tests_isa_dir_for_arch(arch)}/\{suite}-p-\{name}"
-    cases.push({ suite, name, arch, tier, path, max_steps: 200000 })
+    cases.push({ suite, name, arch, tier, path, max_steps: 200000, })
   }
   cases
 }
@@ -1545,7 +1545,7 @@ fn encode_fcvt_lu_d(rs1 : Int, rm : UInt, rd : Int) -> UInt {
 }
 
 ///|
-fn trap_cause_name(cause : TrapCause) -> String {
+fn trap_cause_name(cause : @riscv_mbt.TrapCause) -> String {
   match cause {
     InstructionAddressMisaligned => "instruction address misaligned"
     InstructionAccessFault => "instruction access fault"
@@ -1574,8 +1574,8 @@ fn trap_cause_name(cause : TrapCause) -> String {
 async fn run_official_riscv_test_case(
   test_case : OfficialRiscvTestCase,
 ) -> UInt {
-  let runner = make_runner(
-    official_riscv_tests_machine_config_for_arch(test_case.arch),
+  let runner = @riscv_mbt.make_runner(
+    @riscv_mbt.official_riscv_tests_machine_config_for_arch(test_case.arch),
   )
   let elf = read_official_test_elf(test_case.path)
   let info = match runner.load_elf(elf) {
@@ -1803,7 +1803,7 @@ fn build_test_elf(
   entry_point : UInt,
   program_words : Array[UInt],
 ) -> Bytes {
-  let program = words_to_bytes(program_words)
+  let program = @riscv_mbt.words_to_bytes(program_words)
   let buffer = build_test_elf_buffer(program, 52 + 32)
   let program_offset = 0x100
   let tables = append_test_elf_name_tables(buffer, 4)
@@ -1938,7 +1938,7 @@ fn build_test_elf64(
   entry_point : UInt64,
   program_words : Array[UInt],
 ) -> Bytes {
-  let program = words_to_bytes(program_words)
+  let program = @riscv_mbt.words_to_bytes(program_words)
   let buffer = build_test_elf_buffer(program, 64 + 56)
   let program_offset = 0x100
   let tables = append_test_elf_name_tables(buffer, 8)

@@ -3,9 +3,9 @@
 
 ///|
 test "32-bit fetch path still advances pc by 4" {
-  let runner = make_runner(default_machine_config())
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.default_machine_config())
   let raw = encode_i(5, 0, 0x0U, 1, 0x13U)
-  runner.load_program(words_to_bytes([raw]), 0U)
+  runner.load_program(@riscv_mbt.words_to_bytes([raw]), 0U)
   match runner.step() {
     Running => ()
     _ => fail("expected running")
@@ -16,7 +16,7 @@ test "32-bit fetch path still advances pc by 4" {
 
 ///|
 test "unsupported compressed-looking instruction traps as illegal instruction" {
-  let runner = make_runner(default_machine_config())
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.default_machine_config())
   let raw16 = Bytes::from_array([0x25U.to_byte(), 0x9cU.to_byte()])
   runner.load_program(raw16, 0U)
   match runner.step() {
@@ -36,7 +36,7 @@ test "unsupported compressed-looking instruction traps as illegal instruction" {
 test "32-bit-looking truncated fetch traps as instruction access fault" {
   // A low halfword that advertises a 32-bit instruction must translate/read the
   // high halfword too. This guards the Linux page-boundary fetch bug.
-  let runner = make_runner(default_machine_config())
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.default_machine_config())
   let last_two_bytes = (runner.config().ram_size - 2).reinterpret_as_uint()
   runner.load_program(
     Bytes::from_array([0x13U.to_byte(), 0x00U.to_byte()]),
@@ -57,8 +57,8 @@ test "32-bit-looking truncated fetch traps as instruction access fault" {
 
 ///|
 test "decode cache records hits after a small instruction loop" {
-  let runner = make_runner(default_machine_config())
-  let program = words_to_bytes([
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.default_machine_config())
+  let program = @riscv_mbt.words_to_bytes([
     encode_i(1, 1, 0x0U, 1, 0x13U),
     encode_j(-4, 0, 0x6fU),
   ])
@@ -77,8 +77,8 @@ test "decode cache records hits after a small instruction loop" {
 
 ///|
 test "fence.i flushes the decode cache" {
-  let runner = make_runner(default_machine_config())
-  runner.load_program(words_to_bytes([encode_fence_i()]), 0U)
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.default_machine_config())
+  runner.load_program(@riscv_mbt.words_to_bytes([encode_fence_i()]), 0U)
   let flushes_after_load = runner.decode_cache_flush_count()
   match runner.step() {
     Running => ()

@@ -1153,7 +1153,7 @@ fn Runner::raise_trap(
     self.cpu.pc = target
     Running
   } else {
-    Trap({ cause, faulting_pc, trap_value })
+    Trap({ cause, faulting_pc, trap_value, })
   }
 }
 

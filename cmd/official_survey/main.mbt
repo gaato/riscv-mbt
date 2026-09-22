@@ -87,7 +87,14 @@ async fn load_official_riscv_test_cases(
       suite +
       "-p-" +
       name
-    cases.push({ suite, name, arch, tier, path, max_steps: default_step_budget })
+    cases.push({
+      suite,
+      name,
+      arch,
+      tier,
+      path,
+      max_steps: default_step_budget,
+    })
   }
   cases
 }

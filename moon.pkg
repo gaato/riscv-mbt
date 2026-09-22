@@ -1,12 +1,11 @@
 import {
-  "moonbitlang/core/bench",
   "moonbitlang/core/queue",
 }
 
 import {
+  "moonbitlang/core/bench",
   "moonbitlang/async",
   "moonbitlang/async/fs",
-  "moonbitlang/async/io",
 } for "test"
 
 options(

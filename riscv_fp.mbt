@@ -256,7 +256,7 @@ fn fp_exact_rational_from_f64_bits(bits : UInt64) -> FpExactRational? {
       (1U.to_uint64() << 52) | fraction
     }
     if mantissa == 0U.to_uint64() {
-      Some({ num: BigInt::from_int(0), den: fp_bigint_one() })
+      Some({ num: BigInt::from_int(0), den: fp_bigint_one(), })
     } else {
       let exp2 = if exponent == 0 {
         1 - 1023 - 52
@@ -265,12 +265,12 @@ fn fp_exact_rational_from_f64_bits(bits : UInt64) -> FpExactRational? {
       }
       let magnitude = BigInt::from_uint64(mantissa)
       let unsigned = if exp2 >= 0 {
-        { num: magnitude << exp2, den: fp_bigint_one() }
+        { num: magnitude << exp2, den: fp_bigint_one(), }
       } else {
-        { num: magnitude, den: fp_bigint_pow2(0 - exp2) }
+        { num: magnitude, den: fp_bigint_pow2(0 - exp2), }
       }
       if sign {
-        Some({ num: -unsigned.num, den: unsigned.den })
+        Some({ num: -unsigned.num, den: unsigned.den, })
       } else {
         Some(unsigned)
       }
@@ -288,17 +288,17 @@ fn fp_exact_rational_from_f32_bits(bits : UInt) -> FpExactRational? {
     let fraction = bits & 0x007fffffU
     let mantissa = if exponent == 0 { fraction } else { (1U << 23) | fraction }
     if mantissa == 0U {
-      Some({ num: BigInt::from_int(0), den: fp_bigint_one() })
+      Some({ num: BigInt::from_int(0), den: fp_bigint_one(), })
     } else {
       let exp2 = if exponent == 0 { 1 - 127 - 23 } else { exponent - 127 - 23 }
       let magnitude = BigInt::from_uint64(mantissa.to_uint64())
       let unsigned = if exp2 >= 0 {
-        { num: magnitude << exp2, den: fp_bigint_one() }
+        { num: magnitude << exp2, den: fp_bigint_one(), }
       } else {
-        { num: magnitude, den: fp_bigint_pow2(0 - exp2) }
+        { num: magnitude, den: fp_bigint_pow2(0 - exp2), }
       }
       if sign {
-        Some({ num: -unsigned.num, den: unsigned.den })
+        Some({ num: -unsigned.num, den: unsigned.den, })
       } else {
         Some(unsigned)
       }
@@ -311,12 +311,12 @@ fn fp_exact_rational_add(
   lhs : FpExactRational,
   rhs : FpExactRational,
 ) -> FpExactRational {
-  { num: lhs.num * rhs.den + rhs.num * lhs.den, den: lhs.den * rhs.den }
+  { num: lhs.num * rhs.den + rhs.num * lhs.den, den: lhs.den * rhs.den, }
 }
 
 ///|
 fn fp_exact_rational_neg(value : FpExactRational) -> FpExactRational {
-  { num: -value.num, den: value.den }
+  { num: -value.num, den: value.den, }
 }
 
 ///|
@@ -332,7 +332,7 @@ fn fp_exact_rational_mul(
   lhs : FpExactRational,
   rhs : FpExactRational,
 ) -> FpExactRational {
-  { num: lhs.num * rhs.num, den: lhs.den * rhs.den }
+  { num: lhs.num * rhs.num, den: lhs.den * rhs.den, }
 }
 
 ///|
@@ -343,9 +343,9 @@ fn fp_exact_rational_div(
   if rhs.num.is_zero() {
     None
   } else if rhs.num < BigInt::from_int(0) {
-    Some({ num: -lhs.num * rhs.den, den: lhs.den * -rhs.num })
+    Some({ num: -lhs.num * rhs.den, den: lhs.den * -rhs.num, })
   } else {
-    Some({ num: lhs.num * rhs.den, den: lhs.den * rhs.num })
+    Some({ num: lhs.num * rhs.den, den: lhs.den * rhs.num, })
   }
 }
 
@@ -492,7 +492,7 @@ fn fp_round_rational_to_f32_bits(
   let sign_bits = if sign { 1U << 31 } else { 0U }
   let numerator = fp_bigint_abs(exact.num)
   if numerator.is_zero() {
-    { bits: sign_bits, flags: 0U.to_uint64() }
+    { bits: sign_bits, flags: 0U.to_uint64(), }
   } else {
     let exponent = fp_exact_rational_floor_log2(numerator, exact.den)
     if exponent > 127 {
@@ -738,7 +738,7 @@ fn fp_round_rational_to_f64_bits(
   let sign_bits = if sign { 1U.to_uint64() << 63 } else { 0U.to_uint64() }
   let numerator = fp_bigint_abs(exact.num)
   if numerator.is_zero() {
-    { bits: sign_bits, flags: 0U.to_uint64() }
+    { bits: sign_bits, flags: 0U.to_uint64(), }
   } else {
     let exponent = fp_exact_rational_floor_log2(numerator, exact.den)
     if exponent > 1023 {
@@ -859,14 +859,14 @@ fn f64_sqrt_rounded_bits(
   match fp_exact_rational_from_f64_bits(operand_bits) {
     Some(operand) => {
       if operand.num <= BigInt::from_int(0) {
-        return { bits: host_bits, flags: 0UL }
+        return { bits: host_bits, flags: 0UL, }
       }
       match fp_exact_rational_from_f64_bits(host_bits) {
         Some(host) => {
           let squared = fp_exact_rational_mul(host, host)
           let square_compare = fp_exact_rational_compare(squared, operand)
           if square_compare == 0 {
-            return { bits: host_bits, flags: 0UL }
+            return { bits: host_bits, flags: 0UL, }
           }
           let (lower_bits, upper_bits) = if square_compare < 0 {
             (host_bits, f64_next_up_positive_finite(host_bits))
@@ -884,12 +884,12 @@ fn f64_sqrt_rounded_bits(
             4 => f64_sqrt_midpoint_choice(lower_bits, upper_bits, operand, mode)
             _ => host_bits
           }
-          { bits, flags: fp_fflag_nx }
+          { bits, flags: fp_fflag_nx, }
         }
-        None => { bits: host_bits, flags: 0UL }
+        None => { bits: host_bits, flags: 0UL, }
       }
     }
-    None => { bits: host_bits, flags: 0UL }
+    None => { bits: host_bits, flags: 0UL, }
   }
 }
 
@@ -967,14 +967,14 @@ fn f32_sqrt_rounded_bits(
   match fp_exact_rational_from_f32_bits(operand_bits) {
     Some(operand) => {
       if operand.num <= BigInt::from_int(0) {
-        return { bits: host_bits, flags: 0UL }
+        return { bits: host_bits, flags: 0UL, }
       }
       match fp_exact_rational_from_f32_bits(host_bits) {
         Some(host) => {
           let squared = fp_exact_rational_mul(host, host)
           let square_compare = fp_exact_rational_compare(squared, operand)
           if square_compare == 0 {
-            return { bits: host_bits, flags: 0UL }
+            return { bits: host_bits, flags: 0UL, }
           }
           let (lower_bits, upper_bits) = if square_compare < 0 {
             (host_bits, f32_next_up_positive_finite(host_bits))
@@ -989,12 +989,12 @@ fn f32_sqrt_rounded_bits(
             4 => f32_sqrt_midpoint_choice(lower_bits, upper_bits, operand, mode)
             _ => host_bits
           }
-          { bits, flags: fp_fflag_nx }
+          { bits, flags: fp_fflag_nx, }
         }
-        None => { bits: host_bits, flags: 0UL }
+        None => { bits: host_bits, flags: 0UL, }
       }
     }
-    None => { bits: host_bits, flags: 0UL }
+    None => { bits: host_bits, flags: 0UL, }
   }
 }
 
@@ -1442,9 +1442,9 @@ fn Runner::fp_rounding_mode_legal(self : Runner, rm : UInt) -> Bool {
 fn fp_signed_integer_magnitude(value : UInt64) -> FpIntMagnitude {
   let sign = value >> 63 != 0U.to_uint64()
   if sign {
-    { sign, magnitude: bit_not(value) + 1U.to_uint64() }
+    { sign, magnitude: bit_not(value) + 1U.to_uint64(), }
   } else {
-    { sign, magnitude: value }
+    { sign, magnitude: value, }
   }
 }
 
@@ -1487,7 +1487,7 @@ fn fp_round_scaled_u64_to_integer(
   mode : UInt,
 ) -> FpRoundedIntegerBits {
   if scale_shift >= 0 {
-    { bits: magnitude << scale_shift, inexact: false }
+    { bits: magnitude << scale_shift, inexact: false, }
   } else {
     let shift = 0 - scale_shift
     if shift >= 64 {
@@ -1539,7 +1539,7 @@ fn fp_round_u64_to_ieee_bits(
     } else {
       0U.to_uint64()
     }
-    { bits: sign_bits, inexact: false }
+    { bits: sign_bits, inexact: false, }
   } else {
     let precision = fraction_bits + 1
     let msb = fp_u64_msb_index(magnitude)
@@ -1574,7 +1574,10 @@ fn fp_round_u64_to_ieee_bits(
     let exponent_bits = exponent.reinterpret_as_uint().to_uint64() <<
       fraction_bits
     let fraction_mask = (1U.to_uint64() << fraction_bits) - 1U.to_uint64()
-    { bits: sign_bits | exponent_bits | (significand & fraction_mask), inexact }
+    {
+      bits: sign_bits | exponent_bits | (significand & fraction_mask),
+      inexact,
+    }
   }
 }
 
@@ -1612,9 +1615,9 @@ fn fp_round_f64_bits_to_f32_bits(
     } else {
       0U.to_uint64()
     }
-    { bits: f32_canonical_nan_bits(), flags }
+    { bits: f32_canonical_nan_bits(), flags, }
   } else if f64_is_infinite_bits(bits) {
-    { bits: sign_bits | 0x7f800000U, flags: 0U.to_uint64() }
+    { bits: sign_bits | 0x7f800000U, flags: 0U.to_uint64(), }
   } else {
     let exponent = ((bits >> 52) & 0x7ffU.to_uint64()).to_int()
     let fraction = bits & ((1U.to_uint64() << 52) - 1U.to_uint64())
@@ -1624,7 +1627,7 @@ fn fp_round_f64_bits_to_f32_bits(
       (1U.to_uint64() << 52) | fraction
     }
     if mantissa == 0U.to_uint64() {
-      { bits: sign_bits, flags: 0U.to_uint64() }
+      { bits: sign_bits, flags: 0U.to_uint64(), }
     } else {
       let exp2 = if exponent == 0 {
         1 - 1023 - 52

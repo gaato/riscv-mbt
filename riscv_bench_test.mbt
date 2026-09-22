@@ -3,10 +3,10 @@
 // integration tests.
 
 ///|
-fn make_tight_add_loop_runner() -> Runner {
+fn make_tight_add_loop_runner() -> @riscv_mbt.Runner {
   // A decode/dispatch baseline with almost no memory traffic.
-  let runner = make_runner(default_machine_config())
-  let program = words_to_bytes([
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.default_machine_config())
+  let program = @riscv_mbt.words_to_bytes([
     encode_i(1, 1, 0x0U, 1, 0x13U),
     encode_j(-4, 0, 0x6fU),
   ])
@@ -15,14 +15,14 @@ fn make_tight_add_loop_runner() -> Runner {
 }
 
 ///|
-fn make_word_copy_loop_runner() -> Runner {
+fn make_word_copy_loop_runner() -> @riscv_mbt.Runner {
   // A scalar load/store baseline for memory and translation-cache changes.
-  let runner = make_runner(virt_machine_config())
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.virt_machine_config())
   let pc = 0x80000000U.to_uint64()
   let src = 0x80100000U.to_uint64()
   let dst = 0x80200000U.to_uint64()
   let words = 20000
-  let program = words_to_bytes([
+  let program = @riscv_mbt.words_to_bytes([
     encode_i(0, 11, 0x2U, 14, 0x03U), // lw a4, 0(a1)
     encode_i(4, 11, 0x0U, 11, 0x13U), // addi a1, a1, 4
     encode_s(0, 14, 31, 0x2U, 0x23U), // sw a4, 0(t6)
@@ -41,13 +41,13 @@ fn make_word_copy_loop_runner() -> Runner {
 }
 
 ///|
-fn make_dword_copy_loop_runner() -> Runner {
-  let runner = make_runner(virt_machine_config())
+fn make_dword_copy_loop_runner() -> @riscv_mbt.Runner {
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.virt_machine_config())
   let pc = 0x80000000U.to_uint64()
   let src = 0x80100000U.to_uint64()
   let dst = 0x80200000U.to_uint64()
   let words = 10000
-  let program = words_to_bytes([
+  let program = @riscv_mbt.words_to_bytes([
     encode_i(0, 11, 0x3U, 14, 0x03U), // ld a4, 0(a1)
     encode_i(8, 11, 0x0U, 11, 0x13U), // addi a1, a1, 8
     encode_s(0, 14, 31, 0x3U, 0x23U), // sd a4, 0(t6)
@@ -77,12 +77,12 @@ fn encode_amo_aqrl(
 }
 
 ///|
-fn make_amoadd_word_loop_runner() -> Runner {
-  let runner = make_runner(virt_machine_config())
+fn make_amoadd_word_loop_runner() -> @riscv_mbt.Runner {
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.virt_machine_config())
   let pc = 0x80000000U.to_uint64()
   let lock_addr = 0x80100000U.to_uint64()
   let iterations = 33333
-  let program = words_to_bytes([
+  let program = @riscv_mbt.words_to_bytes([
     encode_amo_aqrl(0x00U, 15, 10, 0x2U, 14), // amoadd.w.aqrl a4, a5, (a0)
     encode_i(1, 6, 0x0U, 6, 0x13U), // addi t1, t1, 1
     encode_b(-8, 7, 6, 0x6U, 0x63U), // bltu t1, t2, loop
@@ -96,15 +96,15 @@ fn make_amoadd_word_loop_runner() -> Runner {
 }
 
 ///|
-fn make_spinlock_shape_loop_runner() -> Runner {
-  let runner = make_runner(virt_machine_config())
+fn make_spinlock_shape_loop_runner() -> @riscv_mbt.Runner {
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.virt_machine_config())
   let pc = 0x80000000U.to_uint64()
   let table_addr = 0x80100000U.to_uint64()
   let halfword_addr = 0x80200000U.to_uint64()
   let tp_addr = 0x80300000U.to_uint64()
   let lock_addr = 0x80400000U.to_uint64()
   let iterations = 6250
-  let program = words_to_bytes([
+  let program = @riscv_mbt.words_to_bytes([
     encode_fence(), // fence rw,rw
     encode_i(32, 4, 0x2U, 13, 0x03U), // lw a3, 32(tp)
     encode_u(0x80100000U, 14, 0x37U), // lui a4, table high bits
@@ -134,10 +134,10 @@ fn make_spinlock_shape_loop_runner() -> Runner {
 }
 
 ///|
-fn make_vector_add_lmul2_loop_runner() -> Runner {
-  let runner = make_runner(rv64fdv_machine_config())
+fn make_vector_add_lmul2_loop_runner() -> @riscv_mbt.Runner {
+  let runner = @riscv_mbt.make_runner(@riscv_mbt.rv64fdv_machine_config())
   let iterations = 20000
-  let program = words_to_bytes([
+  let program = @riscv_mbt.words_to_bytes([
     encode_vsetivli(0, 8U, 0x11U), // e32,m2: eight active elements.
     encode_vmv_v_i(2, 1),
     encode_vmv_v_i(4, 2),

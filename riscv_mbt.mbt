@@ -697,7 +697,7 @@ pub fn virtio_blk_machine_config() -> MachineConfig {
 
 ///|
 pub fn CsrFile::new() -> CsrFile {
-  { registers: Array::make(4096, 0U.to_uint64()) }
+  { registers: Array::make(4096, 0U.to_uint64()), }
 }
 
 ///|
@@ -1224,7 +1224,7 @@ pub fn CpuState::write_csr(
 
 ///|
 pub fn Bus::new(base_addr : UInt64, size : Int) -> Bus {
-  { base_addr, memory: Array::make(size, 0U.to_byte()) }
+  { base_addr, memory: Array::make(size, 0U.to_byte()), }
 }
 
 ///|

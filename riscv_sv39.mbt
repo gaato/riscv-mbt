@@ -445,7 +445,7 @@ fn Runner::fetch_instruction(
   let low16 = self.bus.fetch_u16(low_pa)
   let length = instruction_length_from_low16(low16)
   if length == 2 {
-    return (Some({ fetch_pa: low_pa, raw: low16, length }), None)
+    return (Some({ fetch_pa: low_pa, raw: low16, length, }), None)
   }
   let high_addr = addr + 2U.to_uint64()
   let high_pa = match
@@ -461,7 +461,7 @@ fn Runner::fetch_instruction(
     )
   }
   let high16 = self.bus.fetch_u16(high_pa)
-  (Some({ fetch_pa: low_pa, raw: low16 | (high16 << 16), length }), None)
+  (Some({ fetch_pa: low_pa, raw: low16 | (high16 << 16), length, }), None)
 }
 
 ///|
