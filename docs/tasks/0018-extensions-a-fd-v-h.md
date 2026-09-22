@@ -27,7 +27,11 @@ Once compatibility goals are explicit, extension work should proceed in a delibe
 
 ## Status
 
-- `doing`
+- `done`
+
+## Closure Note (2026-09-23)
+
+Closed under [ADR 0010](../adr/0010-v1-completion-boundary.md). `A`, `F`, and `D` landed and are part of the gated `RV64GC` baseline. `V` stops at the Task 0048 slice as an experimental, survey-only extension, and `H` is not started; both are post-`v1.0` backlog in `docs/roadmap.md`.
 
 ## Progress Notes
 

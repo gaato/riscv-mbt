@@ -2,9 +2,9 @@
 
 ## Current Position
 
-- Active milestone: `Extensions: A, F/D, V, H`
-- Current checkpoint: browser Wasm Linux boot is complete, and the active browser path now targets Alpine rootfs boot with a measured `wasm-gc` default
-- Next concrete target: keep Alpine initramfs as the short functional gate, then add a minimal `virtio,mmio` `virtio-blk` path so a normal Alpine root filesystem can be mounted as a block device
+- Active milestone: `v1.0 closure` under [ADR 0010](adr/0010-v1-completion-boundary.md)
+- Current checkpoint: `RV64GC` core, OpenSBI/`virt`-like platform, one-hart and SMP Linux boot, and Alpine rootfs boot natively and in browser Wasm are all in place; the repo builds and tests clean on the pinned MoonBit toolchain
+- Next concrete target: land the `rv64mi` / `rv64si` official `riscv-tests` gate, close Task 0063, push `main`, and tag `v1.0.0`
 - Design rule: protect implementation boundaries first, then add instructions
 - Milestone semantics:
   - `RV32IMC` = core completion checkpoint
@@ -60,3 +60,17 @@
 - Repo docs are the source of truth.
 - GitHub Issues mirror milestones or task bundles but should never contain stricter details than the repo docs.
 - ADRs record decisions that would otherwise force future agents to guess.
+
+## Post-v1.0 Backlog
+
+Ordered by expected software value. None of these is required for `v1.0`
+(see [ADR 0010](adr/0010-v1-completion-boundary.md)).
+
+1. Daemon-style OpenRC service supervision in the Alpine rootfs (the open tail of Task 0062), preceded by the emulator-side process/signal/poll/pipe/timer inspection that task recorded
+2. `V` completion: vector floating-point, reductions, `vstart != 0` restart semantics, wider segment forms; then decide whether `V` is advertised to Linux
+3. Bounded uop / basic-block caching under the ADR 0009 gates, and browser wall-clock tuning of the Alpine boot
+4. `riscv-arch-test` conformance and an RV64 QEMU cross-check path alongside the existing RV32 one
+5. Deeper F/D exception-flag and NaN corner-case audits beyond the official `riscv-tests` surface
+6. Optional extensions in priority order: `Zba`/`Zbb`/`Zbs`, `Zicbo*`, `Zfh`, `Svnapot`, then `H`
+7. PMP and Debug Mode / `Sdtrig`, only if a concrete guest needs them
+8. The RV32 supervisor / `Sv32` side branch (Task 0009)

@@ -45,7 +45,18 @@ Alpine is the first target because the official `riscv64` minirootfs is small, c
 
 ## Status
 
-- `doing`
+- `done`
+
+## Closure Note (2026-09-23)
+
+Closed under [ADR 0010](../adr/0010-v1-completion-boundary.md). Every
+acceptance criterion above has recorded evidence in the progress notes: the
+artifacts build from official Alpine releases, the browser loads all four
+artifact kinds from the manifest, browser serial reaches the initramfs, shell,
+prompt, and `browser-input-ok` markers, `--alpine-functional-smoke` reaches
+`linux-functional-ok`, and the backend choice is justified by measurement in
+ADR 0007 and ADR 0008. Further wall-clock tuning of the browser boot is
+post-`v1.0` work.
 
 ## Progress Notes
 

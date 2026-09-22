@@ -33,7 +33,18 @@ The first vector arithmetic, first unit-stride memory subset, and first masked a
 
 ## Status
 
-- `doing`
+- `done`
+
+## Closure Note (2026-09-23)
+
+Closed under [ADR 0010](../adr/0010-v1-completion-boundary.md). The
+acceptance criteria above are met and exceeded: the progress notes record
+`LMUL` 1-8 and fractional `LMUL`, strided/indexed/masked/segment/fault-only-first
+memory forms, widening arithmetic, and permutation slices, all with dedicated
+decode/execute regressions. The remaining `V` backlog (vector floating-point,
+reductions, `vstart != 0` restart semantics, wider segment forms) is
+post-`v1.0` work tracked in `docs/roadmap.md`; `V` stays an experimental,
+survey-only extension for `v1.0`.
 
 ## Progress Notes
 

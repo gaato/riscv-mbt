@@ -78,3 +78,4 @@ Extend the post-Linux emulator in software-value order rather than simply by spe
   - `LMUL=1` only
   - `vstart!=0` remains unsupported
 - The browser Wasm Linux boot goal is now complete, so the remaining extension sequence resumes at `0048`, the first broader vector memory/addressing + `LMUL>1` slice
+- `v1.0` boundary ([ADR 0010](../adr/0010-v1-completion-boundary.md), 2026-09-23): `A`, `F`, and `D` are part of the `RV64GC` baseline and gated by the official `riscv-tests` manifest. `V` stops at the Task 0048 slice as an experimental, survey-only extension; vector FP, reductions, and `vstart` restart are post-`v1.0` backlog. `H` is not started and is post-`v1.0`.

@@ -40,3 +40,4 @@ Move from “featureful” to “mature” by making the emulator verifiable, ob
 - Native and browser Linux boot proofs now record cache hit/miss observations.
 - Full basic-block/uop caching and a broader common-instruction fast executor remain future work because they require a larger execution-boundary refactor.
 - A MoonBit refactor slice split FP and vector execution into dedicated files, kept `Runner::step` as the dispatcher, reduced `riscv_execute.mbt` below the 2k-line guideline, and removed current `moon check` warnings.
+- `v1.0` boundary ([ADR 0010](../adr/0010-v1-completion-boundary.md), 2026-09-23): the layered test suites (decode, execute, integration, official `riscv-tests` gating, native Linux/Alpine probes) are the `v1.0` verification surface. `riscv-arch-test`, the RV64 QEMU cross-check, and uop caching remain post-`v1.0` backlog.

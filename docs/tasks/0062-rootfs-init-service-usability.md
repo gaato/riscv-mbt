@@ -49,7 +49,17 @@ but it is not the same as a more ordinary Alpine service environment.
 
 ## Status
 
-- `doing`
+- `done`
+
+## Closure Note (2026-09-23)
+
+Closed under [ADR 0010](../adr/0010-v1-completion-boundary.md). All four
+acceptance criteria are met: the BusyBox-init baseline is documented from the
+generated image, the init.d-style, service-persistence, and OpenRC surface /
+registration / action probes all pass, and the daemon-style OpenRC supervision
+timeout is recorded with its emulator-side follow-up (process/signal/poll/pipe
+handling), which fed into Task 0063. Daemon-style OpenRC service supervision
+itself is deferred to the post-`v1.0` backlog in `docs/roadmap.md`.
 
 ## Progress Notes
 
