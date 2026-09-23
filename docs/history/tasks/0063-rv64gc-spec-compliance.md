@@ -63,7 +63,7 @@ or more OpenRC-specific probing.
 
 ## Closure Note (2026-09-23)
 
-Closed under [ADR 0010](../adr/0010-v1-completion-boundary.md). The
+Closed under [ADR 0010](../../adr/0010-v1-completion-boundary.md). The
 completion gate now covers the privileged suites as well as the six
 unprivileged ones:
 

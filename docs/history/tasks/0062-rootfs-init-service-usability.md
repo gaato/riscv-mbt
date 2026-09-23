@@ -53,7 +53,7 @@ but it is not the same as a more ordinary Alpine service environment.
 
 ## Closure Note (2026-09-23)
 
-Closed under [ADR 0010](../adr/0010-v1-completion-boundary.md). All four
+Closed under [ADR 0010](../../adr/0010-v1-completion-boundary.md). All four
 acceptance criteria are met: the BusyBox-init baseline is documented from the
 generated image, the init.d-style, service-persistence, and OpenRC surface /
 registration / action probes all pass, and the daemon-style OpenRC supervision

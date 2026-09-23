@@ -21,7 +21,7 @@ If the project spends time on 32-bit system experiments before widening, the cle
 
 ## Dependencies
 
-- [Task 0008](0008-minimal-m-mode.md)
+- [Task 0008](../history/tasks/0008-minimal-m-mode.md)
 
 ## Status
 

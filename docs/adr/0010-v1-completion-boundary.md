@@ -2,7 +2,10 @@
 
 ## Status
 
-Accepted
+Accepted; superseded for the release/tag framing by
+[ADR 0011](0011-no-version-tags-and-new-direction.md). No `v1.0.0` tag will
+be created. The completion gate below remains a record of what was proven by
+2026-09-23.
 
 ## Date
 

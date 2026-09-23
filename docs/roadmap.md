@@ -2,9 +2,10 @@
 
 ## Current Position
 
-- Active milestone: `v1.0 closure` under [ADR 0010](adr/0010-v1-completion-boundary.md)
+- Active milestone: [Milestone 13: Fast, Observable, Networked Linux](milestones/13-fast-observable-networked-linux.md) under [ADR 0011](adr/0011-no-version-tags-and-new-direction.md)
 - Current checkpoint: `RV64GC` core, OpenSBI/`virt`-like platform, one-hart and SMP Linux boot, and Alpine rootfs boot natively and in browser Wasm are all in place; the repo builds and tests clean on the pinned MoonBit toolchain
-- Next concrete target: push `main`, confirm CI and Pages are green, and tag `v1.0.0`
+- Next concrete target: Task 0065 (step hot-path de-allocation), then the Milestone 13 slice order
+- No version tags; `moon.mod` stays `0.1.0` until a mooncakes release
 - Design rule: protect implementation boundaries first, then add instructions
 - Milestone semantics:
   - `RV32IMC` = core completion checkpoint
@@ -30,6 +31,7 @@
 11. [Verification, debug, and performance](milestones/10-verification-debug-performance.md)
 12. [Browser Demo](milestones/11-browser-demo.md)
 13. [Browser Wasm Linux Boot](milestones/12-browser-wasm-linux-boot.md)
+14. [Fast, Observable, Networked Linux](milestones/13-fast-observable-networked-linux.md)
 
 ## Dependency Spine
 
@@ -61,14 +63,15 @@
 - GitHub Issues mirror milestones or task bundles but should never contain stricter details than the repo docs.
 - ADRs record decisions that would otherwise force future agents to guess.
 
-## Post-v1.0 Backlog
+## Backlog
 
-Ordered by expected software value. None of these is required for `v1.0`
-(see [ADR 0010](adr/0010-v1-completion-boundary.md)).
+Ordered by expected software value. Milestone 13 owns bounded uop / basic-block
+caching (its last slice, under the ADR 0009 gates) and browser wall-clock
+tuning; the items below are not on the Milestone 13 path.
 
 1. Daemon-style OpenRC service supervision in the Alpine rootfs (the open tail of Task 0062), preceded by the emulator-side process/signal/poll/pipe/timer inspection that task recorded
 2. `V` completion: vector floating-point, reductions, `vstart != 0` restart semantics, wider segment forms; then decide whether `V` is advertised to Linux
-3. Bounded uop / basic-block caching under the ADR 0009 gates, and browser wall-clock tuning of the Alpine boot
+3. Browser network transport, browser gdb bridge, and porting `virtio-blk` onto the shared `virtio/` package (Milestone 13 tail)
 4. `riscv-arch-test` conformance and an RV64 QEMU cross-check path alongside the existing RV32 one
 5. Deeper F/D exception-flag and NaN corner-case audits beyond the official `riscv-tests` surface
 6. Optional extensions in priority order: `Zba`/`Zbb`/`Zbs`, `Zicbo*`, `Zfh`, `Svnapot`, then `H`

@@ -31,7 +31,7 @@ Once compatibility goals are explicit, extension work should proceed in a delibe
 
 ## Closure Note (2026-09-23)
 
-Closed under [ADR 0010](../adr/0010-v1-completion-boundary.md). `A`, `F`, and `D` landed and are part of the gated `RV64GC` baseline. `V` stops at the Task 0048 slice as an experimental, survey-only extension, and `H` is not started; both are post-`v1.0` backlog in `docs/roadmap.md`.
+Closed under [ADR 0010](../../adr/0010-v1-completion-boundary.md). `A`, `F`, and `D` landed and are part of the gated `RV64GC` baseline. `V` stops at the Task 0048 slice as an experimental, survey-only extension, and `H` is not started; both are post-`v1.0` backlog in `docs/roadmap.md`.
 
 ## Progress Notes
 
@@ -41,4 +41,4 @@ Closed under [ADR 0010](../adr/0010-v1-completion-boundary.md). `A`, `F`, and `D
 - `F`/`D` is now complete in the current repo contract, with the documented constrained host-IEEE implementation
 - There are no additional required compatibility gaps currently open for `RV64 Linux Profile v1`
 - This task now acts as an umbrella for `0040` (`F`), `0041` (`D`), `0042` (post-`F/D` closure), `0043` (the first `V` state/CSR-only slice), `0044` (the first execute-level `V` slice via `vsetvl*`), `0045` (the first vector arithmetic slice), `0046` (the first vector memory slice), `0047` (the first masked arithmetic slice), and `0048` (the next broader vector memory/addressing + `LMUL` slice)
-- [ADR 0006](../adr/0006-browser-wasm-linux-boot-goal.md) temporarily moved the mainline to browser Wasm Linux boot; that goal is now complete, so this umbrella resumes at `0048`
+- [ADR 0006](../../adr/0006-browser-wasm-linux-boot-goal.md) temporarily moved the mainline to browser Wasm Linux boot; that goal is now complete, so this umbrella resumes at `0048`

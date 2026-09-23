@@ -23,7 +23,7 @@ The browser host is a distinct product layer over the emulator core, not the pla
 
 ## Dependencies
 
-- [Task 0019](0019-verification-debug-performance.md)
+- [Task 0019](../../tasks/0019-verification-debug-performance.md)
 - [Task 0021](0021-browser-hosting-decision.md)
 
 ## Status

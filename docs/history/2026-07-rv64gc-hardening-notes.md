@@ -3,7 +3,7 @@
 This file preserves the long-form progress narrative that used to live in
 `docs/current.md` under "Next Task" and "Known Blockers" while Task 0063 was
 active. It is history, not current state. See `docs/current.md` for the
-current milestone and `docs/tasks/0063-rv64gc-spec-compliance.md` for the task
+current milestone and `docs/history/tasks/0063-rv64gc-spec-compliance.md` for the task
 record.
 
 ## Next Task

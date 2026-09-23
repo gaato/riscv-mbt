@@ -24,6 +24,7 @@ If the task is implementation work, prefer this reading order:
 - MoonBit source lives in the repository root package and [cmd/main](cmd/main).
 - Planning and execution state live under [docs](docs).
 - Keep generated build output out of version control.
+- Reusable sub-packages (`slirp/`, `gdb_rsp/`, `virtio/`) never import the root package or `moonbitlang/async`, do no I/O, and must pass `moon check --target wasm-gc` ([ADR 0012](docs/adr/0012-reusable-subpackages-and-modules.md)).
 
 ## Source Of Truth
 
@@ -59,6 +60,7 @@ If the task is implementation work, prefer this reading order:
 - Do not mix practical RV64-core stabilization with Linux platform bring-up in the same task unless the docs explicitly call for it.
 - Treat Linux boot as a platform-integration milestone, not just an ISA milestone.
 - Keep one-hart boot as the default baseline and add SMP only after single-hart behavior is stable.
+- Performance slices are kept or reverted by the ADR 0011 protocol: `moon bench` means over three runs and the browser Alpine smoke median over three runs; a single browser run is never a decision.
 
 ## Task Update Rules
 

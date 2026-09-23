@@ -13,9 +13,9 @@ Cross the boundary from CPU implementation into system implementation by adding 
 
 ## Implementation Order
 
-1. Reset + trap entry ([Task 0028](../tasks/0028-machine-reset-and-trap-entry.md))
-2. `MRET` + `mstatus` transitions ([Task 0029](../tasks/0029-machine-return-and-mstatus.md))
-3. `mip` + machine CSR contract ([Task 0030](../tasks/0030-mip-skeleton-and-machine-csr-contract.md))
+1. Reset + trap entry ([Task 0028](../history/tasks/0028-machine-reset-and-trap-entry.md))
+2. `MRET` + `mstatus` transitions ([Task 0029](../history/tasks/0029-machine-return-and-mstatus.md))
+3. `mip` + machine CSR contract ([Task 0030](../history/tasks/0030-mip-skeleton-and-machine-csr-contract.md))
 
 ## Non-Goals
 

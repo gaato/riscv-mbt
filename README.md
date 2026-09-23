@@ -13,8 +13,9 @@ A general-purpose RISC-V emulator written in MoonBit. It grew milestone by miles
 
 ## Status
 
-- The `v1.0` boundary is defined in [ADR 0010](docs/adr/0010-v1-completion-boundary.md); [docs/current.md](docs/current.md) tracks what remains before the `v1.0.0` tag
-- Post-`v1.0` backlog (vector FP and reductions, `H`, `riscv-arch-test`, PMP, OpenRC daemon supervision, and so on) lives in [docs/roadmap.md](docs/roadmap.md)
+- No version tags; `moon.mod` stays `0.1.0` until a mooncakes release ([ADR 0011](docs/adr/0011-no-version-tags-and-new-direction.md))
+- Current direction: [Milestone 13](docs/milestones/13-fast-observable-networked-linux.md), a fast, observable, network-connected Linux environment (execution-path performance, a GDB remote stub, `virtio-net` plus a MoonBit user-mode NAT stack); [docs/current.md](docs/current.md) tracks the open task
+- Backlog (vector FP and reductions, `H`, `riscv-arch-test`, PMP, OpenRC daemon supervision, and so on) lives in [docs/roadmap.md](docs/roadmap.md)
 - Not implemented on purpose: Debug Mode / `Sdtrig`, PMP, `H`, `Zb*`, `Zfh`
 
 ## Toolchain
@@ -27,9 +28,9 @@ A general-purpose RISC-V emulator written in MoonBit. It grew milestone by miles
 
 - [Current State](docs/current.md)
 - [Roadmap](docs/roadmap.md)
-- [ADR 0010: v1.0 completion boundary](docs/adr/0010-v1-completion-boundary.md)
+- [ADR 0011: no version tags, next direction](docs/adr/0011-no-version-tags-and-new-direction.md)
 - [Implementation Notes](docs/guides/implementation-notes.md)
-- [Task 0063: RV64GC spec compliance](docs/tasks/0063-rv64gc-spec-compliance.md)
+- [Milestone 13: Fast, Observable, Networked Linux](docs/milestones/13-fast-observable-networked-linux.md)
 - [Browser Wasm Linux Boot Milestone](docs/milestones/12-browser-wasm-linux-boot.md)
 - [Extensions Milestone](docs/milestones/09-extensions-a-fd-v-h.md)
 - [Agent Guide](AGENTS.md)

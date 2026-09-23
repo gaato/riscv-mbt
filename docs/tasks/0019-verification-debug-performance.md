@@ -23,8 +23,15 @@ Past Linux boot, project maturity depends more on observability and regression r
 
 ## Dependencies
 
-- [Task 0017](0017-post-linux-compatibility.md)
+- [Task 0017](../history/tasks/0017-post-linux-compatibility.md)
 
 ## Status
 
-- `todo`
+- `done`
+
+## Closure Note (2026-09-23)
+
+Absorbed by [Milestone 13](../milestones/13-fast-observable-networked-linux.md)
+under [ADR 0011](../adr/0011-no-version-tags-and-new-direction.md): the GDB
+stub is Tasks 0067 to 0069, performance measurement is the ADR 0011 protocol,
+and `riscv-arch-test` stays in the roadmap backlog.
