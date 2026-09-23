@@ -243,17 +243,20 @@ fn Runner::sv39_active_for_privilege(
 }
 
 ///|
-fn Runner::translate_address(
+/// Translate an address without allocating on the cached success path.
+/// On failure this returns `translate_fault_sentinel` and records the cause in
+/// `last_translate_fault`; callers must check the sentinel before using the PA.
+fn Runner::translate_pa(
   self : Runner,
   vaddr : UInt64,
   access_type : AccessType,
   privilege : PrivilegeMode,
-) -> TranslateResult {
+) -> UInt64 {
   // Machine mode uses physical addressing for the OpenSBI path in this model.
   // S/U mode go through Sv39 only when satp.MODE says Sv39; Bare mode is still
   // useful for early kernel boot and low-level tests.
   if !self.sv39_active_for_privilege(privilege) {
-    return TranslatedAddr(vaddr)
+    return vaddr
   }
   let satp = self.cpu.read_csr(CSR_SATP)
   let mstatus = self.cpu.read_csr(CSR_MSTATUS)
@@ -372,7 +375,7 @@ fn Runner::translate_cached(
   satp : UInt64,
   sum : Bool,
   mxr : Bool,
-) -> TranslateResult {
+) -> UInt64 {
   let page_offset = vaddr & (SV39_PAGESIZE - 1U.to_uint64())
   let vpage = vaddr >> 12
   let index = translate_cache_index(vpage)
@@ -388,7 +391,7 @@ fn Runner::translate_cached(
     self.translate_cache_sums[index] == sum &&
     self.translate_cache_mxrs[index] == mxr {
     self.translate_cache_hits = self.translate_cache_hits + 1U.to_uint64()
-    return TranslatedAddr(self.translate_cache_pa_pages[index] + page_offset)
+    return self.translate_cache_pa_pages[index] + page_offset
   }
   self.translate_cache_misses = self.translate_cache_misses + 1U.to_uint64()
   self.record_page_table_walk(satp, vaddr)
@@ -403,9 +406,12 @@ fn Runner::translate_cached(
       self.translate_cache_mxrs[index] = mxr
       self.translate_cache_pa_pages[index] = pa - page_offset
       self.translate_cache_fills = self.translate_cache_fills + 1U.to_uint64()
-      TranslatedAddr(pa)
+      pa
     }
-    TranslateFault(cause) => TranslateFault(cause)
+    TranslateFault(cause) => {
+      self.last_translate_fault = cause
+      translate_fault_sentinel
+    }
   }
 }
 
@@ -425,43 +431,63 @@ fn Runner::effective_data_access_privilege(self : Runner) -> PrivilegeMode {
 }
 
 ///|
-fn Runner::fetch_instruction(
-  self : Runner,
-  addr : UInt64,
-) -> (FetchedInstruction?, StepResult?) {
+/// Fetch an instruction into Runner scratch fields without allocating on
+/// success. On failure, leaves fetch scratch untouched, stores the trap result
+/// in `pending_step_result`, and returns false.
+fn Runner::fetch_into_scratch(self : Runner, addr : UInt64) -> Bool {
   // Fetch the low halfword first to determine instruction length. If the
   // instruction is 32-bit, translate pc+2 independently; a 32-bit instruction
   // can cross a virtual page boundary and land on a different physical page.
-  // Faults returned from this helper occur before decode/execute, so the
-  // top-level step path must leave minstret unchanged.
-  let low_pa = match self.translate_address(addr, Fetch, self.cpu.privilege) {
-    TranslatedAddr(pa) => pa
-    TranslateFault(cause) =>
-      return (None, Some(self.raise_trap(cause, addr, addr)))
+  let low_pa = self.translate_pa(addr, Fetch, self.cpu.privilege)
+  if low_pa == translate_fault_sentinel &&
+    self.sv39_active_for_privilege(self.cpu.privilege) {
+    self.pending_step_result = self.raise_trap(
+      self.last_translate_fault,
+      addr,
+      addr,
+    )
+    return false
   }
   if !self.bus.contains_range(low_pa, 2) {
-    return (None, Some(self.raise_trap(InstructionAccessFault, addr, addr)))
+    self.pending_step_result = self.raise_trap(
+      InstructionAccessFault,
+      addr,
+      addr,
+    )
+    return false
   }
   let low16 = self.bus.fetch_u16(low_pa)
   let length = instruction_length_from_low16(low16)
   if length == 2 {
-    return (Some({ fetch_pa: low_pa, raw: low16, length, }), None)
+    self.fetch_pa = low_pa
+    self.fetch_raw = low16
+    self.fetch_length = length
+    return true
   }
   let high_addr = addr + 2U.to_uint64()
-  let high_pa = match
-    self.translate_address(high_addr, Fetch, self.cpu.privilege) {
-    TranslatedAddr(pa) => pa
-    TranslateFault(cause) =>
-      return (None, Some(self.raise_trap(cause, addr, high_addr)))
+  let high_pa = self.translate_pa(high_addr, Fetch, self.cpu.privilege)
+  if high_pa == translate_fault_sentinel &&
+    self.sv39_active_for_privilege(self.cpu.privilege) {
+    self.pending_step_result = self.raise_trap(
+      self.last_translate_fault,
+      addr,
+      high_addr,
+    )
+    return false
   }
   if !self.bus.contains_range(high_pa, 2) {
-    return (
-      None,
-      Some(self.raise_trap(InstructionAccessFault, addr, high_addr)),
+    self.pending_step_result = self.raise_trap(
+      InstructionAccessFault,
+      addr,
+      high_addr,
     )
+    return false
   }
   let high16 = self.bus.fetch_u16(high_pa)
-  (Some({ fetch_pa: low_pa, raw: low16 | (high16 << 16), length, }), None)
+  self.fetch_pa = low_pa
+  self.fetch_raw = low16 | (high16 << 16)
+  self.fetch_length = length
+  true
 }
 
 ///|
@@ -470,39 +496,55 @@ fn Runner::address_from(self : Runner, rs1 : Int, imm : Int) -> UInt64 {
 }
 
 ///|
-fn Runner::load_check(
-  self : Runner,
-  addr : UInt64,
-  width : Int,
-) -> (UInt64, StepResult?) {
+/// Return a checked load PA without allocating on success. A failure returns
+/// `translate_fault_sentinel` and stores its trap result in
+/// `pending_step_result`.
+fn Runner::load_check(self : Runner, addr : UInt64, width : Int) -> UInt64 {
   let privilege = self.effective_data_access_privilege()
-  let pa = match self.translate_address(addr, Load, privilege) {
-    TranslatedAddr(pa) => pa
-    TranslateFault(cause) =>
-      return (addr, Some(self.raise_trap(cause, self.cpu.pc, addr)))
+  let pa = self.translate_pa(addr, Load, privilege)
+  if pa == translate_fault_sentinel && self.sv39_active_for_privilege(privilege) {
+    self.pending_step_result = self.raise_trap(
+      self.last_translate_fault,
+      self.cpu.pc,
+      addr,
+    )
+    return translate_fault_sentinel
   }
   if self.phy_contains(pa, width) {
-    (pa, None)
+    pa
   } else {
-    (addr, Some(self.raise_trap(LoadAccessFault, self.cpu.pc, addr)))
+    self.pending_step_result = self.raise_trap(
+      LoadAccessFault,
+      self.cpu.pc,
+      addr,
+    )
+    translate_fault_sentinel
   }
 }
 
 ///|
-fn Runner::store_check(
-  self : Runner,
-  addr : UInt64,
-  width : Int,
-) -> (UInt64, StepResult?) {
+/// Return a checked store PA without allocating on success. A failure returns
+/// `translate_fault_sentinel` and stores its trap result in
+/// `pending_step_result`.
+fn Runner::store_check(self : Runner, addr : UInt64, width : Int) -> UInt64 {
   let privilege = self.effective_data_access_privilege()
-  let pa = match self.translate_address(addr, Store, privilege) {
-    TranslatedAddr(pa) => pa
-    TranslateFault(cause) =>
-      return (addr, Some(self.raise_trap(cause, self.cpu.pc, addr)))
+  let pa = self.translate_pa(addr, Store, privilege)
+  if pa == translate_fault_sentinel && self.sv39_active_for_privilege(privilege) {
+    self.pending_step_result = self.raise_trap(
+      self.last_translate_fault,
+      self.cpu.pc,
+      addr,
+    )
+    return translate_fault_sentinel
   }
   if self.phy_contains(pa, width) {
-    (pa, None)
+    pa
   } else {
-    (addr, Some(self.raise_trap(StoreAccessFault, self.cpu.pc, addr)))
+    self.pending_step_result = self.raise_trap(
+      StoreAccessFault,
+      self.cpu.pc,
+      addr,
+    )
+    translate_fault_sentinel
   }
 }

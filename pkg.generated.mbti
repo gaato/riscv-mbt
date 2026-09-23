@@ -419,6 +419,11 @@ pub struct Runner {
   mut mcycle : UInt64
   mut minstret : UInt64
   mut retire_suppressed : Bool
+  mut last_translate_fault : TrapCause
+  mut fetch_pa : UInt64
+  mut fetch_raw : UInt
+  mut fetch_length : Int
+  mut pending_step_result : StepResult
   clint_msip : Array[Bool]
   all_mtimecmp : Array[UInt64]
   plic_regs : Array[Byte]

@@ -237,13 +237,12 @@ fn Runner::execute_vector_load_unit_stride(
   for elem in 0..<active_elems {
     if self.vector_memory_elem_active(raw, elem) {
       let addr = vector_unit_stride_addr(base, elem, elem_bytes)
-      let (pa, check) = self.load_check(addr, elem_bytes)
-      match check {
-        Some(result) => return result
-        None => {
-          elems.push(elem)
-          pas.push(pa)
-        }
+      let pa = self.load_check(addr, elem_bytes)
+      if pa == translate_fault_sentinel {
+        return self.pending_step_result
+      } else {
+        elems.push(elem)
+        pas.push(pa)
       }
     }
   }
@@ -294,14 +293,13 @@ fn Runner::execute_vector_load_unit_stride_segment(
         let addr = vector_segment_unit_stride_addr(
           base, elem, field, field_count, elem_bytes,
         )
-        let (pa, check) = self.load_check(addr, elem_bytes)
-        match check {
-          Some(result) => return result
-          None => {
-            elems.push(elem)
-            fields.push(field)
-            pas.push(pa)
-          }
+        let pa = self.load_check(addr, elem_bytes)
+        if pa == translate_fault_sentinel {
+          return self.pending_step_result
+        } else {
+          elems.push(elem)
+          fields.push(field)
+          pas.push(pa)
         }
       }
     }
@@ -352,19 +350,17 @@ fn Runner::execute_vector_load_fault_only_first(
   for elem in 0..<original_vl {
     if self.vector_memory_elem_active(raw, elem) {
       let addr = vector_unit_stride_addr(base, elem, elem_bytes)
-      let (pa, check) = self.load_check(addr, elem_bytes)
-      match check {
-        Some(result) =>
-          if elem == 0 {
-            return result
-          } else {
-            committed_elems = elem
-            break
-          }
-        None => {
-          elems.push(elem)
-          values.push(self.vector_load_elem_bits(pa, elem_bytes))
+      let pa = self.load_check(addr, elem_bytes)
+      if pa == translate_fault_sentinel {
+        if elem == 0 {
+          return self.pending_step_result
+        } else {
+          committed_elems = elem
+          break
         }
+      } else {
+        elems.push(elem)
+        values.push(self.vector_load_elem_bits(pa, elem_bytes))
       }
     }
   }
@@ -414,13 +410,12 @@ fn Runner::execute_vector_load_strided(
   for elem in 0..<active_elems {
     if self.vector_memory_elem_active(raw, elem) {
       let addr = vector_strided_addr(base, elem, stride)
-      let (pa, check) = self.load_check(addr, elem_bytes)
-      match check {
-        Some(result) => return result
-        None => {
-          elems.push(elem)
-          pas.push(pa)
-        }
+      let pa = self.load_check(addr, elem_bytes)
+      if pa == translate_fault_sentinel {
+        return self.pending_step_result
+      } else {
+        elems.push(elem)
+        pas.push(pa)
       }
     }
   }
@@ -466,13 +461,12 @@ fn Runner::execute_vector_load_indexed_e32(
     if self.vector_memory_elem_active(raw, elem) {
       let offset = self.read_vreg_group_elem(vs2, elem, index_bits)
       let addr = vector_indexed_addr(base, offset)
-      let (pa, check) = self.load_check(addr, elem_bytes)
-      match check {
-        Some(result) => return result
-        None => {
-          elems.push(elem)
-          pas.push(pa)
-        }
+      let pa = self.load_check(addr, elem_bytes)
+      if pa == translate_fault_sentinel {
+        return self.pending_step_result
+      } else {
+        elems.push(elem)
+        pas.push(pa)
       }
     }
   }
@@ -511,10 +505,11 @@ fn Runner::execute_vector_mask_load(
   let values : Array[UInt64] = []
   for elem in 0..<active_bytes {
     let addr = vector_unit_stride_addr(base, elem, 1)
-    let (pa, check) = self.load_check(addr, 1)
-    match check {
-      Some(result) => return result
-      None => pas.push(pa)
+    let pa = self.load_check(addr, 1)
+    if pa == translate_fault_sentinel {
+      return self.pending_step_result
+    } else {
+      pas.push(pa)
     }
   }
   for pa in pas {
@@ -550,13 +545,12 @@ fn Runner::execute_vector_store_unit_stride(
   for elem in 0..<active_elems {
     if self.vector_memory_elem_active(raw, elem) {
       let addr = vector_unit_stride_addr(base, elem, elem_bytes)
-      let (pa, check) = self.store_check(addr, elem_bytes)
-      match check {
-        Some(result) => return result
-        None => {
-          pas.push(pa)
-          values.push(self.read_vreg_group_elem(vs3, elem, sew_bits))
-        }
+      let pa = self.store_check(addr, elem_bytes)
+      if pa == translate_fault_sentinel {
+        return self.pending_step_result
+      } else {
+        pas.push(pa)
+        values.push(self.read_vreg_group_elem(vs3, elem, sew_bits))
       }
     }
   }
@@ -599,18 +593,17 @@ fn Runner::execute_vector_store_unit_stride_segment(
         let addr = vector_segment_unit_stride_addr(
           base, elem, field, field_count, elem_bytes,
         )
-        let (pa, check) = self.store_check(addr, elem_bytes)
-        match check {
-          Some(result) => return result
-          None => {
-            let field_vreg = vector_segment_field_vreg(
-              vs3,
-              field,
-              config.lmul_log2,
-            )
-            pas.push(pa)
-            values.push(self.read_vreg_group_elem(field_vreg, elem, sew_bits))
-          }
+        let pa = self.store_check(addr, elem_bytes)
+        if pa == translate_fault_sentinel {
+          return self.pending_step_result
+        } else {
+          let field_vreg = vector_segment_field_vreg(
+            vs3,
+            field,
+            config.lmul_log2,
+          )
+          pas.push(pa)
+          values.push(self.read_vreg_group_elem(field_vreg, elem, sew_bits))
         }
       }
     }
@@ -646,13 +639,12 @@ fn Runner::execute_vector_mask_store(
   let values : Array[UInt64] = []
   for elem in 0..<active_bytes {
     let addr = vector_unit_stride_addr(base, elem, 1)
-    let (pa, check) = self.store_check(addr, 1)
-    match check {
-      Some(result) => return result
-      None => {
-        pas.push(pa)
-        values.push(self.read_vreg_elem(vs3, elem, 8))
-      }
+    let pa = self.store_check(addr, 1)
+    if pa == translate_fault_sentinel {
+      return self.pending_step_result
+    } else {
+      pas.push(pa)
+      values.push(self.read_vreg_elem(vs3, elem, 8))
     }
   }
   for commit_elem in 0..<active_bytes {
@@ -688,13 +680,12 @@ fn Runner::execute_vector_store_indexed_e32(
     if self.vector_memory_elem_active(raw, elem) {
       let offset = self.read_vreg_group_elem(vs2, elem, index_bits)
       let addr = vector_indexed_addr(base, offset)
-      let (pa, check) = self.store_check(addr, elem_bytes)
-      match check {
-        Some(result) => return result
-        None => {
-          pas.push(pa)
-          values.push(self.read_vreg_group_elem(vs3, elem, sew_bits))
-        }
+      let pa = self.store_check(addr, elem_bytes)
+      if pa == translate_fault_sentinel {
+        return self.pending_step_result
+      } else {
+        pas.push(pa)
+        values.push(self.read_vreg_group_elem(vs3, elem, sew_bits))
       }
     }
   }
@@ -734,13 +725,12 @@ fn Runner::execute_vector_store_strided(
   for elem in 0..<active_elems {
     if self.vector_memory_elem_active(raw, elem) {
       let addr = vector_strided_addr(base, elem, stride)
-      let (pa, check) = self.store_check(addr, elem_bytes)
-      match check {
-        Some(result) => return result
-        None => {
-          pas.push(pa)
-          values.push(self.read_vreg_group_elem(vs3, elem, sew_bits))
-        }
+      let pa = self.store_check(addr, elem_bytes)
+      if pa == translate_fault_sentinel {
+        return self.pending_step_result
+      } else {
+        pas.push(pa)
+        values.push(self.read_vreg_group_elem(vs3, elem, sew_bits))
       }
     }
   }

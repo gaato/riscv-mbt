@@ -63,7 +63,8 @@ by [ADR 0011](../adr/0011-no-version-tags-and-new-direction.md).
 
 ## Current Checkpoint
 
-- Task 0064 done; Task 0065 is next.
-- Baseline (2026-09-23): native `tight_add_loop_100k_steps` about 4.9 ms;
-  browser Alpine interactive smoke reaches the shell response at about
-  360 M guest steps in about 53 s wall.
+- Tasks 0064 and 0065 done; Task 0066 is in progress.
+- Baseline (2026-09-23, before 0065): native `tight_add_loop_100k_steps` 6.85 ms,
+  `spinlock_shape_loop_100k_steps` 15.7 ms; browser Alpine interactive smoke
+  reaches the shell response at 373 M guest steps in 95.5 s wall (median of 3).
+- After 0065: 3.98 ms, 9.4 ms, and 93.8 s respectively.

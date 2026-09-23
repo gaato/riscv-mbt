@@ -407,11 +407,9 @@ pub enum StepResult {
 }
 
 ///|
-priv struct FetchedInstruction {
-  fetch_pa : UInt64
-  raw : UInt
-  length : Int
-}
+/// Sentinel returned by allocation-free translation and memory checks.
+/// Any access of width at least one rejects this address as out of range.
+let translate_fault_sentinel : UInt64 = 0xffffffffffffffffUL
 
 ///|
 let decode_cache_sets : Int = 4096
@@ -453,6 +451,16 @@ pub struct Runner {
   // per-step marker so architectural trap entry is not mistaken for a retired
   // guest instruction by Runner::step.
   mut retire_suppressed : Bool
+  /// Cause paired with `translate_fault_sentinel` from `translate_pa`.
+  mut last_translate_fault : TrapCause
+  /// Physical fetch address written only after `fetch_into_scratch` succeeds.
+  mut fetch_pa : UInt64
+  /// Raw instruction bits written only after `fetch_into_scratch` succeeds.
+  mut fetch_raw : UInt
+  /// Instruction byte length written only after `fetch_into_scratch` succeeds.
+  mut fetch_length : Int
+  /// Trap result paired with a sentinel or false hot-path helper result.
+  mut pending_step_result : StepResult
   clint_msip : Array[Bool] // [hart_id] = MSIP bit; shared across SMP harts
   all_mtimecmp : Array[UInt64] // [hart_id] = mtimecmp; shared across SMP harts
   plic_regs : Array[Byte] // flat PLIC register file (4 MB); shared across SMP harts
@@ -1463,6 +1471,11 @@ pub fn make_runner(config : MachineConfig) -> Runner {
     mcycle: 0U.to_uint64(),
     minstret: 0U.to_uint64(),
     retire_suppressed: false,
+    last_translate_fault: InstructionAccessFault,
+    fetch_pa: 0U.to_uint64(),
+    fetch_raw: 0U,
+    fetch_length: 0,
+    pending_step_result: Running,
     clint_msip: Array::make(2, false),
     all_mtimecmp: Array::make(2, bit_not(0U.to_uint64())),
     plic_regs: if config.plic_base != 0U.to_uint64() {
@@ -1611,6 +1624,11 @@ pub fn make_smp_runners(
       mcycle: 0U.to_uint64(),
       minstret: 0U.to_uint64(),
       retire_suppressed: false,
+      last_translate_fault: InstructionAccessFault,
+      fetch_pa: 0U.to_uint64(),
+      fetch_raw: 0U,
+      fetch_length: 0,
+      pending_step_result: Running,
       clint_msip: shared_msip,
       all_mtimecmp: shared_mtimecmp,
       plic_regs: shared_plic,

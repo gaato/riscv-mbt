@@ -566,12 +566,14 @@ fn Runner::execute_branch(
 }
 
 ///|
+/// Return the checked load PA, or `translate_fault_sentinel` with the trap in
+/// `pending_step_result` when address translation or physical lookup fails.
 fn Runner::checked_load_pa(
   self : Runner,
   rs1 : Int,
   imm : Int,
   width : Int,
-) -> (UInt64, StepResult?) {
+) -> UInt64 {
   let addr = self.address_from(rs1, imm)
   self.load_check(addr, width)
 }
@@ -585,14 +587,13 @@ fn Runner::load_and_write(
   next_pc : UInt64,
   write : (UInt64) -> Unit,
 ) -> StepResult {
-  let (pa, check) = self.checked_load_pa(rs1, imm, width)
-  match check {
-    Some(result) => result
-    None => {
-      write(pa)
-      self.cpu.pc = next_pc
-      Running
-    }
+  let pa = self.checked_load_pa(rs1, imm, width)
+  if pa == translate_fault_sentinel {
+    self.pending_step_result
+  } else {
+    write(pa)
+    self.cpu.pc = next_pc
+    Running
   }
 }
 
@@ -608,86 +609,79 @@ fn Runner::execute_load(
       // Loads into x0 still perform the memory access. The architectural
       // destination discard happens only after address translation, permission
       // checks, and any device-visible read side effects have completed.
-      let (pa, check) = self.checked_load_pa(rs1, imm, 1)
-      match check {
-        Some(result) => result
-        None => {
-          self.write_xlen_reg(
-            rd,
-            xlen_load_sign_extend(self.phy_load_u8(pa), 8, xlen),
-          )
-          self.cpu.pc = next_pc
-          Running
-        }
+      let pa = self.checked_load_pa(rs1, imm, 1)
+      if pa == translate_fault_sentinel {
+        self.pending_step_result
+      } else {
+        self.write_xlen_reg(
+          rd,
+          xlen_load_sign_extend(self.phy_load_u8(pa), 8, xlen),
+        )
+        self.cpu.pc = next_pc
+        Running
       }
     }
     Lh(rd, rs1, imm) => {
-      let (pa, check) = self.checked_load_pa(rs1, imm, 2)
-      match check {
-        Some(result) => result
-        None => {
-          self.write_xlen_reg(
-            rd,
-            xlen_load_sign_extend(self.phy_load_u16(pa), 16, xlen),
-          )
-          self.cpu.pc = next_pc
-          Running
-        }
+      let pa = self.checked_load_pa(rs1, imm, 2)
+      if pa == translate_fault_sentinel {
+        self.pending_step_result
+      } else {
+        self.write_xlen_reg(
+          rd,
+          xlen_load_sign_extend(self.phy_load_u16(pa), 16, xlen),
+        )
+        self.cpu.pc = next_pc
+        Running
       }
     }
     Lw(rd, rs1, imm) => {
-      let (pa, check) = self.checked_load_pa(rs1, imm, 4)
-      match check {
-        Some(result) => result
-        None => {
-          self.write_word_reg(rd, self.phy_load_u32(pa))
-          self.cpu.pc = next_pc
-          Running
-        }
+      let pa = self.checked_load_pa(rs1, imm, 4)
+      if pa == translate_fault_sentinel {
+        self.pending_step_result
+      } else {
+        self.write_word_reg(rd, self.phy_load_u32(pa))
+        self.cpu.pc = next_pc
+        Running
       }
     }
     Lwu(rd, rs1, imm) => {
-      let (pa, check) = self.checked_load_pa(rs1, imm, 4)
-      match check {
-        Some(result) => result
-        None => {
-          self.write_xlen_reg(rd, self.phy_load_u32(pa))
-          self.cpu.pc = next_pc
-          Running
-        }
+      let pa = self.checked_load_pa(rs1, imm, 4)
+      if pa == translate_fault_sentinel {
+        self.pending_step_result
+      } else {
+        self.write_xlen_reg(rd, self.phy_load_u32(pa))
+        self.cpu.pc = next_pc
+        Running
       }
     }
     Ld(rd, rs1, imm) => {
-      let (pa, check) = self.checked_load_pa(rs1, imm, 8)
-      match check {
-        Some(result) => result
-        None => {
-          self.write_xlen_reg(rd, self.phy_load_u64(pa))
-          self.cpu.pc = next_pc
-          Running
-        }
+      let pa = self.checked_load_pa(rs1, imm, 8)
+      if pa == translate_fault_sentinel {
+        self.pending_step_result
+      } else {
+        self.write_xlen_reg(rd, self.phy_load_u64(pa))
+        self.cpu.pc = next_pc
+        Running
       }
     }
     Lbu(rd, rs1, imm) => {
-      let (pa, check) = self.checked_load_pa(rs1, imm, 1)
-      match check {
-        Some(result) => result
-        None => {
-          self.write_xlen_reg(rd, self.phy_load_u8(pa))
-          self.cpu.pc = next_pc
-          Running
-        }
+      let pa = self.checked_load_pa(rs1, imm, 1)
+      if pa == translate_fault_sentinel {
+        self.pending_step_result
+      } else {
+        self.write_xlen_reg(rd, self.phy_load_u8(pa))
+        self.cpu.pc = next_pc
+        Running
       }
     }
     Lhu(rd, rs1, imm) => {
-      let (pa, check) = self.checked_load_pa(rs1, imm, 2)
-      match check {
-        Some(result) => result
-        None => {
-          self.write_xlen_reg(rd, self.phy_load_u16(pa))
-          self.cpu.pc = next_pc
-          Running
-        }
+      let pa = self.checked_load_pa(rs1, imm, 2)
+      if pa == translate_fault_sentinel {
+        self.pending_step_result
+      } else {
+        self.write_xlen_reg(rd, self.phy_load_u16(pa))
+        self.cpu.pc = next_pc
+        Running
       }
     }
     _ => abort("unexpected load dispatch")
@@ -695,12 +689,14 @@ fn Runner::execute_load(
 }
 
 ///|
+/// Return the checked store PA, or `translate_fault_sentinel` with the trap in
+/// `pending_step_result` when address translation or physical lookup fails.
 fn Runner::checked_store_pa(
   self : Runner,
   rs1 : Int,
   imm : Int,
   width : Int,
-) -> (UInt64, StepResult?) {
+) -> UInt64 {
   let addr = self.address_from(rs1, imm)
   self.store_check(addr, width)
 }
@@ -714,15 +710,14 @@ fn Runner::store_and_commit(
   next_pc : UInt64,
   store : (UInt64) -> Unit,
 ) -> StepResult {
-  let (pa, check) = self.checked_store_pa(rs1, imm, width)
-  match check {
-    Some(result) => result
-    None => {
-      store(pa)
-      self.invalidate_lr_sc_reservations(pa, width)
-      self.cpu.pc = next_pc
-      Running
-    }
+  let pa = self.checked_store_pa(rs1, imm, width)
+  if pa == translate_fault_sentinel {
+    self.pending_step_result
+  } else {
+    store(pa)
+    self.invalidate_lr_sc_reservations(pa, width)
+    self.cpu.pc = next_pc
+    Running
   }
 }
 
@@ -867,51 +862,47 @@ fn Runner::execute_store(
 ) -> StepResult {
   match instruction {
     Sb(rs1, rs2, imm) => {
-      let (pa, check) = self.checked_store_pa(rs1, imm, 1)
-      match check {
-        Some(result) => result
-        None => {
-          self.phy_store_u8(pa, self.cpu.read_reg(rs2))
-          self.invalidate_lr_sc_reservations(pa, 1)
-          self.cpu.pc = next_pc
-          Running
-        }
+      let pa = self.checked_store_pa(rs1, imm, 1)
+      if pa == translate_fault_sentinel {
+        self.pending_step_result
+      } else {
+        self.phy_store_u8(pa, self.cpu.read_reg(rs2))
+        self.invalidate_lr_sc_reservations(pa, 1)
+        self.cpu.pc = next_pc
+        Running
       }
     }
     Sh(rs1, rs2, imm) => {
-      let (pa, check) = self.checked_store_pa(rs1, imm, 2)
-      match check {
-        Some(result) => result
-        None => {
-          self.phy_store_u16(pa, self.cpu.read_reg(rs2))
-          self.invalidate_lr_sc_reservations(pa, 2)
-          self.cpu.pc = next_pc
-          Running
-        }
+      let pa = self.checked_store_pa(rs1, imm, 2)
+      if pa == translate_fault_sentinel {
+        self.pending_step_result
+      } else {
+        self.phy_store_u16(pa, self.cpu.read_reg(rs2))
+        self.invalidate_lr_sc_reservations(pa, 2)
+        self.cpu.pc = next_pc
+        Running
       }
     }
     Sw(rs1, rs2, imm) => {
-      let (pa, check) = self.checked_store_pa(rs1, imm, 4)
-      match check {
-        Some(result) => result
-        None => {
-          self.phy_store_u32(pa, self.cpu.read_reg(rs2))
-          self.invalidate_lr_sc_reservations(pa, 4)
-          self.cpu.pc = next_pc
-          Running
-        }
+      let pa = self.checked_store_pa(rs1, imm, 4)
+      if pa == translate_fault_sentinel {
+        self.pending_step_result
+      } else {
+        self.phy_store_u32(pa, self.cpu.read_reg(rs2))
+        self.invalidate_lr_sc_reservations(pa, 4)
+        self.cpu.pc = next_pc
+        Running
       }
     }
     Sd(rs1, rs2, imm) => {
-      let (pa, check) = self.checked_store_pa(rs1, imm, 8)
-      match check {
-        Some(result) => result
-        None => {
-          self.phy_store_u64(pa, self.cpu.read_reg(rs2))
-          self.invalidate_lr_sc_reservations(pa, 8)
-          self.cpu.pc = next_pc
-          Running
-        }
+      let pa = self.checked_store_pa(rs1, imm, 8)
+      if pa == translate_fault_sentinel {
+        self.pending_step_result
+      } else {
+        self.phy_store_u64(pa, self.cpu.read_reg(rs2))
+        self.invalidate_lr_sc_reservations(pa, 8)
+        self.cpu.pc = next_pc
+        Running
       }
     }
     _ => abort("unexpected store dispatch")
@@ -1015,10 +1006,9 @@ fn Runner::execute_amo(
           Some(result) => return result
           None => ()
         }
-        let (pa, check) = self.load_check(addr, 4)
-        match check {
-          Some(result) => return result
-          None => ()
+        let pa = self.load_check(addr, 4)
+        if pa == translate_fault_sentinel {
+          return self.pending_step_result
         }
         let loaded = self.phy_load_u32(pa)
         let sign_extended = xlen_sign_extend(loaded, 32, self.xlen_bits())
@@ -1035,10 +1025,9 @@ fn Runner::execute_amo(
           Some(result) => return result
           None => ()
         }
-        let (pa, check) = self.store_check(addr, 4)
-        match check {
-          Some(result) => return result
-          None => ()
+        let pa = self.store_check(addr, 4)
+        if pa == translate_fault_sentinel {
+          return self.pending_step_result
         }
         if self.lr_sc_reservation_matches(pa, 4) {
           self.phy_store_u32(pa, self.cpu.read_reg(rs2))
@@ -1056,10 +1045,9 @@ fn Runner::execute_amo(
         Some(result) => return result
         None => ()
       }
-      let (pa, check) = self.store_check(addr, 4)
-      match check {
-        Some(result) => return result
-        None => ()
+      let pa = self.store_check(addr, 4)
+      if pa == translate_fault_sentinel {
+        return self.pending_step_result
       }
       let old_raw = self.phy_load_u32(pa)
       let old_val = xlen_sign_extend(old_raw, 32, self.xlen_bits())
@@ -1079,10 +1067,9 @@ fn Runner::execute_amo(
           Some(result) => return result
           None => ()
         }
-        let (pa, check) = self.load_check(addr, 8)
-        match check {
-          Some(result) => return result
-          None => ()
+        let pa = self.load_check(addr, 8)
+        if pa == translate_fault_sentinel {
+          return self.pending_step_result
         }
         let loaded = self.phy_load_u64(pa)
         self.set_lr_sc_reservation(pa, 8)
@@ -1098,10 +1085,9 @@ fn Runner::execute_amo(
           Some(result) => return result
           None => ()
         }
-        let (pa, check) = self.store_check(addr, 8)
-        match check {
-          Some(result) => return result
-          None => ()
+        let pa = self.store_check(addr, 8)
+        if pa == translate_fault_sentinel {
+          return self.pending_step_result
         }
         if self.lr_sc_reservation_matches(pa, 8) {
           self.phy_store_u64(pa, self.cpu.read_reg(rs2))
@@ -1119,10 +1105,9 @@ fn Runner::execute_amo(
         Some(result) => return result
         None => ()
       }
-      let (pa, check) = self.store_check(addr, 8)
-      match check {
-        Some(result) => return result
-        None => ()
+      let pa = self.store_check(addr, 8)
+      if pa == translate_fault_sentinel {
+        return self.pending_step_result
       }
       let old_val = self.phy_load_u64(pa)
       let src = self.cpu.read_reg(rs2)
@@ -2268,21 +2253,19 @@ pub fn Runner::step(self : Runner) -> StepResult {
     None => ()
   }
   let current_pc = self.cpu.pc
-  let fetched = match self.fetch_instruction(current_pc) {
-    (Some(instruction), None) => instruction
-    (None, Some(result)) => return result
-    _ => abort("unexpected fetch result")
+  if !self.fetch_into_scratch(current_pc) {
+    return self.pending_step_result
   }
-  let next_pc = current_pc + fetched.length.reinterpret_as_uint().to_uint64()
-  let raw = fetched.raw
-  let instruction = self.decode_cached(fetched.fetch_pa, raw, fetched.length)
+  let next_pc = current_pc + self.fetch_length.reinterpret_as_uint().to_uint64()
+  let raw = self.fetch_raw
+  let instruction = self.decode_cached(self.fetch_pa, raw, self.fetch_length)
   // Extension and XLEN legality is checked after decode so trap values can
   // still report the original raw instruction word.
   if !instruction_supported_for_current_config(
       instruction,
       self.xlen_bits(),
       self.config.extensions,
-      fetched.length,
+      self.fetch_length,
     ) {
     return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
   }
