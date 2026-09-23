@@ -60,8 +60,12 @@ pub struct CpuState {
 
 ///|
 pub struct Bus {
+  /// Guest physical address corresponding to byte offset zero.
   base_addr : UInt64
-  memory : Array[Byte]
+  /// Little-endian guest RAM packed into host 64-bit words.
+  words : FixedArray[UInt64]
+  /// Exact guest-visible RAM size in bytes, excluding padding in `words`.
+  size : Int
 }
 
 ///|
@@ -1232,12 +1236,12 @@ pub fn CpuState::write_csr(
 
 ///|
 pub fn Bus::new(base_addr : UInt64, size : Int) -> Bus {
-  { base_addr, memory: Array::make(size, 0U.to_byte()), }
+  { base_addr, words: FixedArray::make((size + 7) / 8, 0U.to_uint64()), size, }
 }
 
 ///|
 pub fn Bus::size(self : Bus) -> Int {
-  self.memory.length()
+  self.size
 }
 
 ///|
@@ -1250,30 +1254,87 @@ fn Bus::contains_range(self : Bus, addr : UInt64, width : Int) -> Bool {
   let start = addr - self.base_addr
   let start_index = bus_offset_as_int(start)
   let end_index = start_index + width
-  addr >= self.base_addr &&
-  start_index >= 0 &&
-  end_index <= self.memory.length()
+  addr >= self.base_addr && start_index >= 0 && end_index <= self.size
+}
+
+///|
+/// Trigger the same checked-index failure as the old byte array when an access
+/// ends past the exact guest-visible RAM size. A negative offset already
+/// panics through the word index, so this is a single comparison on the hot
+/// path; it exists because the padding word could otherwise hide an access
+/// that straddles the end of a RAM whose size is not a multiple of eight.
+fn Bus::check_word_range(self : Bus, offset : Int, width : Int) -> Unit {
+  if offset > self.size - width {
+    ignore(self.words[self.words.length()])
+  }
+}
+
+///|
+/// Return a low-bit mask for one supported scalar memory width.
+fn bus_word_mask(width : Int) -> UInt64 {
+  match width {
+    1 => 0xffU.to_uint64()
+    2 => 0xffffU.to_uint64()
+    4 => 0xffffffffU.to_uint64()
+    _ => 0xffffffffffffffffUL
+  }
+}
+
+///|
+/// Extract a little-endian scalar from one word, or merge two adjacent words
+/// when the byte range crosses a word boundary.
+fn Bus::load_word_fragment(self : Bus, offset : Int, width : Int) -> UInt64 {
+  self.check_word_range(offset, width)
+  let word_index = offset >> 3
+  let shift = (offset & 7) << 3
+  let mask = bus_word_mask(width)
+  let low = self.words[word_index] >> shift
+  if shift + width * 8 <= 64 {
+    low & mask
+  } else {
+    (low | (self.words[word_index + 1] << (64 - shift))) & mask
+  }
+}
+
+///|
+/// Replace a little-endian scalar with read-modify-write, splitting its bits
+/// across two adjacent words when it crosses a word boundary.
+fn Bus::store_word_fragment(
+  self : Bus,
+  offset : Int,
+  width : Int,
+  value : UInt64,
+) -> Unit {
+  self.check_word_range(offset, width)
+  let word_index = offset >> 3
+  let shift = (offset & 7) << 3
+  let mask = bus_word_mask(width)
+  let shifted_mask = mask << shift
+  self.words[word_index] = (self.words[word_index] & bit_not(shifted_mask)) |
+    ((value & mask) << shift)
+  if shift + width * 8 > 64 {
+    let low_bits = 64 - shift
+    let high_mask = mask >> low_bits
+    self.words[word_index + 1] = (
+        self.words[word_index + 1] & bit_not(high_mask)
+      ) |
+      ((value & mask) >> low_bits)
+  }
 }
 
 ///|
 fn Bus::load_raw_u8(self : Bus, addr : UInt64) -> UInt {
-  self.memory[bus_offset_as_int(addr - self.base_addr)].to_uint()
+  self.load_word_fragment(bus_offset_as_int(addr - self.base_addr), 1).to_uint()
 }
 
 ///|
 fn Bus::load_raw_u16(self : Bus, addr : UInt64) -> UInt {
-  let b0 = self.load_raw_u8(addr)
-  let b1 = self.load_raw_u8(addr + 1U.to_uint64()) << 8
-  b0 | b1
+  self.load_word_fragment(bus_offset_as_int(addr - self.base_addr), 2).to_uint()
 }
 
 ///|
 fn Bus::load_raw_u32(self : Bus, addr : UInt64) -> UInt {
-  let b0 = self.load_raw_u8(addr)
-  let b1 = self.load_raw_u8(addr + 1U.to_uint64()) << 8
-  let b2 = self.load_raw_u8(addr + 2U.to_uint64()) << 16
-  let b3 = self.load_raw_u8(addr + 3U.to_uint64()) << 24
-  b0 | b1 | b2 | b3
+  self.load_word_fragment(bus_offset_as_int(addr - self.base_addr), 4).to_uint()
 }
 
 ///|
@@ -1293,65 +1354,36 @@ pub fn Bus::load_u32(self : Bus, addr : UInt64) -> UInt64 {
 
 ///|
 pub fn Bus::load_u64(self : Bus, addr : UInt64) -> UInt64 {
-  let b0 = self.load_u8(addr)
-  let b1 = self.load_u8(addr + 1U.to_uint64()) << 8
-  let b2 = self.load_u8(addr + 2U.to_uint64()) << 16
-  let b3 = self.load_u8(addr + 3U.to_uint64()) << 24
-  let b4 = self.load_u8(addr + 4U.to_uint64()) << 32
-  let b5 = self.load_u8(addr + 5U.to_uint64()) << 40
-  let b6 = self.load_u8(addr + 6U.to_uint64()) << 48
-  let b7 = self.load_u8(addr + 7U.to_uint64()) << 56
-  b0 | b1 | b2 | b3 | b4 | b5 | b6 | b7
+  self.load_word_fragment(bus_offset_as_int(addr - self.base_addr), 8)
 }
 
 ///|
 pub fn Bus::store_u8(self : Bus, addr : UInt64, value : UInt64) -> Unit {
-  self.memory[bus_offset_as_int(addr - self.base_addr)] = value.to_byte()
+  self.store_word_fragment(bus_offset_as_int(addr - self.base_addr), 1, value)
 }
 
 ///|
 pub fn Bus::store_u16(self : Bus, addr : UInt64, value : UInt64) -> Unit {
-  self.memory[bus_offset_as_int(addr - self.base_addr)] = value.to_byte()
-  self.memory[bus_offset_as_int(addr + 1U.to_uint64() - self.base_addr)] = (value >>
-  8).to_byte()
+  self.store_word_fragment(bus_offset_as_int(addr - self.base_addr), 2, value)
 }
 
 ///|
 pub fn Bus::store_u32(self : Bus, addr : UInt64, value : UInt64) -> Unit {
-  self.memory[bus_offset_as_int(addr - self.base_addr)] = value.to_byte()
-  self.memory[bus_offset_as_int(addr + 1U.to_uint64() - self.base_addr)] = (value >>
-  8).to_byte()
-  self.memory[bus_offset_as_int(addr + 2U.to_uint64() - self.base_addr)] = (value >>
-  16).to_byte()
-  self.memory[bus_offset_as_int(addr + 3U.to_uint64() - self.base_addr)] = (value >>
-  24).to_byte()
+  self.store_word_fragment(bus_offset_as_int(addr - self.base_addr), 4, value)
 }
 
 ///|
 pub fn Bus::store_u64(self : Bus, addr : UInt64, value : UInt64) -> Unit {
-  self.memory[bus_offset_as_int(addr - self.base_addr)] = value.to_byte()
-  self.memory[bus_offset_as_int(addr + 1U.to_uint64() - self.base_addr)] = (value >>
-  8).to_byte()
-  self.memory[bus_offset_as_int(addr + 2U.to_uint64() - self.base_addr)] = (value >>
-  16).to_byte()
-  self.memory[bus_offset_as_int(addr + 3U.to_uint64() - self.base_addr)] = (value >>
-  24).to_byte()
-  self.memory[bus_offset_as_int(addr + 4U.to_uint64() - self.base_addr)] = (value >>
-  32).to_byte()
-  self.memory[bus_offset_as_int(addr + 5U.to_uint64() - self.base_addr)] = (value >>
-  40).to_byte()
-  self.memory[bus_offset_as_int(addr + 6U.to_uint64() - self.base_addr)] = (value >>
-  48).to_byte()
-  self.memory[bus_offset_as_int(addr + 7U.to_uint64() - self.base_addr)] = (value >>
-  56).to_byte()
+  self.store_word_fragment(bus_offset_as_int(addr - self.base_addr), 8, value)
 }
 
 ///|
 pub fn Bus::write_bytes(self : Bus, base_addr : UInt64, bytes : Bytes) -> Unit {
   for index in 0..<bytes.length() {
-    self.memory[bus_offset_as_int(
-      base_addr + index.reinterpret_as_uint().to_uint64() - self.base_addr,
-    )] = bytes[index]
+    self.store_u8(
+      base_addr + index.reinterpret_as_uint().to_uint64(),
+      bytes[index].to_uint64(),
+    )
   }
 }
 
@@ -1370,19 +1402,61 @@ fn Bus::write_bytes_from(
     return 0
   }
   let start_index = bus_offset_as_int(base_addr - self.base_addr)
-  if start_index < 0 || start_index >= self.memory.length() {
+  if start_index < 0 || start_index >= self.size {
     return 0
   }
-  let available = self.memory.length() - start_index
+  let available = self.size - start_index
   let copy_len = if len < available { len } else { available }
-  for offset in 0..<copy_len {
+  let alignment = start_index & 7
+  let head_available = if alignment == 0 { 0 } else { 8 - alignment }
+  let head_len = if copy_len < head_available {
+    copy_len
+  } else {
+    head_available
+  }
+  for offset in 0..<head_len {
     let source_index = source_offset + offset
-    self.memory[start_index + offset] = if source_index >= 0 &&
-      source_index < bytes.length() {
-      bytes[source_index]
-    } else {
-      0U.to_byte()
-    }
+    self.store_word_fragment(
+      start_index + offset,
+      1,
+      if source_index >= 0 && source_index < bytes.length() {
+        bytes[source_index].to_uint64()
+      } else {
+        0U.to_uint64()
+      },
+    )
+  }
+  let bulk_source = source_offset + head_len
+  let source_available = if bulk_source >= 0 && bulk_source < bytes.length() {
+    bytes.length() - bulk_source
+  } else {
+    0
+  }
+  let after_head = copy_len - head_len
+  let bulk_available = if after_head < source_available {
+    after_head
+  } else {
+    source_available
+  }
+  let bulk_len = bulk_available / 8 * 8
+  for offset in 0..<(bulk_len / 8) {
+    let byte_offset = head_len + offset * 8
+    self.words[(start_index + byte_offset) >> 3] = Bytes::unsafe_read_uint64_le(
+      bytes,
+      source_offset + byte_offset,
+    )
+  }
+  for offset in (head_len + bulk_len)..<copy_len {
+    let source_index = source_offset + offset
+    self.store_word_fragment(
+      start_index + offset,
+      1,
+      if source_index >= 0 && source_index < bytes.length() {
+        bytes[source_index].to_uint64()
+      } else {
+        0U.to_uint64()
+      },
+    )
   }
   copy_len
 }
@@ -1405,10 +1479,10 @@ fn Bus::copy_bytes_to_array(
     return 0
   }
   let start_index = bus_offset_as_int(base_addr - self.base_addr)
-  if start_index < 0 || start_index >= self.memory.length() {
+  if start_index < 0 || start_index >= self.size {
     return 0
   }
-  let guest_available = self.memory.length() - start_index
+  let guest_available = self.size - start_index
   let dest_available = dest.length() - dest_offset
   let guest_copy_len = if len < guest_available { len } else { guest_available }
   let copy_len = if guest_copy_len < dest_available {
@@ -1417,7 +1491,9 @@ fn Bus::copy_bytes_to_array(
     dest_available
   }
   for offset in 0..<copy_len {
-    dest[dest_offset + offset] = self.memory[start_index + offset]
+    let guest_offset = start_index + offset
+    dest[dest_offset + offset] = (self.words[guest_offset >> 3] >>
+    ((guest_offset & 7) << 3)).to_byte()
   }
   copy_len
 }

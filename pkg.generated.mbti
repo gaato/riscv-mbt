@@ -55,7 +55,8 @@ pub(all) enum AccessType {
 
 pub struct Bus {
   base_addr : UInt64
-  memory : Array[Byte]
+  words : FixedArray[UInt64]
+  size : Int
 }
 pub fn Bus::load_u16(Self, UInt64) -> UInt64
 pub fn Bus::load_u32(Self, UInt64) -> UInt64
@@ -523,6 +524,7 @@ pub fn Runner::virtio_blk_read_sequential_request_count(Self) -> UInt64
 pub fn Runner::virtio_blk_write_byte_count(Self) -> UInt64
 pub fn Runner::virtio_blk_write_request_count(Self) -> UInt64
 pub fn Runner::write_memory_bytes(Self, UInt64, Bytes) -> Unit
+pub fn Runner::write_pc(Self, UInt64) -> Unit
 
 pub enum StepResult {
   Running

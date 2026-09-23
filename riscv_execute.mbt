@@ -2779,6 +2779,13 @@ pub fn Runner::step(self : Runner) -> StepResult {
 }
 
 ///|
+/// Redirect the next fetch. Used by benches to re-arm a loop and by debug
+/// hosts to move the guest; it does not touch caches or privilege.
+pub fn Runner::write_pc(self : Runner, pc : UInt64) -> Unit {
+  self.cpu.pc = pc
+}
+
+///|
 pub fn Runner::run(self : Runner, max_steps : Int) -> StepResult {
   for _ in 0..<max_steps {
     match self.step() {

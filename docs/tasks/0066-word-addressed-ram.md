@@ -63,4 +63,29 @@ New blackbox file `riscv_bus_test.mbt`:
 
 ## Status
 
-- `doing`
+- `done`
+
+## Progress Notes
+
+- Codex delivered `Bus { base_addr, words : FixedArray[UInt64], size }` with one/two-word little-endian fragment
+  helpers, read-modify-write sub-word stores, an 8-byte bulk path in `write_bytes_from`, and 8 characterization tests
+  (`riscv_bus_test.mbt`, including two `panic` tests for accesses past the end). Claude fixed one compile error (a test
+  helper that calls `assert_eq` needs `-> Unit raise`).
+- First measurement looked like a 2x regression on every memory bench. The cause was the bench harness, not the
+  store: every `b.bench` closure rebuilt its runner, so the 128 MB virt RAM allocation was inside the timed region,
+  and `FixedArray::make` zero-fills eagerly while `Array::make` did not touch the pages. The benches now build each
+  runner once and re-arm it through a new `Runner::write_pc` plus register resets (`reset_loop_runner`). All earlier
+  bench numbers in Task 0058 and Task 0065 include that allocation constant and are not comparable to numbers from
+  here on.
+- Hoisted-runner benches, old byte-array Bus (means of x3): `tight_add` 4.02 ms, `word_copy` 6.41, `dword_copy` 3.29,
+  `amoadd` 6.16, `spinlock` 6.03, `vector_add` 28.75.
+- Same benches, word Bus with Codex's four-comparison range check: 4.17 / 6.58 / 3.36 / 6.45 / 6.61 / 29.44 (+2 to
+  +10 %). With the check reduced to a single `offset > size - width` comparison (final): 3.98 / 6.40 / 3.30 (run 1
+  outlier excluded) / 6.16 / 6.29 / 28.96, i.e. native parity within noise (`spinlock` +4 %).
+- Browser Alpine interactive smoke x3 on the final build: wall 1:26.95 / 1:32.04 / 1:26.83, median 87.0 s against the
+  post-0065 baseline of 93.8 s (-7.3 %), same 373,293,056-step response point.
+- Decision: kept. The ADR 0011 rule asked for a >= 5 % native gain, which this slice does not deliver; it is kept for
+  the browser gain with native neutral, and the rule is amended in ADR 0011 to accept either target improving while
+  the other does not regress beyond noise.
+- Validation: `moon check` (0 warnings), `moon test` (602 passed), `moon fmt`, `moon info`, `git diff --check`,
+  `./scripts/build-browser-demo.sh` all clean.

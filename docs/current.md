@@ -11,12 +11,13 @@
 ## Open Tasks
 
 - [De-allocate the step hot path](tasks/0065-step-hot-path-deallocation.md) — `done`
-- [Word-addressed RAM backing store](tasks/0066-word-addressed-ram.md) — `doing`
+- [Word-addressed RAM backing store](tasks/0066-word-addressed-ram.md) — `done`
+- [`gdb_rsp/` package](tasks/0067-gdb-rsp-package.md) — `doing`
 - [Optional RV32 supervisor + Sv32 path](tasks/0009-rv32-supervisor-sv32.md) — `todo` (side branch, not on the milestone path)
 
 ## Next Task
 
-- Task 0066. Claude writes the task doc, Codex implements, Claude validates with the protocol in ADR 0011.
+- Task 0067. Claude writes the task doc, Codex implements, Claude validates with the protocol in ADR 0011.
 - The full slice order is in Milestone 13.
 
 ## Toolchain Contract

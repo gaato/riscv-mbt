@@ -157,46 +157,76 @@ fn make_vector_add_lmul2_loop_runner() -> @riscv_mbt.Runner {
 }
 
 ///|
+/// Re-arm a loop runner for another timed pass without rebuilding it. Runner
+/// construction allocates and zero-fills guest RAM (128 MB for the virt
+/// configs), which must stay outside the timed closure so the benches measure
+/// the execution path rather than allocation.
+fn reset_loop_runner(
+  runner : @riscv_mbt.Runner,
+  pc : UInt64,
+  regs : Array[(Int, UInt64)],
+) -> Unit {
+  runner.write_pc(pc)
+  runner.cpu.write_reg(6, 0U.to_uint64())
+  for pair in regs {
+    let (index, value) = pair
+    runner.cpu.write_reg(index, value)
+  }
+}
+
+///|
 test (b : @bench.T) {
+  let tight_add = make_tight_add_loop_runner()
   b.bench(name="tight_add_loop_100k_steps", fn() {
-    let runner = make_tight_add_loop_runner()
-    b.keep(runner.run(100000))
-    b.keep(runner.decode_cache_hit_count())
-    b.keep(runner.decode_cache_miss_count())
+    reset_loop_runner(tight_add, 0U.to_uint64(), [])
+    b.keep(tight_add.run(100000))
+    b.keep(tight_add.decode_cache_hit_count())
+    b.keep(tight_add.decode_cache_miss_count())
   })
+  let word_copy = make_word_copy_loop_runner()
   b.bench(name="word_copy_loop_100k_steps", fn() {
-    let runner = make_word_copy_loop_runner()
-    b.keep(runner.run(100000))
-    b.keep(runner.bus.load_u32(0x80200000U.to_uint64()))
-    b.keep(runner.decode_cache_hit_count())
-    b.keep(runner.decode_cache_miss_count())
+    reset_loop_runner(word_copy, 0x80000000U.to_uint64(), [
+      (11, 0x80100000U.to_uint64()),
+      (31, 0x80200000U.to_uint64()),
+    ])
+    b.keep(word_copy.run(100000))
+    b.keep(word_copy.bus.load_u32(0x80200000U.to_uint64()))
+    b.keep(word_copy.decode_cache_hit_count())
+    b.keep(word_copy.decode_cache_miss_count())
   })
+  let dword_copy = make_dword_copy_loop_runner()
   b.bench(name="dword_copy_loop_100k_steps", fn() {
-    let runner = make_dword_copy_loop_runner()
-    b.keep(runner.run(100000))
-    b.keep(runner.bus.load_u64(0x80200000U.to_uint64()))
-    b.keep(runner.decode_cache_hit_count())
-    b.keep(runner.decode_cache_miss_count())
+    reset_loop_runner(dword_copy, 0x80000000U.to_uint64(), [
+      (11, 0x80100000U.to_uint64()),
+      (31, 0x80200000U.to_uint64()),
+    ])
+    b.keep(dword_copy.run(100000))
+    b.keep(dword_copy.bus.load_u64(0x80200000U.to_uint64()))
+    b.keep(dword_copy.decode_cache_hit_count())
+    b.keep(dword_copy.decode_cache_miss_count())
   })
+  let amoadd = make_amoadd_word_loop_runner()
   b.bench(name="amoadd_word_loop_100k_steps", fn() {
-    let runner = make_amoadd_word_loop_runner()
-    b.keep(runner.run(100000))
-    b.keep(runner.bus.load_u32(0x80100000U.to_uint64()))
-    b.keep(runner.decode_cache_hit_count())
-    b.keep(runner.decode_cache_miss_count())
+    reset_loop_runner(amoadd, 0x80000000U.to_uint64(), [])
+    b.keep(amoadd.run(100000))
+    b.keep(amoadd.bus.load_u32(0x80100000U.to_uint64()))
+    b.keep(amoadd.decode_cache_hit_count())
+    b.keep(amoadd.decode_cache_miss_count())
   })
+  let spinlock = make_spinlock_shape_loop_runner()
   b.bench(name="spinlock_shape_loop_100k_steps", fn() {
-    let runner = make_spinlock_shape_loop_runner()
-    b.keep(runner.run(100000))
-    b.keep(runner.bus.load_u32(0x80400000U.to_uint64()))
-    b.keep(runner.decode_cache_hit_count())
-    b.keep(runner.decode_cache_miss_count())
+    reset_loop_runner(spinlock, 0x80000000U.to_uint64(), [])
+    b.keep(spinlock.run(100000))
+    b.keep(spinlock.bus.load_u32(0x80400000U.to_uint64()))
+    b.keep(spinlock.decode_cache_hit_count())
+    b.keep(spinlock.decode_cache_miss_count())
   })
+  let vector_add = make_vector_add_lmul2_loop_runner()
   b.bench(name="vector_add_lmul2_loop_100k_steps", fn() {
-    let runner = make_vector_add_lmul2_loop_runner()
-    b.keep(runner.run(100000))
-    b.keep(runner.read_vreg_u64(10, 0))
-    b.keep(runner.decode_cache_hit_count())
-    b.keep(runner.decode_cache_miss_count())
+    reset_loop_runner(vector_add, 0U.to_uint64(), [(10, 5U.to_uint64())])
+    b.keep(vector_add.run(100000))
+    b.keep(vector_add.read_vreg_u64(10, 0))
+    b.keep(vector_add.decode_cache_hit_count())
+    b.keep(vector_add.decode_cache_miss_count())
   })
 }

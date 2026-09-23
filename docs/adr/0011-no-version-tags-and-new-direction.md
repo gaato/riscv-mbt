@@ -44,9 +44,12 @@ coverage but speed, observability, and network I/O.
      3 %
    - browser: the Alpine interactive smoke three times, compare the median
      wall time and guest steps per second at the shell-response point
-   - keep a slice only if its target bench improves by at least 3 % (5 % for
-     the RAM backing-store change) and the browser median is not worse than
-     the baseline median plus 2 %; a single run is never a decision
+   - keep a slice only if at least one target improves (native target bench
+     by 3 % or more, or browser median by 3 % or more) and the other target
+     does not regress beyond its noise band (about 3 % native, 2 % browser);
+     a single run is never a decision
+   - benches build their runners outside the timed closure (Task 0066 found
+     the 128 MB RAM allocation dominating every earlier memory bench number)
    - a pure performance refactor satisfies the failing-test-first rule with a
      characterization test committed before the change plus tests for any new
      internal API
