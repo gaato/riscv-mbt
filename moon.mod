@@ -3,7 +3,7 @@ name = "gaato/riscv_mbt"
 version = "0.1.0"
 
 import {
-  "moonbitlang/async@0.22.1",
+  "moonbitlang/async@0.22.4",
 }
 
 preferred_target = "native"
