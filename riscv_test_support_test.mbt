@@ -35,8 +35,10 @@ let official_rv64gc_riscv_tests_suites : ReadOnlyArray[String] = [
 ///   `tdata1`, ...); the test handler only tolerates an absent `tcontrol`.
 /// - `rv64mi/pmpaddr` requires PMP; the test fails when `pmpaddr*` probes read
 ///   back zero rather than skipping.
+/// - `rv64ua/amocas_{w,d,q}` exercise `Zacas`, which is outside RV64GC; the
+///   emulator does not implement it.
 let official_rv64gc_riscv_tests_inapplicable_rows : ReadOnlyArray[String] = [
-  "rv64mi/breakpoint", "rv64mi/pmpaddr",
+  "rv64mi/breakpoint", "rv64mi/pmpaddr", "rv64ua/amocas_w", "rv64ua/amocas_d", "rv64ua/amocas_q",
 ]
 
 ///|

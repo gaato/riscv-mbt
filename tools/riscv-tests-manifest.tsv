@@ -125,6 +125,12 @@ rv64ua	amoor_d	rv64ia	gating
 rv64ua	amoswap_d	rv64ia	gating
 rv64ua	amoxor_d	rv64ia	gating
 rv64ua	lrsc	rv64ia	gating
+# Zacas (amocas.w/d/q, upstream since 2026-09-18) is not part of RV64GC and is not
+# implemented, so its rows stay survey-only and are listed as inapplicable in
+# riscv_test_support_test.mbt.
+rv64ua	amocas_w	rv64ia	survey
+rv64ua	amocas_d	rv64ia	survey
+rv64ua	amocas_q	rv64ia	survey
 # rv64mi/rv64si: privileged-architecture rows for the RV64GC baseline (ADR 0010).
 # breakpoint needs Sdtrig trigger CSRs and pmpaddr needs PMP; both are deliberately
 # unimplemented, so those two rows stay survey-only and are listed as inapplicable

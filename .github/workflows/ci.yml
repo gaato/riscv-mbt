@@ -9,21 +9,30 @@ on:
 jobs:
   test:
     runs-on: ubuntu-24.04
+    # Upstream riscv-tests builds with a current GCC (Zacas/Zabha/Zalasr since
+    # 2026-09); Ubuntu's riscv64-unknown-elf-gcc lags behind, Tumbleweed's does not.
+    container: opensuse/tumbleweed:latest
     permissions:
       contents: read
 
     steps:
-      - name: Checkout code
-        uses: actions/checkout@v5
-
       - name: Install system packages
         run: |
-          sudo apt-get update
-          sudo apt-get install -y \
+          zypper --non-interactive install \
             autoconf \
+            curl \
+            gcc \
+            git \
+            gzip \
             make \
-            gcc-riscv64-unknown-elf \
-            binutils-riscv64-unknown-elf
+            tar \
+            unzip \
+            which \
+            cross-riscv64-binutils \
+            cross-riscv64-elf-gcc16
+
+      - name: Checkout code
+        uses: actions/checkout@v5
 
       - name: Set up MoonBit
         run: |
