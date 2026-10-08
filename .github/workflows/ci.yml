@@ -11,7 +11,12 @@ jobs:
     runs-on: ubuntu-24.04
     # Upstream riscv-tests builds with a current GCC (Zacas/Zabha/Zalasr since
     # 2026-09); Ubuntu's riscv64-unknown-elf-gcc lags behind, Tumbleweed's does not.
-    container: opensuse/tumbleweed:latest
+    container:
+      image: opensuse/tumbleweed:latest
+      # The image sets no PATH, so the runner would build one from GITHUB_PATH
+      # entries alone and lose /usr/bin.
+      env:
+        PATH: /usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin
     permissions:
       contents: read
 
