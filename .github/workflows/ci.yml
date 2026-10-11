@@ -37,7 +37,7 @@ jobs:
             cross-riscv64-elf-gcc16
 
       - name: Checkout code
-        uses: actions/checkout@v5
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1 # v7
 
       - name: Set up MoonBit
         run: |
