@@ -26,7 +26,7 @@ pub struct MachineConfig {
   xlen : Xlen
   extensions : UInt64
   ram_base : UInt64
-  ram_size : Int
+  ram_size : Int32
   entry_point : UInt64
   hart_id : UInt64
   uart0_base : UInt64
@@ -65,7 +65,7 @@ pub struct Bus {
   /// Little-endian guest RAM packed into host 64-bit words.
   words : FixedArray[UInt64]
   /// Exact guest-visible RAM size in bytes, excluding padding in `words`.
-  size : Int
+  size : Int32
 }
 
 ///|
@@ -90,280 +90,280 @@ pub enum Instruction {
   // shape separately from behavior so Linux failures can be traced precisely.
   Fence
   FenceI
-  Lui(Int, UInt)
-  Auipc(Int, UInt)
-  Addi(Int, Int, Int)
-  Slti(Int, Int, Int)
-  Sltiu(Int, Int, Int)
-  Xori(Int, Int, Int)
-  Ori(Int, Int, Int)
-  Andi(Int, Int, Int)
-  Addiw(Int, Int, Int)
-  Slli(Int, Int, Int)
-  Srli(Int, Int, Int)
-  Srai(Int, Int, Int)
-  Slliw(Int, Int, Int)
-  Srliw(Int, Int, Int)
-  Sraiw(Int, Int, Int)
-  Add(Int, Int, Int)
-  Sub(Int, Int, Int)
-  Addw(Int, Int, Int)
-  Subw(Int, Int, Int)
-  Mul(Int, Int, Int)
-  Mulw(Int, Int, Int)
-  Mulh(Int, Int, Int)
-  Mulhsu(Int, Int, Int)
-  Mulhu(Int, Int, Int)
-  Div(Int, Int, Int)
-  Divw(Int, Int, Int)
-  Divu(Int, Int, Int)
-  Divuw(Int, Int, Int)
-  Rem(Int, Int, Int)
-  Remw(Int, Int, Int)
-  Remu(Int, Int, Int)
-  Remuw(Int, Int, Int)
-  Sll(Int, Int, Int)
-  Sllw(Int, Int, Int)
-  Slt(Int, Int, Int)
-  Sltu(Int, Int, Int)
-  Xor(Int, Int, Int)
-  Srl(Int, Int, Int)
-  Sra(Int, Int, Int)
-  Srlw(Int, Int, Int)
-  Sraw(Int, Int, Int)
-  Or(Int, Int, Int)
-  And(Int, Int, Int)
-  Beq(Int, Int, Int)
-  Bne(Int, Int, Int)
-  Blt(Int, Int, Int)
-  Bge(Int, Int, Int)
-  Bltu(Int, Int, Int)
-  Bgeu(Int, Int, Int)
-  Lb(Int, Int, Int)
-  Lh(Int, Int, Int)
-  Lw(Int, Int, Int)
-  Flw(Int, Int, Int)
-  Fld(Int, Int, Int)
-  Lwu(Int, Int, Int)
-  Ld(Int, Int, Int)
-  Lbu(Int, Int, Int)
-  Lhu(Int, Int, Int)
-  Sb(Int, Int, Int)
-  Sh(Int, Int, Int)
-  Sw(Int, Int, Int)
-  Fsw(Int, Int, Int)
-  Fsd(Int, Int, Int)
-  Sd(Int, Int, Int)
-  FMAddS(Int, Int, Int, Int, UInt)
-  FMSubS(Int, Int, Int, Int, UInt)
-  FNMSubS(Int, Int, Int, Int, UInt)
-  FNMAddS(Int, Int, Int, Int, UInt)
-  FMAddD(Int, Int, Int, Int, UInt)
-  FMSubD(Int, Int, Int, Int, UInt)
-  FNMSubD(Int, Int, Int, Int, UInt)
-  FNMAddD(Int, Int, Int, Int, UInt)
-  FAddS(Int, Int, Int, UInt)
-  FSubS(Int, Int, Int, UInt)
-  FMulS(Int, Int, Int, UInt)
-  FDivS(Int, Int, Int, UInt)
-  FSqrtS(Int, Int, UInt)
-  FMinS(Int, Int, Int)
-  FMaxS(Int, Int, Int)
-  FSgnjS(Int, Int, Int)
-  FSgnjnS(Int, Int, Int)
-  FSgnjxS(Int, Int, Int)
-  FLeS(Int, Int, Int)
-  FLtS(Int, Int, Int)
-  FEqS(Int, Int, Int)
-  FClassS(Int, Int)
-  FAddD(Int, Int, Int, UInt)
-  FSubD(Int, Int, Int, UInt)
-  FMulD(Int, Int, Int, UInt)
-  FDivD(Int, Int, Int, UInt)
-  FSgnjD(Int, Int, Int)
-  FSgnjnD(Int, Int, Int)
-  FSgnjxD(Int, Int, Int)
-  FSqrtD(Int, Int, UInt)
-  FMinD(Int, Int, Int)
-  FMaxD(Int, Int, Int)
-  FLeD(Int, Int, Int)
-  FLtD(Int, Int, Int)
-  FEqD(Int, Int, Int)
-  FClassD(Int, Int)
-  FmvXW(Int, Int)
-  FmvWX(Int, Int)
-  FmvXD(Int, Int)
-  FmvDX(Int, Int)
-  FCvtSD(Int, Int, UInt)
-  FCvtDS(Int, Int, UInt)
-  FCvtSW(Int, Int, UInt)
-  FCvtSWU(Int, Int, UInt)
-  FCvtSL(Int, Int, UInt)
-  FCvtSLU(Int, Int, UInt)
-  FCvtDW(Int, Int, UInt)
-  FCvtDWU(Int, Int, UInt)
-  FCvtDL(Int, Int, UInt)
-  FCvtDLU(Int, Int, UInt)
-  FCvtWS(Int, Int, UInt)
-  FCvtWUS(Int, Int, UInt)
-  FCvtLS(Int, Int, UInt)
-  FCvtLUS(Int, Int, UInt)
-  FCvtWD(Int, Int, UInt)
-  FCvtWUD(Int, Int, UInt)
-  FCvtLD(Int, Int, UInt)
-  FCvtLUD(Int, Int, UInt)
-  Vsetvli(Int, Int, UInt)
-  Vsetivli(Int, UInt, UInt)
-  Vsetvl(Int, Int, Int)
-  VmvVI(Int, Int)
-  VmvVX(Int, Int)
-  VmvVV(Int, Int)
-  VmvXS(Int, Int)
-  VmergeVvm(Int, Int, Int)
-  VmergeVxm(Int, Int, Int)
-  VmergeVim(Int, Int, Int)
-  VaddVv(Int, Int, Int)
-  VaddVx(Int, Int, Int)
-  VaddVi(Int, Int, Int)
-  VsubVv(Int, Int, Int)
-  VsubVx(Int, Int, Int)
-  VrsubVx(Int, Int, Int)
-  VrsubVi(Int, Int, Int)
-  VwadduVv(Int, Int, Int)
-  VwadduVx(Int, Int, Int)
-  VwaddVv(Int, Int, Int)
-  VwaddVx(Int, Int, Int)
-  VwsubuVv(Int, Int, Int)
-  VwsubuVx(Int, Int, Int)
-  VwsubVv(Int, Int, Int)
-  VwsubVx(Int, Int, Int)
-  VmulVv(Int, Int, Int)
-  VmulVx(Int, Int, Int)
-  VmulhuVv(Int, Int, Int)
-  VmulhuVx(Int, Int, Int)
-  VmulhVv(Int, Int, Int)
-  VmulhVx(Int, Int, Int)
-  VmulhsuVv(Int, Int, Int)
-  VmulhsuVx(Int, Int, Int)
-  VdivuVv(Int, Int, Int)
-  VdivuVx(Int, Int, Int)
-  VdivVv(Int, Int, Int)
-  VdivVx(Int, Int, Int)
-  VremuVv(Int, Int, Int)
-  VremuVx(Int, Int, Int)
-  VremVv(Int, Int, Int)
-  VremVx(Int, Int, Int)
-  VminuVv(Int, Int, Int)
-  VminuVx(Int, Int, Int)
-  VminVv(Int, Int, Int)
-  VminVx(Int, Int, Int)
-  VmaxuVv(Int, Int, Int)
-  VmaxuVx(Int, Int, Int)
-  VmaxVv(Int, Int, Int)
-  VmaxVx(Int, Int, Int)
-  VmseqVv(Int, Int, Int)
-  VmseqVx(Int, Int, Int)
-  VmseqVi(Int, Int, Int)
-  VmsneVv(Int, Int, Int)
-  VmsneVx(Int, Int, Int)
-  VmsneVi(Int, Int, Int)
-  VmsltuVv(Int, Int, Int)
-  VmsltuVx(Int, Int, Int)
-  VmsltVv(Int, Int, Int)
-  VmsltVx(Int, Int, Int)
-  VmsleuVv(Int, Int, Int)
-  VmsleuVx(Int, Int, Int)
-  VmsleuVi(Int, Int, Int)
-  VmsleVv(Int, Int, Int)
-  VmsleVx(Int, Int, Int)
-  VmsleVi(Int, Int, Int)
-  VmsgtuVx(Int, Int, Int)
-  VmsgtuVi(Int, Int, Int)
-  VmsgtVx(Int, Int, Int)
-  VmsgtVi(Int, Int, Int)
-  VmandMm(Int, Int, Int)
-  VmnandMm(Int, Int, Int)
-  VmandnMm(Int, Int, Int)
-  VmxorMm(Int, Int, Int)
-  VmorMm(Int, Int, Int)
-  VmnorMm(Int, Int, Int)
-  VmornMm(Int, Int, Int)
-  VmxnorMm(Int, Int, Int)
-  VcpopM(Int, Int)
-  VfirstM(Int, Int)
-  VmsbfM(Int, Int)
-  VmsofM(Int, Int)
-  VmsifM(Int, Int)
-  ViotaM(Int, Int)
-  VidV(Int)
-  VcompressVm(Int, Int, Int)
-  VrgatherVv(Int, Int, Int)
-  VrgatherVx(Int, Int, Int)
-  VrgatherVi(Int, Int, Int)
-  VslideupVx(Int, Int, Int)
-  VslideupVi(Int, Int, Int)
-  VslidedownVx(Int, Int, Int)
-  VslidedownVi(Int, Int, Int)
-  Vslide1upVx(Int, Int, Int)
-  Vslide1downVx(Int, Int, Int)
-  VmvNrR(Int, Int, Int)
-  VsllVv(Int, Int, Int)
-  VsllVx(Int, Int, Int)
-  VsllVi(Int, Int, Int)
-  VsrlVv(Int, Int, Int)
-  VsrlVx(Int, Int, Int)
-  VsrlVi(Int, Int, Int)
-  VsraVv(Int, Int, Int)
-  VsraVx(Int, Int, Int)
-  VsraVi(Int, Int, Int)
-  VandVv(Int, Int, Int)
-  VandVx(Int, Int, Int)
-  VandVi(Int, Int, Int)
-  VorVv(Int, Int, Int)
-  VorVx(Int, Int, Int)
-  VorVi(Int, Int, Int)
-  VxorVv(Int, Int, Int)
-  VxorVx(Int, Int, Int)
-  VxorVi(Int, Int, Int)
-  VlmV(Int, Int)
-  Vle8V(Int, Int)
-  Vle16V(Int, Int)
-  Vle32V(Int, Int)
-  Vle64V(Int, Int)
-  Vle8ffV(Int, Int)
-  Vle16ffV(Int, Int)
-  Vle32ffV(Int, Int)
-  Vle64ffV(Int, Int)
-  Vlseg2e32V(Int, Int)
-  Vluxei32V(Int, Int, Int)
-  Vloxei32V(Int, Int, Int)
-  Vlse32V(Int, Int, Int)
-  VsmV(Int, Int)
-  Vse8V(Int, Int)
-  Vse16V(Int, Int)
-  Vse32V(Int, Int)
-  Vse64V(Int, Int)
-  Vsseg2e32V(Int, Int)
-  Vsuxei32V(Int, Int, Int)
-  Vsoxei32V(Int, Int, Int)
-  Vsse32V(Int, Int, Int)
-  Jal(Int, Int)
-  Jalr(Int, Int, Int)
-  Csrrw(Int, Int, Int)
-  Csrrs(Int, Int, Int)
-  Csrrc(Int, Int, Int)
-  Csrrwi(Int, Int, UInt)
-  Csrrsi(Int, Int, UInt)
-  Csrrci(Int, Int, UInt)
-  SfenceVma(Int, Int)
+  Lui(Int32, UInt32)
+  Auipc(Int32, UInt32)
+  Addi(Int32, Int32, Int32)
+  Slti(Int32, Int32, Int32)
+  Sltiu(Int32, Int32, Int32)
+  Xori(Int32, Int32, Int32)
+  Ori(Int32, Int32, Int32)
+  Andi(Int32, Int32, Int32)
+  Addiw(Int32, Int32, Int32)
+  Slli(Int32, Int32, Int32)
+  Srli(Int32, Int32, Int32)
+  Srai(Int32, Int32, Int32)
+  Slliw(Int32, Int32, Int32)
+  Srliw(Int32, Int32, Int32)
+  Sraiw(Int32, Int32, Int32)
+  Add(Int32, Int32, Int32)
+  Sub(Int32, Int32, Int32)
+  Addw(Int32, Int32, Int32)
+  Subw(Int32, Int32, Int32)
+  Mul(Int32, Int32, Int32)
+  Mulw(Int32, Int32, Int32)
+  Mulh(Int32, Int32, Int32)
+  Mulhsu(Int32, Int32, Int32)
+  Mulhu(Int32, Int32, Int32)
+  Div(Int32, Int32, Int32)
+  Divw(Int32, Int32, Int32)
+  Divu(Int32, Int32, Int32)
+  Divuw(Int32, Int32, Int32)
+  Rem(Int32, Int32, Int32)
+  Remw(Int32, Int32, Int32)
+  Remu(Int32, Int32, Int32)
+  Remuw(Int32, Int32, Int32)
+  Sll(Int32, Int32, Int32)
+  Sllw(Int32, Int32, Int32)
+  Slt(Int32, Int32, Int32)
+  Sltu(Int32, Int32, Int32)
+  Xor(Int32, Int32, Int32)
+  Srl(Int32, Int32, Int32)
+  Sra(Int32, Int32, Int32)
+  Srlw(Int32, Int32, Int32)
+  Sraw(Int32, Int32, Int32)
+  Or(Int32, Int32, Int32)
+  And(Int32, Int32, Int32)
+  Beq(Int32, Int32, Int32)
+  Bne(Int32, Int32, Int32)
+  Blt(Int32, Int32, Int32)
+  Bge(Int32, Int32, Int32)
+  Bltu(Int32, Int32, Int32)
+  Bgeu(Int32, Int32, Int32)
+  Lb(Int32, Int32, Int32)
+  Lh(Int32, Int32, Int32)
+  Lw(Int32, Int32, Int32)
+  Flw(Int32, Int32, Int32)
+  Fld(Int32, Int32, Int32)
+  Lwu(Int32, Int32, Int32)
+  Ld(Int32, Int32, Int32)
+  Lbu(Int32, Int32, Int32)
+  Lhu(Int32, Int32, Int32)
+  Sb(Int32, Int32, Int32)
+  Sh(Int32, Int32, Int32)
+  Sw(Int32, Int32, Int32)
+  Fsw(Int32, Int32, Int32)
+  Fsd(Int32, Int32, Int32)
+  Sd(Int32, Int32, Int32)
+  FMAddS(Int32, Int32, Int32, Int32, UInt32)
+  FMSubS(Int32, Int32, Int32, Int32, UInt32)
+  FNMSubS(Int32, Int32, Int32, Int32, UInt32)
+  FNMAddS(Int32, Int32, Int32, Int32, UInt32)
+  FMAddD(Int32, Int32, Int32, Int32, UInt32)
+  FMSubD(Int32, Int32, Int32, Int32, UInt32)
+  FNMSubD(Int32, Int32, Int32, Int32, UInt32)
+  FNMAddD(Int32, Int32, Int32, Int32, UInt32)
+  FAddS(Int32, Int32, Int32, UInt32)
+  FSubS(Int32, Int32, Int32, UInt32)
+  FMulS(Int32, Int32, Int32, UInt32)
+  FDivS(Int32, Int32, Int32, UInt32)
+  FSqrtS(Int32, Int32, UInt32)
+  FMinS(Int32, Int32, Int32)
+  FMaxS(Int32, Int32, Int32)
+  FSgnjS(Int32, Int32, Int32)
+  FSgnjnS(Int32, Int32, Int32)
+  FSgnjxS(Int32, Int32, Int32)
+  FLeS(Int32, Int32, Int32)
+  FLtS(Int32, Int32, Int32)
+  FEqS(Int32, Int32, Int32)
+  FClassS(Int32, Int32)
+  FAddD(Int32, Int32, Int32, UInt32)
+  FSubD(Int32, Int32, Int32, UInt32)
+  FMulD(Int32, Int32, Int32, UInt32)
+  FDivD(Int32, Int32, Int32, UInt32)
+  FSgnjD(Int32, Int32, Int32)
+  FSgnjnD(Int32, Int32, Int32)
+  FSgnjxD(Int32, Int32, Int32)
+  FSqrtD(Int32, Int32, UInt32)
+  FMinD(Int32, Int32, Int32)
+  FMaxD(Int32, Int32, Int32)
+  FLeD(Int32, Int32, Int32)
+  FLtD(Int32, Int32, Int32)
+  FEqD(Int32, Int32, Int32)
+  FClassD(Int32, Int32)
+  FmvXW(Int32, Int32)
+  FmvWX(Int32, Int32)
+  FmvXD(Int32, Int32)
+  FmvDX(Int32, Int32)
+  FCvtSD(Int32, Int32, UInt32)
+  FCvtDS(Int32, Int32, UInt32)
+  FCvtSW(Int32, Int32, UInt32)
+  FCvtSWU(Int32, Int32, UInt32)
+  FCvtSL(Int32, Int32, UInt32)
+  FCvtSLU(Int32, Int32, UInt32)
+  FCvtDW(Int32, Int32, UInt32)
+  FCvtDWU(Int32, Int32, UInt32)
+  FCvtDL(Int32, Int32, UInt32)
+  FCvtDLU(Int32, Int32, UInt32)
+  FCvtWS(Int32, Int32, UInt32)
+  FCvtWUS(Int32, Int32, UInt32)
+  FCvtLS(Int32, Int32, UInt32)
+  FCvtLUS(Int32, Int32, UInt32)
+  FCvtWD(Int32, Int32, UInt32)
+  FCvtWUD(Int32, Int32, UInt32)
+  FCvtLD(Int32, Int32, UInt32)
+  FCvtLUD(Int32, Int32, UInt32)
+  Vsetvli(Int32, Int32, UInt32)
+  Vsetivli(Int32, UInt32, UInt32)
+  Vsetvl(Int32, Int32, Int32)
+  VmvVI(Int32, Int32)
+  VmvVX(Int32, Int32)
+  VmvVV(Int32, Int32)
+  VmvXS(Int32, Int32)
+  VmergeVvm(Int32, Int32, Int32)
+  VmergeVxm(Int32, Int32, Int32)
+  VmergeVim(Int32, Int32, Int32)
+  VaddVv(Int32, Int32, Int32)
+  VaddVx(Int32, Int32, Int32)
+  VaddVi(Int32, Int32, Int32)
+  VsubVv(Int32, Int32, Int32)
+  VsubVx(Int32, Int32, Int32)
+  VrsubVx(Int32, Int32, Int32)
+  VrsubVi(Int32, Int32, Int32)
+  VwadduVv(Int32, Int32, Int32)
+  VwadduVx(Int32, Int32, Int32)
+  VwaddVv(Int32, Int32, Int32)
+  VwaddVx(Int32, Int32, Int32)
+  VwsubuVv(Int32, Int32, Int32)
+  VwsubuVx(Int32, Int32, Int32)
+  VwsubVv(Int32, Int32, Int32)
+  VwsubVx(Int32, Int32, Int32)
+  VmulVv(Int32, Int32, Int32)
+  VmulVx(Int32, Int32, Int32)
+  VmulhuVv(Int32, Int32, Int32)
+  VmulhuVx(Int32, Int32, Int32)
+  VmulhVv(Int32, Int32, Int32)
+  VmulhVx(Int32, Int32, Int32)
+  VmulhsuVv(Int32, Int32, Int32)
+  VmulhsuVx(Int32, Int32, Int32)
+  VdivuVv(Int32, Int32, Int32)
+  VdivuVx(Int32, Int32, Int32)
+  VdivVv(Int32, Int32, Int32)
+  VdivVx(Int32, Int32, Int32)
+  VremuVv(Int32, Int32, Int32)
+  VremuVx(Int32, Int32, Int32)
+  VremVv(Int32, Int32, Int32)
+  VremVx(Int32, Int32, Int32)
+  VminuVv(Int32, Int32, Int32)
+  VminuVx(Int32, Int32, Int32)
+  VminVv(Int32, Int32, Int32)
+  VminVx(Int32, Int32, Int32)
+  VmaxuVv(Int32, Int32, Int32)
+  VmaxuVx(Int32, Int32, Int32)
+  VmaxVv(Int32, Int32, Int32)
+  VmaxVx(Int32, Int32, Int32)
+  VmseqVv(Int32, Int32, Int32)
+  VmseqVx(Int32, Int32, Int32)
+  VmseqVi(Int32, Int32, Int32)
+  VmsneVv(Int32, Int32, Int32)
+  VmsneVx(Int32, Int32, Int32)
+  VmsneVi(Int32, Int32, Int32)
+  VmsltuVv(Int32, Int32, Int32)
+  VmsltuVx(Int32, Int32, Int32)
+  VmsltVv(Int32, Int32, Int32)
+  VmsltVx(Int32, Int32, Int32)
+  VmsleuVv(Int32, Int32, Int32)
+  VmsleuVx(Int32, Int32, Int32)
+  VmsleuVi(Int32, Int32, Int32)
+  VmsleVv(Int32, Int32, Int32)
+  VmsleVx(Int32, Int32, Int32)
+  VmsleVi(Int32, Int32, Int32)
+  VmsgtuVx(Int32, Int32, Int32)
+  VmsgtuVi(Int32, Int32, Int32)
+  VmsgtVx(Int32, Int32, Int32)
+  VmsgtVi(Int32, Int32, Int32)
+  VmandMm(Int32, Int32, Int32)
+  VmnandMm(Int32, Int32, Int32)
+  VmandnMm(Int32, Int32, Int32)
+  VmxorMm(Int32, Int32, Int32)
+  VmorMm(Int32, Int32, Int32)
+  VmnorMm(Int32, Int32, Int32)
+  VmornMm(Int32, Int32, Int32)
+  VmxnorMm(Int32, Int32, Int32)
+  VcpopM(Int32, Int32)
+  VfirstM(Int32, Int32)
+  VmsbfM(Int32, Int32)
+  VmsofM(Int32, Int32)
+  VmsifM(Int32, Int32)
+  ViotaM(Int32, Int32)
+  VidV(Int32)
+  VcompressVm(Int32, Int32, Int32)
+  VrgatherVv(Int32, Int32, Int32)
+  VrgatherVx(Int32, Int32, Int32)
+  VrgatherVi(Int32, Int32, Int32)
+  VslideupVx(Int32, Int32, Int32)
+  VslideupVi(Int32, Int32, Int32)
+  VslidedownVx(Int32, Int32, Int32)
+  VslidedownVi(Int32, Int32, Int32)
+  Vslide1upVx(Int32, Int32, Int32)
+  Vslide1downVx(Int32, Int32, Int32)
+  VmvNrR(Int32, Int32, Int32)
+  VsllVv(Int32, Int32, Int32)
+  VsllVx(Int32, Int32, Int32)
+  VsllVi(Int32, Int32, Int32)
+  VsrlVv(Int32, Int32, Int32)
+  VsrlVx(Int32, Int32, Int32)
+  VsrlVi(Int32, Int32, Int32)
+  VsraVv(Int32, Int32, Int32)
+  VsraVx(Int32, Int32, Int32)
+  VsraVi(Int32, Int32, Int32)
+  VandVv(Int32, Int32, Int32)
+  VandVx(Int32, Int32, Int32)
+  VandVi(Int32, Int32, Int32)
+  VorVv(Int32, Int32, Int32)
+  VorVx(Int32, Int32, Int32)
+  VorVi(Int32, Int32, Int32)
+  VxorVv(Int32, Int32, Int32)
+  VxorVx(Int32, Int32, Int32)
+  VxorVi(Int32, Int32, Int32)
+  VlmV(Int32, Int32)
+  Vle8V(Int32, Int32)
+  Vle16V(Int32, Int32)
+  Vle32V(Int32, Int32)
+  Vle64V(Int32, Int32)
+  Vle8ffV(Int32, Int32)
+  Vle16ffV(Int32, Int32)
+  Vle32ffV(Int32, Int32)
+  Vle64ffV(Int32, Int32)
+  Vlseg2e32V(Int32, Int32)
+  Vluxei32V(Int32, Int32, Int32)
+  Vloxei32V(Int32, Int32, Int32)
+  Vlse32V(Int32, Int32, Int32)
+  VsmV(Int32, Int32)
+  Vse8V(Int32, Int32)
+  Vse16V(Int32, Int32)
+  Vse32V(Int32, Int32)
+  Vse64V(Int32, Int32)
+  Vsseg2e32V(Int32, Int32)
+  Vsuxei32V(Int32, Int32, Int32)
+  Vsoxei32V(Int32, Int32, Int32)
+  Vsse32V(Int32, Int32, Int32)
+  Jal(Int32, Int32)
+  Jalr(Int32, Int32, Int32)
+  Csrrw(Int32, Int32, Int32)
+  Csrrs(Int32, Int32, Int32)
+  Csrrc(Int32, Int32, Int32)
+  Csrrwi(Int32, Int32, UInt32)
+  Csrrsi(Int32, Int32, UInt32)
+  Csrrci(Int32, Int32, UInt32)
+  SfenceVma(Int32, Int32)
   Wfi
-  AmoW(UInt, UInt, Int, Int, Int)
-  AmoD(UInt, UInt, Int, Int, Int)
+  AmoW(UInt32, UInt32, Int32, Int32, Int32)
+  AmoD(UInt32, UInt32, Int32, Int32, Int32)
   Ecall
   Ebreak
   Mret
   Sret
-  Unknown(UInt)
+  Unknown(UInt32)
 }
 
 ///|
@@ -416,19 +416,19 @@ pub enum StepResult {
 let translate_fault_sentinel : UInt64 = 0xffffffffffffffffUL
 
 ///|
-let decode_cache_sets : Int = 4096
+let decode_cache_sets : Int32 = 4096
 
 ///|
 let decode_cache_invalid_tag : UInt64 = bit_not(0U.to_uint64())
 
 ///|
-let translate_cache_sets : Int = 4096
+let translate_cache_sets : Int32 = 4096
 
 ///|
 let translate_cache_invalid_vpage : UInt64 = bit_not(0U.to_uint64())
 
 ///|
-let known_page_table_sets : Int = 256
+let known_page_table_sets : Int32 = 256
 
 ///|
 let known_page_table_invalid_ppn : UInt64 = bit_not(0U.to_uint64())
@@ -460,9 +460,9 @@ pub struct Runner {
   /// Physical fetch address written only after `fetch_into_scratch` succeeds.
   mut fetch_pa : UInt64
   /// Raw instruction bits written only after `fetch_into_scratch` succeeds.
-  mut fetch_raw : UInt
+  mut fetch_raw : UInt32
   /// Instruction byte length written only after `fetch_into_scratch` succeeds.
-  mut fetch_length : Int
+  mut fetch_length : Int32
   /// Trap result paired with a sentinel or false hot-path helper result.
   mut pending_step_result : StepResult
   clint_msip : Array[Bool] // [hart_id] = MSIP bit; shared across SMP harts
@@ -494,13 +494,13 @@ pub struct Runner {
   // enough for Linux lock/futex loops and lets stores from one hart invalidate
   // another hart's pending SC when the physical ranges overlap.
   lr_sc_reserved_pas : Array[UInt64]
-  lr_sc_reserved_sizes : Array[Int]
+  lr_sc_reserved_sizes : Array[Int32]
   // Decode cache keys by physical fetch address plus raw bits. This avoids
   // mixing Sv39 virtual aliases and keeps cache invalidation tied to fence.i.
   decode_cache_tags : Array[UInt64]
-  decode_cache_raws : Array[UInt]
-  decode_cache_lengths : Array[Int]
-  decode_cache_xlens : Array[Int]
+  decode_cache_raws : Array[UInt32]
+  decode_cache_lengths : Array[Int32]
+  decode_cache_xlens : Array[Int32]
   decode_cache_instructions : Array[Instruction]
   mut decode_cache_hits : UInt64
   mut decode_cache_misses : UInt64
@@ -511,8 +511,8 @@ pub struct Runner {
   // rely on sfence.vma to flush this cache at architectural boundaries.
   translate_cache_vpages : Array[UInt64]
   translate_cache_satps : Array[UInt64]
-  translate_cache_accesses : Array[Int]
-  translate_cache_privileges : Array[Int]
+  translate_cache_accesses : Array[Int32]
+  translate_cache_privileges : Array[Int32]
   translate_cache_sums : Array[Bool]
   translate_cache_mxrs : Array[Bool]
   translate_cache_pa_pages : Array[UInt64]
@@ -713,35 +713,35 @@ pub fn CsrFile::new() -> CsrFile {
 }
 
 ///|
-pub fn CsrFile::read(self : CsrFile, index : Int) -> UInt64 {
+pub fn CsrFile::read(self : CsrFile, index : Int32) -> UInt64 {
   self.registers[index]
 }
 
 ///|
-pub fn CsrFile::write(self : CsrFile, index : Int, value : UInt64) -> Unit {
+pub fn CsrFile::write(self : CsrFile, index : Int32, value : UInt64) -> Unit {
   self.registers[index] = value
 }
 
 ///|
-const CSR_MSTATUS : Int = 0x300
+const CSR_MSTATUS : Int32 = 0x300
 
 ///|
-const CSR_MISA : Int = 0x301
+const CSR_MISA : Int32 = 0x301
 
 ///|
-const CSR_FFLAGS : Int = 0x001
+const CSR_FFLAGS : Int32 = 0x001
 
 ///|
-const CSR_FRM : Int = 0x002
+const CSR_FRM : Int32 = 0x002
 
 ///|
-const CSR_FCSR : Int = 0x003
+const CSR_FCSR : Int32 = 0x003
 
 ///|
-const CSR_MEDELEG : Int = 0x302
+const CSR_MEDELEG : Int32 = 0x302
 
 ///|
-const CSR_MIDELEG : Int = 0x303
+const CSR_MIDELEG : Int32 = 0x303
 
 ///|
 const MEDELEG_WRITABLE_MASK : UInt64 = 0xb3fe
@@ -750,91 +750,91 @@ const MEDELEG_WRITABLE_MASK : UInt64 = 0xb3fe
 const MIDELEG_WRITABLE_MASK : UInt64 = 0x222
 
 ///|
-const CSR_MIE : Int = 0x304
+const CSR_MIE : Int32 = 0x304
 
 ///|
 const MACHINE_INTERRUPT_MASK : UInt64 = 0xaaa
 
 ///|
-const CSR_MTVEC : Int = 0x305
+const CSR_MTVEC : Int32 = 0x305
 
 ///|
-const CSR_SSTATUS : Int = 0x100
+const CSR_SSTATUS : Int32 = 0x100
 
 ///|
-const CSR_MEPC : Int = 0x341
+const CSR_MEPC : Int32 = 0x341
 
 ///|
-const CSR_MCAUSE : Int = 0x342
+const CSR_MCAUSE : Int32 = 0x342
 
 ///|
-const CSR_MTVAL : Int = 0x343
+const CSR_MTVAL : Int32 = 0x343
 
 ///|
-const CSR_MIP : Int = 0x344
+const CSR_MIP : Int32 = 0x344
 
 ///|
-const CSR_STVEC : Int = 0x105
+const CSR_STVEC : Int32 = 0x105
 
 ///|
-const CSR_SSCRATCH : Int = 0x140
+const CSR_SSCRATCH : Int32 = 0x140
 
 ///|
-const CSR_SEPC : Int = 0x141
+const CSR_SEPC : Int32 = 0x141
 
 ///|
-const CSR_SCAUSE : Int = 0x142
+const CSR_SCAUSE : Int32 = 0x142
 
 ///|
-const CSR_STVAL : Int = 0x143
+const CSR_STVAL : Int32 = 0x143
 
 ///|
-const CSR_SIE : Int = 0x104
+const CSR_SIE : Int32 = 0x104
 
 ///|
-const CSR_SIP : Int = 0x144
+const CSR_SIP : Int32 = 0x144
 
 ///|
-const CSR_SATP : Int = 0x180
+const CSR_SATP : Int32 = 0x180
 
 ///|
-const CSR_PMPCFG0 : Int = 0x3A0
+const CSR_PMPCFG0 : Int32 = 0x3A0
 
 ///|
-const CSR_PMPADDR0 : Int = 0x3B0
+const CSR_PMPADDR0 : Int32 = 0x3B0
 
 ///|
-const CSR_MSCRATCH : Int = 0x340
+const CSR_MSCRATCH : Int32 = 0x340
 
 ///|
-const CSR_MCOUNTEREN : Int = 0x306
+const CSR_MCOUNTEREN : Int32 = 0x306
 
 ///|
-const CSR_SCOUNTEREN : Int = 0x106
+const CSR_SCOUNTEREN : Int32 = 0x106
 
 ///|
 const COUNTEREN_WRITABLE_MASK : UInt64 = 0x7
 
 ///|
-const CSR_MCOUNTINHIBIT : Int = 0x320
+const CSR_MCOUNTINHIBIT : Int32 = 0x320
 
 ///|
-const CSR_MCYCLE : Int = 0xB00
+const CSR_MCYCLE : Int32 = 0xB00
 
 ///|
-const CSR_MINSTRET : Int = 0xB02
+const CSR_MINSTRET : Int32 = 0xB02
 
 ///|
-const CSR_MCYCLEH : Int = 0xB80
+const CSR_MCYCLEH : Int32 = 0xB80
 
 ///|
-const CSR_MINSTRETH : Int = 0xB82
+const CSR_MINSTRETH : Int32 = 0xB82
 
 ///|
-const CSR_MHPMCOUNTER3H : Int = 0xB83
+const CSR_MHPMCOUNTER3H : Int32 = 0xB83
 
 ///|
-const CSR_MHPMCOUNTER31H : Int = 0xB9F
+const CSR_MHPMCOUNTER31H : Int32 = 0xB9F
 
 ///|
 const MCOUNTINHIBIT_CY_BIT : UInt64 = 0x1
@@ -847,106 +847,106 @@ const MCOUNTINHIBIT_WRITABLE_MASK : UInt64 = MCOUNTINHIBIT_CY_BIT |
   MCOUNTINHIBIT_IR_BIT
 
 ///|
-const CSR_MHPMEVENT3H : Int = 0x723
+const CSR_MHPMEVENT3H : Int32 = 0x723
 
 ///|
-const CSR_MHPMEVENT31H : Int = 0x73F
+const CSR_MHPMEVENT31H : Int32 = 0x73F
 
 ///|
-const CSR_MENVCFG : Int = 0x30A
+const CSR_MENVCFG : Int32 = 0x30A
 
 ///|
-const CSR_SENVCFG : Int = 0x10A
+const CSR_SENVCFG : Int32 = 0x10A
 
 ///|
-const CSR_CYCLE : Int = 0xC00
+const CSR_CYCLE : Int32 = 0xC00
 
 ///|
-const CSR_TIME : Int = 0xC01
+const CSR_TIME : Int32 = 0xC01
 
 ///|
-const CSR_INSTRET : Int = 0xC02
+const CSR_INSTRET : Int32 = 0xC02
 
 ///|
-const CSR_CYCLEH : Int = 0xC80
+const CSR_CYCLEH : Int32 = 0xC80
 
 ///|
-const CSR_TIMEH : Int = 0xC81
+const CSR_TIMEH : Int32 = 0xC81
 
 ///|
-const CSR_INSTRETH : Int = 0xC82
+const CSR_INSTRETH : Int32 = 0xC82
 
 ///|
-const CSR_HPMCOUNTER3H : Int = 0xC83
+const CSR_HPMCOUNTER3H : Int32 = 0xC83
 
 ///|
-const CSR_HPMCOUNTER31H : Int = 0xC9F
+const CSR_HPMCOUNTER31H : Int32 = 0xC9F
 
 ///|
-const CSR_MHARTID : Int = 0xF14
+const CSR_MHARTID : Int32 = 0xF14
 
 ///|
-const CSR_MVENDORID : Int = 0xF11
+const CSR_MVENDORID : Int32 = 0xF11
 
 ///|
-const CSR_MARCHID : Int = 0xF12
+const CSR_MARCHID : Int32 = 0xF12
 
 ///|
-const CSR_MIMPID : Int = 0xF13
+const CSR_MIMPID : Int32 = 0xF13
 
 ///|
 // Mandatory machine information CSR. A zero value means there is no standard
 // configuration data structure and software should use another discovery path
 // such as the device tree supplied by the platform.
-const CSR_MCONFIGPTR : Int = 0xF15
+const CSR_MCONFIGPTR : Int32 = 0xF15
 
 ///|
-const CSR_VSTART : Int = 0x008
+const CSR_VSTART : Int32 = 0x008
 
 ///|
-const CSR_VXSAT : Int = 0x009
+const CSR_VXSAT : Int32 = 0x009
 
 ///|
-const CSR_VXRM : Int = 0x00A
+const CSR_VXRM : Int32 = 0x00A
 
 ///|
-const CSR_VCSR : Int = 0x00F
+const CSR_VCSR : Int32 = 0x00F
 
 ///|
-const CSR_VL : Int = 0xC20
+const CSR_VL : Int32 = 0xC20
 
 ///|
-const CSR_VTYPE : Int = 0xC21
+const CSR_VTYPE : Int32 = 0xC21
 
 ///|
-const CSR_VLENB : Int = 0xC22
+const CSR_VLENB : Int32 = 0xC22
 
 ///|
-const XLEN_32 : Int = 32
+const XLEN_32 : Int32 = 32
 
 ///|
-const XLEN_64 : Int = 64
+const XLEN_64 : Int32 = 64
 
 ///|
-const MSTATUS_SIE_BIT : UInt = 0x2U
+const MSTATUS_SIE_BIT : UInt32 = 0x2U
 
 ///|
-const MSTATUS_SPIE_BIT : UInt = 0x20U
+const MSTATUS_SPIE_BIT : UInt32 = 0x20U
 
 ///|
-const MSTATUS_SPP_BIT : UInt = 0x100U
+const MSTATUS_SPP_BIT : UInt32 = 0x100U
 
 ///|
-const MSTATUS_MIE_BIT : UInt = 0x8U
+const MSTATUS_MIE_BIT : UInt32 = 0x8U
 
 ///|
-const MSTATUS_MPIE_BIT : UInt = 0x80U
+const MSTATUS_MPIE_BIT : UInt32 = 0x80U
 
 ///|
-const MSTATUS_MPP_SHIFT : Int = 11
+const MSTATUS_MPP_SHIFT : Int32 = 11
 
 ///|
-const MSTATUS_MPP_MASK : UInt = 0x1800U
+const MSTATUS_MPP_MASK : UInt32 = 0x1800U
 
 ///|
 const MSTATUS_FS_MASK : UInt64 = 0x6000
@@ -1029,7 +1029,7 @@ const MSTATUS_TSR_BIT : UInt64 = 0x400000 // bit 22
 const FCSR_FFLAGS_MASK : UInt64 = 0x1f
 
 ///|
-const FCSR_FRM_SHIFT : Int = 5
+const FCSR_FRM_SHIFT : Int32 = 5
 
 ///|
 const FCSR_FRM_MASK : UInt64 = 0xe0
@@ -1041,7 +1041,7 @@ const FCSR_VISIBLE_MASK : UInt64 = 0xff
 const VCSR_VXSAT_MASK : UInt64 = 0x1
 
 ///|
-const VCSR_VXRM_SHIFT : Int = 1
+const VCSR_VXRM_SHIFT : Int32 = 1
 
 ///|
 const VCSR_VXRM_MASK : UInt64 = 0x6
@@ -1077,13 +1077,13 @@ const MISA_EXT_U : UInt64 = 0x100000
 const MISA_EXT_V : UInt64 = 0x200000
 
 ///|
-const VREG_COUNT : Int = 32
+const VREG_COUNT : Int32 = 32
 
 ///|
-const VREG_WORDS_PER_REG : Int = 2
+const VREG_WORDS_PER_REG : Int32 = 2
 
 ///|
-const VLEN_BYTES : Int = 16
+const VLEN_BYTES : Int32 = 16
 
 ///|
 fn current_base_extensions() -> UInt64 {
@@ -1133,7 +1133,7 @@ fn initial_vtype_value(xlen : Xlen) -> UInt64 {
 }
 
 ///|
-fn xlen_mask(xlen : Int) -> UInt64 {
+fn xlen_mask(xlen : Int32) -> UInt64 {
   match xlen {
     XLEN_32 => 0xffffffffU.to_uint64()
     XLEN_64 => bit_not(0U.to_uint64())
@@ -1172,7 +1172,7 @@ pub fn CpuState::new(
 }
 
 ///|
-pub fn CpuState::read_reg(self : CpuState, index : Int) -> UInt64 {
+pub fn CpuState::read_reg(self : CpuState, index : Int32) -> UInt64 {
   if index == 0 {
     0U.to_uint64()
   } else {
@@ -1183,7 +1183,7 @@ pub fn CpuState::read_reg(self : CpuState, index : Int) -> UInt64 {
 ///|
 pub fn CpuState::write_reg(
   self : CpuState,
-  index : Int,
+  index : Int32,
   value : UInt64,
 ) -> Unit {
   if index != 0 {
@@ -1192,65 +1192,69 @@ pub fn CpuState::write_reg(
 }
 
 ///|
-pub fn CpuState::read_freg(self : CpuState, index : Int) -> UInt64 {
+pub fn CpuState::read_freg(self : CpuState, index : Int32) -> UInt64 {
   self.fregisters[index]
 }
 
 ///|
 pub fn CpuState::write_freg(
   self : CpuState,
-  index : Int,
+  index : Int32,
   value : UInt64,
 ) -> Unit {
   self.fregisters[index] = value
 }
 
 ///|
-pub fn CpuState::read_vreg(self : CpuState, index : Int, word : Int) -> UInt64 {
+pub fn CpuState::read_vreg(
+  self : CpuState,
+  index : Int32,
+  word : Int32,
+) -> UInt64 {
   self.vregisters[index * VREG_WORDS_PER_REG + word]
 }
 
 ///|
 pub fn CpuState::write_vreg(
   self : CpuState,
-  index : Int,
-  word : Int,
+  index : Int32,
+  word : Int32,
   value : UInt64,
 ) -> Unit {
   self.vregisters[index * VREG_WORDS_PER_REG + word] = value
 }
 
 ///|
-pub fn CpuState::read_csr(self : CpuState, index : Int) -> UInt64 {
+pub fn CpuState::read_csr(self : CpuState, index : Int32) -> UInt64 {
   self.csrs.read(index)
 }
 
 ///|
 pub fn CpuState::write_csr(
   self : CpuState,
-  index : Int,
+  index : Int32,
   value : UInt64,
 ) -> Unit {
   self.csrs.write(index, value)
 }
 
 ///|
-pub fn Bus::new(base_addr : UInt64, size : Int) -> Bus {
+pub fn Bus::new(base_addr : UInt64, size : Int32) -> Bus {
   { base_addr, words: FixedArray::make((size + 7) / 8, 0U.to_uint64()), size, }
 }
 
 ///|
-pub fn Bus::size(self : Bus) -> Int {
+pub fn Bus::size(self : Bus) -> Int32 {
   self.size
 }
 
 ///|
-fn bus_offset_as_int(offset : UInt64) -> Int {
+fn bus_offset_as_int(offset : UInt64) -> Int32 {
   offset.reinterpret_as_int64().to_int()
 }
 
 ///|
-fn Bus::contains_range(self : Bus, addr : UInt64, width : Int) -> Bool {
+fn Bus::contains_range(self : Bus, addr : UInt64, width : Int32) -> Bool {
   let start = addr - self.base_addr
   let start_index = bus_offset_as_int(start)
   let end_index = start_index + width
@@ -1263,7 +1267,7 @@ fn Bus::contains_range(self : Bus, addr : UInt64, width : Int) -> Bool {
 /// panics through the word index, so this is a single comparison on the hot
 /// path; it exists because the padding word could otherwise hide an access
 /// that straddles the end of a RAM whose size is not a multiple of eight.
-fn Bus::check_word_range(self : Bus, offset : Int, width : Int) -> Unit {
+fn Bus::check_word_range(self : Bus, offset : Int32, width : Int32) -> Unit {
   if offset > self.size - width {
     ignore(self.words[self.words.length()])
   }
@@ -1271,7 +1275,7 @@ fn Bus::check_word_range(self : Bus, offset : Int, width : Int) -> Unit {
 
 ///|
 /// Return a low-bit mask for one supported scalar memory width.
-fn bus_word_mask(width : Int) -> UInt64 {
+fn bus_word_mask(width : Int32) -> UInt64 {
   match width {
     1 => 0xffU.to_uint64()
     2 => 0xffffU.to_uint64()
@@ -1283,7 +1287,7 @@ fn bus_word_mask(width : Int) -> UInt64 {
 ///|
 /// Extract a little-endian scalar from one word, or merge two adjacent words
 /// when the byte range crosses a word boundary.
-fn Bus::load_word_fragment(self : Bus, offset : Int, width : Int) -> UInt64 {
+fn Bus::load_word_fragment(self : Bus, offset : Int32, width : Int32) -> UInt64 {
   self.check_word_range(offset, width)
   let word_index = offset >> 3
   let shift = (offset & 7) << 3
@@ -1301,8 +1305,8 @@ fn Bus::load_word_fragment(self : Bus, offset : Int, width : Int) -> UInt64 {
 /// across two adjacent words when it crosses a word boundary.
 fn Bus::store_word_fragment(
   self : Bus,
-  offset : Int,
-  width : Int,
+  offset : Int32,
+  width : Int32,
   value : UInt64,
 ) -> Unit {
   self.check_word_range(offset, width)
@@ -1323,17 +1327,17 @@ fn Bus::store_word_fragment(
 }
 
 ///|
-fn Bus::load_raw_u8(self : Bus, addr : UInt64) -> UInt {
+fn Bus::load_raw_u8(self : Bus, addr : UInt64) -> UInt32 {
   self.load_word_fragment(bus_offset_as_int(addr - self.base_addr), 1).to_uint()
 }
 
 ///|
-fn Bus::load_raw_u16(self : Bus, addr : UInt64) -> UInt {
+fn Bus::load_raw_u16(self : Bus, addr : UInt64) -> UInt32 {
   self.load_word_fragment(bus_offset_as_int(addr - self.base_addr), 2).to_uint()
 }
 
 ///|
-fn Bus::load_raw_u32(self : Bus, addr : UInt64) -> UInt {
+fn Bus::load_raw_u32(self : Bus, addr : UInt64) -> UInt32 {
   self.load_word_fragment(bus_offset_as_int(addr - self.base_addr), 4).to_uint()
 }
 
@@ -1392,9 +1396,9 @@ fn Bus::write_bytes_from(
   self : Bus,
   base_addr : UInt64,
   bytes : Bytes,
-  source_offset : Int,
-  len : Int,
-) -> Int {
+  source_offset : Int32,
+  len : Int32,
+) -> Int32 {
   // Device DMA-style copies should validate the guest range once per
   // descriptor, not once per byte. Reads past the source bytes are zero-filled
   // to match the old virtio-blk behavior for sectors past the backing image.
@@ -1466,9 +1470,9 @@ fn Bus::copy_bytes_to_array(
   self : Bus,
   base_addr : UInt64,
   dest : Array[Byte],
-  dest_offset : Int,
-  len : Int,
-) -> Int {
+  dest_offset : Int32,
+  len : Int32,
+) -> Int32 {
   // Virtio write requests copy guest RAM into the disk backing. Bound both
   // sides once per descriptor so package-manager writes do not scan the whole
   // disk image or re-check the guest range byte by byte.
@@ -1499,7 +1503,7 @@ fn Bus::copy_bytes_to_array(
 }
 
 ///|
-pub fn Bus::zero_range(self : Bus, base_addr : UInt64, len : Int) -> Unit {
+pub fn Bus::zero_range(self : Bus, base_addr : UInt64, len : Int32) -> Unit {
   for index in 0..<len {
     self.store_u8(
       base_addr + index.reinterpret_as_uint().to_uint64(),
@@ -1509,7 +1513,7 @@ pub fn Bus::zero_range(self : Bus, base_addr : UInt64, len : Int) -> Unit {
 }
 
 ///|
-fn Bus::fetch_u16(self : Bus, addr : UInt64) -> UInt {
+fn Bus::fetch_u16(self : Bus, addr : UInt64) -> UInt32 {
   self.load_raw_u16(addr)
 }
 
@@ -1625,7 +1629,7 @@ pub fn make_runner(config : MachineConfig) -> Runner {
 /// All harts start at the same entry point (cold/warm boot path is chosen via MHARTID).
 pub fn make_smp_runners(
   config : MachineConfig,
-  num_harts : Int,
+  num_harts : Int32,
 ) -> Array[Runner] {
   let config = {
     xlen: config.xlen,
@@ -1667,7 +1671,7 @@ pub fn make_smp_runners(
     num_harts,
     LR_SC_NO_RESERVATION,
   )
-  let shared_lr_sc_reserved_sizes : Array[Int] = Array::make(num_harts, 0)
+  let shared_lr_sc_reserved_sizes : Array[Int32] = Array::make(num_harts, 0)
   let harts : Array[Runner] = []
   for i in 0..<num_harts {
     let hart_config : MachineConfig = {
@@ -1776,7 +1780,7 @@ pub fn Runner::config(self : Runner) -> MachineConfig {
 }
 
 ///|
-pub fn Runner::pc(self : Runner) -> UInt {
+pub fn Runner::pc(self : Runner) -> UInt32 {
   self.cpu.pc.to_uint()
 }
 
@@ -1786,32 +1790,36 @@ pub fn Runner::pc_u64(self : Runner) -> UInt64 {
 }
 
 ///|
-pub fn Runner::read_reg(self : Runner, index : Int) -> UInt {
+pub fn Runner::read_reg(self : Runner, index : Int32) -> UInt32 {
   self.cpu.read_reg(index).to_uint()
 }
 
 ///|
-pub fn Runner::read_reg_u64(self : Runner, index : Int) -> UInt64 {
+pub fn Runner::read_reg_u64(self : Runner, index : Int32) -> UInt64 {
   self.cpu.read_reg(index)
 }
 
 ///|
-pub fn Runner::read_freg_u64(self : Runner, index : Int) -> UInt64 {
+pub fn Runner::read_freg_u64(self : Runner, index : Int32) -> UInt64 {
   self.cpu.read_freg(index)
 }
 
 ///|
-pub fn Runner::read_vreg_u64(self : Runner, index : Int, word : Int) -> UInt64 {
+pub fn Runner::read_vreg_u64(
+  self : Runner,
+  index : Int32,
+  word : Int32,
+) -> UInt64 {
   self.cpu.read_vreg(index, word)
 }
 
 ///|
-pub fn Runner::read_csr(self : Runner, index : Int) -> UInt {
+pub fn Runner::read_csr(self : Runner, index : Int32) -> UInt32 {
   self.read_csr_visible(index).to_uint()
 }
 
 ///|
-pub fn Runner::read_csr_u64(self : Runner, index : Int) -> UInt64 {
+pub fn Runner::read_csr_u64(self : Runner, index : Int32) -> UInt64 {
   self.read_csr_visible(index)
 }
 
@@ -1821,7 +1829,7 @@ pub fn Runner::privilege_mode(self : Runner) -> PrivilegeMode {
 }
 
 ///|
-pub fn Runner::load_u32(self : Runner, addr : UInt) -> UInt {
+pub fn Runner::load_u32(self : Runner, addr : UInt32) -> UInt32 {
   self.bus.load_u32(addr.to_uint64()).to_uint()
 }
 
@@ -1834,7 +1842,7 @@ pub fn Runner::load_u32_u64(self : Runner, addr : UInt64) -> UInt64 {
 pub fn Runner::load_program(
   self : Runner,
   bytes : Bytes,
-  base_addr : UInt,
+  base_addr : UInt32,
 ) -> Unit {
   self.load_program_u64(bytes, base_addr.to_uint64())
 }

@@ -12,7 +12,7 @@ priv enum VectorWideningOp {
 ///|
 fn vector_widening_source_value(
   value : UInt64,
-  source_sew_bits : Int,
+  source_sew_bits : Int32,
   signed : Bool,
 ) -> UInt64 {
   if signed {
@@ -27,7 +27,7 @@ fn vector_apply_widening(
   lhs : UInt64,
   rhs : UInt64,
   op : VectorWideningOp,
-  source_sew_bits : Int,
+  source_sew_bits : Int32,
 ) -> UInt64 {
   let signed = match op {
     VectorWideAddUnsigned | VectorWideSubUnsigned => false
@@ -42,16 +42,16 @@ fn vector_apply_widening(
 }
 
 ///|
-fn vector_group_register_end(base_vreg : Int, lmul_log2 : Int) -> Int {
+fn vector_group_register_end(base_vreg : Int32, lmul_log2 : Int32) -> Int32 {
   base_vreg + vector_lmul_registers(lmul_log2)
 }
 
 ///|
 fn vector_groups_overlap(
-  left_base : Int,
-  left_lmul_log2 : Int,
-  right_base : Int,
-  right_lmul_log2 : Int,
+  left_base : Int32,
+  left_lmul_log2 : Int32,
+  right_base : Int32,
+  right_lmul_log2 : Int32,
 ) -> Bool {
   let left_end = vector_group_register_end(left_base, left_lmul_log2)
   let right_end = vector_group_register_end(right_base, right_lmul_log2)
@@ -60,10 +60,10 @@ fn vector_groups_overlap(
 
 ///|
 fn vector_widening_overlap_allowed(
-  dest_base : Int,
-  dest_lmul_log2 : Int,
-  source_base : Int,
-  source_lmul_log2 : Int,
+  dest_base : Int32,
+  dest_lmul_log2 : Int32,
+  source_base : Int32,
+  source_lmul_log2 : Int32,
 ) -> Bool {
   if !vector_groups_overlap(
       dest_base, dest_lmul_log2, source_base, source_lmul_log2,
@@ -81,11 +81,11 @@ fn vector_widening_overlap_allowed(
 
 ///|
 fn vector_widening_groups_legal(
-  vd : Int,
-  vs2 : Int,
-  vs1 : Int?,
-  source_lmul_log2 : Int,
-  dest_lmul_log2 : Int,
+  vd : Int32,
+  vs2 : Int32,
+  vs1 : Int32?,
+  source_lmul_log2 : Int32,
+  dest_lmul_log2 : Int32,
   use_mask : Bool,
 ) -> Bool {
   if !vector_group_aligned(vd, dest_lmul_log2) ||
@@ -111,17 +111,17 @@ fn vector_widening_groups_legal(
 ///|
 fn Runner::execute_vector_widening_vv(
   self : Runner,
-  vd : Int,
-  vs2 : Int,
-  vs1 : Int,
+  vd : Int32,
+  vs2 : Int32,
+  vs1 : Int32,
   op : VectorWideningOp,
   config : VectorExecConfig,
-  active_elems : Int,
+  active_elems : Int32,
   mask_bits : Array[Bool],
   use_mask : Bool,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   let dest_sew_bits = config.sew_bits * 2
   let dest_lmul_log2 = config.lmul_log2 + 1
@@ -153,17 +153,17 @@ fn Runner::execute_vector_widening_vv(
 ///|
 fn Runner::execute_vector_widening_scalar(
   self : Runner,
-  vd : Int,
-  vs2 : Int,
+  vd : Int32,
+  vs2 : Int32,
   scalar : UInt64,
   op : VectorWideningOp,
   config : VectorExecConfig,
-  active_elems : Int,
+  active_elems : Int32,
   mask_bits : Array[Bool],
   use_mask : Bool,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   let dest_sew_bits = config.sew_bits * 2
   let dest_lmul_log2 = config.lmul_log2 + 1
@@ -198,12 +198,12 @@ fn Runner::execute_vector_widening_instruction(
   self : Runner,
   instruction : Instruction,
   config : VectorExecConfig,
-  active_elems : Int,
+  active_elems : Int32,
   mask_bits : Array[Bool],
   use_mask : Bool,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   match instruction {
     VwadduVv(vd, vs2, vs1) =>

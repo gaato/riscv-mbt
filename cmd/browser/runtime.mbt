@@ -2,39 +2,39 @@
 // stable for JavaScript: artifacts, UART bytes, and status counters cross here.
 
 ///|
-let browser_run_tick_budget : Int = 4096
+let browser_run_tick_budget : Int32 = 4096
 
 ///|
-let browser_artifact_opensbi : Int = 1
+let browser_artifact_opensbi : Int32 = 1
 
 ///|
-let browser_artifact_dtb : Int = 2
+let browser_artifact_dtb : Int32 = 2
 
 ///|
-let browser_artifact_kernel : Int = 3
+let browser_artifact_kernel : Int32 = 3
 
 ///|
-let browser_artifact_initrd : Int = 4
+let browser_artifact_initrd : Int32 = 4
 
 ///|
 let browser_linux_initrd_addr : UInt64 = 0x84000000U.to_uint64()
 
 ///|
-let browser_guest_smoke : Int = 0
+let browser_guest_smoke : Int32 = 0
 
 ///|
-let browser_guest_linux : Int = 1
+let browser_guest_linux : Int32 = 1
 
 ///|
 priv struct BrowserRuntime {
   // Browser state is deliberately byte-oriented. JS can stream artifact bytes
   // and UART bytes without understanding MoonBit object layouts or emulator RAM.
   mut runner : @riscv.Runner
-  console_codes : Array[Int]
+  console_codes : Array[Int32]
   mut running : Bool
-  mut guest_kind : Int
+  mut guest_kind : Int32
   mut total_steps : UInt64
-  mut pending_artifact_kind : Int
+  mut pending_artifact_kind : Int32
   mut pending_artifact_bytes : Array[Byte]
   mut has_opensbi : Bool
   mut opensbi_bytes : Array[Byte]
@@ -117,7 +117,7 @@ fn BrowserRuntime::run_tick(self : BrowserRuntime) -> Unit {
 }
 
 ///|
-fn BrowserRuntime::run_for(self : BrowserRuntime, step_budget : Int) -> Unit {
+fn BrowserRuntime::run_for(self : BrowserRuntime, step_budget : Int32) -> Unit {
   if self.running {
     // The browser host controls wall-clock pacing; the core only receives a
     // bounded guest-step budget so long Linux runs can yield to the UI.
@@ -133,7 +133,7 @@ fn BrowserRuntime::toggle_run(self : BrowserRuntime) -> Unit {
 }
 
 ///|
-fn BrowserRuntime::begin_artifact(self : BrowserRuntime, kind : Int) -> Unit {
+fn BrowserRuntime::begin_artifact(self : BrowserRuntime, kind : Int32) -> Unit {
   self.pending_artifact_kind = kind
   self.pending_artifact_bytes = []
 }
@@ -141,7 +141,7 @@ fn BrowserRuntime::begin_artifact(self : BrowserRuntime, kind : Int) -> Unit {
 ///|
 fn BrowserRuntime::push_artifact_byte(
   self : BrowserRuntime,
-  value : Int,
+  value : Int32,
 ) -> Unit {
   self.pending_artifact_bytes.push((value & 0xff).to_byte())
 }
@@ -149,8 +149,8 @@ fn BrowserRuntime::push_artifact_byte(
 ///|
 fn BrowserRuntime::push_artifact_word(
   self : BrowserRuntime,
-  value : Int,
-  count : Int,
+  value : Int32,
+  count : Int32,
 ) -> Unit {
   if count > 0 {
     self.pending_artifact_bytes.push((value & 0xff).to_byte())
@@ -169,11 +169,11 @@ fn BrowserRuntime::push_artifact_word(
 ///|
 fn BrowserRuntime::push_artifact_words4(
   self : BrowserRuntime,
-  word0 : Int,
-  word1 : Int,
-  word2 : Int,
-  word3 : Int,
-  count : Int,
+  word0 : Int32,
+  word1 : Int32,
+  word2 : Int32,
+  word3 : Int32,
+  count : Int32,
 ) -> Unit {
   self.push_artifact_word(word0, count)
   self.push_artifact_word(word1, count - 4)
@@ -258,7 +258,7 @@ fn BrowserRuntime::try_load_linux_from_artifacts(self : BrowserRuntime) -> Bool 
 }
 
 ///|
-fn BrowserRuntime::artifact_loaded_mask(self : BrowserRuntime) -> Int {
+fn BrowserRuntime::artifact_loaded_mask(self : BrowserRuntime) -> Int32 {
   let mut mask = 0
   if self.has_opensbi {
     mask = mask | 1
@@ -276,12 +276,12 @@ fn BrowserRuntime::artifact_loaded_mask(self : BrowserRuntime) -> Int {
 }
 
 ///|
-fn BrowserRuntime::guest(self : BrowserRuntime) -> Int {
+fn BrowserRuntime::guest(self : BrowserRuntime) -> Int32 {
   self.guest_kind
 }
 
 ///|
-fn BrowserRuntime::artifact_size(self : BrowserRuntime, kind : Int) -> Int {
+fn BrowserRuntime::artifact_size(self : BrowserRuntime, kind : Int32) -> Int32 {
   match kind {
     _ if kind == browser_artifact_opensbi => self.opensbi_bytes.length()
     _ if kind == browser_artifact_dtb => self.dtb_bytes.length()
@@ -330,7 +330,10 @@ fn BrowserRuntime::send_input(self : BrowserRuntime, text : String) -> Unit {
 }
 
 ///|
-fn BrowserRuntime::send_input_byte(self : BrowserRuntime, value : Int) -> Unit {
+fn BrowserRuntime::send_input_byte(
+  self : BrowserRuntime,
+  value : Int32,
+) -> Unit {
   self.runner.uart_push_input_byte(value)
 }
 
@@ -344,12 +347,15 @@ fn BrowserRuntime::flush_input_when_paused(self : BrowserRuntime) -> Unit {
 }
 
 ///|
-fn BrowserRuntime::console_length(self : BrowserRuntime) -> Int {
+fn BrowserRuntime::console_length(self : BrowserRuntime) -> Int32 {
   self.console_codes.length()
 }
 
 ///|
-fn BrowserRuntime::console_code_at(self : BrowserRuntime, index : Int) -> Int {
+fn BrowserRuntime::console_code_at(
+  self : BrowserRuntime,
+  index : Int32,
+) -> Int32 {
   self.console_codes[index]
 }
 
@@ -359,7 +365,7 @@ fn BrowserRuntime::pc(self : BrowserRuntime) -> UInt64 {
 }
 
 ///|
-fn BrowserRuntime::privilege(self : BrowserRuntime) -> Int {
+fn BrowserRuntime::privilege(self : BrowserRuntime) -> Int32 {
   match self.runner.privilege_mode() {
     User => 0
     Supervisor => 1
@@ -368,7 +374,7 @@ fn BrowserRuntime::privilege(self : BrowserRuntime) -> Int {
 }
 
 ///|
-fn BrowserRuntime::reg(self : BrowserRuntime, index : Int) -> UInt64 {
+fn BrowserRuntime::reg(self : BrowserRuntime, index : Int32) -> UInt64 {
   self.runner.read_reg_u64(index)
 }
 

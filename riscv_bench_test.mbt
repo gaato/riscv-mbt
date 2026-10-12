@@ -67,12 +67,12 @@ fn make_dword_copy_loop_runner() -> @riscv_mbt.Runner {
 
 ///|
 fn encode_amo_aqrl(
-  funct5 : UInt,
-  rs2 : Int,
-  rs1 : Int,
-  funct3 : UInt,
-  rd : Int,
-) -> UInt {
+  funct5 : UInt32,
+  rs2 : Int32,
+  rs1 : Int32,
+  funct3 : UInt32,
+  rd : Int32,
+) -> UInt32 {
   encode_r((funct5 << 2) | 0x3U, rs2, rs1, funct3, rd, 0x2fU)
 }
 
@@ -164,7 +164,7 @@ fn make_vector_add_lmul2_loop_runner() -> @riscv_mbt.Runner {
 fn reset_loop_runner(
   runner : @riscv_mbt.Runner,
   pc : UInt64,
-  regs : Array[(Int, UInt64)],
+  regs : Array[(Int32, UInt64)],
 ) -> Unit {
   runner.write_pc(pc)
   runner.cpu.write_reg(6, 0U.to_uint64())

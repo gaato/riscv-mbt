@@ -3,12 +3,12 @@
 
 ///|
 fn encode_i(
-  imm : Int,
-  rs1 : Int,
-  funct3 : UInt,
-  rd : Int,
-  opcode : UInt,
-) -> UInt {
+  imm : Int32,
+  rs1 : Int32,
+  funct3 : UInt32,
+  rd : Int32,
+  opcode : UInt32,
+) -> UInt32 {
   ((imm & 0xfff).reinterpret_as_uint() << 20) |
   (rs1.reinterpret_as_uint() << 15) |
   (funct3 << 12) |
@@ -18,12 +18,12 @@ fn encode_i(
 
 ///|
 fn encode_s(
-  imm : Int,
-  rs2 : Int,
-  rs1 : Int,
-  funct3 : UInt,
-  opcode : UInt,
-) -> UInt {
+  imm : Int32,
+  rs2 : Int32,
+  rs1 : Int32,
+  funct3 : UInt32,
+  opcode : UInt32,
+) -> UInt32 {
   let encoded = (imm & 0xfff).reinterpret_as_uint()
   (((encoded >> 5) & 0x7fU) << 25) |
   (rs2.reinterpret_as_uint() << 20) |
@@ -35,12 +35,12 @@ fn encode_s(
 
 ///|
 fn encode_b(
-  imm : Int,
-  rs2 : Int,
-  rs1 : Int,
-  funct3 : UInt,
-  opcode : UInt,
-) -> UInt {
+  imm : Int32,
+  rs2 : Int32,
+  rs1 : Int32,
+  funct3 : UInt32,
+  opcode : UInt32,
+) -> UInt32 {
   let encoded = (imm & 0x1fff).reinterpret_as_uint()
   (((encoded >> 12) & 0x1U) << 31) |
   (((encoded >> 5) & 0x3fU) << 25) |
@@ -53,12 +53,12 @@ fn encode_b(
 }
 
 ///|
-fn encode_u(imm : UInt, rd : Int, opcode : UInt) -> UInt {
+fn encode_u(imm : UInt32, rd : Int32, opcode : UInt32) -> UInt32 {
   (imm & 0xfffff000U) | (rd.reinterpret_as_uint() << 7) | opcode
 }
 
 ///|
-fn encode_j(imm : Int, rd : Int, opcode : UInt) -> UInt {
+fn encode_j(imm : Int32, rd : Int32, opcode : UInt32) -> UInt32 {
   let encoded = (imm & 0x1fffff).reinterpret_as_uint()
   (((encoded >> 20) & 0x1U) << 31) |
   (((encoded >> 1) & 0x3ffU) << 21) |
@@ -69,7 +69,7 @@ fn encode_j(imm : Int, rd : Int, opcode : UInt) -> UInt {
 }
 
 ///|
-fn browser_demo_program_words() -> Array[UInt] {
+fn browser_demo_program_words() -> Array[UInt32] {
   // This guest is intentionally tiny and self-contained: write a prompt to the
   // UART, then echo input bytes. It proves the browser bridge before any Linux
   // artifact loading is involved.

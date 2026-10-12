@@ -24,13 +24,13 @@ struct OfficialRiscvTestCase {
   arch : String
   tier : String
   path : String
-  max_steps : Int
+  max_steps : Int32
 }
 
 ///|
 enum SurveyOutcome {
-  Pass(UInt)
-  Fail(UInt)
+  Pass(UInt32)
+  Fail(UInt32)
   Trap(@riscv.TrapInfo)
   Timeout
   LoadError(String)

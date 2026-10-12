@@ -3,7 +3,7 @@
 // detail.
 
 ///|
-fn bus_test_addr(base : UInt64, offset : Int) -> UInt64 {
+fn bus_test_addr(base : UInt64, offset : Int32) -> UInt64 {
   base + offset.reinterpret_as_uint().to_uint64()
 }
 
@@ -12,7 +12,7 @@ fn assert_bus_bytes(
   bus : @riscv_mbt.Bus,
   addr : UInt64,
   value : UInt64,
-  width : Int,
+  width : Int32,
 ) -> Unit raise {
   for index in 0..<width {
     assert_eq(

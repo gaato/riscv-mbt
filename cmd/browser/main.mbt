@@ -24,7 +24,7 @@ pub fn browser_run_tick() -> Unit {
 }
 
 ///|
-pub fn browser_run_for(step_budget : Int) -> Unit {
+pub fn browser_run_for(step_budget : Int32) -> Unit {
   browser_runtime.val.run_for(step_budget)
 }
 
@@ -44,7 +44,7 @@ pub fn browser_send_input(text : String) -> Unit {
 }
 
 ///|
-pub fn browser_send_input_byte(value : Int) -> Unit {
+pub fn browser_send_input_byte(value : Int32) -> Unit {
   browser_runtime.val.send_input_byte(value)
 }
 
@@ -54,22 +54,22 @@ pub fn browser_flush_input() -> Unit {
 }
 
 ///|
-pub fn browser_begin_artifact(kind : Int) -> Unit {
+pub fn browser_begin_artifact(kind : Int32) -> Unit {
   browser_runtime.val.begin_artifact(kind)
 }
 
 ///|
-pub fn browser_push_artifact_byte(value : Int) -> Unit {
+pub fn browser_push_artifact_byte(value : Int32) -> Unit {
   browser_runtime.val.push_artifact_byte(value)
 }
 
 ///|
 pub fn browser_push_artifact_words4(
-  word0 : Int,
-  word1 : Int,
-  word2 : Int,
-  word3 : Int,
-  count : Int,
+  word0 : Int32,
+  word1 : Int32,
+  word2 : Int32,
+  word3 : Int32,
+  count : Int32,
 ) -> Unit {
   browser_runtime.val.push_artifact_words4(word0, word1, word2, word3, count)
 }
@@ -85,17 +85,17 @@ pub fn browser_load_linux_from_artifacts() -> Bool {
 }
 
 ///|
-pub fn browser_artifact_loaded_mask() -> Int {
+pub fn browser_artifact_loaded_mask() -> Int32 {
   browser_runtime.val.artifact_loaded_mask()
 }
 
 ///|
-pub fn browser_artifact_size(kind : Int) -> Int {
+pub fn browser_artifact_size(kind : Int32) -> Int32 {
   browser_runtime.val.artifact_size(kind)
 }
 
 ///|
-pub fn browser_guest_kind() -> Int {
+pub fn browser_guest_kind() -> Int32 {
   browser_runtime.val.guest()
 }
 
@@ -125,12 +125,12 @@ pub fn browser_translate_cache_misses() -> UInt64 {
 }
 
 ///|
-pub fn browser_console_length() -> Int {
+pub fn browser_console_length() -> Int32 {
   browser_runtime.val.console_length()
 }
 
 ///|
-pub fn browser_console_code_at(index : Int) -> Int {
+pub fn browser_console_code_at(index : Int32) -> Int32 {
   browser_runtime.val.console_code_at(index)
 }
 
@@ -140,12 +140,12 @@ pub fn browser_pc() -> UInt64 {
 }
 
 ///|
-pub fn browser_privilege() -> Int {
+pub fn browser_privilege() -> Int32 {
   browser_runtime.val.privilege()
 }
 
 ///|
-pub fn browser_reg(index : Int) -> UInt64 {
+pub fn browser_reg(index : Int32) -> UInt64 {
   browser_runtime.val.reg(index)
 }
 

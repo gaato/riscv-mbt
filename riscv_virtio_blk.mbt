@@ -25,7 +25,7 @@ let virtio_blk_capacity_sectors : UInt64 = 2048U.to_uint64()
 let virtio_blk_read_cache_invalid_base : UInt64 = bit_not(0U.to_uint64())
 
 ///|
-let virtio_blk_read_ahead_bytes : Int = 65536
+let virtio_blk_read_ahead_bytes : Int32 = 65536
 
 ///|
 let virtio_feature_version_1_page : UInt64 = 1U.to_uint64()
@@ -34,49 +34,49 @@ let virtio_feature_version_1_page : UInt64 = 1U.to_uint64()
 let virtio_feature_version_1_mask : UInt64 = 1U.to_uint64()
 
 ///|
-let virtio_blk_idx_device_features_sel : Int = 0
+let virtio_blk_idx_device_features_sel : Int32 = 0
 
 ///|
-let virtio_blk_idx_driver_features : Int = 1
+let virtio_blk_idx_driver_features : Int32 = 1
 
 ///|
-let virtio_blk_idx_driver_features_sel : Int = 2
+let virtio_blk_idx_driver_features_sel : Int32 = 2
 
 ///|
-let virtio_blk_idx_queue_sel : Int = 3
+let virtio_blk_idx_queue_sel : Int32 = 3
 
 ///|
-let virtio_blk_idx_queue_num : Int = 4
+let virtio_blk_idx_queue_num : Int32 = 4
 
 ///|
-let virtio_blk_idx_queue_ready : Int = 5
+let virtio_blk_idx_queue_ready : Int32 = 5
 
 ///|
-let virtio_blk_idx_interrupt_status : Int = 6
+let virtio_blk_idx_interrupt_status : Int32 = 6
 
 ///|
-let virtio_blk_idx_status : Int = 7
+let virtio_blk_idx_status : Int32 = 7
 
 ///|
-let virtio_blk_idx_queue_desc_lo : Int = 8
+let virtio_blk_idx_queue_desc_lo : Int32 = 8
 
 ///|
-let virtio_blk_idx_queue_desc_hi : Int = 9
+let virtio_blk_idx_queue_desc_hi : Int32 = 9
 
 ///|
-let virtio_blk_idx_queue_driver_lo : Int = 10
+let virtio_blk_idx_queue_driver_lo : Int32 = 10
 
 ///|
-let virtio_blk_idx_queue_driver_hi : Int = 11
+let virtio_blk_idx_queue_driver_hi : Int32 = 11
 
 ///|
-let virtio_blk_idx_queue_device_lo : Int = 12
+let virtio_blk_idx_queue_device_lo : Int32 = 12
 
 ///|
-let virtio_blk_idx_queue_device_hi : Int = 13
+let virtio_blk_idx_queue_device_hi : Int32 = 13
 
 ///|
-let virtio_blk_idx_last_avail : Int = 14
+let virtio_blk_idx_last_avail : Int32 = 14
 
 ///|
 let virtq_desc_f_next : UInt64 = 1U.to_uint64()
@@ -99,8 +99,8 @@ let virtio_blk_status_unsupp : UInt64 = 2U.to_uint64()
 ///|
 fn Runner::virtio_blk_queue_addr(
   self : Runner,
-  lo_index : Int,
-  hi_index : Int,
+  lo_index : Int32,
+  hi_index : Int32,
 ) -> UInt64 {
   self.virtio_blk_state[lo_index] | (self.virtio_blk_state[hi_index] << 32)
 }
@@ -150,7 +150,7 @@ fn Runner::virtio_blk_reset_read_pattern_counters(self : Runner) -> Unit {
 fn Runner::virtio_blk_fill_read_cache(
   self : Runner,
   disk_byte_offset : UInt64,
-  min_len : Int,
+  min_len : Int32,
 ) -> Unit {
   let cache_len = if min_len > virtio_blk_read_ahead_bytes {
     min_len
@@ -175,8 +175,8 @@ fn Runner::virtio_blk_fill_read_cache(
 fn Runner::virtio_blk_cached_read_offset(
   self : Runner,
   disk_byte_offset : UInt64,
-  len : Int,
-) -> Int? {
+  len : Int32,
+) -> Int32? {
   if self.virtio_blk_read_cache_base == virtio_blk_read_cache_invalid_base {
     return None
   }
@@ -198,8 +198,8 @@ fn Runner::virtio_blk_copy_sector_to_guest(
   self : Runner,
   disk_byte_offset : UInt64,
   guest_addr : UInt64,
-  len : Int,
-) -> Int {
+  len : Int32,
+) -> Int32 {
   // Reads past the end of the backing image are zero-filled. That keeps the
   // device behavior deterministic while the rootfs fixture size changes.
   match self.virtio_blk_cached_read_offset(disk_byte_offset, len) {
@@ -230,8 +230,8 @@ fn Runner::virtio_blk_copy_guest_to_sector(
   self : Runner,
   guest_addr : UInt64,
   disk_byte_offset : UInt64,
-  len : Int,
-) -> Int {
+  len : Int32,
+) -> Int32 {
   // Writes mutate the backing array in place. This path is hot for ext4 and
   // apk install probes, so avoid rebuilding the whole disk image per request.
   let disk_offset = disk_byte_offset.reinterpret_as_int64().to_int()
@@ -248,7 +248,7 @@ fn Runner::virtio_blk_copy_guest_to_sector(
 }
 
 ///|
-fn virtio_blk_desc_addr(desc_base : UInt64, index : Int) -> UInt64 {
+fn virtio_blk_desc_addr(desc_base : UInt64, index : Int32) -> UInt64 {
   desc_base + (index * 16).reinterpret_as_uint().to_uint64()
 }
 
@@ -267,7 +267,7 @@ fn Runner::virtio_blk_record_completed_request(
   self : Runner,
   request_type : UInt64,
   disk_byte_offset : UInt64,
-  copied : Int,
+  copied : Int32,
 ) -> Unit {
   // These counters are diagnostic, not guest-visible device state. They let
   // Linux probes distinguish block-I/O progress from CPU-side dynamic loader or
@@ -308,7 +308,7 @@ fn Runner::virtio_blk_record_completed_request(
 fn Runner::virtio_blk_finish_used(
   self : Runner,
   used_base : UInt64,
-  queue_num : Int,
+  queue_num : Int32,
   head : UInt64,
   written_len : UInt64,
 ) -> Unit {
@@ -340,8 +340,8 @@ fn Runner::virtio_blk_process_chain(
   self : Runner,
   desc_base : UInt64,
   used_base : UInt64,
-  queue_num : Int,
-  head : Int,
+  queue_num : Int32,
+  head : Int32,
 ) -> Unit {
   // Supported chain shape:
   //   request header -> one or more data descriptors -> writable status byte

@@ -3,12 +3,12 @@
 // decompression shape used by traces, profile gates, and instruction caches.
 
 ///|
-fn wb_encode_c_slli(rd : Int, shamt : Int) -> UInt {
+fn wb_encode_c_slli(rd : Int32, shamt : Int32) -> UInt32 {
   (0x0002 | (((shamt >> 5) & 0x1) << 12) | (rd << 7) | ((shamt & 0x1f) << 2)).reinterpret_as_uint()
 }
 
 ///|
-fn wb_encode_c_shift_imm(funct2 : Int, rd : Int, imm : Int) -> UInt {
+fn wb_encode_c_shift_imm(funct2 : Int32, rd : Int32, imm : Int32) -> UInt32 {
   (0x8001 |
   ((funct2 & 0x3) << 10) |
   (((imm >> 5) & 0x1) << 12) |
@@ -17,17 +17,17 @@ fn wb_encode_c_shift_imm(funct2 : Int, rd : Int, imm : Int) -> UInt {
 }
 
 ///|
-fn wb_encode_c_srli(rd : Int, shamt : Int) -> UInt {
+fn wb_encode_c_srli(rd : Int32, shamt : Int32) -> UInt32 {
   wb_encode_c_shift_imm(0x0, rd, shamt)
 }
 
 ///|
-fn wb_encode_c_srai(rd : Int, shamt : Int) -> UInt {
+fn wb_encode_c_srai(rd : Int32, shamt : Int32) -> UInt32 {
   wb_encode_c_shift_imm(0x1, rd, shamt)
 }
 
 ///|
-fn wb_expect_decode_nop(raw : UInt) -> Unit raise {
+fn wb_expect_decode_nop(raw : UInt32) -> Unit raise {
   match decode_compressed(raw, XLEN_64) {
     Addi(rd, rs1, imm) => {
       assert_eq(rd, 0)

@@ -23,12 +23,12 @@ priv struct VectorVtypeConfig {
   // `normalized_vtype` preserves the guest-visible vtype bits after rejecting
   // unsupported or reserved encodings through vill.
   normalized_vtype : UInt64
-  vsew_log2 : Int
-  vlmul_log2 : Int
+  vsew_log2 : Int32
+  vlmul_log2 : Int32
 }
 
 ///|
-fn vector_vill_value(xlen : Int) -> UInt64 {
+fn vector_vill_value(xlen : Int32) -> UInt64 {
   match xlen {
     XLEN_32 => 1U.to_uint64() << 31
     XLEN_64 => 1U.to_uint64() << 63
@@ -37,7 +37,7 @@ fn vector_vill_value(xlen : Int) -> UInt64 {
 }
 
 ///|
-fn decode_vlmul(raw_vlmul : Int) -> Int? {
+fn decode_vlmul(raw_vlmul : Int32) -> Int32? {
   if raw_vlmul <= 3 {
     Some(raw_vlmul)
   } else if raw_vlmul == 4 {
@@ -49,8 +49,8 @@ fn decode_vlmul(raw_vlmul : Int) -> Int? {
 
 ///|
 fn vector_fractional_lmul_supports_sew(
-  vlmul_log2 : Int,
-  sew_bits : Int,
+  vlmul_log2 : Int32,
+  sew_bits : Int32,
 ) -> Bool {
   // This implementation exposes ELEN=64. The V spec requires fractional LMUL
   // values down to 1/8 for ELEN=64, but a fractional setting is only usable for
@@ -59,7 +59,7 @@ fn vector_fractional_lmul_supports_sew(
 }
 
 ///|
-fn decode_vtype(requested_vtype : UInt64, xlen : Int) -> VectorVtypeConfig? {
+fn decode_vtype(requested_vtype : UInt64, xlen : Int32) -> VectorVtypeConfig? {
   // Unsupported shapes return None so callers can write vill and set vl=0.
   // That keeps the visible CSR behavior separate from individual instruction
   // dispatch decisions.
@@ -91,12 +91,12 @@ fn decode_vtype(requested_vtype : UInt64, xlen : Int) -> VectorVtypeConfig? {
 }
 
 ///|
-fn encode_vtype(config : VectorVtypeConfig, _xlen : Int) -> UInt64 {
+fn encode_vtype(config : VectorVtypeConfig, _xlen : Int32) -> UInt64 {
   config.normalized_vtype
 }
 
 ///|
-fn compute_vl(avl : UInt64, vsew_log2 : Int, vlmul_log2 : Int) -> UInt64 {
+fn compute_vl(avl : UInt64, vsew_log2 : Int32, vlmul_log2 : Int32) -> UInt64 {
   // This emulator currently exposes VLEN=128 bits. VL is min(AVL, VLMAX),
   // with fractional LMUL reducing the element capacity instead of allocating
   // fractional register storage.
@@ -118,7 +118,7 @@ fn compute_vl(avl : UInt64, vsew_log2 : Int, vlmul_log2 : Int) -> UInt64 {
 fn apply_vsetvl(
   avl : UInt64,
   requested_vtype : UInt64,
-  xlen : Int,
+  xlen : Int32,
 ) -> (UInt64, UInt64) {
   match decode_vtype(requested_vtype, xlen) {
     Some(config) =>
@@ -135,12 +135,12 @@ priv struct VectorExecConfig {
   // Decoded execution view for the current vector shape. `lmul_log2` is the
   // signed log2(LMUL), so mf2/mf4/mf8 are represented as -1/-2/-3.
   vl : UInt64
-  sew_bits : Int
-  lmul_log2 : Int
+  sew_bits : Int32
+  lmul_log2 : Int32
 }
 
 ///|
-fn vector_elem_mask(sew_bits : Int) -> UInt64 {
+fn vector_elem_mask(sew_bits : Int32) -> UInt64 {
   if sew_bits == 64 {
     bit_not(0U.to_uint64())
   } else {
@@ -166,9 +166,9 @@ fn Runner::current_vector_exec_config(self : Runner) -> VectorExecConfig? {
 ///|
 fn Runner::read_vreg_elem(
   self : Runner,
-  vreg : Int,
-  elem_index : Int,
-  sew_bits : Int,
+  vreg : Int32,
+  elem_index : Int32,
+  sew_bits : Int32,
 ) -> UInt64 {
   let elems_per_word = 64 / sew_bits
   let word = elem_index / elems_per_word
@@ -180,9 +180,9 @@ fn Runner::read_vreg_elem(
 ///|
 fn Runner::write_vreg_elem(
   self : Runner,
-  vreg : Int,
-  elem_index : Int,
-  sew_bits : Int,
+  vreg : Int32,
+  elem_index : Int32,
+  sew_bits : Int32,
   value : UInt64,
 ) -> Unit {
   let elems_per_word = 64 / sew_bits
@@ -197,7 +197,7 @@ fn Runner::write_vreg_elem(
 }
 
 ///|
-fn vector_lmul_registers(lmul_log2 : Int) -> Int {
+fn vector_lmul_registers(lmul_log2 : Int32) -> Int32 {
   if lmul_log2 <= 0 {
     1
   } else {
@@ -206,12 +206,12 @@ fn vector_lmul_registers(lmul_log2 : Int) -> Int {
 }
 
 ///|
-fn vector_elems_per_register(sew_bits : Int) -> Int {
+fn vector_elems_per_register(sew_bits : Int32) -> Int32 {
   VLEN_BYTES * 8 / sew_bits
 }
 
 ///|
-fn vector_group_aligned(vreg : Int, lmul_log2 : Int) -> Bool {
+fn vector_group_aligned(vreg : Int32, lmul_log2 : Int32) -> Bool {
   // For LMUL>1 the base register must be aligned to the group size and the
   // whole group must fit inside v0..v31. Fractional LMUL still occupies one
   // physical register in this representation.
@@ -221,9 +221,9 @@ fn vector_group_aligned(vreg : Int, lmul_log2 : Int) -> Bool {
 
 ///|
 fn vector_group_contains_vreg(
-  base_vreg : Int,
-  lmul_log2 : Int,
-  vreg : Int,
+  base_vreg : Int32,
+  lmul_log2 : Int32,
+  vreg : Int32,
 ) -> Bool {
   let registers = vector_lmul_registers(lmul_log2)
   base_vreg <= vreg && vreg < base_vreg + registers
@@ -231,10 +231,10 @@ fn vector_group_contains_vreg(
 
 ///|
 fn vector_group_elem_vreg(
-  base_vreg : Int,
-  elem_index : Int,
-  sew_bits : Int,
-) -> (Int, Int) {
+  base_vreg : Int32,
+  elem_index : Int32,
+  sew_bits : Int32,
+) -> (Int32, Int32) {
   // RVV packs a register group contiguously in element order. With VLEN=128,
   // SEW=32, and LMUL=2, elements 0..3 live in vN and 4..7 live in vN+1.
   // Fractional LMUL values still use a single architectural vector register;
@@ -248,9 +248,9 @@ fn vector_group_elem_vreg(
 ///|
 fn Runner::read_vreg_group_elem(
   self : Runner,
-  base_vreg : Int,
-  elem_index : Int,
-  sew_bits : Int,
+  base_vreg : Int32,
+  elem_index : Int32,
+  sew_bits : Int32,
 ) -> UInt64 {
   let (vreg, local_elem) = vector_group_elem_vreg(
     base_vreg, elem_index, sew_bits,
@@ -261,9 +261,9 @@ fn Runner::read_vreg_group_elem(
 ///|
 fn Runner::write_vreg_group_elem(
   self : Runner,
-  base_vreg : Int,
-  elem_index : Int,
-  sew_bits : Int,
+  base_vreg : Int32,
+  elem_index : Int32,
+  sew_bits : Int32,
   value : UInt64,
 ) -> Unit {
   let (vreg, local_elem) = vector_group_elem_vreg(
@@ -273,15 +273,15 @@ fn Runner::write_vreg_group_elem(
 }
 
 ///|
-fn Runner::read_vmask_bit(self : Runner, elem_index : Int) -> Bool {
+fn Runner::read_vmask_bit(self : Runner, elem_index : Int32) -> Bool {
   self.read_vmask_bit_from(0, elem_index)
 }
 
 ///|
 fn Runner::read_vmask_bit_from(
   self : Runner,
-  vreg : Int,
-  elem_index : Int,
+  vreg : Int32,
+  elem_index : Int32,
 ) -> Bool {
   let word = elem_index / 64
   let bit = elem_index % 64
@@ -291,8 +291,8 @@ fn Runner::read_vmask_bit_from(
 ///|
 fn Runner::write_vmask_bit(
   self : Runner,
-  vreg : Int,
-  elem_index : Int,
+  vreg : Int32,
+  elem_index : Int32,
   value : Bool,
 ) -> Unit {
   let word = elem_index / 64
@@ -348,7 +348,7 @@ fn Runner::vector_whole_register_move_supported(
 fn Runner::raise_vector_group_misaligned(
   self : Runner,
   current_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   // RVV register groups must start at a register number aligned to the group
   // size. For the first LMUL>1 slice that means m2 operations can use v2-v3
@@ -406,14 +406,14 @@ priv enum VectorMaskPrefixOp {
 }
 
 ///|
-fn vector_signed_lane(value : UInt64, sew_bits : Int) -> Int64 {
+fn vector_signed_lane(value : UInt64, sew_bits : Int32) -> Int64 {
   // Signed RVV integer comparisons interpret each lane at SEW width, not at
   // host UInt64 width. Sign-extend before comparing so e32 0xffffffff is -1.
   xlen_sign_extend(value, sew_bits, XLEN_64).reinterpret_as_int64()
 }
 
 ///|
-fn vector_shift_amount(value : UInt64, sew_bits : Int) -> Int {
+fn vector_shift_amount(value : UInt64, sew_bits : Int32) -> Int32 {
   // RVV single-width shifts use only the low lg2(SEW) bits. Because all
   // currently supported SEW values are powers of two, `SEW - 1` is that mask.
   (value & (sew_bits - 1).reinterpret_as_uint().to_uint64()).to_int()
@@ -424,7 +424,7 @@ fn vector_apply_binary(
   lhs : UInt64,
   rhs : UInt64,
   op : VectorBinaryOp,
-  sew_bits : Int,
+  sew_bits : Int32,
 ) -> UInt64 {
   match op {
     VectorBinAdd => lhs + rhs
@@ -468,7 +468,7 @@ fn vector_apply_compare(
   lhs : UInt64,
   rhs : UInt64,
   op : VectorCompareOp,
-  sew_bits : Int,
+  sew_bits : Int32,
 ) -> Bool {
   match op {
     VectorCmpEq => lhs == rhs
@@ -506,14 +506,14 @@ fn vector_apply_mask_logical(
 ///|
 fn Runner::execute_vector_mask_logical(
   self : Runner,
-  vd : Int,
-  vs2 : Int,
-  vs1 : Int,
+  vd : Int32,
+  vs2 : Int32,
+  vs1 : Int32,
   config : VectorExecConfig,
   op : VectorMaskLogicalOp,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   if self.cpu.read_csr(CSR_VSTART) != 0U.to_uint64() {
     return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
@@ -531,15 +531,15 @@ fn Runner::execute_vector_mask_logical(
 ///|
 fn Runner::execute_vector_mask_prefix(
   self : Runner,
-  vd : Int,
-  vs2 : Int,
-  active_elems : Int,
+  vd : Int32,
+  vs2 : Int32,
+  active_elems : Int32,
   mask_bits : Array[Bool],
   use_mask : Bool,
   op : VectorMaskPrefixOp,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   // These instructions scan the source mask, and masked forms also read v0.
   // Reject destination overlap so writes cannot disturb later source bits.
@@ -569,15 +569,15 @@ fn Runner::execute_vector_mask_prefix(
 ///|
 fn Runner::execute_vector_iota(
   self : Runner,
-  vd : Int,
-  vs2 : Int,
+  vd : Int32,
+  vs2 : Int32,
   config : VectorExecConfig,
-  active_elems : Int,
+  active_elems : Int32,
   mask_bits : Array[Bool],
   use_mask : Bool,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   if !vector_group_aligned(vd, config.lmul_log2) {
     return self.raise_vector_group_misaligned(current_pc, raw)
@@ -602,14 +602,14 @@ fn Runner::execute_vector_iota(
 ///|
 fn Runner::execute_vector_index(
   self : Runner,
-  vd : Int,
+  vd : Int32,
   config : VectorExecConfig,
-  active_elems : Int,
+  active_elems : Int32,
   mask_bits : Array[Bool],
   use_mask : Bool,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   if !vector_group_aligned(vd, config.lmul_log2) {
     return self.raise_vector_group_misaligned(current_pc, raw)
@@ -631,9 +631,9 @@ fn Runner::execute_vector_index(
 ///|
 fn Runner::execute_vector_mask_count(
   self : Runner,
-  rd : Int,
-  vs2 : Int,
-  active_elems : Int,
+  rd : Int32,
+  vs2 : Int32,
+  active_elems : Int32,
   mask_bits : Array[Bool],
   use_mask : Bool,
   next_pc : UInt64,
@@ -652,9 +652,9 @@ fn Runner::execute_vector_mask_count(
 ///|
 fn Runner::execute_vector_mask_first(
   self : Runner,
-  rd : Int,
-  vs2 : Int,
-  active_elems : Int,
+  rd : Int32,
+  vs2 : Int32,
+  active_elems : Int32,
   mask_bits : Array[Bool],
   use_mask : Bool,
   next_pc : UInt64,
@@ -678,17 +678,17 @@ fn Runner::execute_vector_mask_first(
 ///|
 fn Runner::execute_vector_compare_vv(
   self : Runner,
-  vd : Int,
-  vs2 : Int,
-  vs1 : Int,
+  vd : Int32,
+  vs2 : Int32,
+  vs1 : Int32,
   config : VectorExecConfig,
-  active_elems : Int,
+  active_elems : Int32,
   mask_bits : Array[Bool],
   use_mask : Bool,
   op : VectorCompareOp,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   if !vector_group_aligned(vs2, config.lmul_log2) ||
     !vector_group_aligned(vs1, config.lmul_log2) {
@@ -712,17 +712,17 @@ fn Runner::execute_vector_compare_vv(
 ///|
 fn Runner::execute_vector_compare_scalar(
   self : Runner,
-  vd : Int,
-  vs2 : Int,
+  vd : Int32,
+  vs2 : Int32,
   scalar : UInt64,
   config : VectorExecConfig,
-  active_elems : Int,
+  active_elems : Int32,
   mask_bits : Array[Bool],
   use_mask : Bool,
   op : VectorCompareOp,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   if !vector_group_aligned(vs2, config.lmul_log2) {
     return self.raise_vector_group_misaligned(current_pc, raw)
@@ -744,18 +744,18 @@ fn Runner::execute_vector_compare_scalar(
 ///|
 fn Runner::execute_vector_binary_vv(
   self : Runner,
-  vd : Int,
-  vs2 : Int,
-  vs1 : Int,
+  vd : Int32,
+  vs2 : Int32,
+  vs1 : Int32,
   config : VectorExecConfig,
-  active_elems : Int,
+  active_elems : Int32,
   sew_mask : UInt64,
   mask_bits : Array[Bool],
   use_mask : Bool,
   op : VectorBinaryOp,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   if !vector_group_aligned(vd, config.lmul_log2) ||
     !vector_group_aligned(vs2, config.lmul_log2) ||
@@ -781,18 +781,18 @@ fn Runner::execute_vector_binary_vv(
 ///|
 fn Runner::execute_vector_binary_scalar(
   self : Runner,
-  vd : Int,
-  vs2 : Int,
+  vd : Int32,
+  vs2 : Int32,
   scalar : UInt64,
   config : VectorExecConfig,
-  active_elems : Int,
+  active_elems : Int32,
   sew_mask : UInt64,
   mask_bits : Array[Bool],
   use_mask : Bool,
   op : VectorBinaryOp,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   if !vector_group_aligned(vd, config.lmul_log2) ||
     !vector_group_aligned(vs2, config.lmul_log2) {
@@ -814,7 +814,11 @@ fn Runner::execute_vector_binary_scalar(
 }
 
 ///|
-fn Runner::vector_avl_from_rs1_rd(self : Runner, rs1 : Int, rd : Int) -> UInt64 {
+fn Runner::vector_avl_from_rs1_rd(
+  self : Runner,
+  rs1 : Int32,
+  rd : Int32,
+) -> UInt64 {
   if rs1 != 0 {
     self.cpu.read_reg(rs1)
   } else if rd != 0 {
@@ -853,7 +857,7 @@ fn Runner::execute_vector_first_slice(
   instruction : Instruction,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   match instruction {
     VmvNrR(vd, vs2, nreg) =>

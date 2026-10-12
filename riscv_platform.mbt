@@ -18,7 +18,7 @@ priv enum PhyTarget {
 }
 
 ///|
-fn Runner::phy_dispatch(self : Runner, pa : UInt64, width : Int) -> PhyTarget {
+fn Runner::phy_dispatch(self : Runner, pa : UInt64, width : Int32) -> PhyTarget {
   // RAM wins before MMIO because QEMU-virt devices live outside the configured
   // RAM aperture. Device ranges are disabled by setting their base address to
   // zero in MachineConfig, which keeps bare ISA tests free of platform effects.
@@ -59,7 +59,7 @@ fn Runner::phy_dispatch(self : Runner, pa : UInt64, width : Int) -> PhyTarget {
 }
 
 ///|
-fn Runner::phy_contains(self : Runner, pa : UInt64, width : Int) -> Bool {
+fn Runner::phy_contains(self : Runner, pa : UInt64, width : Int32) -> Bool {
   match self.phy_dispatch(pa, width) {
     PhyNone => false
     _ => true
@@ -105,10 +105,10 @@ let uart_iir_rdi : UInt64 = 0x04U.to_uint64()
 let uart_lcr_dlab : Byte = 0x80U.to_byte()
 
 ///|
-let plic_uart_source : Int = 10
+let plic_uart_source : Int32 = 10
 
 ///|
-let plic_virtio_blk_source : Int = 1
+let plic_virtio_blk_source : Int32 = 1
 
 ///|
 fn Runner::uart_dlab(self : Runner) -> Bool {
@@ -220,7 +220,7 @@ fn Runner::uart_write(self : Runner, off : UInt64, value : UInt64) -> Unit {
 // ---------------------------------------------------------------------------
 
 ///|
-fn Runner::plic_source_priority(self : Runner, source : Int) -> UInt64 {
+fn Runner::plic_source_priority(self : Runner, source : Int32) -> UInt64 {
   let idx = source * 4
   if idx + 3 < self.plic_regs.length() {
     self.plic_regs[idx].to_uint64() |
@@ -235,8 +235,8 @@ fn Runner::plic_source_priority(self : Runner, source : Int) -> UInt64 {
 ///|
 fn Runner::plic_context_enabled(
   self : Runner,
-  context : Int,
-  source : Int,
+  context : Int32,
+  source : Int32,
 ) -> Bool {
   // PLIC enable bits are per-context. The virt platform uses context 0 for
   // M-mode and context 1 for S-mode, so Linux virtio-blk interrupts depend on
@@ -250,7 +250,7 @@ fn Runner::plic_context_enabled(
 }
 
 ///|
-fn Runner::plic_context_threshold(self : Runner, context : Int) -> UInt64 {
+fn Runner::plic_context_threshold(self : Runner, context : Int32) -> UInt64 {
   let idx = 0x200000 + context * 0x1000
   if idx + 3 < self.plic_regs.length() {
     self.plic_regs[idx].to_uint64() |
@@ -263,12 +263,12 @@ fn Runner::plic_context_threshold(self : Runner, context : Int) -> UInt64 {
 }
 
 ///|
-fn Runner::plic_source_claimed(self : Runner, source : Int) -> Bool {
+fn Runner::plic_source_claimed(self : Runner, source : Int32) -> Bool {
   source > 0 && source < self.plic_claimed.length() && self.plic_claimed[source]
 }
 
 ///|
-fn Runner::plic_mark_source_claimed(self : Runner, source : Int) -> Unit {
+fn Runner::plic_mark_source_claimed(self : Runner, source : Int32) -> Unit {
   if source > 0 && source < self.plic_claimed.length() {
     self.plic_claimed[source] = true
   }
@@ -277,8 +277,8 @@ fn Runner::plic_mark_source_claimed(self : Runner, source : Int) -> Unit {
 ///|
 fn Runner::plic_complete_source(
   self : Runner,
-  context : Int,
-  source : Int,
+  context : Int32,
+  source : Int32,
 ) -> Unit {
   if source > 0 &&
     source < self.plic_claimed.length() &&
@@ -290,7 +290,7 @@ fn Runner::plic_complete_source(
 ///|
 fn Runner::plic_uart_claimable_with_priority(
   self : Runner,
-  context : Int,
+  context : Int32,
   priority : UInt64,
 ) -> Bool {
   // Claimability is recomputed from live UART state rather than stored only in
@@ -304,7 +304,7 @@ fn Runner::plic_uart_claimable_with_priority(
 ///|
 fn Runner::plic_uart_claimable_for_context(
   self : Runner,
-  context : Int,
+  context : Int32,
 ) -> Bool {
   self.uart_interrupt_pending() &&
   self.plic_uart_claimable_with_priority(
@@ -316,7 +316,7 @@ fn Runner::plic_uart_claimable_for_context(
 ///|
 fn Runner::plic_uart_enabled_pending_for_context(
   self : Runner,
-  context : Int,
+  context : Int32,
 ) -> Bool {
   self.uart_interrupt_pending() &&
   !self.plic_source_claimed(plic_uart_source) &&
@@ -333,7 +333,7 @@ fn Runner::plic_virtio_blk_pending(self : Runner) -> Bool {
 ///|
 fn Runner::plic_virtio_blk_claimable_for_context(
   self : Runner,
-  context : Int,
+  context : Int32,
 ) -> Bool {
   self.plic_virtio_blk_pending() &&
   !self.plic_source_claimed(plic_virtio_blk_source) &&
@@ -345,7 +345,7 @@ fn Runner::plic_virtio_blk_claimable_for_context(
 ///|
 fn Runner::plic_virtio_blk_enabled_pending_for_context(
   self : Runner,
-  context : Int,
+  context : Int32,
 ) -> Bool {
   self.plic_virtio_blk_pending() &&
   !self.plic_source_claimed(plic_virtio_blk_source) &&
@@ -365,14 +365,17 @@ fn Runner::plic_any_uart_claimable(self : Runner) -> Bool {
 ///|
 fn Runner::plic_external_claimable_for_context(
   self : Runner,
-  context : Int,
+  context : Int32,
 ) -> Bool {
   self.plic_uart_claimable_for_context(context) ||
   self.plic_virtio_blk_claimable_for_context(context)
 }
 
 ///|
-fn Runner::plic_claim_source_for_context(self : Runner, context : Int) -> Int {
+fn Runner::plic_claim_source_for_context(
+  self : Runner,
+  context : Int32,
+) -> Int32 {
   let virtio_priority = if self.plic_virtio_blk_enabled_pending_for_context(
       context,
     ) {
@@ -655,7 +658,7 @@ fn Runner::phy_store_u64(self : Runner, pa : UInt64, value : UInt64) -> Unit {
 // Maximum number of harts supported by the CLINT implementation.
 
 ///|
-let clint_max_harts : Int = 2
+let clint_max_harts : Int32 = 2
 
 // msip region: 0 <= off < 4 * clint_max_harts
 
@@ -875,12 +878,12 @@ pub fn Runner::uart_drain(self : Runner) -> String {
 }
 
 ///|
-pub fn Runner::uart_output_length(self : Runner) -> Int {
+pub fn Runner::uart_output_length(self : Runner) -> Int32 {
   self.uart_output.length()
 }
 
 ///|
-pub fn Runner::uart_output_byte_at(self : Runner, index : Int) -> Int {
+pub fn Runner::uart_output_byte_at(self : Runner, index : Int32) -> Int32 {
   self.uart_output[index].to_int()
 }
 
@@ -898,7 +901,7 @@ pub fn Runner::uart_push_input(self : Runner, text : String) -> Unit {
 }
 
 ///|
-pub fn Runner::uart_push_input_byte(self : Runner, value : Int) -> Unit {
+pub fn Runner::uart_push_input_byte(self : Runner, value : Int32) -> Unit {
   self.uart_input.push((value & 0xff).to_byte())
   self.refresh_plic_uart_pending_cache()
 }

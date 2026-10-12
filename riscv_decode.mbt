@@ -3,47 +3,47 @@
 // effects belong in the execute files.
 
 ///|
-fn rd(raw : UInt) -> Int {
+fn rd(raw : UInt32) -> Int32 {
   ((raw >> 7) & 0x1fU).reinterpret_as_int()
 }
 
 ///|
-fn rs1(raw : UInt) -> Int {
+fn rs1(raw : UInt32) -> Int32 {
   ((raw >> 15) & 0x1fU).reinterpret_as_int()
 }
 
 ///|
-fn rs2(raw : UInt) -> Int {
+fn rs2(raw : UInt32) -> Int32 {
   ((raw >> 20) & 0x1fU).reinterpret_as_int()
 }
 
 ///|
-fn rs3(raw : UInt) -> Int {
+fn rs3(raw : UInt32) -> Int32 {
   ((raw >> 27) & 0x1fU).reinterpret_as_int()
 }
 
 ///|
-fn funct3(raw : UInt) -> UInt {
+fn funct3(raw : UInt32) -> UInt32 {
   (raw >> 12) & 0x7U
 }
 
 ///|
-fn funct7(raw : UInt) -> UInt {
+fn funct7(raw : UInt32) -> UInt32 {
   (raw >> 25) & 0x7fU
 }
 
 ///|
-fn fp_fmt(raw : UInt) -> UInt {
+fn fp_fmt(raw : UInt32) -> UInt32 {
   (raw >> 25) & 0x3U
 }
 
 ///|
-fn funct5(raw : UInt) -> UInt {
+fn funct5(raw : UInt32) -> UInt32 {
   (raw >> 27) & 0x1fU
 }
 
 ///|
-fn amo_funct5_is_valid(funct5 : UInt) -> Bool {
+fn amo_funct5_is_valid(funct5 : UInt32) -> Bool {
   // The AMO opcode reserves most funct5 values. Reject them during decode so
   // execution does not silently turn an unknown atomic RMW into a no-op store.
   match funct5 {
@@ -63,7 +63,7 @@ fn amo_funct5_is_valid(funct5 : UInt) -> Bool {
 }
 
 ///|
-fn decode_amo(raw : UInt) -> Instruction {
+fn decode_amo(raw : UInt32) -> Instruction {
   let op = funct5(raw)
   // The acquire/release bits sit below funct5 in the AMO encoding. They are
   // architectural state, not decoration: later memory-model work needs to know
@@ -86,17 +86,17 @@ fn decode_amo(raw : UInt) -> Instruction {
 }
 
 ///|
-fn funct6(raw : UInt) -> UInt {
+fn funct6(raw : UInt32) -> UInt32 {
   (raw >> 26) & 0x3fU
 }
 
 ///|
-fn c_funct3(raw : UInt) -> UInt {
+fn c_funct3(raw : UInt32) -> UInt32 {
   (raw >> 13) & 0x7U
 }
 
 ///|
-fn instruction_length_from_low16(low16 : UInt) -> Int {
+fn instruction_length_from_low16(low16 : UInt32) -> Int32 {
   // RISC-V encodes 16-bit compressed instructions with low bits != 0b11.
   // Fetch uses this before full decode, including the page-crossing 32-bit
   // case that Linux userspace exposed. The all-ones halfword is the standard
@@ -112,42 +112,42 @@ fn instruction_length_from_low16(low16 : UInt) -> Int {
 }
 
 ///|
-fn csr_addr(raw : UInt) -> Int {
+fn csr_addr(raw : UInt32) -> Int32 {
   ((raw >> 20) & 0xfffU).reinterpret_as_int()
 }
 
 ///|
-fn csr_uimm(raw : UInt) -> UInt {
+fn csr_uimm(raw : UInt32) -> UInt32 {
   (raw >> 15) & 0x1fU
 }
 
 ///|
-fn c_rd_rs1(raw : UInt) -> Int {
+fn c_rd_rs1(raw : UInt32) -> Int32 {
   ((raw >> 7) & 0x1fU).reinterpret_as_int()
 }
 
 ///|
-fn c_rs2(raw : UInt) -> Int {
+fn c_rs2(raw : UInt32) -> Int32 {
   ((raw >> 2) & 0x1fU).reinterpret_as_int()
 }
 
 ///|
-fn c_rd_prime(raw : UInt) -> Int {
+fn c_rd_prime(raw : UInt32) -> Int32 {
   8 + ((raw >> 2) & 0x7U).reinterpret_as_int()
 }
 
 ///|
-fn c_rs1_prime(raw : UInt) -> Int {
+fn c_rs1_prime(raw : UInt32) -> Int32 {
   8 + ((raw >> 7) & 0x7U).reinterpret_as_int()
 }
 
 ///|
-fn c_rs2_prime(raw : UInt) -> Int {
+fn c_rs2_prime(raw : UInt32) -> Int32 {
   8 + ((raw >> 2) & 0x7U).reinterpret_as_int()
 }
 
 ///|
-fn sign_extend(value : UInt, bits : Int) -> Int {
+fn sign_extend(value : UInt32, bits : Int32) -> Int32 {
   // Decode immediates as signed host Int values. Execute converts them back to
   // XLEN-sized bit patterns where needed, keeping sign-extension centralized.
   let shift = 32 - bits
@@ -155,29 +155,29 @@ fn sign_extend(value : UInt, bits : Int) -> Int {
 }
 
 ///|
-fn imm_i(raw : UInt) -> Int {
+fn imm_i(raw : UInt32) -> Int32 {
   sign_extend(raw >> 20, 12)
 }
 
 ///|
-fn shamt_i(raw : UInt) -> Int {
+fn shamt_i(raw : UInt32) -> Int32 {
   ((raw >> 20) & 0x3fU).reinterpret_as_int()
 }
 
 ///|
-fn shamt_iw(raw : UInt) -> Int {
+fn shamt_iw(raw : UInt32) -> Int32 {
   ((raw >> 20) & 0x1fU).reinterpret_as_int()
 }
 
 ///|
-fn imm_s(raw : UInt) -> Int {
+fn imm_s(raw : UInt32) -> Int32 {
   let upper = ((raw >> 25) & 0x7fU) << 5
   let lower = (raw >> 7) & 0x1fU
   sign_extend(upper | lower, 12)
 }
 
 ///|
-fn imm_b(raw : UInt) -> Int {
+fn imm_b(raw : UInt32) -> Int32 {
   // Branch and jump immediates are deliberately reconstructed by named bit
   // groups; compact formulas are easier to get wrong when debugging raw Linux
   // fault words.
@@ -189,12 +189,12 @@ fn imm_b(raw : UInt) -> Int {
 }
 
 ///|
-fn imm_u(raw : UInt) -> UInt {
+fn imm_u(raw : UInt32) -> UInt32 {
   raw & 0xfffff000U
 }
 
 ///|
-fn imm_j(raw : UInt) -> Int {
+fn imm_j(raw : UInt32) -> Int32 {
   let bit20 = ((raw >> 31) & 0x1U) << 20
   let bits19_12 = ((raw >> 12) & 0xffU) << 12
   let bit11 = ((raw >> 20) & 0x1U) << 11
@@ -203,25 +203,25 @@ fn imm_j(raw : UInt) -> Int {
 }
 
 ///|
-fn c_imm_ci(raw : UInt) -> Int {
+fn c_imm_ci(raw : UInt32) -> Int32 {
   sign_extend((((raw >> 12) & 0x1U) << 5) | ((raw >> 2) & 0x1fU), 6)
 }
 
 ///|
 // For shift instructions (c.srli, c.srai): 6-bit unsigned shift amount.
 // In RV64C, bit12 is the MSB of the 6-bit shift (allows shamt 32-63).
-fn c_shamt6(raw : UInt) -> Int {
+fn c_shamt6(raw : UInt32) -> Int32 {
   ((((raw >> 12) & 0x1U) << 5) | ((raw >> 2) & 0x1fU)).reinterpret_as_int()
 }
 
 ///|
-fn c_lui_imm(raw : UInt) -> UInt {
+fn c_lui_imm(raw : UInt32) -> UInt32 {
   sign_extend((((raw >> 12) & 0x1U) << 5) | ((raw >> 2) & 0x1fU), 6).reinterpret_as_uint() <<
   12
 }
 
 ///|
-fn c_imm_cj(raw : UInt) -> Int {
+fn c_imm_cj(raw : UInt32) -> Int32 {
   let imm = (((raw >> 12) & 0x1U) << 11) |
     (((raw >> 11) & 0x1U) << 4) |
     (((raw >> 9) & 0x3U) << 8) |
@@ -234,7 +234,7 @@ fn c_imm_cj(raw : UInt) -> Int {
 }
 
 ///|
-fn c_imm_cb(raw : UInt) -> Int {
+fn c_imm_cb(raw : UInt32) -> Int32 {
   let imm = (((raw >> 12) & 0x1U) << 8) |
     (((raw >> 10) & 0x3U) << 3) |
     (((raw >> 5) & 0x3U) << 6) |
@@ -244,14 +244,14 @@ fn c_imm_cb(raw : UInt) -> Int {
 }
 
 ///|
-fn c_uimm_lw_sw(raw : UInt) -> Int {
+fn c_uimm_lw_sw(raw : UInt32) -> Int32 {
   ((((raw >> 10) & 0x7U) << 3) |
   (((raw >> 6) & 0x1U) << 2) |
   (((raw >> 5) & 0x1U) << 6)).reinterpret_as_int()
 }
 
 ///|
-fn c_nzuimm_addi4spn(raw : UInt) -> Int {
+fn c_nzuimm_addi4spn(raw : UInt32) -> Int32 {
   ((((raw >> 12) & 0x1U) << 5) |
   (((raw >> 11) & 0x1U) << 4) |
   (((raw >> 10) & 0x1U) << 9) |
@@ -263,7 +263,7 @@ fn c_nzuimm_addi4spn(raw : UInt) -> Int {
 }
 
 ///|
-fn c_nzimm_addi16sp(raw : UInt) -> Int {
+fn c_nzimm_addi16sp(raw : UInt32) -> Int32 {
   let imm = (((raw >> 12) & 0x1U) << 9) |
     (((raw >> 4) & 0x1U) << 8) |
     (((raw >> 3) & 0x1U) << 7) |
@@ -274,25 +274,25 @@ fn c_nzimm_addi16sp(raw : UInt) -> Int {
 }
 
 ///|
-fn c_uimm_lwsp(raw : UInt) -> Int {
+fn c_uimm_lwsp(raw : UInt32) -> Int32 {
   ((((raw >> 2) & 0x3U) << 6) |
   (((raw >> 4) & 0x7U) << 2) |
   (((raw >> 12) & 0x1U) << 5)).reinterpret_as_int()
 }
 
 ///|
-fn c_uimm_swsp(raw : UInt) -> Int {
+fn c_uimm_swsp(raw : UInt32) -> Int32 {
   ((((raw >> 7) & 0x3U) << 6) | (((raw >> 9) & 0xfU) << 2)).reinterpret_as_int()
 }
 
 ///|
-fn c_uimm_ld_sd(raw : UInt) -> Int {
+fn c_uimm_ld_sd(raw : UInt32) -> Int32 {
   // C.LD/C.SD: uimm[5:3|7:6] — doubleword offset
   ((((raw >> 10) & 0x7U) << 3) | (((raw >> 5) & 0x3U) << 6)).reinterpret_as_int()
 }
 
 ///|
-fn c_uimm_ldsp(raw : UInt) -> Int {
+fn c_uimm_ldsp(raw : UInt32) -> Int32 {
   // C.LDSP: uimm[5|4:3|8:6]
   ((((raw >> 2) & 0x7U) << 6) |
   (((raw >> 5) & 0x3U) << 3) |
@@ -300,28 +300,28 @@ fn c_uimm_ldsp(raw : UInt) -> Int {
 }
 
 ///|
-fn c_uimm_sdsp(raw : UInt) -> Int {
+fn c_uimm_sdsp(raw : UInt32) -> Int32 {
   // C.SDSP: uimm[5:3|8:6]
   ((((raw >> 7) & 0x7U) << 6) | (((raw >> 10) & 0x7U) << 3)).reinterpret_as_int()
 }
 
 ///|
-fn c_funct2_cb(raw : UInt) -> UInt {
+fn c_funct2_cb(raw : UInt32) -> UInt32 {
   (raw >> 10) & 0x3U
 }
 
 ///|
-fn c_funct2_ca(raw : UInt) -> UInt {
+fn c_funct2_ca(raw : UInt32) -> UInt32 {
   (raw >> 5) & 0x3U
 }
 
 ///|
-fn int_to_uint64_bits(value : Int) -> UInt64 {
+fn int_to_uint64_bits(value : Int32) -> UInt64 {
   value.to_int64().reinterpret_as_uint64()
 }
 
 ///|
-fn low32(value : UInt64) -> UInt {
+fn low32(value : UInt64) -> UInt32 {
   value.to_uint()
 }
 
@@ -331,12 +331,12 @@ fn as_signed_64(value : UInt64) -> Int64 {
 }
 
 ///|
-fn sign_extend_to_32(value : UInt64, bits : Int) -> UInt64 {
+fn sign_extend_to_32(value : UInt64, bits : Int32) -> UInt64 {
   sign_extend(low32(value), bits).to_int64().reinterpret_as_uint64()
 }
 
 ///|
-fn sign_extend_64(value : UInt64, bits : Int) -> UInt64 {
+fn sign_extend_64(value : UInt64, bits : Int32) -> UInt64 {
   if bits >= 64 {
     value
   } else {
@@ -346,28 +346,28 @@ fn sign_extend_64(value : UInt64, bits : Int) -> UInt64 {
 }
 
 ///|
-fn shift_mask_32(value : UInt64) -> Int {
+fn shift_mask_32(value : UInt64) -> Int32 {
   low32(value).reinterpret_as_int() & 0x1f
 }
 
 ///|
-fn shift_mask_64(value : UInt64) -> Int {
+fn shift_mask_64(value : UInt64) -> Int32 {
   (value & 0x3fU.to_uint64()).reinterpret_as_int64().to_int()
 }
 
 ///|
-fn arithmetic_shift_right_32(value : UInt64, shamt : Int) -> UInt64 {
+fn arithmetic_shift_right_32(value : UInt64, shamt : Int32) -> UInt64 {
   let signed = sign_extend_to_32(value, 32).reinterpret_as_int64()
   (signed >> shamt).reinterpret_as_uint64()
 }
 
 ///|
-fn arithmetic_shift_right_64(value : UInt64, shamt : Int) -> UInt64 {
+fn arithmetic_shift_right_64(value : UInt64, shamt : Int32) -> UInt64 {
   (as_signed_64(value) >> shamt).reinterpret_as_uint64()
 }
 
 ///|
-fn compare_signed_32(lhs : UInt64, rhs : UInt64) -> Int {
+fn compare_signed_32(lhs : UInt64, rhs : UInt64) -> Int32 {
   let left = sign_extend_to_32(lhs, 32).reinterpret_as_int64()
   let right = sign_extend_to_32(rhs, 32).reinterpret_as_int64()
   if left < right {
@@ -380,7 +380,7 @@ fn compare_signed_32(lhs : UInt64, rhs : UInt64) -> Int {
 }
 
 ///|
-fn compare_unsigned_32(lhs : UInt64, rhs : UInt64) -> Int {
+fn compare_unsigned_32(lhs : UInt64, rhs : UInt64) -> Int32 {
   let left = low32(lhs)
   let right = low32(rhs)
   if left < right {
@@ -393,7 +393,7 @@ fn compare_unsigned_32(lhs : UInt64, rhs : UInt64) -> Int {
 }
 
 ///|
-fn compare_signed_64(lhs : UInt64, rhs : UInt64) -> Int {
+fn compare_signed_64(lhs : UInt64, rhs : UInt64) -> Int32 {
   let left = as_signed_64(lhs)
   let right = as_signed_64(rhs)
   if left < right {
@@ -406,7 +406,7 @@ fn compare_signed_64(lhs : UInt64, rhs : UInt64) -> Int {
 }
 
 ///|
-fn compare_unsigned_64(lhs : UInt64, rhs : UInt64) -> Int {
+fn compare_unsigned_64(lhs : UInt64, rhs : UInt64) -> Int32 {
   if lhs < rhs {
     -1
   } else if lhs > rhs {
@@ -583,7 +583,7 @@ fn remu_64(lhs : UInt64, rhs : UInt64) -> UInt64 {
 }
 
 ///|
-fn xlen_shift_mask(value : UInt64, xlen : Int) -> Int {
+fn xlen_shift_mask(value : UInt64, xlen : Int32) -> Int32 {
   match xlen {
     XLEN_32 => shift_mask_32(value)
     XLEN_64 => shift_mask_64(value)
@@ -592,7 +592,7 @@ fn xlen_shift_mask(value : UInt64, xlen : Int) -> Int {
 }
 
 ///|
-fn xlen_sign_extend(value : UInt64, bits : Int, xlen : Int) -> UInt64 {
+fn xlen_sign_extend(value : UInt64, bits : Int32, xlen : Int32) -> UInt64 {
   match xlen {
     XLEN_32 => sign_extend_to_32(value, bits)
     XLEN_64 => sign_extend_64(value, bits)
@@ -601,7 +601,7 @@ fn xlen_sign_extend(value : UInt64, bits : Int, xlen : Int) -> UInt64 {
 }
 
 ///|
-fn xlen_load_sign_extend(value : UInt64, bits : Int, xlen : Int) -> UInt64 {
+fn xlen_load_sign_extend(value : UInt64, bits : Int32, xlen : Int32) -> UInt64 {
   match bits {
     8 => xlen_sign_extend(value, 8, xlen)
     16 => xlen_sign_extend(value, 16, xlen)
@@ -613,8 +613,8 @@ fn xlen_load_sign_extend(value : UInt64, bits : Int, xlen : Int) -> UInt64 {
 ///|
 fn xlen_arithmetic_shift_right(
   value : UInt64,
-  shamt : Int,
-  xlen : Int,
+  shamt : Int32,
+  xlen : Int32,
 ) -> UInt64 {
   match xlen {
     XLEN_32 => arithmetic_shift_right_32(value, shamt)
@@ -624,7 +624,7 @@ fn xlen_arithmetic_shift_right(
 }
 
 ///|
-fn xlen_compare_signed(lhs : UInt64, rhs : UInt64, xlen : Int) -> Int {
+fn xlen_compare_signed(lhs : UInt64, rhs : UInt64, xlen : Int32) -> Int32 {
   match xlen {
     XLEN_32 => compare_signed_32(lhs, rhs)
     XLEN_64 => compare_signed_64(lhs, rhs)
@@ -633,7 +633,7 @@ fn xlen_compare_signed(lhs : UInt64, rhs : UInt64, xlen : Int) -> Int {
 }
 
 ///|
-fn xlen_compare_unsigned(lhs : UInt64, rhs : UInt64, xlen : Int) -> Int {
+fn xlen_compare_unsigned(lhs : UInt64, rhs : UInt64, xlen : Int32) -> Int32 {
   match xlen {
     XLEN_32 => compare_unsigned_32(lhs, rhs)
     XLEN_64 => compare_unsigned_64(lhs, rhs)
@@ -642,7 +642,7 @@ fn xlen_compare_unsigned(lhs : UInt64, rhs : UInt64, xlen : Int) -> Int {
 }
 
 ///|
-fn xlen_mulh(lhs : UInt64, rhs : UInt64, xlen : Int) -> UInt64 {
+fn xlen_mulh(lhs : UInt64, rhs : UInt64, xlen : Int32) -> UInt64 {
   match xlen {
     XLEN_32 => mulh_32(lhs, rhs)
     XLEN_64 => mulh_64(lhs, rhs)
@@ -651,7 +651,7 @@ fn xlen_mulh(lhs : UInt64, rhs : UInt64, xlen : Int) -> UInt64 {
 }
 
 ///|
-fn xlen_mulhsu(lhs : UInt64, rhs : UInt64, xlen : Int) -> UInt64 {
+fn xlen_mulhsu(lhs : UInt64, rhs : UInt64, xlen : Int32) -> UInt64 {
   match xlen {
     XLEN_32 => mulhsu_32(lhs, rhs)
     XLEN_64 => mulhsu_64(lhs, rhs)
@@ -660,7 +660,7 @@ fn xlen_mulhsu(lhs : UInt64, rhs : UInt64, xlen : Int) -> UInt64 {
 }
 
 ///|
-fn xlen_mulhu(lhs : UInt64, rhs : UInt64, xlen : Int) -> UInt64 {
+fn xlen_mulhu(lhs : UInt64, rhs : UInt64, xlen : Int32) -> UInt64 {
   match xlen {
     XLEN_32 => mulhu_32(lhs, rhs)
     XLEN_64 => mulhu_64(lhs, rhs)
@@ -669,7 +669,7 @@ fn xlen_mulhu(lhs : UInt64, rhs : UInt64, xlen : Int) -> UInt64 {
 }
 
 ///|
-fn xlen_div(lhs : UInt64, rhs : UInt64, xlen : Int) -> UInt64 {
+fn xlen_div(lhs : UInt64, rhs : UInt64, xlen : Int32) -> UInt64 {
   match xlen {
     XLEN_32 => div_32(lhs, rhs)
     XLEN_64 => div_64(lhs, rhs)
@@ -678,7 +678,7 @@ fn xlen_div(lhs : UInt64, rhs : UInt64, xlen : Int) -> UInt64 {
 }
 
 ///|
-fn xlen_divu(lhs : UInt64, rhs : UInt64, xlen : Int) -> UInt64 {
+fn xlen_divu(lhs : UInt64, rhs : UInt64, xlen : Int32) -> UInt64 {
   match xlen {
     XLEN_32 => divu_32(lhs, rhs)
     XLEN_64 => divu_64(lhs, rhs)
@@ -687,7 +687,7 @@ fn xlen_divu(lhs : UInt64, rhs : UInt64, xlen : Int) -> UInt64 {
 }
 
 ///|
-fn xlen_rem(lhs : UInt64, rhs : UInt64, xlen : Int) -> UInt64 {
+fn xlen_rem(lhs : UInt64, rhs : UInt64, xlen : Int32) -> UInt64 {
   match xlen {
     XLEN_32 => rem_32(lhs, rhs)
     XLEN_64 => rem_64(lhs, rhs)
@@ -696,7 +696,7 @@ fn xlen_rem(lhs : UInt64, rhs : UInt64, xlen : Int) -> UInt64 {
 }
 
 ///|
-fn xlen_remu(lhs : UInt64, rhs : UInt64, xlen : Int) -> UInt64 {
+fn xlen_remu(lhs : UInt64, rhs : UInt64, xlen : Int32) -> UInt64 {
   match xlen {
     XLEN_32 => remu_32(lhs, rhs)
     XLEN_64 => remu_64(lhs, rhs)
@@ -910,7 +910,7 @@ fn mstatus_after_sret(mstatus : UInt64, extensions : UInt64) -> UInt64 {
 ///|
 // Modeled machine CSRs participate in current machine-state semantics.
 // Compatibility-only storage CSRs are kept writable for upstream env/p startup.
-fn is_modeled_machine_csr(csr : Int) -> Bool {
+fn is_modeled_machine_csr(csr : Int32) -> Bool {
   match csr {
     CSR_MSTATUS => true
     CSR_MIE => true
@@ -936,7 +936,7 @@ fn is_modeled_machine_csr(csr : Int) -> Bool {
 }
 
 ///|
-fn is_modeled_supervisor_csr(csr : Int) -> Bool {
+fn is_modeled_supervisor_csr(csr : Int32) -> Bool {
   match csr {
     CSR_SSTATUS => true
     CSR_SIE => true
@@ -951,7 +951,7 @@ fn is_modeled_supervisor_csr(csr : Int) -> Bool {
 }
 
 ///|
-fn is_modeled_fp_csr(csr : Int) -> Bool {
+fn is_modeled_fp_csr(csr : Int32) -> Bool {
   match csr {
     CSR_FFLAGS => true
     CSR_FRM => true
@@ -961,7 +961,7 @@ fn is_modeled_fp_csr(csr : Int) -> Bool {
 }
 
 ///|
-fn is_modeled_vector_csr(csr : Int) -> Bool {
+fn is_modeled_vector_csr(csr : Int32) -> Bool {
   match csr {
     CSR_VSTART => true
     CSR_VXSAT => true
@@ -975,7 +975,7 @@ fn is_modeled_vector_csr(csr : Int) -> Bool {
 }
 
 ///|
-fn is_modeled_counter_csr(csr : Int) -> Bool {
+fn is_modeled_counter_csr(csr : Int32) -> Bool {
   match csr {
     CSR_CYCLE => true
     CSR_TIME => true
@@ -988,7 +988,7 @@ fn is_modeled_counter_csr(csr : Int) -> Bool {
 }
 
 ///|
-fn is_unconditional_compatibility_storage_csr(csr : Int) -> Bool {
+fn is_unconditional_compatibility_storage_csr(csr : Int32) -> Bool {
   match csr {
     CSR_PMPCFG0 => true
     CSR_PMPADDR0 => true
@@ -998,7 +998,7 @@ fn is_unconditional_compatibility_storage_csr(csr : Int) -> Bool {
 }
 
 ///|
-fn is_supervisor_dependent_compatibility_csr(csr : Int) -> Bool {
+fn is_supervisor_dependent_compatibility_csr(csr : Int32) -> Bool {
   // These CSRs either delegate traps to S-mode or configure S-mode execution.
   // They are not part of an M-only profile, even though the Linux-oriented
   // default configs always advertise S.
@@ -1013,7 +1013,7 @@ fn is_supervisor_dependent_compatibility_csr(csr : Int) -> Bool {
 }
 
 ///|
-fn is_user_dependent_machine_csr(csr : Int) -> Bool {
+fn is_user_dependent_machine_csr(csr : Int32) -> Bool {
   // mcounteren only controls lower-privilege counter reads. Without U-mode
   // there is no unprivileged counter surface to enable, so this CSR should be
   // absent rather than readable zero.
@@ -1024,7 +1024,7 @@ fn is_user_dependent_machine_csr(csr : Int) -> Bool {
 }
 
 ///|
-fn is_read_only_csr(csr : Int) -> Bool {
+fn is_read_only_csr(csr : Int32) -> Bool {
   match csr {
     CSR_MHARTID => true
     CSR_MVENDORID => true
@@ -1045,7 +1045,7 @@ fn is_read_only_csr(csr : Int) -> Bool {
 }
 
 ///|
-fn is_rv32_only_csr(csr : Int) -> Bool {
+fn is_rv32_only_csr(csr : Int32) -> Bool {
   // High-half counter CSRs exist to let RV32 software observe or update the
   // upper half of 64-bit counters. In RV64 the base counter CSRs are already
   // XLEN-wide, so these addresses are not part of the CSR surface even if the
@@ -1060,7 +1060,7 @@ fn is_rv32_only_csr(csr : Int) -> Bool {
 }
 
 ///|
-fn is_supported_rw_csr(csr : Int, extensions : UInt64, xlen : Xlen) -> Bool {
+fn is_supported_rw_csr(csr : Int32, extensions : UInt64, xlen : Xlen) -> Bool {
   match xlen {
     Xlen64 => if is_rv32_only_csr(csr) { return false }
     Xlen32 => ()
@@ -1082,7 +1082,7 @@ fn is_supported_rw_csr(csr : Int, extensions : UInt64, xlen : Xlen) -> Bool {
 }
 
 ///|
-fn is_supported_csr(csr : Int, extensions : UInt64, xlen : Xlen) -> Bool {
+fn is_supported_csr(csr : Int32, extensions : UInt64, xlen : Xlen) -> Bool {
   match xlen {
     Xlen64 => if is_rv32_only_csr(csr) { return false }
     Xlen32 => ()
@@ -1105,9 +1105,9 @@ fn is_supported_csr(csr : Int, extensions : UInt64, xlen : Xlen) -> Bool {
 ///|
 fn instruction_supported_for_current_config(
   instruction : Instruction,
-  xlen : Int,
+  xlen : Int32,
   extensions : UInt64,
-  length : Int,
+  length : Int32,
 ) -> Bool {
   // Keep decode permissive and put profile legality here. This lets tests see
   // the exact decoded shape even when the current machine config must reject it.
@@ -1357,7 +1357,7 @@ fn instruction_supported_for_current_config(
 }
 
 ///|
-pub fn decode(raw : UInt) -> Instruction {
+pub fn decode(raw : UInt32) -> Instruction {
   match raw & 0x7fU {
     0x0fU =>
       match funct3(raw) {
@@ -1992,7 +1992,7 @@ pub fn decode(raw : UInt) -> Instruction {
 }
 
 ///|
-fn decode_c_q0(raw : UInt, xlen : Int) -> Instruction {
+fn decode_c_q0(raw : UInt32, xlen : Int32) -> Instruction {
   match c_funct3(raw) {
     0x0U => {
       let imm = c_nzuimm_addi4spn(raw)
@@ -2029,7 +2029,7 @@ fn decode_c_q0(raw : UInt, xlen : Int) -> Instruction {
 }
 
 ///|
-fn decode_c_q1_cb(raw : UInt, xlen : Int) -> Instruction {
+fn decode_c_q1_cb(raw : UInt32, xlen : Int32) -> Instruction {
   let rd = c_rs1_prime(raw)
   let rs2 = c_rs2_prime(raw)
   match c_funct2_cb(raw) {
@@ -2081,7 +2081,7 @@ fn decode_c_q1_cb(raw : UInt, xlen : Int) -> Instruction {
 }
 
 ///|
-fn decode_c_q1(raw : UInt, xlen : Int) -> Instruction {
+fn decode_c_q1(raw : UInt32, xlen : Int32) -> Instruction {
   match c_funct3(raw) {
     0x0U => Addi(c_rd_rs1(raw), c_rd_rs1(raw), c_imm_ci(raw))
     0x1U =>
@@ -2125,7 +2125,7 @@ fn decode_c_q1(raw : UInt, xlen : Int) -> Instruction {
 }
 
 ///|
-fn decode_c_q2_cr(raw : UInt) -> Instruction {
+fn decode_c_q2_cr(raw : UInt32) -> Instruction {
   let rd = c_rd_rs1(raw)
   let rs2 = c_rs2(raw)
   if ((raw >> 12) & 0x1U) == 0U {
@@ -2157,7 +2157,7 @@ fn decode_c_q2_cr(raw : UInt) -> Instruction {
 }
 
 ///|
-fn decode_c_q2(raw : UInt, xlen : Int) -> Instruction {
+fn decode_c_q2(raw : UInt32, xlen : Int32) -> Instruction {
   match c_funct3(raw) {
     0x0U => {
       let rd = c_rd_rs1(raw)
@@ -2207,7 +2207,7 @@ fn decode_c_q2(raw : UInt, xlen : Int) -> Instruction {
 }
 
 ///|
-fn decode_compressed(raw : UInt, xlen : Int) -> Instruction {
+fn decode_compressed(raw : UInt32, xlen : Int32) -> Instruction {
   match raw & 0x3U {
     0x0U => decode_c_q0(raw, xlen)
     0x1U => decode_c_q1(raw, xlen)

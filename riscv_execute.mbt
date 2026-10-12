@@ -3,7 +3,7 @@
 // architectural ordering: timer update, interrupt delivery, fetch, execute.
 
 ///|
-fn Runner::xlen_bits(self : Runner) -> Int {
+fn Runner::xlen_bits(self : Runner) -> Int32 {
   match self.config.xlen {
     Xlen32 => XLEN_32
     Xlen64 => XLEN_64
@@ -16,12 +16,12 @@ fn Runner::mask_value_to_xlen(self : Runner, value : UInt64) -> UInt64 {
 }
 
 ///|
-fn Runner::write_xlen_reg(self : Runner, rd : Int, value : UInt64) -> Unit {
+fn Runner::write_xlen_reg(self : Runner, rd : Int32, value : UInt64) -> Unit {
   self.cpu.write_reg(rd, self.mask_value_to_xlen(value))
 }
 
 ///|
-fn Runner::write_word_reg(self : Runner, rd : Int, value : UInt64) -> Unit {
+fn Runner::write_word_reg(self : Runner, rd : Int32, value : UInt64) -> Unit {
   match self.xlen_bits() {
     XLEN_32 => self.write_xlen_reg(rd, value)
     XLEN_64 =>
@@ -34,7 +34,7 @@ fn Runner::write_word_reg(self : Runner, rd : Int, value : UInt64) -> Unit {
 }
 
 ///|
-fn Runner::step_next_pc(self : Runner, delta : Int) -> UInt64 {
+fn Runner::step_next_pc(self : Runner, delta : Int32) -> UInt64 {
   self.cpu.pc + int_to_uint64_bits(delta)
 }
 
@@ -72,7 +72,7 @@ fn Runner::jump_and_link_to_instruction_target(
   self : Runner,
   target : UInt64,
   current_pc : UInt64,
-  rd : Int,
+  rd : Int32,
   link : UInt64,
 ) -> StepResult {
   // The branch/jump instruction owns instruction-address-misaligned
@@ -570,9 +570,9 @@ fn Runner::execute_branch(
 /// `pending_step_result` when address translation or physical lookup fails.
 fn Runner::checked_load_pa(
   self : Runner,
-  rs1 : Int,
-  imm : Int,
-  width : Int,
+  rs1 : Int32,
+  imm : Int32,
+  width : Int32,
 ) -> UInt64 {
   let addr = self.address_from(rs1, imm)
   self.load_check(addr, width)
@@ -581,9 +581,9 @@ fn Runner::checked_load_pa(
 ///|
 fn Runner::load_and_write(
   self : Runner,
-  rs1 : Int,
-  imm : Int,
-  width : Int,
+  rs1 : Int32,
+  imm : Int32,
+  width : Int32,
   next_pc : UInt64,
   write : (UInt64) -> Unit,
 ) -> StepResult {
@@ -693,9 +693,9 @@ fn Runner::execute_load(
 /// `pending_step_result` when address translation or physical lookup fails.
 fn Runner::checked_store_pa(
   self : Runner,
-  rs1 : Int,
-  imm : Int,
-  width : Int,
+  rs1 : Int32,
+  imm : Int32,
+  width : Int32,
 ) -> UInt64 {
   let addr = self.address_from(rs1, imm)
   self.store_check(addr, width)
@@ -704,9 +704,9 @@ fn Runner::checked_store_pa(
 ///|
 fn Runner::store_and_commit(
   self : Runner,
-  rs1 : Int,
-  imm : Int,
-  width : Int,
+  rs1 : Int32,
+  imm : Int32,
+  width : Int32,
   next_pc : UInt64,
   store : (UInt64) -> Unit,
 ) -> StepResult {
@@ -725,7 +725,7 @@ fn Runner::store_and_commit(
 const LR_SC_NO_RESERVATION : UInt64 = 0xffffffffffffffff
 
 ///|
-fn Runner::lr_sc_hart_index(self : Runner) -> Int {
+fn Runner::lr_sc_hart_index(self : Runner) -> Int32 {
   self.config.hart_id.to_int()
 }
 
@@ -733,7 +733,7 @@ fn Runner::lr_sc_hart_index(self : Runner) -> Int {
 fn Runner::set_lr_sc_reservation(
   self : Runner,
   pa : UInt64,
-  width : Int,
+  width : Int32,
 ) -> Unit {
   // A hart tracks only the reservation that can pair with a later SC in
   // program order. A second LR replaces the previous reservation, making an SC
@@ -753,9 +753,9 @@ fn Runner::clear_lr_sc_reservation(self : Runner) -> Unit {
 ///|
 fn physical_ranges_overlap(
   left_pa : UInt64,
-  left_width : Int,
+  left_width : Int32,
   right_pa : UInt64,
-  right_width : Int,
+  right_width : Int32,
 ) -> Bool {
   let left_end = left_pa + left_width.to_uint64()
   let right_end = right_pa + right_width.to_uint64()
@@ -763,7 +763,7 @@ fn physical_ranges_overlap(
 }
 
 ///|
-fn atomic_address_aligned(addr : UInt64, width : Int) -> Bool {
+fn atomic_address_aligned(addr : UInt64, width : Int32) -> Bool {
   addr % width.to_uint64() == 0U.to_uint64()
 }
 
@@ -771,7 +771,7 @@ fn atomic_address_aligned(addr : UInt64, width : Int) -> Bool {
 fn Runner::atomic_alignment_check(
   self : Runner,
   addr : UInt64,
-  width : Int,
+  width : Int32,
   load_side : Bool,
 ) -> StepResult? {
   // The A extension is stricter than this emulator's ordinary load/store EEI:
@@ -791,7 +791,7 @@ fn Runner::atomic_alignment_check(
 fn Runner::invalidate_lr_sc_reservations(
   self : Runner,
   pa : UInt64,
-  width : Int,
+  width : Int32,
 ) -> Unit {
   for hart in 0..<self.lr_sc_reserved_pas.length() {
     let reserved_pa = self.lr_sc_reserved_pas[hart]
@@ -808,7 +808,7 @@ fn Runner::invalidate_lr_sc_reservations(
 fn Runner::lr_sc_reservation_matches(
   self : Runner,
   pa : UInt64,
-  width : Int,
+  width : Int32,
 ) -> Bool {
   // The architectural reservation set is implementation-defined as long as it
   // includes the LR's addressed bytes. This interpreter chooses the narrowest
@@ -844,9 +844,9 @@ fn Runner::device_write_bytes_from(
   self : Runner,
   pa : UInt64,
   bytes : Bytes,
-  source_offset : Int,
-  len : Int,
-) -> Int {
+  source_offset : Int32,
+  len : Int32,
+) -> Int32 {
   let copied = self.bus.write_bytes_from(pa, bytes, source_offset, len)
   if copied > 0 {
     self.invalidate_lr_sc_reservations(pa, copied)
@@ -910,7 +910,12 @@ fn Runner::execute_store(
 }
 
 ///|
-fn amo_op(funct5 : UInt, old_val : UInt64, src : UInt64, xlen : Int) -> UInt64 {
+fn amo_op(
+  funct5 : UInt32,
+  old_val : UInt64,
+  src : UInt64,
+  xlen : Int32,
+) -> UInt64 {
   match funct5 {
     0x01U => src // AMOSWAP
     0x00U => old_val + src // AMOADD
@@ -946,7 +951,7 @@ fn amo_op(funct5 : UInt, old_val : UInt64, src : UInt64, xlen : Int) -> UInt64 {
 }
 
 ///|
-fn amo_w_op(funct5 : UInt, old_raw : UInt64, src : UInt64) -> UInt64 {
+fn amo_w_op(funct5 : UInt32, old_raw : UInt64, src : UInt64) -> UInt64 {
   let src_word = src & 0xffffffffU.to_uint64()
   match funct5 {
     0x01U => src_word // AMOSWAP.W
@@ -988,7 +993,7 @@ fn Runner::execute_amo(
   instruction : Instruction,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   // AMO and LR/SC operations share the same physical-address reservation
   // model as normal stores. The decoded order field preserves the architectural
@@ -1147,7 +1152,7 @@ fn Runner::execute_jump(
 }
 
 ///|
-fn Runner::read_csr_visible(self : Runner, csr : Int) -> UInt64 {
+fn Runner::read_csr_visible(self : Runner, csr : Int32) -> UInt64 {
   // Some architectural CSRs are aliases or filtered views of a backing CSR.
   // Keep that visibility rule centralized so instruction handlers and probe
   // reporting observe the same value Linux would read.
@@ -1224,7 +1229,7 @@ fn Runner::read_mip_visible(self : Runner) -> UInt64 {
 ///|
 fn Runner::csr_rmw_write_base(
   self : Runner,
-  csr : Int,
+  csr : Int32,
   visible_old : UInt64,
 ) -> UInt64 {
   // CSRRS/CSRRC normally write from the value read into rd. Some filtered
@@ -1534,7 +1539,11 @@ fn legalize_mstatus_csr(
 }
 
 ///|
-fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
+fn Runner::write_csr_visible(
+  self : Runner,
+  csr : Int32,
+  value : UInt64,
+) -> Unit {
   // Writes mirror read_csr_visible: aliases update their backing CSR and WARL
   // fields normalize at the write boundary. Avoid duplicating these rules in
   // individual CSR instruction cases.
@@ -1653,7 +1662,7 @@ fn Runner::write_csr_visible(self : Runner, csr : Int, value : UInt64) -> Unit {
 }
 
 ///|
-fn counter_csr_enable_bit(csr : Int) -> UInt64? {
+fn counter_csr_enable_bit(csr : Int32) -> UInt64? {
   match csr {
     CSR_CYCLE | CSR_CYCLEH => Some(1U.to_uint64())
     CSR_TIME | CSR_TIMEH => Some(1U.to_uint64() << 1)
@@ -1663,7 +1672,7 @@ fn counter_csr_enable_bit(csr : Int) -> UInt64? {
 }
 
 ///|
-fn Runner::counter_csr_accessible(self : Runner, csr : Int) -> Bool {
+fn Runner::counter_csr_accessible(self : Runner, csr : Int32) -> Bool {
   let bit = match counter_csr_enable_bit(csr) {
     Some(bit) => bit
     None => return true
@@ -1689,7 +1698,7 @@ fn Runner::counter_csr_accessible(self : Runner, csr : Int) -> Bool {
 }
 
 ///|
-fn privilege_rank(mode : PrivilegeMode) -> Int {
+fn privilege_rank(mode : PrivilegeMode) -> Int32 {
   match mode {
     User => 0
     Supervisor => 1
@@ -1698,17 +1707,17 @@ fn privilege_rank(mode : PrivilegeMode) -> Int {
 }
 
 ///|
-fn csr_min_privilege_rank(csr : Int) -> Int {
+fn csr_min_privilege_rank(csr : Int32) -> Int32 {
   (csr >> 8) & 0x3
 }
 
 ///|
-fn Runner::csr_privilege_accessible(self : Runner, csr : Int) -> Bool {
+fn Runner::csr_privilege_accessible(self : Runner, csr : Int32) -> Bool {
   privilege_rank(self.cpu.privilege) >= csr_min_privilege_rank(csr)
 }
 
 ///|
-fn Runner::csr_tvm_accessible(self : Runner, csr : Int) -> Bool {
+fn Runner::csr_tvm_accessible(self : Runner, csr : Int32) -> Bool {
   if csr != CSR_SATP {
     return true
   }
@@ -1720,7 +1729,7 @@ fn Runner::csr_tvm_accessible(self : Runner, csr : Int) -> Bool {
 }
 
 ///|
-fn Runner::csr_extension_state_accessible(self : Runner, csr : Int) -> Bool {
+fn Runner::csr_extension_state_accessible(self : Runner, csr : Int32) -> Bool {
   // Floating-point CSRs are part of the FS-governed state described by the
   // privileged spec. Their address privilege may be unprivileged, but FS=Off
   // still makes attempts to read or write them illegal.
@@ -1732,7 +1741,7 @@ fn Runner::csr_extension_state_accessible(self : Runner, csr : Int) -> Bool {
 }
 
 ///|
-fn Runner::read_csr_checked(self : Runner, csr : Int) -> UInt64? {
+fn Runner::read_csr_checked(self : Runner, csr : Int32) -> UInt64? {
   if !self.csr_privilege_accessible(csr) {
     return None
   }
@@ -1755,14 +1764,14 @@ fn Runner::read_csr_checked(self : Runner, csr : Int) -> UInt64? {
 ///|
 fn Runner::execute_csr_read_write_checked(
   self : Runner,
-  rd : Int,
-  csr : Int,
+  rd : Int32,
+  csr : Int32,
   write_value : UInt64,
   should_read : Bool,
   should_write : Bool,
   next_pc : UInt64,
   current_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   // Zicsr makes read and write suppression part of the architectural contract:
   // CSRRW[I] with rd=x0 must not read, and CSRRS/CSRRC[I] with a zero mask must
@@ -1788,14 +1797,14 @@ fn Runner::execute_csr_read_write_checked(
 ///|
 fn Runner::execute_csr_write_checked(
   self : Runner,
-  rd : Int,
-  csr : Int,
+  rd : Int32,
+  csr : Int32,
   old_value : UInt64,
   write_value : UInt64,
   should_write : Bool,
   next_pc : UInt64,
   current_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   // CSRRS/CSRRC are read-modify-write forms. The write value must be derived
   // from the single old CSR value already read by the instruction, not from a
@@ -1827,7 +1836,7 @@ fn Runner::execute_system(
   instruction : Instruction,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   // SYSTEM groups CSR ops, privilege returns, fences, waits, and unknown
   // encodings. Decode keeps them together so privilege/CSR checks stay in one
@@ -1997,7 +2006,7 @@ fn Runner::execute_system(
 fn Runner::execute_mret(
   self : Runner,
   current_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   match self.cpu.privilege {
     Machine => ()
@@ -2026,7 +2035,7 @@ fn Runner::execute_mret(
 fn Runner::execute_sret(
   self : Runner,
   current_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   let sret_from_supervisor = match self.cpu.privilege {
     Machine => false
@@ -2081,7 +2090,7 @@ fn Runner::execute_wfi(
   self : Runner,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   match self.cpu.privilege {
     Machine => ()
@@ -2102,7 +2111,7 @@ fn Runner::execute_wfi(
 
 ///|
 // Interrupt priority order (high to low): MEI, MSI, MTI, SEI, SSI, STI
-fn interrupt_cause_from_mip_bit(bit : Int) -> TrapCause {
+fn interrupt_cause_from_mip_bit(bit : Int32) -> TrapCause {
   match bit {
     11 => MachineExternalInterrupt
     3 => MachineSoftwareInterrupt
@@ -2173,7 +2182,7 @@ fn Runner::take_pending_interrupt(self : Runner) -> StepResult? {
 }
 
 ///|
-fn decode_cache_index(fetch_pa : UInt64) -> Int {
+fn decode_cache_index(fetch_pa : UInt64) -> Int32 {
   ((fetch_pa >> 1) & (decode_cache_sets - 1).reinterpret_as_uint().to_uint64()).to_int()
 }
 
@@ -2189,8 +2198,8 @@ fn Runner::flush_decode_cache(self : Runner) -> Unit {
 fn Runner::decode_cached(
   self : Runner,
   fetch_pa : UInt64,
-  raw : UInt,
-  length : Int,
+  raw : UInt32,
+  length : Int32,
 ) -> Instruction {
   let index = decode_cache_index(fetch_pa)
   let xlen = self.xlen_bits()
@@ -2786,7 +2795,7 @@ pub fn Runner::write_pc(self : Runner, pc : UInt64) -> Unit {
 }
 
 ///|
-pub fn Runner::run(self : Runner, max_steps : Int) -> StepResult {
+pub fn Runner::run(self : Runner, max_steps : Int32) -> StepResult {
   for _ in 0..<max_steps {
     match self.step() {
       Running => ()
@@ -2797,7 +2806,7 @@ pub fn Runner::run(self : Runner, max_steps : Int) -> StepResult {
 }
 
 ///|
-pub fn words_to_bytes(words : Array[UInt]) -> Bytes {
+pub fn words_to_bytes(words : Array[UInt32]) -> Bytes {
   let bytes = []
   for index in 0..<words.length() {
     let word = words[index]
@@ -2810,6 +2819,6 @@ pub fn words_to_bytes(words : Array[UInt]) -> Bytes {
 }
 
 ///|
-pub fn demo_program_words() -> Array[UInt] {
+pub fn demo_program_words() -> Array[UInt32] {
   [0x00200093U, 0x00508113U, 0x002081b3U, 0x00302023U, 0x00002203U]
 }

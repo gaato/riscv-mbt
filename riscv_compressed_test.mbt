@@ -2,27 +2,27 @@
 // focused on C extension aliases and sign/zero extension corner cases.
 
 ///|
-fn encode_c_addi(rd : Int, imm : Int) -> Int {
+fn encode_c_addi(rd : Int32, imm : Int32) -> Int32 {
   0x0001 | (((imm >> 5) & 0x1) << 12) | (rd << 7) | ((imm & 0x1f) << 2)
 }
 
 ///|
-fn encode_c_addiw(rd : Int, imm : Int) -> Int {
+fn encode_c_addiw(rd : Int32, imm : Int32) -> Int32 {
   0x2001 | (((imm >> 5) & 0x1) << 12) | (rd << 7) | ((imm & 0x1f) << 2)
 }
 
 ///|
-fn encode_c_li(rd : Int, imm : Int) -> Int {
+fn encode_c_li(rd : Int32, imm : Int32) -> Int32 {
   0x4001 | (((imm >> 5) & 0x1) << 12) | (rd << 7) | ((imm & 0x1f) << 2)
 }
 
 ///|
-fn encode_c_lui(rd : Int, imm : Int) -> Int {
+fn encode_c_lui(rd : Int32, imm : Int32) -> Int32 {
   0x6001 | (((imm >> 5) & 0x1) << 12) | (rd << 7) | ((imm & 0x1f) << 2)
 }
 
 ///|
-fn encode_c_addi16sp(imm : Int) -> Int {
+fn encode_c_addi16sp(imm : Int32) -> Int32 {
   0x6101 |
   (((imm >> 9) & 0x1) << 12) |
   (((imm >> 4) & 0x1) << 6) |
@@ -33,7 +33,7 @@ fn encode_c_addi16sp(imm : Int) -> Int {
 }
 
 ///|
-fn encode_c_addi4spn(rd : Int, imm : Int) -> Int {
+fn encode_c_addi4spn(rd : Int32, imm : Int32) -> Int32 {
   (((imm >> 5) & 0x1) << 12) |
   (((imm >> 4) & 0x1) << 11) |
   (((imm >> 9) & 0x1) << 10) |
@@ -46,7 +46,7 @@ fn encode_c_addi4spn(rd : Int, imm : Int) -> Int {
 }
 
 ///|
-fn encode_c_j_like(funct3 : Int, offset : Int) -> Int {
+fn encode_c_j_like(funct3 : Int32, offset : Int32) -> Int32 {
   // Keep the compressed encoders local to tests. They document bit placement
   // without widening the public helper surface.
   let encoded = offset & 0xfff
@@ -63,17 +63,17 @@ fn encode_c_j_like(funct3 : Int, offset : Int) -> Int {
 }
 
 ///|
-fn encode_c_j(offset : Int) -> Int {
+fn encode_c_j(offset : Int32) -> Int32 {
   encode_c_j_like(0x5, offset)
 }
 
 ///|
-fn encode_c_jal(offset : Int) -> Int {
+fn encode_c_jal(offset : Int32) -> Int32 {
   encode_c_j_like(0x1, offset)
 }
 
 ///|
-fn encode_c_branch(funct3 : Int, rs1 : Int, offset : Int) -> Int {
+fn encode_c_branch(funct3 : Int32, rs1 : Int32, offset : Int32) -> Int32 {
   let encoded = offset & 0x1ff
   ((funct3 & 0x7) << 13) |
   (((encoded >> 8) & 0x1) << 12) |
@@ -86,19 +86,19 @@ fn encode_c_branch(funct3 : Int, rs1 : Int, offset : Int) -> Int {
 }
 
 ///|
-fn encode_c_beqz(rs1 : Int, offset : Int) -> Int {
+fn encode_c_beqz(rs1 : Int32, offset : Int32) -> Int32 {
   encode_c_branch(0x6, rs1, offset)
 }
 
 ///|
-fn encode_c_bnez(rs1 : Int, offset : Int) -> Int {
+fn encode_c_bnez(rs1 : Int32, offset : Int32) -> Int32 {
   encode_c_branch(0x7, rs1, offset)
 }
 
 ///|
 fn expect_compressed_illegal(
   config : @riscv_mbt.MachineConfig,
-  raw : UInt,
+  raw : UInt32,
 ) -> Unit raise {
   // Most reserved-C tests need the same single-step contract: decode may expand
   // a shape, but the active profile must report an illegal instruction at the
@@ -120,7 +120,7 @@ fn expect_compressed_illegal(
 }
 
 ///|
-fn encode_c_lw(rd : Int, rs1 : Int, imm : Int) -> Int {
+fn encode_c_lw(rd : Int32, rs1 : Int32, imm : Int32) -> Int32 {
   0x4000 |
   (((imm >> 3) & 0x7) << 10) |
   (((rs1 - 8) & 0x7) << 7) |
@@ -130,7 +130,7 @@ fn encode_c_lw(rd : Int, rs1 : Int, imm : Int) -> Int {
 }
 
 ///|
-fn encode_c_sw(rs2 : Int, rs1 : Int, imm : Int) -> Int {
+fn encode_c_sw(rs2 : Int32, rs1 : Int32, imm : Int32) -> Int32 {
   0xc000 |
   (((imm >> 3) & 0x7) << 10) |
   (((rs1 - 8) & 0x7) << 7) |
@@ -140,7 +140,7 @@ fn encode_c_sw(rs2 : Int, rs1 : Int, imm : Int) -> Int {
 }
 
 ///|
-fn encode_c_ld(rd : Int, rs1 : Int, imm : Int) -> Int {
+fn encode_c_ld(rd : Int32, rs1 : Int32, imm : Int32) -> Int32 {
   0x6000 |
   (((imm >> 3) & 0x7) << 10) |
   (((rs1 - 8) & 0x7) << 7) |
@@ -149,7 +149,7 @@ fn encode_c_ld(rd : Int, rs1 : Int, imm : Int) -> Int {
 }
 
 ///|
-fn encode_c_sd(rs2 : Int, rs1 : Int, imm : Int) -> Int {
+fn encode_c_sd(rs2 : Int32, rs1 : Int32, imm : Int32) -> Int32 {
   0xe000 |
   (((imm >> 3) & 0x7) << 10) |
   (((rs1 - 8) & 0x7) << 7) |
@@ -158,7 +158,7 @@ fn encode_c_sd(rs2 : Int, rs1 : Int, imm : Int) -> Int {
 }
 
 ///|
-fn encode_c_fld(rd : Int, rs1 : Int, imm : Int) -> Int {
+fn encode_c_fld(rd : Int32, rs1 : Int32, imm : Int32) -> Int32 {
   0x2000 |
   (((imm >> 3) & 0x7) << 10) |
   (((rs1 - 8) & 0x7) << 7) |
@@ -167,7 +167,7 @@ fn encode_c_fld(rd : Int, rs1 : Int, imm : Int) -> Int {
 }
 
 ///|
-fn encode_c_fsd(rs2 : Int, rs1 : Int, imm : Int) -> Int {
+fn encode_c_fsd(rs2 : Int32, rs1 : Int32, imm : Int32) -> Int32 {
   0xa000 |
   (((imm >> 3) & 0x7) << 10) |
   (((rs1 - 8) & 0x7) << 7) |
@@ -176,32 +176,32 @@ fn encode_c_fsd(rs2 : Int, rs1 : Int, imm : Int) -> Int {
 }
 
 ///|
-fn encode_c_mv(rd : Int, rs2 : Int) -> Int {
+fn encode_c_mv(rd : Int32, rs2 : Int32) -> Int32 {
   0x8002 | (rd << 7) | (rs2 << 2)
 }
 
 ///|
-fn encode_c_add(rd : Int, rs2 : Int) -> Int {
+fn encode_c_add(rd : Int32, rs2 : Int32) -> Int32 {
   0x9002 | (rd << 7) | (rs2 << 2)
 }
 
 ///|
-fn encode_c_jr(rs1 : Int) -> Int {
+fn encode_c_jr(rs1 : Int32) -> Int32 {
   0x8002 | (rs1 << 7)
 }
 
 ///|
-fn encode_c_jalr(rs1 : Int) -> Int {
+fn encode_c_jalr(rs1 : Int32) -> Int32 {
   0x9002 | (rs1 << 7)
 }
 
 ///|
-fn encode_c_slli(rd : Int, shamt : Int) -> Int {
+fn encode_c_slli(rd : Int32, shamt : Int32) -> Int32 {
   0x0002 | (((shamt >> 5) & 0x1) << 12) | (rd << 7) | ((shamt & 0x1f) << 2)
 }
 
 ///|
-fn encode_c_shift_imm(funct2 : Int, rd : Int, imm : Int) -> Int {
+fn encode_c_shift_imm(funct2 : Int32, rd : Int32, imm : Int32) -> Int32 {
   0x8001 |
   ((funct2 & 0x3) << 10) |
   (((imm >> 5) & 0x1) << 12) |
@@ -210,22 +210,22 @@ fn encode_c_shift_imm(funct2 : Int, rd : Int, imm : Int) -> Int {
 }
 
 ///|
-fn encode_c_srli(rd : Int, shamt : Int) -> Int {
+fn encode_c_srli(rd : Int32, shamt : Int32) -> Int32 {
   encode_c_shift_imm(0x0, rd, shamt)
 }
 
 ///|
-fn encode_c_srai(rd : Int, shamt : Int) -> Int {
+fn encode_c_srai(rd : Int32, shamt : Int32) -> Int32 {
   encode_c_shift_imm(0x1, rd, shamt)
 }
 
 ///|
-fn encode_c_andi(rd : Int, imm : Int) -> Int {
+fn encode_c_andi(rd : Int32, imm : Int32) -> Int32 {
   encode_c_shift_imm(0x2, rd, imm)
 }
 
 ///|
-fn encode_c_alu(funct2 : Int, rd : Int, rs2 : Int) -> Int {
+fn encode_c_alu(funct2 : Int32, rd : Int32, rs2 : Int32) -> Int32 {
   0x8c01 |
   (((rd - 8) & 0x7) << 7) |
   ((funct2 & 0x3) << 5) |
@@ -233,27 +233,27 @@ fn encode_c_alu(funct2 : Int, rd : Int, rs2 : Int) -> Int {
 }
 
 ///|
-fn encode_c_sub(rd : Int, rs2 : Int) -> Int {
+fn encode_c_sub(rd : Int32, rs2 : Int32) -> Int32 {
   encode_c_alu(0x0, rd, rs2)
 }
 
 ///|
-fn encode_c_xor(rd : Int, rs2 : Int) -> Int {
+fn encode_c_xor(rd : Int32, rs2 : Int32) -> Int32 {
   encode_c_alu(0x1, rd, rs2)
 }
 
 ///|
-fn encode_c_or(rd : Int, rs2 : Int) -> Int {
+fn encode_c_or(rd : Int32, rs2 : Int32) -> Int32 {
   encode_c_alu(0x2, rd, rs2)
 }
 
 ///|
-fn encode_c_and(rd : Int, rs2 : Int) -> Int {
+fn encode_c_and(rd : Int32, rs2 : Int32) -> Int32 {
   encode_c_alu(0x3, rd, rs2)
 }
 
 ///|
-fn encode_c_word_alu(funct2 : Int, rd : Int, rs2 : Int) -> Int {
+fn encode_c_word_alu(funct2 : Int32, rd : Int32, rs2 : Int32) -> Int32 {
   0x9c01 |
   (((rd - 8) & 0x7) << 7) |
   ((funct2 & 0x3) << 5) |
@@ -261,17 +261,17 @@ fn encode_c_word_alu(funct2 : Int, rd : Int, rs2 : Int) -> Int {
 }
 
 ///|
-fn encode_c_subw(rd : Int, rs2 : Int) -> Int {
+fn encode_c_subw(rd : Int32, rs2 : Int32) -> Int32 {
   encode_c_word_alu(0x0, rd, rs2)
 }
 
 ///|
-fn encode_c_addw(rd : Int, rs2 : Int) -> Int {
+fn encode_c_addw(rd : Int32, rs2 : Int32) -> Int32 {
   encode_c_word_alu(0x1, rd, rs2)
 }
 
 ///|
-fn encode_c_lwsp(rd : Int, imm : Int) -> Int {
+fn encode_c_lwsp(rd : Int32, imm : Int32) -> Int32 {
   0x4002 |
   (((imm >> 5) & 0x1) << 12) |
   (rd << 7) |
@@ -280,7 +280,7 @@ fn encode_c_lwsp(rd : Int, imm : Int) -> Int {
 }
 
 ///|
-fn encode_c_ldsp(rd : Int, imm : Int) -> Int {
+fn encode_c_ldsp(rd : Int32, imm : Int32) -> Int32 {
   0x6002 |
   (((imm >> 5) & 0x1) << 12) |
   (rd << 7) |
@@ -289,17 +289,17 @@ fn encode_c_ldsp(rd : Int, imm : Int) -> Int {
 }
 
 ///|
-fn encode_c_swsp(rs2 : Int, imm : Int) -> Int {
+fn encode_c_swsp(rs2 : Int32, imm : Int32) -> Int32 {
   0xc002 | (((imm >> 2) & 0xf) << 9) | (((imm >> 6) & 0x3) << 7) | (rs2 << 2)
 }
 
 ///|
-fn encode_c_sdsp(rs2 : Int, imm : Int) -> Int {
+fn encode_c_sdsp(rs2 : Int32, imm : Int32) -> Int32 {
   0xe002 | (((imm >> 3) & 0x7) << 10) | (((imm >> 6) & 0x7) << 7) | (rs2 << 2)
 }
 
 ///|
-fn encode_c_fldsp(rd : Int, imm : Int) -> Int {
+fn encode_c_fldsp(rd : Int32, imm : Int32) -> Int32 {
   0x2002 |
   (((imm >> 5) & 0x1) << 12) |
   (rd << 7) |
@@ -308,12 +308,12 @@ fn encode_c_fldsp(rd : Int, imm : Int) -> Int {
 }
 
 ///|
-fn encode_c_fsdsp(rs2 : Int, imm : Int) -> Int {
+fn encode_c_fsdsp(rs2 : Int32, imm : Int32) -> Int32 {
   0xa002 | (((imm >> 6) & 0x7) << 7) | (((imm >> 3) & 0x7) << 10) | (rs2 << 2)
 }
 
 ///|
-fn mixed_program_bytes(parts : Array[(Int, UInt)]) -> Bytes {
+fn mixed_program_bytes(parts : Array[(Int32, UInt32)]) -> Bytes {
   let bytes = []
   for part in parts {
     match part {

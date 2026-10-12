@@ -45,8 +45,8 @@ fn Runner::mark_fp_context_dirty(self : Runner) -> Unit {
 ///|
 fn Runner::write_freg_single_bits(
   self : Runner,
-  rd : Int,
-  value : UInt,
+  rd : Int32,
+  value : UInt32,
 ) -> Unit {
   self.mark_fp_context_dirty()
   // When D is present, single-precision values must be NaN-boxed in the 64-bit
@@ -60,12 +60,12 @@ fn Runner::write_freg_single_bits(
 }
 
 ///|
-fn Runner::read_freg_single_transfer_bits(self : Runner, rs : Int) -> UInt {
+fn Runner::read_freg_single_transfer_bits(self : Runner, rs : Int32) -> UInt32 {
   low32(self.cpu.read_freg(rs))
 }
 
 ///|
-fn Runner::read_freg_single_value_bits(self : Runner, rs : Int) -> UInt {
+fn Runner::read_freg_single_value_bits(self : Runner, rs : Int32) -> UInt32 {
   // Non-transfer single-precision operations validate NaN boxing when FLEN is
   // wider than 32 bits. Valid boxes keep their low payload bits unchanged;
   // malformed boxes are consumed as the architectural single canonical NaN.
@@ -80,7 +80,7 @@ fn Runner::read_freg_single_value_bits(self : Runner, rs : Int) -> UInt {
 ///|
 fn Runner::write_freg_double_bits(
   self : Runner,
-  rd : Int,
+  rd : Int32,
   value : UInt64,
 ) -> Unit {
   self.mark_fp_context_dirty()
@@ -88,17 +88,17 @@ fn Runner::write_freg_double_bits(
 }
 
 ///|
-fn Runner::read_freg_double_bits(self : Runner, rs : Int) -> UInt64 {
+fn Runner::read_freg_double_bits(self : Runner, rs : Int32) -> UInt64 {
   self.cpu.read_freg(rs)
 }
 
 ///|
-fn f32_is_nan_bits(bits : UInt) -> Bool {
+fn f32_is_nan_bits(bits : UInt32) -> Bool {
   (bits & 0x7f800000U) == 0x7f800000U && (bits & 0x007fffffU) != 0U
 }
 
 ///|
-fn f32_is_signaling_nan_bits(bits : UInt) -> Bool {
+fn f32_is_signaling_nan_bits(bits : UInt32) -> Bool {
   // IEEE single-precision NaNs use the top fraction bit as the quiet bit.
   // RISC-V comparisons and min/max only raise NV for signaling NaNs in the
   // quiet-comparison/minNumber cases, so keep the bit test explicit.
@@ -106,32 +106,32 @@ fn f32_is_signaling_nan_bits(bits : UInt) -> Bool {
 }
 
 ///|
-fn f32_is_zero_bits(bits : UInt) -> Bool {
+fn f32_is_zero_bits(bits : UInt32) -> Bool {
   (bits & 0x7fffffffU) == 0U
 }
 
 ///|
-fn f32_is_infinite_bits(bits : UInt) -> Bool {
+fn f32_is_infinite_bits(bits : UInt32) -> Bool {
   (bits & 0x7fffffffU) == 0x7f800000U
 }
 
 ///|
-fn f32_sign_bit(bits : UInt) -> Bool {
+fn f32_sign_bit(bits : UInt32) -> Bool {
   (bits & 0x80000000U) != 0U
 }
 
 ///|
-fn f32_canonical_nan_bits() -> UInt {
+fn f32_canonical_nan_bits() -> UInt32 {
   0x7fc00000U
 }
 
 ///|
-fn f32_from_bits(bits : UInt) -> Float {
+fn f32_from_bits(bits : UInt32) -> Float {
   Float::reinterpret_from_uint(bits)
 }
 
 ///|
-fn f32_negative_zero_bits() -> UInt {
+fn f32_negative_zero_bits() -> UInt32 {
   1U << 31
 }
 
@@ -213,7 +213,7 @@ priv struct FpRoundedIntegerBits {
 
 ///|
 priv struct FpRoundedSingleBits {
-  bits : UInt
+  bits : UInt32
   flags : UInt64
 }
 
@@ -235,7 +235,7 @@ fn fp_bigint_one() -> BigInt {
 }
 
 ///|
-fn fp_bigint_pow2(shift : Int) -> BigInt {
+fn fp_bigint_pow2(shift : Int32) -> BigInt {
   fp_bigint_one() << shift
 }
 
@@ -279,7 +279,7 @@ fn fp_exact_rational_from_f64_bits(bits : UInt64) -> FpExactRational? {
 }
 
 ///|
-fn fp_exact_rational_from_f32_bits(bits : UInt) -> FpExactRational? {
+fn fp_exact_rational_from_f32_bits(bits : UInt32) -> FpExactRational? {
   if f32_is_nan_bits(bits) || f32_is_infinite_bits(bits) {
     None
   } else {
@@ -353,7 +353,7 @@ fn fp_exact_rational_div(
 fn fp_exact_rational_compare(
   lhs : FpExactRational,
   rhs : FpExactRational,
-) -> Int {
+) -> Int32 {
   (lhs.num * rhs.den).compare(rhs.num * lhs.den)
 }
 
@@ -370,8 +370,8 @@ fn fp_bigint_abs(value : BigInt) -> BigInt {
 fn fp_compare_to_scaled_power(
   numerator : BigInt,
   denominator : BigInt,
-  exponent : Int,
-) -> Int {
+  exponent : Int32,
+) -> Int32 {
   // Compare numerator / denominator with 2^exponent without converting through
   // host floating point. This is used to find the architectural binary exponent
   // before rounding a finite exact rational back to IEEE bits.
@@ -386,7 +386,7 @@ fn fp_compare_to_scaled_power(
 fn fp_exact_rational_floor_log2(
   numerator : BigInt,
   denominator : BigInt,
-) -> Int {
+) -> Int32 {
   // bit_length gives a close estimate for floor(log2(numerator/denominator)).
   // The two local adjustments handle cases where numerator and denominator have
   // similar top bits and the first estimate lands one step off.
@@ -409,7 +409,7 @@ fn fp_round_rational_to_integer(
   numerator : BigInt,
   denominator : BigInt,
   sign : Bool,
-  mode : UInt,
+  mode : UInt32,
 ) -> FpRoundedBigInt {
   let quotient = numerator / denominator
   let remainder = numerator % denominator
@@ -441,9 +441,9 @@ fn fp_round_rational_to_integer(
 fn fp_round_rational_scaled_to_integer(
   numerator : BigInt,
   denominator : BigInt,
-  binary_shift : Int,
+  binary_shift : Int32,
   sign : Bool,
-  mode : UInt,
+  mode : UInt32,
 ) -> FpRoundedBigInt {
   if binary_shift >= 0 {
     fp_round_rational_to_integer(
@@ -463,7 +463,7 @@ fn fp_round_rational_scaled_to_integer(
 }
 
 ///|
-fn fp_f64_overflow_bits(sign : Bool, mode : UInt) -> UInt64 {
+fn fp_f64_overflow_bits(sign : Bool, mode : UInt32) -> UInt64 {
   let use_infinity = match mode {
     1U => false
     2U => sign
@@ -486,7 +486,7 @@ fn fp_f64_overflow_bits(sign : Bool, mode : UInt) -> UInt64 {
 ///|
 fn fp_round_rational_to_f32_bits(
   exact : FpExactRational,
-  mode : UInt,
+  mode : UInt32,
 ) -> FpRoundedSingleBits {
   let sign = exact.num < BigInt::from_int(0)
   let sign_bits = if sign { 1U << 31 } else { 0U }
@@ -573,7 +573,7 @@ fn fp_round_rational_to_f32_bits(
 fn f64_exact_zero_add_bits(
   lhs_bits : UInt64,
   rhs_bits : UInt64,
-  mode : UInt,
+  mode : UInt32,
 ) -> UInt64 {
   // For exact zero sums, IEEE keeps a negative zero for two negative zero
   // inputs and otherwise produces -0 only under round-down. FSUB calls this
@@ -596,10 +596,10 @@ fn f64_exact_zero_add_bits(
 
 ///|
 fn f32_exact_zero_add_bits(
-  lhs_bits : UInt,
-  rhs_bits : UInt,
-  mode : UInt,
-) -> UInt {
+  lhs_bits : UInt32,
+  rhs_bits : UInt32,
+  mode : UInt32,
+) -> UInt32 {
   // Single arithmetic follows the same IEEE signed-zero rule as double:
   // same-signed zero operands keep their sign, while all other exact
   // cancellations choose -0 only under round-down.
@@ -623,7 +623,7 @@ fn fp_exact_zero_sum_is_negative(
   lhs_negative : Bool,
   rhs_is_zero : Bool,
   rhs_negative : Bool,
-  mode : UInt,
+  mode : UInt32,
 ) -> Bool {
   // Exact zero from adding two signed zeros preserves their shared sign. All
   // other exact cancellations produce +0 except under round-down, where IEEE
@@ -636,7 +636,7 @@ fn fp_exact_zero_sum_is_negative(
 }
 
 ///|
-fn f32_exact_zero_mul_bits(lhs_bits : UInt, rhs_bits : UInt) -> UInt {
+fn f32_exact_zero_mul_bits(lhs_bits : UInt32, rhs_bits : UInt32) -> UInt32 {
   if f32_sign_bit(lhs_bits) != f32_sign_bit(rhs_bits) {
     f32_negative_zero_bits()
   } else {
@@ -646,12 +646,12 @@ fn f32_exact_zero_mul_bits(lhs_bits : UInt, rhs_bits : UInt) -> UInt {
 
 ///|
 fn f32_exact_zero_fma_bits(
-  lhs_bits : UInt,
-  rhs_bits : UInt,
-  addend_bits : UInt,
-  mode : UInt,
-  variant : Int,
-) -> UInt {
+  lhs_bits : UInt32,
+  rhs_bits : UInt32,
+  addend_bits : UInt32,
+  mode : UInt32,
+  variant : Int32,
+) -> UInt32 {
   let product_negative = f32_sign_bit(lhs_bits) != f32_sign_bit(rhs_bits)
   let adjusted_product_negative = (variant >= 2) != product_negative
   let adjusted_addend_negative = if variant == 1 || variant == 3 {
@@ -678,8 +678,8 @@ fn f64_exact_zero_fma_bits(
   lhs_bits : UInt64,
   rhs_bits : UInt64,
   addend_bits : UInt64,
-  mode : UInt,
-  variant : Int,
+  mode : UInt32,
+  variant : Int32,
 ) -> UInt64 {
   let product_negative = f64_sign_bit(lhs_bits) != f64_sign_bit(rhs_bits)
   let adjusted_product_negative = (variant >= 2) != product_negative
@@ -712,7 +712,7 @@ fn f64_exact_zero_mul_bits(lhs_bits : UInt64, rhs_bits : UInt64) -> UInt64 {
 }
 
 ///|
-fn f32_exact_zero_div_bits(lhs_bits : UInt, rhs_bits : UInt) -> UInt {
+fn f32_exact_zero_div_bits(lhs_bits : UInt32, rhs_bits : UInt32) -> UInt32 {
   if f32_sign_bit(lhs_bits) != f32_sign_bit(rhs_bits) {
     f32_negative_zero_bits()
   } else {
@@ -732,7 +732,7 @@ fn f64_exact_zero_div_bits(lhs_bits : UInt64, rhs_bits : UInt64) -> UInt64 {
 ///|
 fn fp_round_rational_to_f64_bits(
   exact : FpExactRational,
-  mode : UInt,
+  mode : UInt32,
 ) -> FpRoundedDoubleBits {
   let sign = exact.num < BigInt::from_int(0)
   let sign_bits = if sign { 1U.to_uint64() << 63 } else { 0U.to_uint64() }
@@ -833,7 +833,7 @@ fn f64_next_down_positive_finite(bits : UInt64) -> UInt64 {
 }
 
 ///|
-fn f32_next_up_positive_finite(bits : UInt) -> UInt {
+fn f32_next_up_positive_finite(bits : UInt32) -> UInt32 {
   if bits == 0x7f800000U {
     bits
   } else {
@@ -842,7 +842,7 @@ fn f32_next_up_positive_finite(bits : UInt) -> UInt {
 }
 
 ///|
-fn f32_next_down_positive_finite(bits : UInt) -> UInt {
+fn f32_next_down_positive_finite(bits : UInt32) -> UInt32 {
   if bits == 0U {
     bits
   } else {
@@ -853,7 +853,7 @@ fn f32_next_down_positive_finite(bits : UInt) -> UInt {
 ///|
 fn f64_sqrt_rounded_bits(
   operand_bits : UInt64,
-  mode : UInt,
+  mode : UInt32,
 ) -> FpRoundedDoubleBits {
   let host_bits = f64_bits_from_host(f64_from_bits(operand_bits).sqrt())
   match fp_exact_rational_from_f64_bits(operand_bits) {
@@ -898,7 +898,7 @@ fn f64_sqrt_midpoint_choice(
   lower_bits : UInt64,
   upper_bits : UInt64,
   operand : FpExactRational,
-  mode : UInt,
+  mode : UInt32,
 ) -> UInt64 {
   let lower = fp_exact_rational_from_f64_bits(lower_bits).unwrap()
   let upper = fp_exact_rational_from_f64_bits(upper_bits).unwrap()
@@ -926,11 +926,11 @@ fn f64_sqrt_midpoint_choice(
 
 ///|
 fn f32_sqrt_midpoint_choice(
-  lower_bits : UInt,
-  upper_bits : UInt,
+  lower_bits : UInt32,
+  upper_bits : UInt32,
   operand : FpExactRational,
-  mode : UInt,
-) -> UInt {
+  mode : UInt32,
+) -> UInt32 {
   let lower = fp_exact_rational_from_f32_bits(lower_bits).unwrap()
   let upper = fp_exact_rational_from_f32_bits(upper_bits).unwrap()
   let midpoint = fp_exact_rational_div(fp_exact_rational_add(lower, upper), {
@@ -956,8 +956,8 @@ fn f32_sqrt_midpoint_choice(
 
 ///|
 fn f32_sqrt_rounded_bits(
-  operand_bits : UInt,
-  mode : UInt,
+  operand_bits : UInt32,
+  mode : UInt32,
 ) -> FpRoundedSingleBits {
   let host_result_bits = f32_from_bits(operand_bits)
     .to_double()
@@ -1000,12 +1000,12 @@ fn f32_sqrt_rounded_bits(
 
 ///|
 fn f32_round_fused_result_bits(
-  lhs_bits : UInt,
-  rhs_bits : UInt,
-  addend_bits : UInt,
-  mode : UInt,
+  lhs_bits : UInt32,
+  rhs_bits : UInt32,
+  addend_bits : UInt32,
+  mode : UInt32,
   host_result_bits : UInt64,
-  variant : Int,
+  variant : Int32,
 ) -> FpRoundedSingleBits {
   let fallback = fp_round_f64_bits_to_f32_bits(host_result_bits, mode)
   match
@@ -1038,7 +1038,7 @@ fn f32_round_fused_result_bits(
 }
 
 ///|
-fn f32_mul_is_invalid_bits(lhs : UInt, rhs : UInt) -> Bool {
+fn f32_mul_is_invalid_bits(lhs : UInt32, rhs : UInt32) -> Bool {
   (f32_is_infinite_bits(lhs) && f32_is_zero_bits(rhs)) ||
   (f32_is_zero_bits(lhs) && f32_is_infinite_bits(rhs))
 }
@@ -1050,7 +1050,7 @@ fn f64_mul_is_invalid_bits(lhs : UInt64, rhs : UInt64) -> Bool {
 }
 
 ///|
-fn f32_mul_result_is_infinite_bits(lhs : UInt, rhs : UInt) -> Bool {
+fn f32_mul_result_is_infinite_bits(lhs : UInt32, rhs : UInt32) -> Bool {
   !f32_is_nan_bits(lhs) &&
   !f32_is_nan_bits(rhs) &&
   (
@@ -1073,7 +1073,7 @@ fn f64_mul_result_is_infinite_bits(lhs : UInt64, rhs : UInt64) -> Bool {
 fn fp_fma_infinite_terms_cancel(
   product_negative : Bool,
   addend_negative : Bool,
-  variant : Int,
+  variant : Int32,
 ) -> Bool {
   // The four RISC-V FMA opcodes differ only by which term signs are flipped
   // before the fused add. If the effective product term and addend term are
@@ -1091,10 +1091,10 @@ fn fp_fma_infinite_terms_cancel(
 
 ///|
 fn f32_fma_infinite_add_is_invalid_bits(
-  lhs : UInt,
-  rhs : UInt,
-  addend : UInt,
-  variant : Int,
+  lhs : UInt32,
+  rhs : UInt32,
+  addend : UInt32,
+  variant : Int32,
 ) -> Bool {
   f32_mul_result_is_infinite_bits(lhs, rhs) &&
   f32_is_infinite_bits(addend) &&
@@ -1110,7 +1110,7 @@ fn f64_fma_infinite_add_is_invalid_bits(
   lhs : UInt64,
   rhs : UInt64,
   addend : UInt64,
-  variant : Int,
+  variant : Int32,
 ) -> Bool {
   f64_mul_result_is_infinite_bits(lhs, rhs) &&
   f64_is_infinite_bits(addend) &&
@@ -1123,10 +1123,10 @@ fn f64_fma_infinite_add_is_invalid_bits(
 
 ///|
 fn f32_fma_is_invalid_bits(
-  lhs : UInt,
-  rhs : UInt,
-  addend : UInt,
-  variant : Int,
+  lhs : UInt32,
+  rhs : UInt32,
+  addend : UInt32,
+  variant : Int32,
 ) -> Bool {
   // Fused multiply-add has the ordinary signaling-NaN invalid cases plus the
   // IEEE invalid multiplication form infinity*zero and the invalid fused add
@@ -1142,7 +1142,7 @@ fn f64_fma_is_invalid_bits(
   lhs : UInt64,
   rhs : UInt64,
   addend : UInt64,
-  variant : Int,
+  variant : Int32,
 ) -> Bool {
   f64_any_signaling_nan3(lhs, rhs, addend) ||
   f64_mul_is_invalid_bits(lhs, rhs) ||
@@ -1150,7 +1150,7 @@ fn f64_fma_is_invalid_bits(
 }
 
 ///|
-fn f32_any_signaling_nan2(lhs : UInt, rhs : UInt) -> Bool {
+fn f32_any_signaling_nan2(lhs : UInt32, rhs : UInt32) -> Bool {
   f32_is_signaling_nan_bits(lhs) || f32_is_signaling_nan_bits(rhs)
 }
 
@@ -1160,7 +1160,7 @@ fn f64_any_signaling_nan2(lhs : UInt64, rhs : UInt64) -> Bool {
 }
 
 ///|
-fn f32_any_signaling_nan3(lhs : UInt, rhs : UInt, addend : UInt) -> Bool {
+fn f32_any_signaling_nan3(lhs : UInt32, rhs : UInt32, addend : UInt32) -> Bool {
   f32_is_signaling_nan_bits(lhs) ||
   f32_is_signaling_nan_bits(rhs) ||
   f32_is_signaling_nan_bits(addend)
@@ -1174,7 +1174,7 @@ fn f64_any_signaling_nan3(lhs : UInt64, rhs : UInt64, addend : UInt64) -> Bool {
 }
 
 ///|
-fn f32_add_is_invalid_bits(lhs : UInt, rhs : UInt) -> Bool {
+fn f32_add_is_invalid_bits(lhs : UInt32, rhs : UInt32) -> Bool {
   // Adding opposite-signed infinities is invalid. FSUB reuses this helper by
   // flipping the right-hand sign bit before checking the same condition.
   f32_is_infinite_bits(lhs) &&
@@ -1190,7 +1190,7 @@ fn f64_add_is_invalid_bits(lhs : UInt64, rhs : UInt64) -> Bool {
 }
 
 ///|
-fn f32_div_is_invalid_bits(lhs : UInt, rhs : UInt) -> Bool {
+fn f32_div_is_invalid_bits(lhs : UInt32, rhs : UInt32) -> Bool {
   (f32_is_zero_bits(lhs) && f32_is_zero_bits(rhs)) ||
   (f32_is_infinite_bits(lhs) && f32_is_infinite_bits(rhs))
 }
@@ -1202,7 +1202,7 @@ fn f64_div_is_invalid_bits(lhs : UInt64, rhs : UInt64) -> Bool {
 }
 
 ///|
-fn f32_div_by_zero_bits(lhs : UInt, rhs : UInt) -> Bool {
+fn f32_div_by_zero_bits(lhs : UInt32, rhs : UInt32) -> Bool {
   // DZ is for a finite nonzero dividend divided by zero. Zero-over-zero is NV,
   // and NaN or infinity operands are handled by the invalid/NaN paths.
   f32_is_zero_bits(rhs) &&
@@ -1220,7 +1220,7 @@ fn f64_div_by_zero_bits(lhs : UInt64, rhs : UInt64) -> Bool {
 }
 
 ///|
-fn f32_sqrt_is_invalid_bits(value : UInt) -> Bool {
+fn f32_sqrt_is_invalid_bits(value : UInt32) -> Bool {
   // FSQRT invalid-operation is for negative numeric inputs other than -0.
   // NaNs follow the normal NaN path: signaling NaNs set NV, quiet NaNs do not.
   f32_sign_bit(value) && !f32_is_zero_bits(value) && !f32_is_nan_bits(value)
@@ -1232,7 +1232,7 @@ fn f64_sqrt_is_invalid_bits(value : UInt64) -> Bool {
 }
 
 ///|
-fn f32_class_mask(bits : UInt) -> UInt64 {
+fn f32_class_mask(bits : UInt32) -> UInt64 {
   // FCLASS returns exactly one class bit and never updates fflags.
   let sign = (bits & 0x80000000U) != 0U
   let exponent = bits & 0x7f800000U
@@ -1305,7 +1305,7 @@ fn f64_class_mask(bits : UInt64) -> UInt64 {
 }
 
 ///|
-fn f32_min_bits(lhs : UInt, rhs : UInt) -> UInt {
+fn f32_min_bits(lhs : UInt32, rhs : UInt32) -> UInt32 {
   // FMIN/FMAX have special zero and NaN rules that ordinary host min/max do
   // not express. Keep the bit-level cases explicit instead of delegating.
   if f32_is_nan_bits(lhs) && f32_is_nan_bits(rhs) {
@@ -1349,7 +1349,7 @@ fn f64_min_bits(lhs : UInt64, rhs : UInt64) -> UInt64 {
 }
 
 ///|
-fn f32_max_bits(lhs : UInt, rhs : UInt) -> UInt {
+fn f32_max_bits(lhs : UInt32, rhs : UInt32) -> UInt32 {
   if f32_is_nan_bits(lhs) && f32_is_nan_bits(rhs) {
     f32_canonical_nan_bits()
   } else if f32_is_nan_bits(lhs) {
@@ -1410,12 +1410,12 @@ fn Runner::set_fflags(self : Runner, flags : UInt64) -> Unit {
 }
 
 ///|
-fn Runner::read_frm(self : Runner) -> UInt {
+fn Runner::read_frm(self : Runner) -> UInt32 {
   ((self.read_fcsr() & FCSR_FRM_MASK) >> FCSR_FRM_SHIFT).to_uint()
 }
 
 ///|
-fn Runner::fp_effective_rounding_mode(self : Runner, rm : UInt) -> UInt? {
+fn Runner::fp_effective_rounding_mode(self : Runner, rm : UInt32) -> UInt32? {
   if rm <= 4U {
     Some(rm)
   } else if rm == 7U {
@@ -1431,7 +1431,7 @@ fn Runner::fp_effective_rounding_mode(self : Runner, rm : UInt) -> UInt? {
 }
 
 ///|
-fn Runner::fp_rounding_mode_legal(self : Runner, rm : UInt) -> Bool {
+fn Runner::fp_rounding_mode_legal(self : Runner, rm : UInt32) -> Bool {
   match self.fp_effective_rounding_mode(rm) {
     Some(_) => true
     None => false
@@ -1449,7 +1449,7 @@ fn fp_signed_integer_magnitude(value : UInt64) -> FpIntMagnitude {
 }
 
 ///|
-fn fp_u64_msb_index(value : UInt64) -> Int {
+fn fp_u64_msb_index(value : UInt64) -> Int32 {
   let mut rest = value
   let mut index = 0
   while rest >> 1 != 0U.to_uint64() {
@@ -1465,7 +1465,7 @@ fn fp_round_integer_should_increment(
   retained : UInt64,
   remainder : UInt64,
   half : UInt64,
-  mode : UInt,
+  mode : UInt32,
 ) -> Bool {
   match mode {
     0U =>
@@ -1482,9 +1482,9 @@ fn fp_round_integer_should_increment(
 ///|
 fn fp_round_scaled_u64_to_integer(
   magnitude : UInt64,
-  scale_shift : Int,
+  scale_shift : Int32,
   sign : Bool,
-  mode : UInt,
+  mode : UInt32,
 ) -> FpRoundedIntegerBits {
   if scale_shift >= 0 {
     { bits: magnitude << scale_shift, inexact: false, }
@@ -1528,10 +1528,10 @@ fn fp_round_scaled_u64_to_integer(
 fn fp_round_u64_to_ieee_bits(
   magnitude : UInt64,
   sign : Bool,
-  mode : UInt,
-  fraction_bits : Int,
-  exponent_bias : Int,
-  sign_shift : Int,
+  mode : UInt32,
+  fraction_bits : Int32,
+  exponent_bias : Int32,
+  sign_shift : Int32,
 ) -> FpRoundedIntegerBits {
   if magnitude == 0U.to_uint64() {
     let sign_bits = if sign {
@@ -1582,7 +1582,7 @@ fn fp_round_u64_to_ieee_bits(
 }
 
 ///|
-fn fp_f32_overflow_bits(sign : Bool, mode : UInt) -> UInt {
+fn fp_f32_overflow_bits(sign : Bool, mode : UInt32) -> UInt32 {
   let use_infinity = match mode {
     1U => false
     2U => sign
@@ -1605,7 +1605,7 @@ fn fp_f32_overflow_bits(sign : Bool, mode : UInt) -> UInt {
 ///|
 fn fp_round_f64_bits_to_f32_bits(
   bits : UInt64,
-  mode : UInt,
+  mode : UInt32,
 ) -> FpRoundedSingleBits {
   let sign = f64_sign_bit(bits)
   let sign_bits = if sign { 0x80000000U } else { 0U }
@@ -1707,10 +1707,10 @@ fn fp_round_f64_bits_to_f32_bits(
 ///|
 fn Runner::write_fcvt_single_from_integer(
   self : Runner,
-  rd : Int,
+  rd : Int32,
   sign : Bool,
   magnitude : UInt64,
-  mode : UInt,
+  mode : UInt32,
 ) -> Unit {
   let rounded = fp_round_u64_to_ieee_bits(magnitude, sign, mode, 23, 127, 31)
   if rounded.inexact {
@@ -1722,10 +1722,10 @@ fn Runner::write_fcvt_single_from_integer(
 ///|
 fn Runner::write_fcvt_double_from_integer(
   self : Runner,
-  rd : Int,
+  rd : Int32,
   sign : Bool,
   magnitude : UInt64,
-  mode : UInt,
+  mode : UInt32,
 ) -> Unit {
   let rounded = fp_round_u64_to_ieee_bits(magnitude, sign, mode, 52, 1023, 63)
   if rounded.inexact {
@@ -1740,7 +1740,7 @@ fn fp_integer_is_even(value : Double) -> Bool {
 }
 
 ///|
-fn fp_round_to_integer(value : Double, mode : UInt) -> Double {
+fn fp_round_to_integer(value : Double, mode : UInt32) -> Double {
   match mode {
     0U => {
       let down = value.floor()
@@ -1774,9 +1774,9 @@ fn fp_round_to_integer(value : Double, mode : UInt) -> Double {
 ///|
 fn Runner::write_fcvt_word_result(
   self : Runner,
-  rd : Int,
+  rd : Int32,
   value : Double,
-  mode : UInt,
+  mode : UInt32,
   source_nan : Bool,
   unsigned : Bool,
 ) -> Unit {
@@ -1816,9 +1816,9 @@ fn Runner::write_fcvt_word_result(
 ///|
 fn Runner::write_fcvt_long_result(
   self : Runner,
-  rd : Int,
+  rd : Int32,
   value : Double,
-  mode : UInt,
+  mode : UInt32,
   source_nan : Bool,
   unsigned : Bool,
 ) -> Unit {
@@ -1867,7 +1867,7 @@ fn Runner::execute_fp_load_store(
   instruction : Instruction,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   if !self.fp_context_enabled() {
     return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
@@ -1902,7 +1902,7 @@ fn Runner::execute_fp(
   instruction : Instruction,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   if !self.fp_context_enabled() {
     return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())

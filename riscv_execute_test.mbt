@@ -3,13 +3,13 @@
 // programs over snapshots so failures point to a specific contract.
 
 ///|
-fn test_sign_extend_word64(value : UInt) -> UInt64 {
+fn test_sign_extend_word64(value : UInt32) -> UInt64 {
   let shifted = value.to_uint64() << 32
   (shifted.reinterpret_as_int64() >> 32).reinterpret_as_uint64()
 }
 
 ///|
-fn test_join_u64(upper : UInt, lower : UInt) -> UInt64 {
+fn test_join_u64(upper : UInt32, lower : UInt32) -> UInt64 {
   (upper.to_uint64() << 32) | lower.to_uint64()
 }
 
@@ -19,7 +19,7 @@ fn test_not_u64(value : UInt64) -> UInt64 {
 }
 
 ///|
-let exec_test_instret_csr : Int = 0xC02
+let exec_test_instret_csr : Int32 = 0xC02
 
 ///|
 fn expect_step_running(
@@ -53,11 +53,11 @@ fn expect_step_trap(
 ///|
 fn assert_vreg_e32x4(
   runner : @riscv_mbt.Runner,
-  vreg : Int,
-  e0 : UInt,
-  e1 : UInt,
-  e2 : UInt,
-  e3 : UInt,
+  vreg : Int32,
+  e0 : UInt32,
+  e1 : UInt32,
+  e2 : UInt32,
+  e3 : UInt32,
 ) -> Unit raise {
   assert_eq(runner.read_vreg_u64(vreg, 0), test_join_u64(e1, e0))
   assert_eq(runner.read_vreg_u64(vreg, 1), test_join_u64(e3, e2))
@@ -81,7 +81,7 @@ fn exec_test_u64_to_le_bytes(value : UInt64) -> Bytes {
 }
 
 ///|
-fn exec_test_f32_bits(value : Float) -> UInt {
+fn exec_test_f32_bits(value : Float) -> UInt32 {
   Float::reinterpret_as_uint(value)
 }
 
@@ -91,7 +91,7 @@ fn exec_test_f64_bits(value : Double) -> UInt64 {
 }
 
 ///|
-fn exec_test_nan_box_single(value : UInt) -> UInt64 {
+fn exec_test_nan_box_single(value : UInt32) -> UInt64 {
   (0xffffffffU.to_uint64() << 32) | value.to_uint64()
 }
 
@@ -143,8 +143,8 @@ fn exec_test_setup_basic_sv39_map(runner : @riscv_mbt.Runner) -> Unit {
 
 ///|
 fn exec_test_supervisor_interrupt_program(
-  interrupt_mask : Int,
-  stvec_value : Int,
+  interrupt_mask : Int32,
+  stvec_value : Int32,
 ) -> Bytes {
   // Set up one delegated S-mode interrupt, return to S-mode at a body
   // instruction, and let the interrupt redirect to the stvec handler before
@@ -1930,8 +1930,8 @@ test "rv64f fp register writes mark mstatus fs dirty" {
 ///|
 fn expect_fp_status_case(
   runner : @riscv_mbt.Runner,
-  steps : Int,
-  status_reg : Int,
+  steps : Int32,
+  status_reg : Int32,
   expected_fs : UInt64,
   expected_sd : UInt64,
   expected_fflags : UInt64,
@@ -9449,7 +9449,10 @@ test "trap vector csrs legalize base alignment and reserved modes" {
 }
 
 ///|
-fn expect_trap_vector_set_clear_forms(csr : Int, label : String) -> Unit raise {
+fn expect_trap_vector_set_clear_forms(
+  csr : Int32,
+  label : String,
+) -> Unit raise {
   let program = @riscv_mbt.words_to_bytes([
     encode_i(4, 0, 0x0U, 1, 0x13U),
     encode_i(3, 0, 0x0U, 2, 0x13U),
@@ -10379,7 +10382,7 @@ test "counteren csrs expose only base counter enable bits" {
 
 ///|
 fn expect_masked_csr_set_clear_forms(
-  csr : Int,
+  csr : Int32,
   writable_mask : UInt64,
   label : String,
 ) -> Unit raise {
@@ -10805,7 +10808,7 @@ test "machine counter csrs back unprivileged counter shadows" {
 
 ///|
 fn expect_machine_counter_set_clear_forms(
-  csr : Int,
+  csr : Int32,
   label : String,
 ) -> Unit raise {
   let mcountinhibit = 0x320
@@ -10884,7 +10887,7 @@ test "environment config csrs expose no optional feature bits" {
 
 ///|
 fn expect_warl_zero_csr_direct_write_forms(
-  csr : Int,
+  csr : Int32,
   label : String,
 ) -> Unit raise {
   let program = @riscv_mbt.words_to_bytes([
@@ -10926,7 +10929,7 @@ test "warl zero csrs accept direct write forms" {
 
 ///|
 fn expect_warl_zero_csr_set_clear_forms(
-  csr : Int,
+  csr : Int32,
   label : String,
 ) -> Unit raise {
   let program = @riscv_mbt.words_to_bytes([
@@ -10991,7 +10994,10 @@ test "pmp csrs stay WARL zero across set and clear forms" {
 }
 
 ///|
-fn expect_absent_csr_form_family_traps(csr : Int, name : String) -> Unit raise {
+fn expect_absent_csr_form_family_traps(
+  csr : Int32,
+  name : String,
+) -> Unit raise {
   // Unsupported CSR addresses trap before Zicsr read/write suppression can
   // make a form harmless. Direct CSRRW[I] forms touch both sides of the CSR,
   // CSRRW[I] rd=x0 suppresses only the read side, and CSRRS/CSRRC[I] with a
@@ -11159,7 +11165,7 @@ test "scratch and trap value csrs preserve full xlen storage" {
 
 ///|
 fn expect_plain_xlen_csr_set_clear_forms(
-  csr : Int,
+  csr : Int32,
   label : String,
 ) -> Unit raise {
   let set_mask = 0xf0f0f0f0f0f0f0f0UL
@@ -13918,7 +13924,7 @@ test "rv64fdv vector whole-register moves reject misaligned groups" {
 }
 
 ///|
-fn test_vector_vtypei_for_sew(sew_bits : Int) -> UInt {
+fn test_vector_vtypei_for_sew(sew_bits : Int32) -> UInt32 {
   match sew_bits {
     8 => 0x00U
     16 => 0x08U
@@ -16565,24 +16571,24 @@ test "WFI does not fast-forward when CLINT timer compare is unset" {
 
 ///|
 fn encode_amo(
-  funct5 : UInt,
-  rs2 : Int,
-  rs1 : Int,
-  funct3 : UInt,
-  rd : Int,
-) -> UInt {
+  funct5 : UInt32,
+  rs2 : Int32,
+  rs1 : Int32,
+  funct3 : UInt32,
+  rd : Int32,
+) -> UInt32 {
   encode_r(funct5 << 2, rs2, rs1, funct3, rd, 0x2fU)
 }
 
 ///|
 fn encode_amo_ordered(
-  funct5 : UInt,
-  order : UInt,
-  rs2 : Int,
-  rs1 : Int,
-  funct3 : UInt,
-  rd : Int,
-) -> UInt {
+  funct5 : UInt32,
+  order : UInt32,
+  rs2 : Int32,
+  rs1 : Int32,
+  funct3 : UInt32,
+  rd : Int32,
+) -> UInt32 {
   encode_r((funct5 << 2) | (order & 0x3U), rs2, rs1, funct3, rd, 0x2fU)
 }
 
@@ -17651,8 +17657,8 @@ test "SC fails when its width does not match the LR reservation" {
 test "atomic operations require natural address alignment" {
   fn expect_atomic_misaligned_trap(
     name : String,
-    raw : UInt,
-    offset : UInt,
+    raw : UInt32,
+    offset : UInt32,
     expect_load_cause : Bool,
   ) raise {
     let runner = @riscv_mbt.make_runner(@riscv_mbt.virt_machine_config())
@@ -17926,9 +17932,9 @@ test "load-reserved from another hart preserves existing reservation" {
 
 ///|
 fn expect_plain_load_preserves_lr_sc_reservation(
-  lr_raw : UInt,
-  sc_raw : UInt,
-  load_raw : UInt,
+  lr_raw : UInt32,
+  sc_raw : UInt32,
+  load_raw : UInt32,
   original : UInt64,
   replacement : UInt64,
   doubleword : Bool,

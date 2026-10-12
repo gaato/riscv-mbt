@@ -3,13 +3,13 @@
 
 ///|
 fn wb_encode_r(
-  funct7 : UInt,
-  rs2 : Int,
-  rs1 : Int,
-  funct3 : UInt,
-  rd : Int,
-  opcode : UInt,
-) -> UInt {
+  funct7 : UInt32,
+  rs2 : Int32,
+  rs1 : Int32,
+  funct3 : UInt32,
+  rd : Int32,
+  opcode : UInt32,
+) -> UInt32 {
   (funct7 << 25) |
   (rs2.reinterpret_as_uint() << 20) |
   (rs1.reinterpret_as_uint() << 15) |
@@ -20,12 +20,12 @@ fn wb_encode_r(
 
 ///|
 fn wb_encode_amo(
-  funct5 : UInt,
-  rs2 : Int,
-  rs1 : Int,
-  funct3 : UInt,
-  rd : Int,
-) -> UInt {
+  funct5 : UInt32,
+  rs2 : Int32,
+  rs1 : Int32,
+  funct3 : UInt32,
+  rd : Int32,
+) -> UInt32 {
   wb_encode_r(funct5 << 2, rs2, rs1, funct3, rd, 0x2fU)
 }
 
@@ -48,7 +48,7 @@ fn wb_rv64_without_a_machine_config() -> MachineConfig {
 }
 
 ///|
-fn wb_expect_illegal_atomic(raw : UInt, runner : Runner) -> Unit raise {
+fn wb_expect_illegal_atomic(raw : UInt32, runner : Runner) -> Unit raise {
   runner.bus.store_u32(runner.cpu.pc, raw.to_uint64())
   match runner.step() {
     Trap(info) => {

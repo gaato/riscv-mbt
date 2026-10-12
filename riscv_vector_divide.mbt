@@ -14,7 +14,7 @@ priv enum VectorDivideOp {
 fn vector_signed_division_overflows(
   lhs : UInt64,
   rhs : UInt64,
-  sew_bits : Int,
+  sew_bits : Int32,
 ) -> Bool {
   let sign_bit = 1U.to_uint64() << (sew_bits - 1)
   lhs == sign_bit && rhs == vector_elem_mask(sew_bits)
@@ -25,7 +25,7 @@ fn vector_apply_divide(
   lhs : UInt64,
   rhs : UInt64,
   op : VectorDivideOp,
-  sew_bits : Int,
+  sew_bits : Int32,
   sew_mask : UInt64,
 ) -> UInt64 {
   match op {
@@ -66,18 +66,18 @@ fn vector_apply_divide(
 ///|
 fn Runner::execute_vector_divide_vv(
   self : Runner,
-  vd : Int,
-  vs2 : Int,
-  vs1 : Int,
+  vd : Int32,
+  vs2 : Int32,
+  vs1 : Int32,
   config : VectorExecConfig,
-  active_elems : Int,
+  active_elems : Int32,
   sew_mask : UInt64,
   mask_bits : Array[Bool],
   use_mask : Bool,
   op : VectorDivideOp,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   if !vector_group_aligned(vd, config.lmul_log2) ||
     !vector_group_aligned(vs2, config.lmul_log2) ||
@@ -103,18 +103,18 @@ fn Runner::execute_vector_divide_vv(
 ///|
 fn Runner::execute_vector_divide_scalar(
   self : Runner,
-  vd : Int,
-  vs2 : Int,
+  vd : Int32,
+  vs2 : Int32,
   scalar : UInt64,
   config : VectorExecConfig,
-  active_elems : Int,
+  active_elems : Int32,
   sew_mask : UInt64,
   mask_bits : Array[Bool],
   use_mask : Bool,
   op : VectorDivideOp,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   if !vector_group_aligned(vd, config.lmul_log2) ||
     !vector_group_aligned(vs2, config.lmul_log2) {
@@ -141,13 +141,13 @@ fn Runner::execute_vector_divide_instruction(
   self : Runner,
   instruction : Instruction,
   config : VectorExecConfig,
-  active_elems : Int,
+  active_elems : Int32,
   sew_mask : UInt64,
   mask_bits : Array[Bool],
   use_mask : Bool,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   match instruction {
     VdivuVv(vd, vs2, vs1) =>

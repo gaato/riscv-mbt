@@ -30,7 +30,7 @@ const PTE_RESERVED_63_54_MASK : UInt64 = 0xffc0000000000000UL
 const PTE_NON_LEAF_RESERVED_MASK : UInt64 = PTE_D | PTE_A | PTE_U
 
 ///|
-const SV39_LEVELS : Int = 3
+const SV39_LEVELS : Int32 = 3
 
 ///|
 const SV39_PAGESIZE : UInt64 = 4096
@@ -44,7 +44,7 @@ fn satp_ppn(satp : UInt64) -> UInt64 {
 }
 
 ///|
-fn sv39_vpn(vaddr : UInt64, level : Int) -> UInt64 {
+fn sv39_vpn(vaddr : UInt64, level : Int32) -> UInt64 {
   (vaddr >> (12 + level * 9)) & 0x1FFU.to_uint64()
 }
 
@@ -99,7 +99,7 @@ fn pte_non_leaf_reserved_bits_clear(pte : UInt64) -> Bool {
 }
 
 ///|
-fn pte_ppn_i(pte : UInt64, level : Int) -> UInt64 {
+fn pte_ppn_i(pte : UInt64, level : Int32) -> UInt64 {
   (pte >> (10 + level * 9)) & 0x1FFU.to_uint64()
 }
 
@@ -266,7 +266,7 @@ fn Runner::translate_pa(
 }
 
 ///|
-fn translate_cache_access_id(access_type : AccessType) -> Int {
+fn translate_cache_access_id(access_type : AccessType) -> Int32 {
   match access_type {
     Fetch => 0
     Load => 1
@@ -275,7 +275,7 @@ fn translate_cache_access_id(access_type : AccessType) -> Int {
 }
 
 ///|
-fn translate_cache_privilege_id(privilege : PrivilegeMode) -> Int {
+fn translate_cache_privilege_id(privilege : PrivilegeMode) -> Int32 {
   match privilege {
     User => 0
     Supervisor => 1
@@ -284,12 +284,12 @@ fn translate_cache_privilege_id(privilege : PrivilegeMode) -> Int {
 }
 
 ///|
-fn translate_cache_index(vpage : UInt64) -> Int {
+fn translate_cache_index(vpage : UInt64) -> Int32 {
   (vpage & (translate_cache_sets - 1).reinterpret_as_uint().to_uint64()).to_int()
 }
 
 ///|
-fn known_page_table_index(ppn : UInt64) -> Int {
+fn known_page_table_index(ppn : UInt64) -> Int32 {
   (ppn & (known_page_table_sets - 1).reinterpret_as_uint().to_uint64()).to_int()
 }
 
@@ -341,7 +341,7 @@ fn Runner::record_page_table_walk(
 fn Runner::store_touches_known_page_table(
   self : Runner,
   pa : UInt64,
-  width : Int,
+  width : Int32,
 ) -> Bool {
   // Stores can span a page boundary. Check every touched physical page so a
   // wide guest store into page-table memory cannot leave stale translations.
@@ -491,7 +491,7 @@ fn Runner::fetch_into_scratch(self : Runner, addr : UInt64) -> Bool {
 }
 
 ///|
-fn Runner::address_from(self : Runner, rs1 : Int, imm : Int) -> UInt64 {
+fn Runner::address_from(self : Runner, rs1 : Int32, imm : Int32) -> UInt64 {
   self.cpu.read_reg(rs1) + int_to_uint64_bits(imm)
 }
 
@@ -499,7 +499,7 @@ fn Runner::address_from(self : Runner, rs1 : Int, imm : Int) -> UInt64 {
 /// Return a checked load PA without allocating on success. A failure returns
 /// `translate_fault_sentinel` and stores its trap result in
 /// `pending_step_result`.
-fn Runner::load_check(self : Runner, addr : UInt64, width : Int) -> UInt64 {
+fn Runner::load_check(self : Runner, addr : UInt64, width : Int32) -> UInt64 {
   let privilege = self.effective_data_access_privilege()
   let pa = self.translate_pa(addr, Load, privilege)
   if pa == translate_fault_sentinel && self.sv39_active_for_privilege(privilege) {
@@ -526,7 +526,7 @@ fn Runner::load_check(self : Runner, addr : UInt64, width : Int) -> UInt64 {
 /// Return a checked store PA without allocating on success. A failure returns
 /// `translate_fault_sentinel` and stores its trap result in
 /// `pending_step_result`.
-fn Runner::store_check(self : Runner, addr : UInt64, width : Int) -> UInt64 {
+fn Runner::store_check(self : Runner, addr : UInt64, width : Int32) -> UInt64 {
   let privilege = self.effective_data_access_privilege()
   let pa = self.translate_pa(addr, Store, privilege)
   if pa == translate_fault_sentinel && self.sv39_active_for_privilege(privilege) {

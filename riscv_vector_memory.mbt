@@ -21,8 +21,8 @@ fn Runner::vector_memory_exec_config(self : Runner) -> VectorExecConfig? {
 ///|
 fn Runner::vector_memory_group_config(
   self : Runner,
-  vreg : Int,
-  elem_bytes : Int,
+  vreg : Int32,
+  elem_bytes : Int32,
 ) -> VectorExecConfig? {
   match self.vector_memory_exec_config() {
     Some(config) =>
@@ -38,18 +38,18 @@ fn Runner::vector_memory_group_config(
 
 ///|
 fn vector_segment_field_vreg(
-  base_vreg : Int,
-  field : Int,
-  lmul_log2 : Int,
-) -> Int {
+  base_vreg : Int32,
+  field : Int32,
+  lmul_log2 : Int32,
+) -> Int32 {
   base_vreg + field * vector_lmul_registers(lmul_log2)
 }
 
 ///|
 fn vector_segment_group_aligned(
-  base_vreg : Int,
-  field_count : Int,
-  lmul_log2 : Int,
+  base_vreg : Int32,
+  field_count : Int32,
+  lmul_log2 : Int32,
 ) -> Bool {
   // Segment fields are independent register groups. Every field group must be
   // aligned for the current LMUL, not just the first destination/source group.
@@ -67,9 +67,9 @@ fn vector_segment_group_aligned(
 ///|
 fn Runner::vector_segment_memory_config(
   self : Runner,
-  base_vreg : Int,
-  elem_bytes : Int,
-  field_count : Int,
+  base_vreg : Int32,
+  elem_bytes : Int32,
+  field_count : Int32,
 ) -> VectorExecConfig? {
   match self.vector_memory_exec_config() {
     Some(config) =>
@@ -97,7 +97,7 @@ fn Runner::vector_mask_memory_config(self : Runner) -> VectorExecConfig? {
 }
 
 ///|
-fn vector_mask_memory_bytes(vl : UInt64) -> Int {
+fn vector_mask_memory_bytes(vl : UInt64) -> Int32 {
   // Mask load/store size is ceil(vl / 8) bytes and is independent of SEW/LMUL.
   // That differs from ordinary vector element memory operations.
   ((vl + 7U.to_uint64()) / 8U.to_uint64()).reinterpret_as_int64().to_int()
@@ -106,8 +106,8 @@ fn vector_mask_memory_bytes(vl : UInt64) -> Int {
 ///|
 fn Runner::vector_indexed_e32_config(
   self : Runner,
-  data_vreg : Int,
-  index_vreg : Int,
+  data_vreg : Int32,
+  index_vreg : Int32,
 ) -> VectorExecConfig? {
   match self.vector_memory_group_config(data_vreg, 4) {
     Some(config) =>
@@ -126,8 +126,8 @@ fn Runner::vector_indexed_e32_config(
 ///|
 fn vector_unit_stride_addr(
   base : UInt64,
-  elem_index : Int,
-  elem_bytes : Int,
+  elem_index : Int32,
+  elem_bytes : Int32,
 ) -> UInt64 {
   base +
   elem_index.reinterpret_as_uint().to_uint64() *
@@ -137,7 +137,7 @@ fn vector_unit_stride_addr(
 ///|
 fn vector_strided_addr(
   base : UInt64,
-  elem_index : Int,
+  elem_index : Int32,
   stride : UInt64,
 ) -> UInt64 {
   base + elem_index.reinterpret_as_uint().to_uint64() * stride
@@ -151,10 +151,10 @@ fn vector_indexed_addr(base : UInt64, offset : UInt64) -> UInt64 {
 ///|
 fn vector_segment_unit_stride_addr(
   base : UInt64,
-  elem_index : Int,
-  field : Int,
-  field_count : Int,
-  elem_bytes : Int,
+  elem_index : Int32,
+  field : Int32,
+  field_count : Int32,
+  elem_bytes : Int32,
 ) -> UInt64 {
   base +
   ((elem_index * field_count + field) * elem_bytes)
@@ -163,7 +163,7 @@ fn vector_segment_unit_stride_addr(
 }
 
 ///|
-fn vector_memory_uses_mask(raw : UInt) -> Bool {
+fn vector_memory_uses_mask(raw : UInt32) -> Bool {
   ((raw >> 25) & 0x1U) == 0U
 }
 
@@ -173,8 +173,8 @@ fn vector_memory_uses_mask(raw : UInt) -> Bool {
 // not fault and masked loads preserve their old destination elements.
 fn Runner::vector_memory_elem_active(
   self : Runner,
-  raw : UInt,
-  elem : Int,
+  raw : UInt32,
+  elem : Int32,
 ) -> Bool {
   !vector_memory_uses_mask(raw) || self.read_vmask_bit(elem)
 }
@@ -183,7 +183,7 @@ fn Runner::vector_memory_elem_active(
 fn Runner::vector_load_elem_bits(
   self : Runner,
   pa : UInt64,
-  elem_bytes : Int,
+  elem_bytes : Int32,
 ) -> UInt64 {
   match elem_bytes {
     1 => self.phy_load_u8(pa)
@@ -198,7 +198,7 @@ fn Runner::vector_load_elem_bits(
 fn Runner::vector_store_elem_bits(
   self : Runner,
   pa : UInt64,
-  elem_bytes : Int,
+  elem_bytes : Int32,
   value : UInt64,
 ) -> Unit {
   match elem_bytes {
@@ -213,12 +213,12 @@ fn Runner::vector_store_elem_bits(
 ///|
 fn Runner::execute_vector_load_unit_stride(
   self : Runner,
-  vd : Int,
-  rs1 : Int,
-  elem_bytes : Int,
+  vd : Int32,
+  rs1 : Int32,
+  elem_bytes : Int32,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   let config = match self.vector_memory_group_config(vd, elem_bytes) {
     Some(config) => config
@@ -229,7 +229,7 @@ fn Runner::execute_vector_load_unit_stride(
   let active_elems = config.vl.reinterpret_as_int64().to_int()
   let base = self.cpu.read_reg(rs1)
   let pas : Array[UInt64] = []
-  let elems : Array[Int] = []
+  let elems : Array[Int32] = []
   let values : Array[UInt64] = []
   // Translate every active lane before loading or writing destination state.
   // That approximates the current no-partial-commit policy and keeps masked
@@ -264,13 +264,13 @@ fn Runner::execute_vector_load_unit_stride(
 ///|
 fn Runner::execute_vector_load_unit_stride_segment(
   self : Runner,
-  vd : Int,
-  rs1 : Int,
-  field_count : Int,
-  elem_bytes : Int,
+  vd : Int32,
+  rs1 : Int32,
+  field_count : Int32,
+  elem_bytes : Int32,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   let config = match
     self.vector_segment_memory_config(vd, elem_bytes, field_count) {
@@ -281,8 +281,8 @@ fn Runner::execute_vector_load_unit_stride_segment(
   let sew_bits = elem_bytes * 8
   let active_elems = config.vl.reinterpret_as_int64().to_int()
   let base = self.cpu.read_reg(rs1)
-  let elems : Array[Int] = []
-  let fields : Array[Int] = []
+  let elems : Array[Int32] = []
+  let fields : Array[Int32] = []
   let pas : Array[UInt64] = []
   let values : Array[UInt64] = []
   // Unit-stride segment memory is laid out as packed structures:
@@ -327,12 +327,12 @@ fn Runner::execute_vector_load_unit_stride_segment(
 ///|
 fn Runner::execute_vector_load_fault_only_first(
   self : Runner,
-  vd : Int,
-  rs1 : Int,
-  elem_bytes : Int,
+  vd : Int32,
+  rs1 : Int32,
+  elem_bytes : Int32,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   let config = match self.vector_memory_group_config(vd, elem_bytes) {
     Some(config) => config
@@ -343,7 +343,7 @@ fn Runner::execute_vector_load_fault_only_first(
   let original_vl = config.vl.reinterpret_as_int64().to_int()
   let base = self.cpu.read_reg(rs1)
   let values : Array[UInt64] = []
-  let elems : Array[Int] = []
+  let elems : Array[Int32] = []
   let mut committed_elems = original_vl
   // Fault-only-first loads trap only for element zero. Later synchronous faults
   // trim vl to the faulting element and commit the prefix already loaded.
@@ -387,13 +387,13 @@ fn Runner::execute_vector_load_fault_only_first(
 ///|
 fn Runner::execute_vector_load_strided(
   self : Runner,
-  vd : Int,
-  rs1 : Int,
-  rs2 : Int,
-  elem_bytes : Int,
+  vd : Int32,
+  rs1 : Int32,
+  rs2 : Int32,
+  elem_bytes : Int32,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   let config = match self.vector_memory_group_config(vd, elem_bytes) {
     Some(config) => config
@@ -405,7 +405,7 @@ fn Runner::execute_vector_load_strided(
   let base = self.cpu.read_reg(rs1)
   let stride = self.cpu.read_reg(rs2)
   let pas : Array[UInt64] = []
-  let elems : Array[Int] = []
+  let elems : Array[Int32] = []
   let values : Array[UInt64] = []
   for elem in 0..<active_elems {
     if self.vector_memory_elem_active(raw, elem) {
@@ -437,12 +437,12 @@ fn Runner::execute_vector_load_strided(
 ///|
 fn Runner::execute_vector_load_indexed_e32(
   self : Runner,
-  vd : Int,
-  rs1 : Int,
-  vs2 : Int,
+  vd : Int32,
+  rs1 : Int32,
+  vs2 : Int32,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   let config = match self.vector_indexed_e32_config(vd, vs2) {
     Some(config) => config
@@ -455,7 +455,7 @@ fn Runner::execute_vector_load_indexed_e32(
   let active_elems = config.vl.reinterpret_as_int64().to_int()
   let base = self.cpu.read_reg(rs1)
   let pas : Array[UInt64] = []
-  let elems : Array[Int] = []
+  let elems : Array[Int32] = []
   let values : Array[UInt64] = []
   for elem in 0..<active_elems {
     if self.vector_memory_elem_active(raw, elem) {
@@ -488,11 +488,11 @@ fn Runner::execute_vector_load_indexed_e32(
 ///|
 fn Runner::execute_vector_mask_load(
   self : Runner,
-  vd : Int,
-  rs1 : Int,
+  vd : Int32,
+  rs1 : Int32,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   let config = match self.vector_mask_memory_config() {
     Some(config) => config
@@ -525,12 +525,12 @@ fn Runner::execute_vector_mask_load(
 ///|
 fn Runner::execute_vector_store_unit_stride(
   self : Runner,
-  vs3 : Int,
-  rs1 : Int,
-  elem_bytes : Int,
+  vs3 : Int32,
+  rs1 : Int32,
+  elem_bytes : Int32,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   let config = match self.vector_memory_group_config(vs3, elem_bytes) {
     Some(config) => config
@@ -568,13 +568,13 @@ fn Runner::execute_vector_store_unit_stride(
 ///|
 fn Runner::execute_vector_store_unit_stride_segment(
   self : Runner,
-  vs3 : Int,
-  rs1 : Int,
-  field_count : Int,
-  elem_bytes : Int,
+  vs3 : Int32,
+  rs1 : Int32,
+  field_count : Int32,
+  elem_bytes : Int32,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   let config = match
     self.vector_segment_memory_config(vs3, elem_bytes, field_count) {
@@ -622,11 +622,11 @@ fn Runner::execute_vector_store_unit_stride_segment(
 ///|
 fn Runner::execute_vector_mask_store(
   self : Runner,
-  vs3 : Int,
-  rs1 : Int,
+  vs3 : Int32,
+  rs1 : Int32,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   let config = match self.vector_mask_memory_config() {
     Some(config) => config
@@ -657,12 +657,12 @@ fn Runner::execute_vector_mask_store(
 ///|
 fn Runner::execute_vector_store_indexed_e32(
   self : Runner,
-  vs3 : Int,
-  rs1 : Int,
-  vs2 : Int,
+  vs3 : Int32,
+  rs1 : Int32,
+  vs2 : Int32,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   let config = match self.vector_indexed_e32_config(vs3, vs2) {
     Some(config) => config
@@ -703,13 +703,13 @@ fn Runner::execute_vector_store_indexed_e32(
 ///|
 fn Runner::execute_vector_store_strided(
   self : Runner,
-  vs3 : Int,
-  rs1 : Int,
-  rs2 : Int,
-  elem_bytes : Int,
+  vs3 : Int32,
+  rs1 : Int32,
+  rs2 : Int32,
+  elem_bytes : Int32,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   let config = match self.vector_memory_group_config(vs3, elem_bytes) {
     Some(config) => config
@@ -751,7 +751,7 @@ fn Runner::execute_vector_memory_first_slice(
   instruction : Instruction,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   match instruction {
     VlmV(vd, rs1) =>

@@ -8,7 +8,7 @@ struct OfficialRiscvTestCase {
   arch : String
   tier : String
   path : String
-  max_steps : Int
+  max_steps : Int32
 }
 
 ///|
@@ -249,12 +249,12 @@ fn official_riscv_tests_isa_dir_for_arch(arch : String) -> String {
 
 ///|
 fn encode_i(
-  imm : Int,
-  rs1 : Int,
-  funct3 : UInt,
-  rd : Int,
-  opcode : UInt,
-) -> UInt {
+  imm : Int32,
+  rs1 : Int32,
+  funct3 : UInt32,
+  rd : Int32,
+  opcode : UInt32,
+) -> UInt32 {
   ((imm & 0xfff).reinterpret_as_uint() << 20) |
   (rs1.reinterpret_as_uint() << 15) |
   (funct3 << 12) |
@@ -264,13 +264,13 @@ fn encode_i(
 
 ///|
 fn encode_r(
-  funct7 : UInt,
-  rs2 : Int,
-  rs1 : Int,
-  funct3 : UInt,
-  rd : Int,
-  opcode : UInt,
-) -> UInt {
+  funct7 : UInt32,
+  rs2 : Int32,
+  rs1 : Int32,
+  funct3 : UInt32,
+  rd : Int32,
+  opcode : UInt32,
+) -> UInt32 {
   (funct7 << 25) |
   (rs2.reinterpret_as_uint() << 20) |
   (rs1.reinterpret_as_uint() << 15) |
@@ -281,14 +281,14 @@ fn encode_r(
 
 ///|
 fn encode_fp_r4(
-  rs3 : Int,
-  fmt : UInt,
-  rs2 : Int,
-  rs1 : Int,
-  rm : UInt,
-  rd : Int,
-  opcode : UInt,
-) -> UInt {
+  rs3 : Int32,
+  fmt : UInt32,
+  rs2 : Int32,
+  rs1 : Int32,
+  rm : UInt32,
+  rd : Int32,
+  opcode : UInt32,
+) -> UInt32 {
   ((rs3.reinterpret_as_uint() & 0x1fU) << 27) |
   ((fmt & 0x3U) << 25) |
   ((rs2.reinterpret_as_uint() & 0x1fU) << 20) |
@@ -300,12 +300,12 @@ fn encode_fp_r4(
 
 ///|
 fn encode_s(
-  imm : Int,
-  rs2 : Int,
-  rs1 : Int,
-  funct3 : UInt,
-  opcode : UInt,
-) -> UInt {
+  imm : Int32,
+  rs2 : Int32,
+  rs1 : Int32,
+  funct3 : UInt32,
+  opcode : UInt32,
+) -> UInt32 {
   let encoded = (imm & 0xfff).reinterpret_as_uint()
   (((encoded >> 5) & 0x7fU) << 25) |
   (rs2.reinterpret_as_uint() << 20) |
@@ -317,12 +317,12 @@ fn encode_s(
 
 ///|
 fn encode_b(
-  imm : Int,
-  rs2 : Int,
-  rs1 : Int,
-  funct3 : UInt,
-  opcode : UInt,
-) -> UInt {
+  imm : Int32,
+  rs2 : Int32,
+  rs1 : Int32,
+  funct3 : UInt32,
+  opcode : UInt32,
+) -> UInt32 {
   let encoded = (imm & 0x1fff).reinterpret_as_uint()
   (((encoded >> 12) & 0x1U) << 31) |
   (((encoded >> 5) & 0x3fU) << 25) |
@@ -335,12 +335,12 @@ fn encode_b(
 }
 
 ///|
-fn encode_u(imm : UInt, rd : Int, opcode : UInt) -> UInt {
+fn encode_u(imm : UInt32, rd : Int32, opcode : UInt32) -> UInt32 {
   (imm & 0xfffff000U) | (rd.reinterpret_as_uint() << 7) | opcode
 }
 
 ///|
-fn encode_j(imm : Int, rd : Int, opcode : UInt) -> UInt {
+fn encode_j(imm : Int32, rd : Int32, opcode : UInt32) -> UInt32 {
   let encoded = (imm & 0x1fffff).reinterpret_as_uint()
   (((encoded >> 20) & 0x1U) << 31) |
   (((encoded >> 1) & 0x3ffU) << 21) |
@@ -351,7 +351,12 @@ fn encode_j(imm : Int, rd : Int, opcode : UInt) -> UInt {
 }
 
 ///|
-fn encode_csr(csr : Int, rs1_or_uimm : Int, funct3 : UInt, rd : Int) -> UInt {
+fn encode_csr(
+  csr : Int32,
+  rs1_or_uimm : Int32,
+  funct3 : UInt32,
+  rd : Int32,
+) -> UInt32 {
   (csr.reinterpret_as_uint() << 20) |
   (rs1_or_uimm.reinterpret_as_uint() << 15) |
   (funct3 << 12) |
@@ -360,32 +365,32 @@ fn encode_csr(csr : Int, rs1_or_uimm : Int, funct3 : UInt, rd : Int) -> UInt {
 }
 
 ///|
-fn encode_ecall() -> UInt {
+fn encode_ecall() -> UInt32 {
   0x00000073U
 }
 
 ///|
-fn encode_ebreak() -> UInt {
+fn encode_ebreak() -> UInt32 {
   0x00100073U
 }
 
 ///|
-fn encode_mret() -> UInt {
+fn encode_mret() -> UInt32 {
   0x30200073U
 }
 
 ///|
-fn encode_sret() -> UInt {
+fn encode_sret() -> UInt32 {
   0x10200073U
 }
 
 ///|
-fn encode_wfi() -> UInt {
+fn encode_wfi() -> UInt32 {
   0x10500073U
 }
 
 ///|
-fn encode_sfence_vma(rs1 : Int, rs2 : Int) -> UInt {
+fn encode_sfence_vma(rs1 : Int32, rs2 : Int32) -> UInt32 {
   (0x09U << 25) |
   (rs2.reinterpret_as_uint() << 20) |
   (rs1.reinterpret_as_uint() << 15) |
@@ -393,18 +398,18 @@ fn encode_sfence_vma(rs1 : Int, rs2 : Int) -> UInt {
 }
 
 ///|
-fn encode_fence() -> UInt {
+fn encode_fence() -> UInt32 {
   0x0ff0000fU
 }
 
 ///|
 fn encode_fence_fields(
-  fm : UInt,
-  pred : UInt,
-  succ : UInt,
-  rs1 : Int,
-  rd : Int,
-) -> UInt {
+  fm : UInt32,
+  pred : UInt32,
+  succ : UInt32,
+  rs1 : Int32,
+  rd : Int32,
+) -> UInt32 {
   ((fm & 0xfU) << 28) |
   ((pred & 0xfU) << 24) |
   ((succ & 0xfU) << 20) |
@@ -414,12 +419,12 @@ fn encode_fence_fields(
 }
 
 ///|
-fn encode_fence_i() -> UInt {
+fn encode_fence_i() -> UInt32 {
   0x0000100fU
 }
 
 ///|
-fn encode_fence_i_fields(imm : UInt, rs1 : Int, rd : Int) -> UInt {
+fn encode_fence_i_fields(imm : UInt32, rs1 : Int32, rd : Int32) -> UInt32 {
   ((imm & 0xfffU) << 20) |
   (rs1.reinterpret_as_uint() << 15) |
   (0x1U << 12) |
@@ -428,7 +433,7 @@ fn encode_fence_i_fields(imm : UInt, rs1 : Int, rd : Int) -> UInt {
 }
 
 ///|
-fn encode_vsetvli(rd : Int, rs1 : Int, vtypei : UInt) -> UInt {
+fn encode_vsetvli(rd : Int32, rs1 : Int32, vtypei : UInt32) -> UInt32 {
   ((vtypei & 0x7ffU) << 20) |
   (rs1.reinterpret_as_uint() << 15) |
   (0x7U << 12) |
@@ -437,7 +442,7 @@ fn encode_vsetvli(rd : Int, rs1 : Int, vtypei : UInt) -> UInt {
 }
 
 ///|
-fn encode_vsetivli(rd : Int, avl : UInt, vtypei : UInt) -> UInt {
+fn encode_vsetivli(rd : Int32, avl : UInt32, vtypei : UInt32) -> UInt32 {
   (1U << 31) |
   (1U << 30) |
   ((vtypei & 0x3ffU) << 20) |
@@ -448,7 +453,7 @@ fn encode_vsetivli(rd : Int, avl : UInt, vtypei : UInt) -> UInt {
 }
 
 ///|
-fn encode_vsetvl(rd : Int, rs1 : Int, rs2 : Int) -> UInt {
+fn encode_vsetvl(rd : Int32, rs1 : Int32, rs2 : Int32) -> UInt32 {
   (0x20U << 26) |
   (rs2.reinterpret_as_uint() << 20) |
   (rs1.reinterpret_as_uint() << 15) |
@@ -459,13 +464,13 @@ fn encode_vsetvl(rd : Int, rs1 : Int, rs2 : Int) -> UInt {
 
 ///|
 fn encode_vop(
-  funct6 : UInt,
+  funct6 : UInt32,
   vm : Bool,
-  vs2 : Int,
-  rs1_or_imm : Int,
-  funct3 : UInt,
-  vd_or_rd : Int,
-) -> UInt {
+  vs2 : Int32,
+  rs1_or_imm : Int32,
+  funct3 : UInt32,
+  vd_or_rd : Int32,
+) -> UInt32 {
   (funct6 << 26) |
   ((if vm { 1U } else { 0U }) << 25) |
   (vs2.reinterpret_as_uint() << 20) |
@@ -476,7 +481,7 @@ fn encode_vop(
 }
 
 ///|
-fn encode_vmem_width(elem_bits : Int) -> UInt {
+fn encode_vmem_width(elem_bits : Int32) -> UInt32 {
   match elem_bits {
     8 => 0x0U
     16 => 0x5U
@@ -488,22 +493,22 @@ fn encode_vmem_width(elem_bits : Int) -> UInt {
 
 ///|
 fn encode_vload_unit_stride(
-  vd : Int,
-  rs1 : Int,
-  elem_bits : Int,
+  vd : Int32,
+  rs1 : Int32,
+  elem_bits : Int32,
   vm : Bool,
-) -> UInt {
+) -> UInt32 {
   encode_vload_unit_stride_lumop(vd, rs1, elem_bits, vm, 0U)
 }
 
 ///|
 fn encode_vload_unit_stride_lumop(
-  vd : Int,
-  rs1 : Int,
-  elem_bits : Int,
+  vd : Int32,
+  rs1 : Int32,
+  elem_bits : Int32,
   vm : Bool,
-  lumop : UInt,
-) -> UInt {
+  lumop : UInt32,
+) -> UInt32 {
   (((if vm { 1U } else { 0U }) & 0x1U) << 25) |
   ((lumop & 0x1fU) << 20) |
   (rs1.reinterpret_as_uint() << 15) |
@@ -514,12 +519,12 @@ fn encode_vload_unit_stride_lumop(
 
 ///|
 fn encode_vload_unit_stride_segment(
-  vd : Int,
-  rs1 : Int,
-  elem_bits : Int,
-  fields : Int,
+  vd : Int32,
+  rs1 : Int32,
+  elem_bits : Int32,
+  fields : Int32,
   vm : Bool,
-) -> UInt {
+) -> UInt32 {
   (((fields - 1).reinterpret_as_uint() & 0x7U) << 29) |
   (((if vm { 1U } else { 0U }) & 0x1U) << 25) |
   (rs1.reinterpret_as_uint() << 15) |
@@ -529,7 +534,7 @@ fn encode_vload_unit_stride_segment(
 }
 
 ///|
-fn encode_vload_mask(vd : Int, rs1 : Int) -> UInt {
+fn encode_vload_mask(vd : Int32, rs1 : Int32) -> UInt32 {
   (1U << 25) |
   (0x0bU << 20) |
   (rs1.reinterpret_as_uint() << 15) |
@@ -539,12 +544,12 @@ fn encode_vload_mask(vd : Int, rs1 : Int) -> UInt {
 
 ///|
 fn encode_vload_strided(
-  vd : Int,
-  rs1 : Int,
-  rs2 : Int,
-  elem_bits : Int,
+  vd : Int32,
+  rs1 : Int32,
+  rs2 : Int32,
+  elem_bits : Int32,
   vm : Bool,
-) -> UInt {
+) -> UInt32 {
   (((if vm { 1U } else { 0U }) & 0x1U) << 25) |
   (0x2U << 26) |
   (rs2.reinterpret_as_uint() << 20) |
@@ -556,12 +561,12 @@ fn encode_vload_strided(
 
 ///|
 fn encode_vload_indexed_unordered(
-  vd : Int,
-  rs1 : Int,
-  vs2 : Int,
-  index_bits : Int,
+  vd : Int32,
+  rs1 : Int32,
+  vs2 : Int32,
+  index_bits : Int32,
   vm : Bool,
-) -> UInt {
+) -> UInt32 {
   (((if vm { 1U } else { 0U }) & 0x1U) << 25) |
   (0x1U << 26) |
   (vs2.reinterpret_as_uint() << 20) |
@@ -573,12 +578,12 @@ fn encode_vload_indexed_unordered(
 
 ///|
 fn encode_vload_indexed_ordered(
-  vd : Int,
-  rs1 : Int,
-  vs2 : Int,
-  index_bits : Int,
+  vd : Int32,
+  rs1 : Int32,
+  vs2 : Int32,
+  index_bits : Int32,
   vm : Bool,
-) -> UInt {
+) -> UInt32 {
   (((if vm { 1U } else { 0U }) & 0x1U) << 25) |
   (0x3U << 26) |
   (vs2.reinterpret_as_uint() << 20) |
@@ -590,11 +595,11 @@ fn encode_vload_indexed_ordered(
 
 ///|
 fn encode_vstore_unit_stride(
-  vs3 : Int,
-  rs1 : Int,
-  elem_bits : Int,
+  vs3 : Int32,
+  rs1 : Int32,
+  elem_bits : Int32,
   vm : Bool,
-) -> UInt {
+) -> UInt32 {
   (((if vm { 1U } else { 0U }) & 0x1U) << 25) |
   (rs1.reinterpret_as_uint() << 15) |
   (encode_vmem_width(elem_bits) << 12) |
@@ -604,12 +609,12 @@ fn encode_vstore_unit_stride(
 
 ///|
 fn encode_vstore_unit_stride_segment(
-  vs3 : Int,
-  rs1 : Int,
-  elem_bits : Int,
-  fields : Int,
+  vs3 : Int32,
+  rs1 : Int32,
+  elem_bits : Int32,
+  fields : Int32,
   vm : Bool,
-) -> UInt {
+) -> UInt32 {
   (((fields - 1).reinterpret_as_uint() & 0x7U) << 29) |
   (((if vm { 1U } else { 0U }) & 0x1U) << 25) |
   (rs1.reinterpret_as_uint() << 15) |
@@ -619,7 +624,7 @@ fn encode_vstore_unit_stride_segment(
 }
 
 ///|
-fn encode_vstore_mask(vs3 : Int, rs1 : Int) -> UInt {
+fn encode_vstore_mask(vs3 : Int32, rs1 : Int32) -> UInt32 {
   (1U << 25) |
   (0x0bU << 20) |
   (rs1.reinterpret_as_uint() << 15) |
@@ -629,12 +634,12 @@ fn encode_vstore_mask(vs3 : Int, rs1 : Int) -> UInt {
 
 ///|
 fn encode_vstore_indexed_unordered(
-  vs3 : Int,
-  rs1 : Int,
-  vs2 : Int,
-  index_bits : Int,
+  vs3 : Int32,
+  rs1 : Int32,
+  vs2 : Int32,
+  index_bits : Int32,
   vm : Bool,
-) -> UInt {
+) -> UInt32 {
   (((if vm { 1U } else { 0U }) & 0x1U) << 25) |
   (0x1U << 26) |
   (vs2.reinterpret_as_uint() << 20) |
@@ -646,12 +651,12 @@ fn encode_vstore_indexed_unordered(
 
 ///|
 fn encode_vstore_indexed_ordered(
-  vs3 : Int,
-  rs1 : Int,
-  vs2 : Int,
-  index_bits : Int,
+  vs3 : Int32,
+  rs1 : Int32,
+  vs2 : Int32,
+  index_bits : Int32,
   vm : Bool,
-) -> UInt {
+) -> UInt32 {
   (((if vm { 1U } else { 0U }) & 0x1U) << 25) |
   (0x3U << 26) |
   (vs2.reinterpret_as_uint() << 20) |
@@ -663,12 +668,12 @@ fn encode_vstore_indexed_ordered(
 
 ///|
 fn encode_vstore_strided(
-  vs3 : Int,
-  rs1 : Int,
-  rs2 : Int,
-  elem_bits : Int,
+  vs3 : Int32,
+  rs1 : Int32,
+  rs2 : Int32,
+  elem_bits : Int32,
   vm : Bool,
-) -> UInt {
+) -> UInt32 {
   (((if vm { 1U } else { 0U }) & 0x1U) << 25) |
   (0x2U << 26) |
   (rs2.reinterpret_as_uint() << 20) |
@@ -679,572 +684,622 @@ fn encode_vstore_strided(
 }
 
 ///|
-fn encode_vle8(vd : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vle8(vd : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vload_unit_stride(vd, rs1, 8, vm)
 }
 
 ///|
-fn encode_vle16(vd : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vle16(vd : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vload_unit_stride(vd, rs1, 16, vm)
 }
 
 ///|
-fn encode_vle32(vd : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vle32(vd : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vload_unit_stride(vd, rs1, 32, vm)
 }
 
 ///|
-fn encode_vle64(vd : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vle64(vd : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vload_unit_stride(vd, rs1, 64, vm)
 }
 
 ///|
-fn encode_vle8ff(vd : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vle8ff(vd : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vload_unit_stride_lumop(vd, rs1, 8, vm, 0x10U)
 }
 
 ///|
-fn encode_vle16ff(vd : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vle16ff(vd : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vload_unit_stride_lumop(vd, rs1, 16, vm, 0x10U)
 }
 
 ///|
-fn encode_vle32ff(vd : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vle32ff(vd : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vload_unit_stride_lumop(vd, rs1, 32, vm, 0x10U)
 }
 
 ///|
-fn encode_vle64ff(vd : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vle64ff(vd : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vload_unit_stride_lumop(vd, rs1, 64, vm, 0x10U)
 }
 
 ///|
-fn encode_vlm(vd : Int, rs1 : Int) -> UInt {
+fn encode_vlm(vd : Int32, rs1 : Int32) -> UInt32 {
   encode_vload_mask(vd, rs1)
 }
 
 ///|
-fn encode_vluxei32(vd : Int, rs1 : Int, vs2 : Int, vm : Bool) -> UInt {
+fn encode_vluxei32(vd : Int32, rs1 : Int32, vs2 : Int32, vm : Bool) -> UInt32 {
   encode_vload_indexed_unordered(vd, rs1, vs2, 32, vm)
 }
 
 ///|
-fn encode_vloxei32(vd : Int, rs1 : Int, vs2 : Int, vm : Bool) -> UInt {
+fn encode_vloxei32(vd : Int32, rs1 : Int32, vs2 : Int32, vm : Bool) -> UInt32 {
   encode_vload_indexed_ordered(vd, rs1, vs2, 32, vm)
 }
 
 ///|
-fn encode_vlse32(vd : Int, rs1 : Int, rs2 : Int, vm : Bool) -> UInt {
+fn encode_vlse32(vd : Int32, rs1 : Int32, rs2 : Int32, vm : Bool) -> UInt32 {
   encode_vload_strided(vd, rs1, rs2, 32, vm)
 }
 
 ///|
-fn encode_vlseg2e32(vd : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vlseg2e32(vd : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vload_unit_stride_segment(vd, rs1, 32, 2, vm)
 }
 
 ///|
-fn encode_vse8(vs3 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vse8(vs3 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vstore_unit_stride(vs3, rs1, 8, vm)
 }
 
 ///|
-fn encode_vse16(vs3 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vse16(vs3 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vstore_unit_stride(vs3, rs1, 16, vm)
 }
 
 ///|
-fn encode_vse32(vs3 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vse32(vs3 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vstore_unit_stride(vs3, rs1, 32, vm)
 }
 
 ///|
-fn encode_vse64(vs3 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vse64(vs3 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vstore_unit_stride(vs3, rs1, 64, vm)
 }
 
 ///|
-fn encode_vsm(vs3 : Int, rs1 : Int) -> UInt {
+fn encode_vsm(vs3 : Int32, rs1 : Int32) -> UInt32 {
   encode_vstore_mask(vs3, rs1)
 }
 
 ///|
-fn encode_vsuxei32(vs3 : Int, rs1 : Int, vs2 : Int, vm : Bool) -> UInt {
+fn encode_vsuxei32(vs3 : Int32, rs1 : Int32, vs2 : Int32, vm : Bool) -> UInt32 {
   encode_vstore_indexed_unordered(vs3, rs1, vs2, 32, vm)
 }
 
 ///|
-fn encode_vsoxei32(vs3 : Int, rs1 : Int, vs2 : Int, vm : Bool) -> UInt {
+fn encode_vsoxei32(vs3 : Int32, rs1 : Int32, vs2 : Int32, vm : Bool) -> UInt32 {
   encode_vstore_indexed_ordered(vs3, rs1, vs2, 32, vm)
 }
 
 ///|
-fn encode_vsse32(vs3 : Int, rs1 : Int, rs2 : Int, vm : Bool) -> UInt {
+fn encode_vsse32(vs3 : Int32, rs1 : Int32, rs2 : Int32, vm : Bool) -> UInt32 {
   encode_vstore_strided(vs3, rs1, rs2, 32, vm)
 }
 
 ///|
-fn encode_vsseg2e32(vs3 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vsseg2e32(vs3 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vstore_unit_stride_segment(vs3, rs1, 32, 2, vm)
 }
 
 ///|
-fn encode_vmv_v_i(vd : Int, imm : Int) -> UInt {
+fn encode_vmv_v_i(vd : Int32, imm : Int32) -> UInt32 {
   encode_vop(0x17U, true, 0, imm, 0x3U, vd)
 }
 
 ///|
-fn encode_vmv_v_x(vd : Int, rs1 : Int) -> UInt {
+fn encode_vmv_v_x(vd : Int32, rs1 : Int32) -> UInt32 {
   encode_vop(0x17U, true, 0, rs1, 0x4U, vd)
 }
 
 ///|
-fn encode_vmv_v_v(vd : Int, vs1 : Int) -> UInt {
+fn encode_vmv_v_v(vd : Int32, vs1 : Int32) -> UInt32 {
   encode_vop(0x17U, true, 0, vs1, 0x0U, vd)
 }
 
 ///|
-fn encode_vmv_x_s(rd : Int, vs2 : Int) -> UInt {
+fn encode_vmv_x_s(rd : Int32, vs2 : Int32) -> UInt32 {
   encode_vop(0x10U, true, vs2, 0, 0x6U, rd)
 }
 
 ///|
-fn encode_vmerge_vvm(vd : Int, vs2 : Int, vs1 : Int) -> UInt {
+fn encode_vmerge_vvm(vd : Int32, vs2 : Int32, vs1 : Int32) -> UInt32 {
   encode_vop(0x17U, false, vs2, vs1, 0x0U, vd)
 }
 
 ///|
-fn encode_vmerge_vxm(vd : Int, vs2 : Int, rs1 : Int) -> UInt {
+fn encode_vmerge_vxm(vd : Int32, vs2 : Int32, rs1 : Int32) -> UInt32 {
   encode_vop(0x17U, false, vs2, rs1, 0x4U, vd)
 }
 
 ///|
-fn encode_vmerge_vim(vd : Int, vs2 : Int, imm : Int) -> UInt {
+fn encode_vmerge_vim(vd : Int32, vs2 : Int32, imm : Int32) -> UInt32 {
   encode_vop(0x17U, false, vs2, imm, 0x3U, vd)
 }
 
 ///|
-fn encode_vadd_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+fn encode_vadd_vv(vd : Int32, vs2 : Int32, vs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x00U, vm, vs2, vs1, 0x0U, vd)
 }
 
 ///|
-fn encode_vadd_vi(vd : Int, vs2 : Int, imm : Int, vm : Bool) -> UInt {
+fn encode_vadd_vi(vd : Int32, vs2 : Int32, imm : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x00U, vm, vs2, imm, 0x3U, vd)
 }
 
 ///|
-fn encode_vadd_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vadd_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x00U, vm, vs2, rs1, 0x4U, vd)
 }
 
 ///|
-fn encode_vsub_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+fn encode_vsub_vv(vd : Int32, vs2 : Int32, vs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x02U, vm, vs2, vs1, 0x0U, vd)
 }
 
 ///|
-fn encode_vsub_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vsub_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x02U, vm, vs2, rs1, 0x4U, vd)
 }
 
 ///|
-fn encode_vrsub_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vrsub_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x03U, vm, vs2, rs1, 0x4U, vd)
 }
 
 ///|
-fn encode_vrsub_vi(vd : Int, vs2 : Int, imm : Int, vm : Bool) -> UInt {
+fn encode_vrsub_vi(vd : Int32, vs2 : Int32, imm : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x03U, vm, vs2, imm, 0x3U, vd)
 }
 
 ///|
-fn encode_vwaddu_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+fn encode_vwaddu_vv(vd : Int32, vs2 : Int32, vs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x30U, vm, vs2, vs1, 0x0U, vd)
 }
 
 ///|
-fn encode_vwaddu_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vwaddu_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x30U, vm, vs2, rs1, 0x4U, vd)
 }
 
 ///|
-fn encode_vwadd_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+fn encode_vwadd_vv(vd : Int32, vs2 : Int32, vs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x31U, vm, vs2, vs1, 0x0U, vd)
 }
 
 ///|
-fn encode_vwadd_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vwadd_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x31U, vm, vs2, rs1, 0x4U, vd)
 }
 
 ///|
-fn encode_vwsubu_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+fn encode_vwsubu_vv(vd : Int32, vs2 : Int32, vs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x32U, vm, vs2, vs1, 0x0U, vd)
 }
 
 ///|
-fn encode_vwsubu_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vwsubu_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x32U, vm, vs2, rs1, 0x4U, vd)
 }
 
 ///|
-fn encode_vwsub_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+fn encode_vwsub_vv(vd : Int32, vs2 : Int32, vs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x33U, vm, vs2, vs1, 0x0U, vd)
 }
 
 ///|
-fn encode_vwsub_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vwsub_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x33U, vm, vs2, rs1, 0x4U, vd)
 }
 
 ///|
-fn encode_vmul_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+fn encode_vmul_vv(vd : Int32, vs2 : Int32, vs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x25U, vm, vs2, vs1, 0x2U, vd)
 }
 
 ///|
-fn encode_vmul_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vmul_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x25U, vm, vs2, rs1, 0x6U, vd)
 }
 
 ///|
-fn encode_vmulhu_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+fn encode_vmulhu_vv(vd : Int32, vs2 : Int32, vs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x24U, vm, vs2, vs1, 0x2U, vd)
 }
 
 ///|
-fn encode_vmulhu_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vmulhu_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x24U, vm, vs2, rs1, 0x6U, vd)
 }
 
 ///|
-fn encode_vmulh_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+fn encode_vmulh_vv(vd : Int32, vs2 : Int32, vs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x27U, vm, vs2, vs1, 0x2U, vd)
 }
 
 ///|
-fn encode_vmulh_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vmulh_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x27U, vm, vs2, rs1, 0x6U, vd)
 }
 
 ///|
-fn encode_vmulhsu_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+fn encode_vmulhsu_vv(vd : Int32, vs2 : Int32, vs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x26U, vm, vs2, vs1, 0x2U, vd)
 }
 
 ///|
-fn encode_vmulhsu_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vmulhsu_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x26U, vm, vs2, rs1, 0x6U, vd)
 }
 
 ///|
-fn encode_vdivu_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+fn encode_vdivu_vv(vd : Int32, vs2 : Int32, vs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x20U, vm, vs2, vs1, 0x2U, vd)
 }
 
 ///|
-fn encode_vdivu_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vdivu_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x20U, vm, vs2, rs1, 0x6U, vd)
 }
 
 ///|
-fn encode_vdiv_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+fn encode_vdiv_vv(vd : Int32, vs2 : Int32, vs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x21U, vm, vs2, vs1, 0x2U, vd)
 }
 
 ///|
-fn encode_vdiv_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vdiv_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x21U, vm, vs2, rs1, 0x6U, vd)
 }
 
 ///|
-fn encode_vremu_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+fn encode_vremu_vv(vd : Int32, vs2 : Int32, vs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x22U, vm, vs2, vs1, 0x2U, vd)
 }
 
 ///|
-fn encode_vremu_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vremu_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x22U, vm, vs2, rs1, 0x6U, vd)
 }
 
 ///|
-fn encode_vrem_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+fn encode_vrem_vv(vd : Int32, vs2 : Int32, vs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x23U, vm, vs2, vs1, 0x2U, vd)
 }
 
 ///|
-fn encode_vrem_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vrem_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x23U, vm, vs2, rs1, 0x6U, vd)
 }
 
 ///|
-fn encode_vminu_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+fn encode_vminu_vv(vd : Int32, vs2 : Int32, vs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x04U, vm, vs2, vs1, 0x0U, vd)
 }
 
 ///|
-fn encode_vminu_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vminu_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x04U, vm, vs2, rs1, 0x4U, vd)
 }
 
 ///|
-fn encode_vmin_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+fn encode_vmin_vv(vd : Int32, vs2 : Int32, vs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x05U, vm, vs2, vs1, 0x0U, vd)
 }
 
 ///|
-fn encode_vmin_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vmin_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x05U, vm, vs2, rs1, 0x4U, vd)
 }
 
 ///|
-fn encode_vmaxu_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+fn encode_vmaxu_vv(vd : Int32, vs2 : Int32, vs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x06U, vm, vs2, vs1, 0x0U, vd)
 }
 
 ///|
-fn encode_vmaxu_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vmaxu_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x06U, vm, vs2, rs1, 0x4U, vd)
 }
 
 ///|
-fn encode_vmax_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+fn encode_vmax_vv(vd : Int32, vs2 : Int32, vs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x07U, vm, vs2, vs1, 0x0U, vd)
 }
 
 ///|
-fn encode_vmax_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vmax_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x07U, vm, vs2, rs1, 0x4U, vd)
 }
 
 ///|
-fn encode_vmseq_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+fn encode_vmseq_vv(vd : Int32, vs2 : Int32, vs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x18U, vm, vs2, vs1, 0x0U, vd)
 }
 
 ///|
-fn encode_vmseq_vi(vd : Int, vs2 : Int, imm : Int, vm : Bool) -> UInt {
+fn encode_vmseq_vi(vd : Int32, vs2 : Int32, imm : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x18U, vm, vs2, imm, 0x3U, vd)
 }
 
 ///|
-fn encode_vmseq_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vmseq_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x18U, vm, vs2, rs1, 0x4U, vd)
 }
 
 ///|
-fn encode_vmsne_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+fn encode_vmsne_vv(vd : Int32, vs2 : Int32, vs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x19U, vm, vs2, vs1, 0x0U, vd)
 }
 
 ///|
-fn encode_vmsne_vi(vd : Int, vs2 : Int, imm : Int, vm : Bool) -> UInt {
+fn encode_vmsne_vi(vd : Int32, vs2 : Int32, imm : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x19U, vm, vs2, imm, 0x3U, vd)
 }
 
 ///|
-fn encode_vmsne_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vmsne_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x19U, vm, vs2, rs1, 0x4U, vd)
 }
 
 ///|
-fn encode_vmsltu_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+fn encode_vmsltu_vv(vd : Int32, vs2 : Int32, vs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x1aU, vm, vs2, vs1, 0x0U, vd)
 }
 
 ///|
-fn encode_vmsltu_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vmsltu_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x1aU, vm, vs2, rs1, 0x4U, vd)
 }
 
 ///|
-fn encode_vmslt_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+fn encode_vmslt_vv(vd : Int32, vs2 : Int32, vs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x1bU, vm, vs2, vs1, 0x0U, vd)
 }
 
 ///|
-fn encode_vmslt_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vmslt_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x1bU, vm, vs2, rs1, 0x4U, vd)
 }
 
 ///|
-fn encode_vmsleu_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+fn encode_vmsleu_vv(vd : Int32, vs2 : Int32, vs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x1cU, vm, vs2, vs1, 0x0U, vd)
 }
 
 ///|
-fn encode_vmsleu_vi(vd : Int, vs2 : Int, imm : Int, vm : Bool) -> UInt {
+fn encode_vmsleu_vi(vd : Int32, vs2 : Int32, imm : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x1cU, vm, vs2, imm, 0x3U, vd)
 }
 
 ///|
-fn encode_vmsleu_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vmsleu_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x1cU, vm, vs2, rs1, 0x4U, vd)
 }
 
 ///|
-fn encode_vmsle_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+fn encode_vmsle_vv(vd : Int32, vs2 : Int32, vs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x1dU, vm, vs2, vs1, 0x0U, vd)
 }
 
 ///|
-fn encode_vmsle_vi(vd : Int, vs2 : Int, imm : Int, vm : Bool) -> UInt {
+fn encode_vmsle_vi(vd : Int32, vs2 : Int32, imm : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x1dU, vm, vs2, imm, 0x3U, vd)
 }
 
 ///|
-fn encode_vmsle_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vmsle_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x1dU, vm, vs2, rs1, 0x4U, vd)
 }
 
 ///|
-fn encode_vmsgtu_vi(vd : Int, vs2 : Int, imm : Int, vm : Bool) -> UInt {
+fn encode_vmsgtu_vi(vd : Int32, vs2 : Int32, imm : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x1eU, vm, vs2, imm, 0x3U, vd)
 }
 
 ///|
-fn encode_vmsgtu_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vmsgtu_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x1eU, vm, vs2, rs1, 0x4U, vd)
 }
 
 ///|
-fn encode_vmsgt_vi(vd : Int, vs2 : Int, imm : Int, vm : Bool) -> UInt {
+fn encode_vmsgt_vi(vd : Int32, vs2 : Int32, imm : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x1fU, vm, vs2, imm, 0x3U, vd)
 }
 
 ///|
-fn encode_vmsgt_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vmsgt_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x1fU, vm, vs2, rs1, 0x4U, vd)
 }
 
 ///|
-fn encode_vmand_mm(vd : Int, vs2 : Int, vs1 : Int) -> UInt {
+fn encode_vmand_mm(vd : Int32, vs2 : Int32, vs1 : Int32) -> UInt32 {
   encode_vop(0x18U, true, vs2, vs1, 0x2U, vd)
 }
 
 ///|
-fn encode_vmnand_mm(vd : Int, vs2 : Int, vs1 : Int) -> UInt {
+fn encode_vmnand_mm(vd : Int32, vs2 : Int32, vs1 : Int32) -> UInt32 {
   encode_vop(0x19U, true, vs2, vs1, 0x2U, vd)
 }
 
 ///|
-fn encode_vmandn_mm(vd : Int, vs2 : Int, vs1 : Int) -> UInt {
+fn encode_vmandn_mm(vd : Int32, vs2 : Int32, vs1 : Int32) -> UInt32 {
   encode_vop(0x1aU, true, vs2, vs1, 0x2U, vd)
 }
 
 ///|
-fn encode_vmxor_mm(vd : Int, vs2 : Int, vs1 : Int) -> UInt {
+fn encode_vmxor_mm(vd : Int32, vs2 : Int32, vs1 : Int32) -> UInt32 {
   encode_vop(0x1bU, true, vs2, vs1, 0x2U, vd)
 }
 
 ///|
-fn encode_vmor_mm(vd : Int, vs2 : Int, vs1 : Int) -> UInt {
+fn encode_vmor_mm(vd : Int32, vs2 : Int32, vs1 : Int32) -> UInt32 {
   encode_vop(0x1cU, true, vs2, vs1, 0x2U, vd)
 }
 
 ///|
-fn encode_vmnor_mm(vd : Int, vs2 : Int, vs1 : Int) -> UInt {
+fn encode_vmnor_mm(vd : Int32, vs2 : Int32, vs1 : Int32) -> UInt32 {
   encode_vop(0x1dU, true, vs2, vs1, 0x2U, vd)
 }
 
 ///|
-fn encode_vmorn_mm(vd : Int, vs2 : Int, vs1 : Int) -> UInt {
+fn encode_vmorn_mm(vd : Int32, vs2 : Int32, vs1 : Int32) -> UInt32 {
   encode_vop(0x1eU, true, vs2, vs1, 0x2U, vd)
 }
 
 ///|
-fn encode_vmxnor_mm(vd : Int, vs2 : Int, vs1 : Int) -> UInt {
+fn encode_vmxnor_mm(vd : Int32, vs2 : Int32, vs1 : Int32) -> UInt32 {
   encode_vop(0x1fU, true, vs2, vs1, 0x2U, vd)
 }
 
 ///|
-fn encode_vcpop_m(rd : Int, vs2 : Int, vm : Bool) -> UInt {
+fn encode_vcpop_m(rd : Int32, vs2 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x10U, vm, vs2, 0x10, 0x2U, rd)
 }
 
 ///|
-fn encode_vfirst_m(rd : Int, vs2 : Int, vm : Bool) -> UInt {
+fn encode_vfirst_m(rd : Int32, vs2 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x10U, vm, vs2, 0x11, 0x2U, rd)
 }
 
 ///|
-fn encode_vmsbf_m(vd : Int, vs2 : Int, vm : Bool) -> UInt {
+fn encode_vmsbf_m(vd : Int32, vs2 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x14U, vm, vs2, 0x01, 0x2U, vd)
 }
 
 ///|
-fn encode_vmsof_m(vd : Int, vs2 : Int, vm : Bool) -> UInt {
+fn encode_vmsof_m(vd : Int32, vs2 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x14U, vm, vs2, 0x02, 0x2U, vd)
 }
 
 ///|
-fn encode_vmsif_m(vd : Int, vs2 : Int, vm : Bool) -> UInt {
+fn encode_vmsif_m(vd : Int32, vs2 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x14U, vm, vs2, 0x03, 0x2U, vd)
 }
 
 ///|
-fn encode_viota_m(vd : Int, vs2 : Int, vm : Bool) -> UInt {
+fn encode_viota_m(vd : Int32, vs2 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x14U, vm, vs2, 0x10, 0x2U, vd)
 }
 
 ///|
-fn encode_vid_v(vd : Int, vm : Bool) -> UInt {
+fn encode_vid_v(vd : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x14U, vm, 0, 0x11, 0x2U, vd)
 }
 
 ///|
-fn encode_vcompress_vm(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+fn encode_vcompress_vm(
+  vd : Int32,
+  vs2 : Int32,
+  vs1 : Int32,
+  vm : Bool,
+) -> UInt32 {
   encode_vop(0x17U, vm, vs2, vs1, 0x2U, vd)
 }
 
 ///|
-fn encode_vrgather_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+fn encode_vrgather_vv(
+  vd : Int32,
+  vs2 : Int32,
+  vs1 : Int32,
+  vm : Bool,
+) -> UInt32 {
   encode_vop(0x0cU, vm, vs2, vs1, 0x0U, vd)
 }
 
 ///|
-fn encode_vrgather_vi(vd : Int, vs2 : Int, imm : Int, vm : Bool) -> UInt {
+fn encode_vrgather_vi(
+  vd : Int32,
+  vs2 : Int32,
+  imm : Int32,
+  vm : Bool,
+) -> UInt32 {
   encode_vop(0x0cU, vm, vs2, imm, 0x3U, vd)
 }
 
 ///|
-fn encode_vrgather_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vrgather_vx(
+  vd : Int32,
+  vs2 : Int32,
+  rs1 : Int32,
+  vm : Bool,
+) -> UInt32 {
   encode_vop(0x0cU, vm, vs2, rs1, 0x4U, vd)
 }
 
 ///|
-fn encode_vslideup_vi(vd : Int, vs2 : Int, imm : Int, vm : Bool) -> UInt {
+fn encode_vslideup_vi(
+  vd : Int32,
+  vs2 : Int32,
+  imm : Int32,
+  vm : Bool,
+) -> UInt32 {
   encode_vop(0x0eU, vm, vs2, imm, 0x3U, vd)
 }
 
 ///|
-fn encode_vslideup_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vslideup_vx(
+  vd : Int32,
+  vs2 : Int32,
+  rs1 : Int32,
+  vm : Bool,
+) -> UInt32 {
   encode_vop(0x0eU, vm, vs2, rs1, 0x4U, vd)
 }
 
 ///|
-fn encode_vslidedown_vi(vd : Int, vs2 : Int, imm : Int, vm : Bool) -> UInt {
+fn encode_vslidedown_vi(
+  vd : Int32,
+  vs2 : Int32,
+  imm : Int32,
+  vm : Bool,
+) -> UInt32 {
   encode_vop(0x0fU, vm, vs2, imm, 0x3U, vd)
 }
 
 ///|
-fn encode_vslidedown_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vslidedown_vx(
+  vd : Int32,
+  vs2 : Int32,
+  rs1 : Int32,
+  vm : Bool,
+) -> UInt32 {
   encode_vop(0x0fU, vm, vs2, rs1, 0x4U, vd)
 }
 
 ///|
-fn encode_vslide1up_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vslide1up_vx(
+  vd : Int32,
+  vs2 : Int32,
+  rs1 : Int32,
+  vm : Bool,
+) -> UInt32 {
   encode_vop(0x0eU, vm, vs2, rs1, 0x6U, vd)
 }
 
 ///|
-fn encode_vslide1down_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vslide1down_vx(
+  vd : Int32,
+  vs2 : Int32,
+  rs1 : Int32,
+  vm : Bool,
+) -> UInt32 {
   encode_vop(0x0fU, vm, vs2, rs1, 0x6U, vd)
 }
 
 ///|
-fn encode_vmv_nr_r(vd : Int, vs2 : Int, nreg : Int, vm : Bool) -> UInt {
+fn encode_vmv_nr_r(vd : Int32, vs2 : Int32, nreg : Int32, vm : Bool) -> UInt32 {
   let simm = match nreg {
     1 => 0
     2 => 1
@@ -1256,313 +1311,313 @@ fn encode_vmv_nr_r(vd : Int, vs2 : Int, nreg : Int, vm : Bool) -> UInt {
 }
 
 ///|
-fn encode_vsll_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+fn encode_vsll_vv(vd : Int32, vs2 : Int32, vs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x26U, vm, vs2, vs1, 0x0U, vd)
 }
 
 ///|
-fn encode_vsll_vi(vd : Int, vs2 : Int, imm : Int, vm : Bool) -> UInt {
+fn encode_vsll_vi(vd : Int32, vs2 : Int32, imm : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x26U, vm, vs2, imm, 0x3U, vd)
 }
 
 ///|
-fn encode_vsll_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vsll_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x26U, vm, vs2, rs1, 0x4U, vd)
 }
 
 ///|
-fn encode_vsrl_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+fn encode_vsrl_vv(vd : Int32, vs2 : Int32, vs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x28U, vm, vs2, vs1, 0x0U, vd)
 }
 
 ///|
-fn encode_vsrl_vi(vd : Int, vs2 : Int, imm : Int, vm : Bool) -> UInt {
+fn encode_vsrl_vi(vd : Int32, vs2 : Int32, imm : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x28U, vm, vs2, imm, 0x3U, vd)
 }
 
 ///|
-fn encode_vsrl_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vsrl_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x28U, vm, vs2, rs1, 0x4U, vd)
 }
 
 ///|
-fn encode_vsra_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+fn encode_vsra_vv(vd : Int32, vs2 : Int32, vs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x29U, vm, vs2, vs1, 0x0U, vd)
 }
 
 ///|
-fn encode_vsra_vi(vd : Int, vs2 : Int, imm : Int, vm : Bool) -> UInt {
+fn encode_vsra_vi(vd : Int32, vs2 : Int32, imm : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x29U, vm, vs2, imm, 0x3U, vd)
 }
 
 ///|
-fn encode_vsra_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vsra_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x29U, vm, vs2, rs1, 0x4U, vd)
 }
 
 ///|
-fn encode_vand_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+fn encode_vand_vv(vd : Int32, vs2 : Int32, vs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x09U, vm, vs2, vs1, 0x0U, vd)
 }
 
 ///|
-fn encode_vand_vi(vd : Int, vs2 : Int, imm : Int, vm : Bool) -> UInt {
+fn encode_vand_vi(vd : Int32, vs2 : Int32, imm : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x09U, vm, vs2, imm, 0x3U, vd)
 }
 
 ///|
-fn encode_vand_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vand_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x09U, vm, vs2, rs1, 0x4U, vd)
 }
 
 ///|
-fn encode_vor_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+fn encode_vor_vv(vd : Int32, vs2 : Int32, vs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x0aU, vm, vs2, vs1, 0x0U, vd)
 }
 
 ///|
-fn encode_vor_vi(vd : Int, vs2 : Int, imm : Int, vm : Bool) -> UInt {
+fn encode_vor_vi(vd : Int32, vs2 : Int32, imm : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x0aU, vm, vs2, imm, 0x3U, vd)
 }
 
 ///|
-fn encode_vor_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vor_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x0aU, vm, vs2, rs1, 0x4U, vd)
 }
 
 ///|
-fn encode_vxor_vv(vd : Int, vs2 : Int, vs1 : Int, vm : Bool) -> UInt {
+fn encode_vxor_vv(vd : Int32, vs2 : Int32, vs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x0bU, vm, vs2, vs1, 0x0U, vd)
 }
 
 ///|
-fn encode_vxor_vi(vd : Int, vs2 : Int, imm : Int, vm : Bool) -> UInt {
+fn encode_vxor_vi(vd : Int32, vs2 : Int32, imm : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x0bU, vm, vs2, imm, 0x3U, vd)
 }
 
 ///|
-fn encode_vxor_vx(vd : Int, vs2 : Int, rs1 : Int, vm : Bool) -> UInt {
+fn encode_vxor_vx(vd : Int32, vs2 : Int32, rs1 : Int32, vm : Bool) -> UInt32 {
   encode_vop(0x0bU, vm, vs2, rs1, 0x4U, vd)
 }
 
 ///|
-fn encode_flw(imm : Int, rs1 : Int, rd : Int) -> UInt {
+fn encode_flw(imm : Int32, rs1 : Int32, rd : Int32) -> UInt32 {
   encode_i(imm, rs1, 0x2U, rd, 0x07U)
 }
 
 ///|
-fn encode_fld(imm : Int, rs1 : Int, rd : Int) -> UInt {
+fn encode_fld(imm : Int32, rs1 : Int32, rd : Int32) -> UInt32 {
   encode_i(imm, rs1, 0x3U, rd, 0x07U)
 }
 
 ///|
-fn encode_fsw(imm : Int, rs2 : Int, rs1 : Int) -> UInt {
+fn encode_fsw(imm : Int32, rs2 : Int32, rs1 : Int32) -> UInt32 {
   encode_s(imm, rs2, rs1, 0x2U, 0x27U)
 }
 
 ///|
-fn encode_fsd(imm : Int, rs2 : Int, rs1 : Int) -> UInt {
+fn encode_fsd(imm : Int32, rs2 : Int32, rs1 : Int32) -> UInt32 {
   encode_s(imm, rs2, rs1, 0x3U, 0x27U)
 }
 
 ///|
 fn encode_fp_r(
-  funct7 : UInt,
-  rs2 : Int,
-  rs1 : Int,
-  rm : UInt,
-  rd : Int,
-) -> UInt {
+  funct7 : UInt32,
+  rs2 : Int32,
+  rs1 : Int32,
+  rm : UInt32,
+  rd : Int32,
+) -> UInt32 {
   encode_r(funct7, rs2, rs1, rm, rd, 0x53U)
 }
 
 ///|
-fn encode_fsqrt_s(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+fn encode_fsqrt_s(rs1 : Int32, rm : UInt32, rd : Int32) -> UInt32 {
   encode_fp_r(0x2cU, 0, rs1, rm, rd)
 }
 
 ///|
-fn encode_fsqrt_d(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+fn encode_fsqrt_d(rs1 : Int32, rm : UInt32, rd : Int32) -> UInt32 {
   encode_fp_r(0x2dU, 0, rs1, rm, rd)
 }
 
 ///|
-fn encode_fmv_x_w(rs1 : Int, rd : Int) -> UInt {
+fn encode_fmv_x_w(rs1 : Int32, rd : Int32) -> UInt32 {
   encode_fp_r(0x70U, 0, rs1, 0x0U, rd)
 }
 
 ///|
-fn encode_fclass_s(rs1 : Int, rd : Int) -> UInt {
+fn encode_fclass_s(rs1 : Int32, rd : Int32) -> UInt32 {
   encode_fp_r(0x70U, 0, rs1, 0x1U, rd)
 }
 
 ///|
-fn encode_fmv_w_x(rs1 : Int, rd : Int) -> UInt {
+fn encode_fmv_w_x(rs1 : Int32, rd : Int32) -> UInt32 {
   encode_fp_r(0x78U, 0, rs1, 0x0U, rd)
 }
 
 ///|
-fn encode_fmv_x_d(rs1 : Int, rd : Int) -> UInt {
+fn encode_fmv_x_d(rs1 : Int32, rd : Int32) -> UInt32 {
   encode_fp_r(0x71U, 0, rs1, 0x0U, rd)
 }
 
 ///|
-fn encode_fclass_d(rs1 : Int, rd : Int) -> UInt {
+fn encode_fclass_d(rs1 : Int32, rd : Int32) -> UInt32 {
   encode_fp_r(0x71U, 0, rs1, 0x1U, rd)
 }
 
 ///|
-fn encode_fmv_d_x(rs1 : Int, rd : Int) -> UInt {
+fn encode_fmv_d_x(rs1 : Int32, rd : Int32) -> UInt32 {
   encode_fp_r(0x79U, 0, rs1, 0x0U, rd)
 }
 
 ///|
-fn encode_fcvt_s_d(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+fn encode_fcvt_s_d(rs1 : Int32, rm : UInt32, rd : Int32) -> UInt32 {
   encode_fp_r(0x20U, 1, rs1, rm, rd)
 }
 
 ///|
-fn encode_fcvt_d_s(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+fn encode_fcvt_d_s(rs1 : Int32, rm : UInt32, rd : Int32) -> UInt32 {
   encode_fp_r(0x21U, 0, rs1, rm, rd)
 }
 
 ///|
-fn encode_fcvt_s_w(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+fn encode_fcvt_s_w(rs1 : Int32, rm : UInt32, rd : Int32) -> UInt32 {
   encode_fp_r(0x68U, 0, rs1, rm, rd)
 }
 
 ///|
-fn encode_fcvt_s_wu(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+fn encode_fcvt_s_wu(rs1 : Int32, rm : UInt32, rd : Int32) -> UInt32 {
   encode_fp_r(0x68U, 1, rs1, rm, rd)
 }
 
 ///|
-fn encode_fcvt_s_l(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+fn encode_fcvt_s_l(rs1 : Int32, rm : UInt32, rd : Int32) -> UInt32 {
   encode_fp_r(0x68U, 2, rs1, rm, rd)
 }
 
 ///|
-fn encode_fcvt_s_lu(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+fn encode_fcvt_s_lu(rs1 : Int32, rm : UInt32, rd : Int32) -> UInt32 {
   encode_fp_r(0x68U, 3, rs1, rm, rd)
 }
 
 ///|
-fn encode_fcvt_d_w(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+fn encode_fcvt_d_w(rs1 : Int32, rm : UInt32, rd : Int32) -> UInt32 {
   encode_fp_r(0x69U, 0, rs1, rm, rd)
 }
 
 ///|
-fn encode_fcvt_d_wu(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+fn encode_fcvt_d_wu(rs1 : Int32, rm : UInt32, rd : Int32) -> UInt32 {
   encode_fp_r(0x69U, 1, rs1, rm, rd)
 }
 
 ///|
-fn encode_fcvt_d_l(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+fn encode_fcvt_d_l(rs1 : Int32, rm : UInt32, rd : Int32) -> UInt32 {
   encode_fp_r(0x69U, 2, rs1, rm, rd)
 }
 
 ///|
-fn encode_fcvt_d_lu(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+fn encode_fcvt_d_lu(rs1 : Int32, rm : UInt32, rd : Int32) -> UInt32 {
   encode_fp_r(0x69U, 3, rs1, rm, rd)
 }
 
 ///|
-fn encode_fle_s(rs1 : Int, rs2 : Int, rd : Int) -> UInt {
+fn encode_fle_s(rs1 : Int32, rs2 : Int32, rd : Int32) -> UInt32 {
   encode_fp_r(0x50U, rs2, rs1, 0x0U, rd)
 }
 
 ///|
-fn encode_flt_s(rs1 : Int, rs2 : Int, rd : Int) -> UInt {
+fn encode_flt_s(rs1 : Int32, rs2 : Int32, rd : Int32) -> UInt32 {
   encode_fp_r(0x50U, rs2, rs1, 0x1U, rd)
 }
 
 ///|
-fn encode_feq_s(rs1 : Int, rs2 : Int, rd : Int) -> UInt {
+fn encode_feq_s(rs1 : Int32, rs2 : Int32, rd : Int32) -> UInt32 {
   encode_fp_r(0x50U, rs2, rs1, 0x2U, rd)
 }
 
 ///|
-fn encode_fle_d(rs1 : Int, rs2 : Int, rd : Int) -> UInt {
+fn encode_fle_d(rs1 : Int32, rs2 : Int32, rd : Int32) -> UInt32 {
   encode_fp_r(0x51U, rs2, rs1, 0x0U, rd)
 }
 
 ///|
-fn encode_flt_d(rs1 : Int, rs2 : Int, rd : Int) -> UInt {
+fn encode_flt_d(rs1 : Int32, rs2 : Int32, rd : Int32) -> UInt32 {
   encode_fp_r(0x51U, rs2, rs1, 0x1U, rd)
 }
 
 ///|
-fn encode_feq_d(rs1 : Int, rs2 : Int, rd : Int) -> UInt {
+fn encode_feq_d(rs1 : Int32, rs2 : Int32, rd : Int32) -> UInt32 {
   encode_fp_r(0x51U, rs2, rs1, 0x2U, rd)
 }
 
 ///|
-fn encode_fsgnj_d(rs1 : Int, rs2 : Int, rd : Int) -> UInt {
+fn encode_fsgnj_d(rs1 : Int32, rs2 : Int32, rd : Int32) -> UInt32 {
   encode_fp_r(0x11U, rs2, rs1, 0x0U, rd)
 }
 
 ///|
-fn encode_fsgnjn_d(rs1 : Int, rs2 : Int, rd : Int) -> UInt {
+fn encode_fsgnjn_d(rs1 : Int32, rs2 : Int32, rd : Int32) -> UInt32 {
   encode_fp_r(0x11U, rs2, rs1, 0x1U, rd)
 }
 
 ///|
-fn encode_fsgnjx_d(rs1 : Int, rs2 : Int, rd : Int) -> UInt {
+fn encode_fsgnjx_d(rs1 : Int32, rs2 : Int32, rd : Int32) -> UInt32 {
   encode_fp_r(0x11U, rs2, rs1, 0x2U, rd)
 }
 
 ///|
-fn encode_fsgnj_s(rs1 : Int, rs2 : Int, rd : Int) -> UInt {
+fn encode_fsgnj_s(rs1 : Int32, rs2 : Int32, rd : Int32) -> UInt32 {
   encode_fp_r(0x10U, rs2, rs1, 0x0U, rd)
 }
 
 ///|
-fn encode_fsgnjn_s(rs1 : Int, rs2 : Int, rd : Int) -> UInt {
+fn encode_fsgnjn_s(rs1 : Int32, rs2 : Int32, rd : Int32) -> UInt32 {
   encode_fp_r(0x10U, rs2, rs1, 0x1U, rd)
 }
 
 ///|
-fn encode_fsgnjx_s(rs1 : Int, rs2 : Int, rd : Int) -> UInt {
+fn encode_fsgnjx_s(rs1 : Int32, rs2 : Int32, rd : Int32) -> UInt32 {
   encode_fp_r(0x10U, rs2, rs1, 0x2U, rd)
 }
 
 ///|
-fn encode_fcvt_w_s(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+fn encode_fcvt_w_s(rs1 : Int32, rm : UInt32, rd : Int32) -> UInt32 {
   encode_fp_r(0x60U, 0, rs1, rm, rd)
 }
 
 ///|
-fn encode_fcvt_wu_s(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+fn encode_fcvt_wu_s(rs1 : Int32, rm : UInt32, rd : Int32) -> UInt32 {
   encode_fp_r(0x60U, 1, rs1, rm, rd)
 }
 
 ///|
-fn encode_fcvt_l_s(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+fn encode_fcvt_l_s(rs1 : Int32, rm : UInt32, rd : Int32) -> UInt32 {
   encode_fp_r(0x60U, 2, rs1, rm, rd)
 }
 
 ///|
-fn encode_fcvt_lu_s(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+fn encode_fcvt_lu_s(rs1 : Int32, rm : UInt32, rd : Int32) -> UInt32 {
   encode_fp_r(0x60U, 3, rs1, rm, rd)
 }
 
 ///|
-fn encode_fcvt_w_d(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+fn encode_fcvt_w_d(rs1 : Int32, rm : UInt32, rd : Int32) -> UInt32 {
   encode_fp_r(0x61U, 0, rs1, rm, rd)
 }
 
 ///|
-fn encode_fcvt_wu_d(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+fn encode_fcvt_wu_d(rs1 : Int32, rm : UInt32, rd : Int32) -> UInt32 {
   encode_fp_r(0x61U, 1, rs1, rm, rd)
 }
 
 ///|
-fn encode_fcvt_l_d(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+fn encode_fcvt_l_d(rs1 : Int32, rm : UInt32, rd : Int32) -> UInt32 {
   encode_fp_r(0x61U, 2, rs1, rm, rd)
 }
 
 ///|
-fn encode_fcvt_lu_d(rs1 : Int, rm : UInt, rd : Int) -> UInt {
+fn encode_fcvt_lu_d(rs1 : Int32, rm : UInt32, rd : Int32) -> UInt32 {
   encode_fp_r(0x61U, 3, rs1, rm, rd)
 }
 
@@ -1595,7 +1650,7 @@ fn trap_cause_name(cause : @riscv_mbt.TrapCause) -> String {
 ///|
 async fn run_official_riscv_test_case(
   test_case : OfficialRiscvTestCase,
-) -> UInt {
+) -> UInt32 {
   let runner = @riscv_mbt.make_runner(
     @riscv_mbt.official_riscv_tests_machine_config_for_arch(test_case.arch),
   )
@@ -1634,13 +1689,13 @@ async fn run_official_riscv_test_case(
 }
 
 ///|
-fn push_u16_le(buffer : Array[Byte], value : Int) -> Unit {
+fn push_u16_le(buffer : Array[Byte], value : Int32) -> Unit {
   buffer.push(value.to_byte())
   buffer.push((value >> 8).to_byte())
 }
 
 ///|
-fn push_u32_le(buffer : Array[Byte], value : UInt) -> Unit {
+fn push_u32_le(buffer : Array[Byte], value : UInt32) -> Unit {
   buffer.push(value.to_byte())
   buffer.push((value >> 8).to_byte())
   buffer.push((value >> 16).to_byte())
@@ -1660,13 +1715,13 @@ fn push_u64_le(buffer : Array[Byte], value : UInt64) -> Unit {
 }
 
 ///|
-fn patch_u16_le(buffer : Array[Byte], offset : Int, value : Int) -> Unit {
+fn patch_u16_le(buffer : Array[Byte], offset : Int32, value : Int32) -> Unit {
   buffer[offset] = value.to_byte()
   buffer[offset + 1] = (value >> 8).to_byte()
 }
 
 ///|
-fn patch_u32_le(buffer : Array[Byte], offset : Int, value : UInt) -> Unit {
+fn patch_u32_le(buffer : Array[Byte], offset : Int32, value : UInt32) -> Unit {
   buffer[offset] = value.to_byte()
   buffer[offset + 1] = (value >> 8).to_byte()
   buffer[offset + 2] = (value >> 16).to_byte()
@@ -1674,7 +1729,7 @@ fn patch_u32_le(buffer : Array[Byte], offset : Int, value : UInt) -> Unit {
 }
 
 ///|
-fn patch_u64_le(buffer : Array[Byte], offset : Int, value : UInt64) -> Unit {
+fn patch_u64_le(buffer : Array[Byte], offset : Int32, value : UInt64) -> Unit {
   buffer[offset] = value.to_byte()
   buffer[offset + 1] = (value >> 8).to_byte()
   buffer[offset + 2] = (value >> 16).to_byte()
@@ -1686,14 +1741,14 @@ fn patch_u64_le(buffer : Array[Byte], offset : Int, value : UInt64) -> Unit {
 }
 
 ///|
-fn align_buffer(buffer : Array[Byte], alignment : Int) -> Unit {
+fn align_buffer(buffer : Array[Byte], alignment : Int32) -> Unit {
   while buffer.length() % alignment != 0 {
     buffer.push(0U.to_byte())
   }
 }
 
 ///|
-fn append_ascii_cstr(buffer : Array[Byte], text : Array[Int]) -> Int {
+fn append_ascii_cstr(buffer : Array[Byte], text : Array[Int32]) -> Int32 {
   let offset = buffer.length()
   let mut index = 0
   while index < text.length() {
@@ -1706,18 +1761,18 @@ fn append_ascii_cstr(buffer : Array[Byte], text : Array[Int]) -> Int {
 
 ///|
 struct TestElfNameTableLayout {
-  shstrtab_offset : Int
-  shstrtab_size : Int
-  strtab_offset : Int
-  strtab_size : Int
-  text_name_offset : Int
-  symtab_name_offset : Int
-  strtab_name_offset : Int
-  shstrtab_name_offset : Int
-  tohost_name_offset : Int
-  fromhost_name_offset : Int
-  begin_signature_name_offset : Int
-  end_signature_name_offset : Int
+  shstrtab_offset : Int32
+  shstrtab_size : Int32
+  strtab_offset : Int32
+  strtab_size : Int32
+  text_name_offset : Int32
+  symtab_name_offset : Int32
+  strtab_name_offset : Int32
+  shstrtab_name_offset : Int32
+  tohost_name_offset : Int32
+  fromhost_name_offset : Int32
+  begin_signature_name_offset : Int32
+  end_signature_name_offset : Int32
 }
 
 ///|
@@ -1739,7 +1794,7 @@ fn append_program_bytes(buffer : Array[Byte], bytes : Bytes) -> Unit {
 }
 
 ///|
-fn reserve_zero_bytes(buffer : Array[Byte], count : Int) -> Unit {
+fn reserve_zero_bytes(buffer : Array[Byte], count : Int32) -> Unit {
   let mut index = 0
   while index < count {
     buffer.push(0U.to_byte())
@@ -1750,7 +1805,7 @@ fn reserve_zero_bytes(buffer : Array[Byte], count : Int) -> Unit {
 ///|
 fn build_test_elf_buffer(
   program : Bytes,
-  reserved_header_bytes : Int,
+  reserved_header_bytes : Int32,
 ) -> Array[Byte] {
   let buffer : Array[Byte] = []
   reserve_zero_bytes(buffer, reserved_header_bytes)
@@ -1765,7 +1820,7 @@ fn build_test_elf_buffer(
 ///|
 fn append_test_elf_name_tables(
   buffer : Array[Byte],
-  alignment : Int,
+  alignment : Int32,
 ) -> TestElfNameTableLayout {
   align_buffer(buffer, alignment)
   let shstrtab_offset = buffer.length()
@@ -1821,9 +1876,9 @@ fn append_test_elf_name_tables(
 
 ///|
 fn build_test_elf(
-  load_addr : UInt,
-  entry_point : UInt,
-  program_words : Array[UInt],
+  load_addr : UInt32,
+  entry_point : UInt32,
+  program_words : Array[UInt32],
 ) -> Bytes {
   let program = @riscv_mbt.words_to_bytes(program_words)
   let buffer = build_test_elf_buffer(program, 52 + 32)
@@ -1832,7 +1887,7 @@ fn build_test_elf(
 
   align_buffer(buffer, 4)
   let symtab_offset = buffer.length()
-  let write_symbol = fn(name_offset : Int, value : UInt) {
+  let write_symbol = fn(name_offset : Int32, value : UInt32) {
     push_u32_le(buffer, name_offset.reinterpret_as_uint())
     push_u32_le(buffer, value)
     push_u32_le(buffer, 0U)
@@ -1850,16 +1905,16 @@ fn build_test_elf(
   align_buffer(buffer, 4)
   let shoff = buffer.length()
   let write_section_header = fn(
-    name_offset : Int,
-    sh_type : UInt,
-    flags : UInt,
-    addr : UInt,
-    offset : Int,
-    size : Int,
-    link : Int,
-    info : Int,
-    addralign : UInt,
-    entsize : UInt,
+    name_offset : Int32,
+    sh_type : UInt32,
+    flags : UInt32,
+    addr : UInt32,
+    offset : Int32,
+    size : Int32,
+    link : Int32,
+    info : Int32,
+    addralign : UInt32,
+    entsize : UInt32,
   ) {
     push_u32_le(buffer, name_offset.reinterpret_as_uint())
     push_u32_le(buffer, sh_type)
@@ -1958,7 +2013,7 @@ fn build_test_elf(
 fn build_test_elf64(
   load_addr : UInt64,
   entry_point : UInt64,
-  program_words : Array[UInt],
+  program_words : Array[UInt32],
 ) -> Bytes {
   let program = @riscv_mbt.words_to_bytes(program_words)
   let buffer = build_test_elf_buffer(program, 64 + 56)
@@ -1967,7 +2022,7 @@ fn build_test_elf64(
 
   align_buffer(buffer, 8)
   let symtab_offset = buffer.length()
-  let write_symbol = fn(name_offset : Int, value : UInt64) {
+  let write_symbol = fn(name_offset : Int32, value : UInt64) {
     push_u32_le(buffer, name_offset.reinterpret_as_uint())
     buffer.push(0U.to_byte())
     buffer.push(0U.to_byte())
@@ -1991,14 +2046,14 @@ fn build_test_elf64(
   align_buffer(buffer, 8)
   let shoff = buffer.length()
   let write_section_header = fn(
-    name_offset : Int,
-    sh_type : UInt,
+    name_offset : Int32,
+    sh_type : UInt32,
     flags : UInt64,
     addr : UInt64,
-    offset : Int,
-    size : Int,
-    link : Int,
-    info : Int,
+    offset : Int32,
+    size : Int32,
+    link : Int32,
+    info : Int32,
     addralign : UInt64,
     entsize : UInt64,
   ) {

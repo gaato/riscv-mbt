@@ -7,13 +7,13 @@ fn Runner::execute_vector_permutation_dispatch(
   self : Runner,
   instruction : Instruction,
   config : VectorExecConfig,
-  active_elems : Int,
+  active_elems : Int32,
   sew_mask : UInt64,
   mask_bits : Array[Bool],
   use_mask : Bool,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult? {
   // This helper owns only permutation-style vector instructions that share the
   // standard element execution config. Whole-register moves are intentionally
@@ -166,14 +166,14 @@ fn Runner::execute_vector_permutation_dispatch(
 ///|
 fn Runner::execute_vector_compress(
   self : Runner,
-  vd : Int,
-  vs2 : Int,
-  vs1 : Int,
+  vd : Int32,
+  vs2 : Int32,
+  vs1 : Int32,
   config : VectorExecConfig,
-  active_elems : Int,
+  active_elems : Int32,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   if !vector_group_aligned(vd, config.lmul_log2) ||
     !vector_group_aligned(vs2, config.lmul_log2) {
@@ -204,7 +204,7 @@ fn Runner::execute_vector_compress(
 }
 
 ///|
-fn vector_vlmax(config : VectorExecConfig) -> Int {
+fn vector_vlmax(config : VectorExecConfig) -> Int32 {
   vector_elems_per_register(config.sew_bits) *
   vector_lmul_registers(config.lmul_log2)
 }
@@ -212,7 +212,7 @@ fn vector_vlmax(config : VectorExecConfig) -> Int {
 ///|
 fn Runner::vector_gather_value(
   self : Runner,
-  vs2 : Int,
+  vs2 : Int32,
   index : UInt64,
   config : VectorExecConfig,
 ) -> UInt64 {
@@ -231,17 +231,17 @@ fn Runner::vector_gather_value(
 ///|
 fn Runner::execute_vector_gather_vv(
   self : Runner,
-  vd : Int,
-  vs2 : Int,
-  vs1 : Int,
+  vd : Int32,
+  vs2 : Int32,
+  vs1 : Int32,
   config : VectorExecConfig,
-  active_elems : Int,
+  active_elems : Int32,
   sew_mask : UInt64,
   mask_bits : Array[Bool],
   use_mask : Bool,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   if !vector_group_aligned(vd, config.lmul_log2) ||
     !vector_group_aligned(vs2, config.lmul_log2) ||
@@ -276,17 +276,17 @@ fn Runner::execute_vector_gather_vv(
 ///|
 fn Runner::execute_vector_gather_scalar(
   self : Runner,
-  vd : Int,
-  vs2 : Int,
+  vd : Int32,
+  vs2 : Int32,
   index : UInt64,
   config : VectorExecConfig,
-  active_elems : Int,
+  active_elems : Int32,
   sew_mask : UInt64,
   mask_bits : Array[Bool],
   use_mask : Bool,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   if !vector_group_aligned(vd, config.lmul_log2) ||
     !vector_group_aligned(vs2, config.lmul_log2) {
@@ -310,8 +310,8 @@ fn Runner::execute_vector_gather_scalar(
 
 ///|
 fn vector_group_overlaps(
-  vd : Int,
-  vs2 : Int,
+  vd : Int32,
+  vs2 : Int32,
   config : VectorExecConfig,
 ) -> Bool {
   let lmul_regs = vector_lmul_registers(config.lmul_log2)
@@ -326,16 +326,16 @@ fn vector_group_overlaps(
 ///|
 fn Runner::execute_vector_slideup(
   self : Runner,
-  vd : Int,
-  vs2 : Int,
+  vd : Int32,
+  vs2 : Int32,
   offset : UInt64,
   config : VectorExecConfig,
-  active_elems : Int,
+  active_elems : Int32,
   mask_bits : Array[Bool],
   use_mask : Bool,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   if !vector_group_aligned(vd, config.lmul_log2) ||
     !vector_group_aligned(vs2, config.lmul_log2) {
@@ -361,17 +361,17 @@ fn Runner::execute_vector_slideup(
 ///|
 fn Runner::execute_vector_slidedown(
   self : Runner,
-  vd : Int,
-  vs2 : Int,
+  vd : Int32,
+  vs2 : Int32,
   offset : UInt64,
   config : VectorExecConfig,
-  active_elems : Int,
+  active_elems : Int32,
   sew_mask : UInt64,
   mask_bits : Array[Bool],
   use_mask : Bool,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   if !vector_group_aligned(vd, config.lmul_log2) ||
     !vector_group_aligned(vs2, config.lmul_log2) {
@@ -410,17 +410,17 @@ fn Runner::vector_scalar_to_sew(
 ///|
 fn Runner::execute_vector_slide1up(
   self : Runner,
-  vd : Int,
-  vs2 : Int,
+  vd : Int32,
+  vs2 : Int32,
   scalar : UInt64,
   config : VectorExecConfig,
-  active_elems : Int,
+  active_elems : Int32,
   sew_mask : UInt64,
   mask_bits : Array[Bool],
   use_mask : Bool,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   if !vector_group_aligned(vd, config.lmul_log2) ||
     !vector_group_aligned(vs2, config.lmul_log2) {
@@ -456,17 +456,17 @@ fn Runner::execute_vector_slide1up(
 ///|
 fn Runner::execute_vector_slide1down(
   self : Runner,
-  vd : Int,
-  vs2 : Int,
+  vd : Int32,
+  vs2 : Int32,
   scalar : UInt64,
   config : VectorExecConfig,
-  active_elems : Int,
+  active_elems : Int32,
   sew_mask : UInt64,
   mask_bits : Array[Bool],
   use_mask : Bool,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   if !vector_group_aligned(vd, config.lmul_log2) ||
     !vector_group_aligned(vs2, config.lmul_log2) {
@@ -493,19 +493,19 @@ fn Runner::execute_vector_slide1down(
 }
 
 ///|
-fn vector_whole_group_aligned(vreg : Int, nreg : Int) -> Bool {
+fn vector_whole_group_aligned(vreg : Int32, nreg : Int32) -> Bool {
   vreg % nreg == 0 && vreg + nreg <= VREG_COUNT
 }
 
 ///|
 fn Runner::execute_vector_whole_register_move(
   self : Runner,
-  vd : Int,
-  vs2 : Int,
-  nreg : Int,
+  vd : Int32,
+  vs2 : Int32,
+  nreg : Int32,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   match self.vector_whole_register_move_supported() {
     Some(_) => ()

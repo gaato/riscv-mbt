@@ -56,12 +56,12 @@ fn wb_rv64_d_only_requested_machine_config() -> MachineConfig {
 }
 
 ///|
-fn wb_halfword_program(raw : UInt) -> Bytes {
+fn wb_halfword_program(raw : UInt32) -> Bytes {
   Bytes::from_array([raw.to_byte(), (raw >> 8).to_byte()])
 }
 
 ///|
-fn wb_word_program(raw : UInt) -> Bytes {
+fn wb_word_program(raw : UInt32) -> Bytes {
   Bytes::from_array([
     raw.to_byte(),
     (raw >> 8).to_byte(),
@@ -73,7 +73,7 @@ fn wb_word_program(raw : UInt) -> Bytes {
 ///|
 fn wb_expect_absent_csr_forms(
   config : MachineConfig,
-  csr : Int,
+  csr : Int32,
   label : String,
 ) -> Unit raise {
   let forms = [
@@ -110,12 +110,12 @@ fn wb_expect_absent_csr_forms(
 
 ///|
 fn wb_encode_i(
-  imm : Int,
-  rs1 : Int,
-  funct3 : UInt,
-  rd : Int,
-  opcode : UInt,
-) -> UInt {
+  imm : Int32,
+  rs1 : Int32,
+  funct3 : UInt32,
+  rd : Int32,
+  opcode : UInt32,
+) -> UInt32 {
   ((imm.reinterpret_as_uint() & 0xfffU) << 20) |
   (rs1.reinterpret_as_uint() << 15) |
   (funct3 << 12) |
@@ -125,12 +125,12 @@ fn wb_encode_i(
 
 ///|
 fn wb_encode_b(
-  imm : Int,
-  rs2 : Int,
-  rs1 : Int,
-  funct3 : UInt,
-  opcode : UInt,
-) -> UInt {
+  imm : Int32,
+  rs2 : Int32,
+  rs1 : Int32,
+  funct3 : UInt32,
+  opcode : UInt32,
+) -> UInt32 {
   let value = imm.reinterpret_as_uint()
   (((value >> 12) & 0x1U) << 31) |
   (((value >> 5) & 0x3fU) << 25) |
@@ -143,7 +143,7 @@ fn wb_encode_b(
 }
 
 ///|
-fn wb_encode_j(imm : Int, rd : Int, opcode : UInt) -> UInt {
+fn wb_encode_j(imm : Int32, rd : Int32, opcode : UInt32) -> UInt32 {
   let encoded = (imm & 0x1fffff).reinterpret_as_uint()
   (((encoded >> 20) & 0x1U) << 31) |
   (((encoded >> 1) & 0x3ffU) << 21) |
@@ -154,7 +154,12 @@ fn wb_encode_j(imm : Int, rd : Int, opcode : UInt) -> UInt {
 }
 
 ///|
-fn wb_encode_csr(csr : Int, rs1 : Int, funct3 : UInt, rd : Int) -> UInt {
+fn wb_encode_csr(
+  csr : Int32,
+  rs1 : Int32,
+  funct3 : UInt32,
+  rd : Int32,
+) -> UInt32 {
   (csr.reinterpret_as_uint() << 20) |
   (rs1.reinterpret_as_uint() << 15) |
   (funct3 << 12) |
@@ -163,12 +168,12 @@ fn wb_encode_csr(csr : Int, rs1 : Int, funct3 : UInt, rd : Int) -> UInt {
 }
 
 ///|
-fn wb_encode_mret() -> UInt {
+fn wb_encode_mret() -> UInt32 {
   0x30200073U
 }
 
 ///|
-fn wb_encode_sret() -> UInt {
+fn wb_encode_sret() -> UInt32 {
   0x10200073U
 }
 

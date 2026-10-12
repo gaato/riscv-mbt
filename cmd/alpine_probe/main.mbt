@@ -148,7 +148,7 @@ async fn write_binary(path : String, bytes : Bytes) -> Unit {
 }
 
 ///|
-fn parse_max_steps(args : Array[String]) -> Int {
+fn parse_max_steps(args : Array[String]) -> Int32 {
   // Keep named budgets stable so task docs can cite runs reproducibly. `xlong`
   // is the current full-rootfs budget; `xxlong` is retained for older docs.
   if args.length() >= 2 {
@@ -182,8 +182,8 @@ fn parse_arg_value(args : Array[String], flag : String) -> String? {
 fn parse_positive_int_arg(
   args : Array[String],
   flag : String,
-  default_value : Int,
-) -> Int {
+  default_value : Int32,
+) -> Int32 {
   match parse_arg_value(args, flag) {
     Some(text) => {
       let parsed = @string.parse_int(text) catch {
@@ -209,7 +209,7 @@ fn trim_console_line(line : String) -> String {
 }
 
 ///|
-fn format_runner_stats(runner : @riscv.Runner, steps : Int) -> String {
+fn format_runner_stats(runner : @riscv.Runner, steps : Int32) -> String {
   "[riscv-mbt stats] steps=\{steps} pc=\{hex(runner.pc_u64())} privilege=\{privilege_name(runner.privilege_mode())} " +
   "decode=\{runner.decode_cache_hit_count()}/\{runner.decode_cache_miss_count()} translate=\{runner.translate_cache_hit_count()}/\{runner.translate_cache_miss_count()} " +
   "virtio=\{runner.virtio_blk_read_request_count()}r/\{runner.virtio_blk_write_request_count()}w"
@@ -217,8 +217,8 @@ fn format_runner_stats(runner : @riscv.Runner, steps : Int) -> String {
 
 ///|
 fn format_post_init_command_trace(
-  start_steps : Array[Int],
-  marker_steps : Array[Int],
+  start_steps : Array[Int32],
+  marker_steps : Array[Int32],
 ) -> String {
   if start_steps.length() == 0 {
     return ""
@@ -249,8 +249,8 @@ fn format_post_init_command_trace(
 
 ///|
 struct InteractiveConsoleResult {
-  steps : Int
-  last_output_steps : Int
+  steps : Int32
+  last_output_steps : Int32
   outcome : String
   trapped : Bool
   output : String
@@ -259,9 +259,9 @@ struct InteractiveConsoleResult {
 ///|
 async fn run_interactive_console(
   runner : @riscv.Runner,
-  start_steps : Int,
+  start_steps : Int32,
   initial_output : String,
-  command_step_budget : Int,
+  command_step_budget : Int32,
 ) -> InteractiveConsoleResult {
   let mut steps = start_steps
   let mut last_output_steps = start_steps
@@ -1399,8 +1399,8 @@ async fn main {
   let mut post_init_command_sent = false
   let mut post_init_command_index = 0
   let mut post_init_command_steps = -1
-  let post_init_command_start_steps : Array[Int] = []
-  let post_init_command_marker_steps : Array[Int] = []
+  let post_init_command_start_steps : Array[Int32] = []
+  let post_init_command_marker_steps : Array[Int32] = []
   let mut post_init_command_start_read_requests = 0U.to_uint64()
   let mut post_init_command_start_read_bytes = 0U.to_uint64()
   let mut post_init_command_start_write_requests = 0U.to_uint64()

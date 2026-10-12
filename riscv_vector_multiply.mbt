@@ -59,7 +59,7 @@ fn vector_multiply_high_lane(
   lhs : UInt64,
   rhs : UInt64,
   op : VectorMultiplyHighOp,
-  sew_bits : Int,
+  sew_bits : Int32,
 ) -> UInt64 {
   if sew_bits == 64 {
     match op {
@@ -88,18 +88,18 @@ fn vector_multiply_high_lane(
 ///|
 fn Runner::execute_vector_multiply_high_vv(
   self : Runner,
-  vd : Int,
-  vs2 : Int,
-  vs1 : Int,
+  vd : Int32,
+  vs2 : Int32,
+  vs1 : Int32,
   config : VectorExecConfig,
-  active_elems : Int,
+  active_elems : Int32,
   sew_mask : UInt64,
   mask_bits : Array[Bool],
   use_mask : Bool,
   op : VectorMultiplyHighOp,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   if !vector_group_aligned(vd, config.lmul_log2) ||
     !vector_group_aligned(vs2, config.lmul_log2) ||
@@ -125,18 +125,18 @@ fn Runner::execute_vector_multiply_high_vv(
 ///|
 fn Runner::execute_vector_multiply_high_scalar(
   self : Runner,
-  vd : Int,
-  vs2 : Int,
+  vd : Int32,
+  vs2 : Int32,
   scalar : UInt64,
   config : VectorExecConfig,
-  active_elems : Int,
+  active_elems : Int32,
   sew_mask : UInt64,
   mask_bits : Array[Bool],
   use_mask : Bool,
   op : VectorMultiplyHighOp,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   if !vector_group_aligned(vd, config.lmul_log2) ||
     !vector_group_aligned(vs2, config.lmul_log2) {
@@ -162,13 +162,13 @@ fn Runner::execute_vector_multiply_instruction(
   self : Runner,
   instruction : Instruction,
   config : VectorExecConfig,
-  active_elems : Int,
+  active_elems : Int32,
   sew_mask : UInt64,
   mask_bits : Array[Bool],
   use_mask : Bool,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   match instruction {
     VmulVv(vd, vs2, vs1) =>

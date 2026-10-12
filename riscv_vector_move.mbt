@@ -5,13 +5,13 @@
 ///|
 fn Runner::execute_vector_move_vv(
   self : Runner,
-  vd : Int,
-  vs1 : Int,
+  vd : Int32,
+  vs1 : Int32,
   config : VectorExecConfig,
-  active_elems : Int,
+  active_elems : Int32,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   if !vector_group_aligned(vd, config.lmul_log2) ||
     !vector_group_aligned(vs1, config.lmul_log2) {
@@ -32,14 +32,14 @@ fn Runner::execute_vector_move_vv(
 ///|
 fn Runner::execute_vector_merge_vv(
   self : Runner,
-  vd : Int,
-  vs2 : Int,
-  vs1 : Int,
+  vd : Int32,
+  vs2 : Int32,
+  vs1 : Int32,
   config : VectorExecConfig,
-  active_elems : Int,
+  active_elems : Int32,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   if !vector_group_aligned(vd, config.lmul_log2) ||
     !vector_group_aligned(vs2, config.lmul_log2) ||
@@ -62,14 +62,14 @@ fn Runner::execute_vector_merge_vv(
 ///|
 fn Runner::execute_vector_merge_scalar(
   self : Runner,
-  vd : Int,
-  vs2 : Int,
+  vd : Int32,
+  vs2 : Int32,
   scalar : UInt64,
   config : VectorExecConfig,
-  active_elems : Int,
+  active_elems : Int32,
   current_pc : UInt64,
   next_pc : UInt64,
-  raw : UInt,
+  raw : UInt32,
 ) -> StepResult {
   if !vector_group_aligned(vd, config.lmul_log2) ||
     !vector_group_aligned(vs2, config.lmul_log2) {

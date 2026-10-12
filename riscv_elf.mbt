@@ -3,17 +3,17 @@
 // through the emulated CPU.
 
 ///|
-fn bytes_load_u8(bytes : Bytes, offset : Int) -> UInt {
+fn bytes_load_u8(bytes : Bytes, offset : Int32) -> UInt32 {
   bytes[offset].to_uint()
 }
 
 ///|
-fn bytes_load_u16(bytes : Bytes, offset : Int) -> UInt {
+fn bytes_load_u16(bytes : Bytes, offset : Int32) -> UInt32 {
   bytes_load_u8(bytes, offset) | (bytes_load_u8(bytes, offset + 1) << 8)
 }
 
 ///|
-fn bytes_load_u32(bytes : Bytes, offset : Int) -> UInt {
+fn bytes_load_u32(bytes : Bytes, offset : Int32) -> UInt32 {
   bytes_load_u8(bytes, offset) |
   (bytes_load_u8(bytes, offset + 1) << 8) |
   (bytes_load_u8(bytes, offset + 2) << 16) |
@@ -21,7 +21,7 @@ fn bytes_load_u32(bytes : Bytes, offset : Int) -> UInt {
 }
 
 ///|
-fn bytes_load_u64(bytes : Bytes, offset : Int) -> UInt64 {
+fn bytes_load_u64(bytes : Bytes, offset : Int32) -> UInt64 {
   bytes_load_u8(bytes, offset).to_uint64() |
   (bytes_load_u8(bytes, offset + 1).to_uint64() << 8) |
   (bytes_load_u8(bytes, offset + 2).to_uint64() << 16) |
@@ -33,16 +33,16 @@ fn bytes_load_u64(bytes : Bytes, offset : Int) -> UInt64 {
 }
 
 ///|
-fn bytes_range_ok(bytes : Bytes, offset : Int, len : Int) -> Bool {
+fn bytes_range_ok(bytes : Bytes, offset : Int32, len : Int32) -> Bool {
   offset >= 0 && len >= 0 && offset + len <= bytes.length()
 }
 
 ///|
 fn c_string_matches(
   bytes : Bytes,
-  string_base : Int,
-  name_offset : Int,
-  expected : Array[Int],
+  string_base : Int32,
+  name_offset : Int32,
+  expected : Array[Int32],
 ) -> Bool {
   let mut index = 0
   while index < expected.length() {
@@ -59,9 +59,9 @@ fn c_string_matches(
 ///|
 fn elf_symbol_matches(
   bytes : Bytes,
-  string_base : Int,
+  string_base : Int32,
   name_offset : UInt64,
-  expected : Array[Int],
+  expected : Array[Int32],
 ) -> Bool {
   c_string_matches(
     bytes,
@@ -74,12 +74,12 @@ fn elf_symbol_matches(
 ///|
 fn find_elf_symbol_addr(
   bytes : Bytes,
-  symtab_offset : Int,
-  symtab_size : Int,
-  strtab_offset : Int,
-  target_name : Array[Int],
-  entry_size : Int,
-  value_offset : Int,
+  symtab_offset : Int32,
+  symtab_size : Int32,
+  strtab_offset : Int32,
+  target_name : Array[Int32],
+  entry_size : Int32,
+  value_offset : Int32,
   value_is_u64 : Bool,
 ) -> UInt64? {
   // riscv-tests use a few conventional symbols (`tohost`, signature ranges).
@@ -105,11 +105,11 @@ fn find_elf_symbol_addr(
 ///|
 fn read_elf_named_symbols(
   bytes : Bytes,
-  symtab_offset : Int,
-  symtab_size : Int,
-  strtab_offset : Int,
-  entry_size : Int,
-  value_offset : Int,
+  symtab_offset : Int32,
+  symtab_size : Int32,
+  strtab_offset : Int32,
+  entry_size : Int32,
+  value_offset : Int32,
   value_is_u64 : Bool,
 ) -> (UInt64?, UInt64?, UInt64?, UInt64?) {
   let tohost = find_elf_symbol_addr(
@@ -158,9 +158,9 @@ fn read_elf_named_symbols(
 ///|
 fn parse_elf32_symbols(
   bytes : Bytes,
-  shoff : Int,
-  shentsize : Int,
-  shnum : Int,
+  shoff : Int32,
+  shentsize : Int32,
+  shnum : Int32,
 ) -> (UInt64?, UInt64?, UInt64?, UInt64?) {
   let mut index = 0
   while index < shnum {
@@ -186,9 +186,9 @@ fn parse_elf32_symbols(
 ///|
 fn parse_elf64_symbols(
   bytes : Bytes,
-  shoff : Int,
-  shentsize : Int,
-  shnum : Int,
+  shoff : Int32,
+  shentsize : Int32,
+  shnum : Int32,
 ) -> (UInt64?, UInt64?, UInt64?, UInt64?) {
   let mut index = 0
   while index < shnum {
@@ -221,10 +221,10 @@ fn parse_elf64_symbols(
 fn Runner::load_elf_segment(
   self : Runner,
   bytes : Bytes,
-  file_offset : Int,
-  file_size : Int,
+  file_offset : Int32,
+  file_size : Int32,
   virtual_addr : UInt64,
-  mem_size : Int,
+  mem_size : Int32,
 ) -> String? {
   if !bytes_range_ok(bytes, file_offset, file_size) {
     return Some("segment data is truncated")
