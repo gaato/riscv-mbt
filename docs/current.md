@@ -22,6 +22,9 @@
 
 ## Toolchain Contract
 
+- [Task 0069](tasks/0069-moonbit-20261023.md) — `done`: compiler/core/runner
+  `0.10.17+d971670cd` validated separately from the ongoing GDB work.
+
 - MoonBit is pinned in `moonbit-version` (installed locally through `moonup`); CI installs exactly that version.
 - `moon.mod` dependency versions move with the toolchain pin. `moonbitlang/async` is only used by the native host commands and tests, not by the emulator core or the reusable sub-packages.
 - The validation sequence is `moon check`, `moon test`, `moon fmt`, `moon info --target native`, and `git diff --check`; all must be clean before a commit. Root-package changes also run `./scripts/build-browser-demo.sh`.
