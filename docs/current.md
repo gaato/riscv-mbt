@@ -24,9 +24,11 @@
 
 - [Task 0069](tasks/0069-moonbit-20261023.md) — `done`: compiler/core/runner
   `0.10.17+d971670cd` validated separately from the ongoing GDB work.
+- [Task 0070](tasks/0070-moonbit-0.10.20-core-async.md) — `done`: MoonBit
+  `0.10.20+65efd5b93` and the move from `moonbitlang/async` to `moonbitlang/core/async`.
 
 - MoonBit is pinned in `moonbit-version` (installed locally through `moonup`); CI installs exactly that version.
-- `moon.mod` dependency versions move with the toolchain pin. `moonbitlang/async` is only used by the native host commands and tests, not by the emulator core or the reusable sub-packages.
+- `moon.mod` dependency versions move with the toolchain pin. The async runtime is `moonbitlang/core/async`, which ships with the toolchain (since 0.10.20); it is only used by the native host commands and tests, not by the emulator core or the reusable sub-packages. Each importing package lists it in `allow-experimental-packages`.
 - The validation sequence is `moon check`, `moon test`, `moon fmt`, `moon info --target native`, and `git diff --check`; all must be clean before a commit. Root-package changes also run `./scripts/build-browser-demo.sh`.
 
 ## Known Blockers

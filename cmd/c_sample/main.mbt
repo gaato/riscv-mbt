@@ -12,7 +12,7 @@ let sample_step_budget = 256
 
 ///|
 async fn load_sample_bytes(path : String) -> Bytes {
-  @fs.read_file(path).binary() catch {
+  @fs.read_binary(path) catch {
     _ => abort("failed to read sample ELF: " + path)
   }
 }

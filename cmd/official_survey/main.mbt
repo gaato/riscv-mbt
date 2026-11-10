@@ -39,14 +39,14 @@ enum SurveyOutcome {
 
 ///|
 async fn read_manifest_text(path : String) -> String {
-  @fs.read_file(path).text() catch {
+  @fs.read_text(path) catch {
     _ => abort("missing official riscv-tests manifest: " + path)
   }
 }
 
 ///|
 async fn read_official_test_elf(path : String) -> Bytes {
-  @fs.read_file(path).binary() catch {
+  @fs.read_binary(path) catch {
     _ =>
       abort(
         "missing official riscv-tests ELF: " +

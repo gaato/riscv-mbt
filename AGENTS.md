@@ -24,7 +24,7 @@ If the task is implementation work, prefer this reading order:
 - MoonBit source lives in the repository root package and [cmd/main](cmd/main).
 - Planning and execution state live under [docs](docs).
 - Keep generated build output out of version control.
-- Reusable sub-packages (`slirp/`, `gdb_rsp/`, `virtio/`) never import the root package or `moonbitlang/async`, do no I/O, and must pass `moon check --target wasm-gc` ([ADR 0012](docs/adr/0012-reusable-subpackages-and-modules.md)).
+- Reusable sub-packages (`slirp/`, `gdb_rsp/`, `virtio/`) never import the root package or the async runtime (`moonbitlang/core/async*`), do no I/O, and must pass `moon check --target wasm-gc` ([ADR 0012](docs/adr/0012-reusable-subpackages-and-modules.md)).
 
 ## Source Of Truth
 
@@ -35,7 +35,7 @@ If the task is implementation work, prefer this reading order:
 ## Spec Usage
 
 - For RISC-V ISA or privileged behavior, do not rely only on memory or repo-local summaries when a precise rule matters.
-- For MoonBit APIs, especially `moonbitlang/async`, prefer MoonBit official docs and Context7 over memory when choosing runtime or IO APIs.
+- For MoonBit APIs, especially `moonbitlang/core/async`, prefer MoonBit official docs and Context7 over memory when choosing runtime or IO APIs.
 - More generally, when library or tool API details matter and Context7 has relevant coverage, check Context7 before relying on memory.
 - Re-check the official spec when implementing or changing:
   - instruction encodings or corner-case semantics

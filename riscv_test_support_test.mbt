@@ -41,7 +41,7 @@ let official_rv64gc_riscv_tests_inapplicable_rows : ReadOnlyArray[String] = [
 
 ///|
 async fn read_manifest_text(path : String) -> String {
-  @fs.read_file(path).text() catch {
+  @fs.read_text(path) catch {
     _ =>
       abort(
         "missing official riscv-tests manifest: \{path}; verify the repository checkout is complete",
@@ -51,7 +51,7 @@ async fn read_manifest_text(path : String) -> String {
 
 ///|
 async fn read_official_test_elf(path : String) -> Bytes {
-  @fs.read_file(path).binary() catch {
+  @fs.read_binary(path) catch {
     _ =>
       abort(
         "missing official riscv-tests ELF: \{path}; run ./scripts/build-riscv-tests-official.sh first",

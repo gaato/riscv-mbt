@@ -1,7 +1,7 @@
 import {
   "gaato/riscv_mbt" @riscv,
-  "moonbitlang/async",
-  "moonbitlang/async/fs",
+  "moonbitlang/core/async",
+  "moonbitlang/core/async/fs",
   "moonbitlang/core/env",
 }
 
@@ -11,4 +11,8 @@ pkgtype(kind: "executable")
 
 options(
   link: { "native": { "cc": "gcc" } },
+  "allow-experimental-packages": [
+    "moonbitlang/core/async",
+    "moonbitlang/core/async/fs",
+  ],
 )

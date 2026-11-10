@@ -32,8 +32,9 @@ already separate modules:
 
 Rules for these sub-packages:
 
-- Import only `moonbitlang/core/*`. Never the root package, never
-  `moonbitlang/async`.
+- Import only `moonbitlang/core/*`, except the async runtime
+  `moonbitlang/core/async*` (before MoonBit 0.10.20 it was the separate
+  `moonbitlang/async`). Never the root package.
 - Sans-IO: the package performs no I/O. Hosts feed bytes or frames in and poll
   actions or output out. This is what lets native async, browser
   fetch/WebSocket, and unit tests drive the same code.

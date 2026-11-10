@@ -130,7 +130,7 @@ Use the upstream Linux RISC-V architecture index as the entry point for Linux-sp
   or device behavior, or gives much better failure localization for a real bug.
 - Prefer official GNU-toolchain and `env/p` execution paths over custom adapters.
 - Prefer file-based official ELF loading over embedding large generated blobs into MoonBit source.
-- For native async tests, read official ELF files through `moonbitlang/async/fs` and pin the native C compiler explicitly when the platform default linker is unreliable.
+- For native async tests, read official ELF files through `moonbitlang/core/async/fs` and pin the native C compiler explicitly when the platform default linker is unreliable.
 - Keep regression in two layers:
   - `gating`: tests expected to pass and stay green in normal CI
   - `survey`: broader upstream coverage that may be expected to fail while features are still missing

@@ -133,7 +133,7 @@ fn privilege_name(mode : @riscv.PrivilegeMode) -> String {
 
 ///|
 async fn read_binary(path : String) -> Bytes {
-  @fs.read_file(path).binary() catch {
+  @fs.read_binary(path) catch {
     _ => abort("missing artifact: " + path)
   }
 }
@@ -267,20 +267,22 @@ async fn run_interactive_console(
   let mut last_output_steps = start_steps
   let mut outcome = "interactive-console"
   let mut output = initial_output
-  @stdio.stdout.write(
+  @stdio.stdout.text.write(
     "\n[riscv-mbt] interactive console ready. Type shell commands, :stats, or :quit.\n",
   )
-  @stdio.stdout.write(format_runner_stats(runner, steps) + "\n")
-  @stdio.stdout.write("riscv-mbt> ")
-  while @stdio.stdin.read_until("\n") is Some(line) {
+  @stdio.stdout.text.write(format_runner_stats(runner, steps) + "\n")
+  @stdio.stdout.text.write("riscv-mbt> ")
+  // One reader for the whole session: it buffers past the line it returns.
+  let stdin = @io.Utf8Reader(@stdio.stdin)
+  while stdin.read_until("\n") is Some(line) {
     let command = trim_console_line(line)
     if command == ":quit" || command == ":q" {
       outcome = "interactive-console-quit"
       break
     }
     if command == ":stats" {
-      @stdio.stdout.write(format_runner_stats(runner, steps) + "\n")
-      @stdio.stdout.write("riscv-mbt> ")
+      @stdio.stdout.text.write(format_runner_stats(runner, steps) + "\n")
+      @stdio.stdout.text.write("riscv-mbt> ")
       continue
     }
     runner.uart_push_input(command + "\r\n")
@@ -290,7 +292,7 @@ async fn run_interactive_console(
     for ;; {
       if steps - command_start_steps >= command_step_budget {
         outcome = "interactive-command-timeout"
-        @stdio.stdout.write(
+        @stdio.stdout.text.write(
           "\n[riscv-mbt] command step budget reached after \{command_step_budget} steps\n",
         )
         break
@@ -305,7 +307,7 @@ async fn run_interactive_console(
               last_output_steps = steps
               saw_output = true
               quiet_drains = 0
-              @stdio.stdout.write(partial)
+              @stdio.stdout.text.write(partial)
             } else if saw_output {
               quiet_drains += 1
               if quiet_drains >= 2 {
@@ -319,19 +321,19 @@ async fn run_interactive_console(
             info.faulting_pc.to_string() +
             " tval=" +
             info.trap_value.to_string()
-          @stdio.stdout.write("\n[riscv-mbt] " + outcome + "\n")
+          @stdio.stdout.text.write("\n[riscv-mbt] " + outcome + "\n")
           return { steps, last_output_steps, outcome, trapped: true, output, }
         }
       }
     }
-    @stdio.stdout.write("\n" + format_runner_stats(runner, steps) + "\n")
-    @stdio.stdout.write("riscv-mbt> ")
+    @stdio.stdout.text.write("\n" + format_runner_stats(runner, steps) + "\n")
+    @stdio.stdout.text.write("riscv-mbt> ")
   }
   let tail = runner.uart_drain()
   if tail.length() > 0 {
     output = output + tail
     last_output_steps = steps
-    @stdio.stdout.write(tail)
+    @stdio.stdout.text.write(tail)
   }
   { steps, last_output_steps, outcome, trapped: false, output, }
 }

@@ -18448,7 +18448,7 @@ fn write_u64_le(
 ///|
 async test "OpenSBI fw_dynamic smoke: boots and produces UART output" {
   // Load OpenSBI fw_dynamic binary
-  let fw_bytes = @fs.read_file("_build/opensbi-riscv64-fw_dynamic.bin").binary() catch {
+  let fw_bytes = @fs.read_binary("_build/opensbi-riscv64-fw_dynamic.bin") catch {
     _ => {
       // Skip if binary not available
       println("SKIP: OpenSBI binary not found")
@@ -18456,9 +18456,9 @@ async test "OpenSBI fw_dynamic smoke: boots and produces UART output" {
     }
   }
   // Load DTB — use our generated minimal DTB, or fall back to virt.dtb
-  let dtb_bytes = @fs.read_file("_build/minimal.dtb").binary() catch {
+  let dtb_bytes = @fs.read_binary("_build/minimal.dtb") catch {
     _ =>
-      @fs.read_file("_build/virt.dtb").binary() catch {
+      @fs.read_binary("_build/virt.dtb") catch {
         _ => {
           println(
             "SKIP: no DTB found (run 'make minimal-dtb' or 'make virt-dtb')",
@@ -18523,14 +18523,14 @@ async test "OpenSBI fw_dynamic smoke: boots and produces UART output" {
 ///|
 async test "Task 0015: S-mode entry stub via OpenSBI handoff" {
   // Load OpenSBI fw_dynamic binary
-  let fw_bytes = @fs.read_file("_build/opensbi-riscv64-fw_dynamic.bin").binary() catch {
+  let fw_bytes = @fs.read_binary("_build/opensbi-riscv64-fw_dynamic.bin") catch {
     _ => {
       println("SKIP: OpenSBI binary not found")
       return
     }
   }
   // Load S-mode entry stub
-  let stub_bytes = @fs.read_file("_build/smode-entry.bin").binary() catch {
+  let stub_bytes = @fs.read_binary("_build/smode-entry.bin") catch {
     _ => {
       println(
         "SKIP: smode-entry.bin not found (run scripts/build-smode-entry.sh)",
@@ -18539,9 +18539,9 @@ async test "Task 0015: S-mode entry stub via OpenSBI handoff" {
     }
   }
   // Load DTB
-  let dtb_bytes = @fs.read_file("_build/minimal.dtb").binary() catch {
+  let dtb_bytes = @fs.read_binary("_build/minimal.dtb") catch {
     _ =>
-      @fs.read_file("_build/virt.dtb").binary() catch {
+      @fs.read_binary("_build/virt.dtb") catch {
         _ => {
           println(
             "SKIP: no DTB found (run 'make minimal-dtb' or 'make virt-dtb')",
@@ -18612,14 +18612,14 @@ async test "Task 0015: S-mode entry stub via OpenSBI handoff" {
 ///|
 async test "Task 0015: Linux kernel boot via OpenSBI" {
   // Load OpenSBI fw_dynamic binary
-  let fw_bytes = @fs.read_file("_build/opensbi-riscv64-fw_dynamic.bin").binary() catch {
+  let fw_bytes = @fs.read_binary("_build/opensbi-riscv64-fw_dynamic.bin") catch {
     _ => {
       println("SKIP: OpenSBI binary not found")
       return
     }
   }
   // Load Linux kernel Image
-  let kernel_bytes = @fs.read_file("_build/linux-kernel-riscv64").binary() catch {
+  let kernel_bytes = @fs.read_binary("_build/linux-kernel-riscv64") catch {
     _ => {
       println(
         "SKIP: _build/linux-kernel-riscv64 not found (copy Debian riscv64 vmlinux)",
@@ -18628,9 +18628,9 @@ async test "Task 0015: Linux kernel boot via OpenSBI" {
     }
   }
   // Load DTB
-  let dtb_bytes = @fs.read_file("_build/minimal.dtb").binary() catch {
+  let dtb_bytes = @fs.read_binary("_build/minimal.dtb") catch {
     _ =>
-      @fs.read_file("_build/virt.dtb").binary() catch {
+      @fs.read_binary("_build/virt.dtb") catch {
         _ => {
           println("SKIP: no DTB found")
           return
@@ -18720,21 +18720,21 @@ async test "Task 0015: Linux kernel boot via OpenSBI" {
 // ---------------------------------------------------------------------------
 async test "Task 0016: SMP 2-hart boot via OpenSBI" {
   // Load OpenSBI fw_dynamic binary
-  let fw_bytes = @fs.read_file("_build/opensbi-riscv64-fw_dynamic.bin").binary() catch {
+  let fw_bytes = @fs.read_binary("_build/opensbi-riscv64-fw_dynamic.bin") catch {
     _ => {
       println("SKIP: OpenSBI binary not found")
       return
     }
   }
   // Load Linux kernel Image
-  let kernel_bytes = @fs.read_file("_build/linux-kernel-riscv64").binary() catch {
+  let kernel_bytes = @fs.read_binary("_build/linux-kernel-riscv64") catch {
     _ => {
       println("SKIP: _build/linux-kernel-riscv64 not found")
       return
     }
   }
   // Load 2-hart DTB
-  let dtb_bytes = @fs.read_file("_build/minimal-smp.dtb").binary() catch {
+  let dtb_bytes = @fs.read_binary("_build/minimal-smp.dtb") catch {
     _ => {
       println(
         "SKIP: _build/minimal-smp.dtb not found (run: dtc -I dts -O dtb -o _build/minimal-smp.dtb tools/minimal-smp.dts)",

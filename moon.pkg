@@ -4,10 +4,14 @@ import {
 
 import {
   "moonbitlang/core/bench",
-  "moonbitlang/async",
-  "moonbitlang/async/fs",
+  "moonbitlang/core/async",
+  "moonbitlang/core/async/fs",
 } for "test"
 
 options(
   link: { "native": { "cc": "gcc" } },
+  "allow-experimental-packages": [
+    "moonbitlang/core/async",
+    "moonbitlang/core/async/fs",
+  ],
 )
