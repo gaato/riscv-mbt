@@ -8,7 +8,7 @@ on:
 
 jobs:
   test:
-    runs-on: ubuntu-24.04
+    runs-on: ubuntu-26.04
     # Upstream riscv-tests builds with a current GCC (Zacas/Zabha/Zalasr since
     # 2026-09); Ubuntu's riscv64-unknown-elf-gcc lags behind, Tumbleweed's does not.
     container:
