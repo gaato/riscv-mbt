@@ -1805,7 +1805,7 @@ fn Runner::write_fcvt_word_result(
       self.set_fflags(fp_fflag_nx)
     }
     if unsigned {
-      UInt64::trunc_double(rounded) & 0xffffffffU.to_uint64()
+      rounded.to_uint64() & 0xffffffffU.to_uint64()
     } else {
       rounded.to_int64().reinterpret_as_uint64() & 0xffffffffU.to_uint64()
     }
@@ -1853,7 +1853,7 @@ fn Runner::write_fcvt_long_result(
       self.set_fflags(fp_fflag_nx)
     }
     if unsigned {
-      UInt64::trunc_double(rounded)
+      rounded.to_uint64()
     } else {
       rounded.to_int64().reinterpret_as_uint64()
     }
@@ -2999,10 +2999,7 @@ fn Runner::execute_fp(
         return self.raise_trap(IllegalInstruction, current_pc, raw.to_uint64())
       }
       let unsigned = self.cpu.read_reg(rs1) & 0xffffffffU.to_uint64()
-      self.write_freg_double_bits(
-        rd,
-        f64_bits_from_host(Double::convert_uint64(unsigned)),
-      )
+      self.write_freg_double_bits(rd, f64_bits_from_host(unsigned.to_double()))
       self.cpu.pc = next_pc
       Running
     }

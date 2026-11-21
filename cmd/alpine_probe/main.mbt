@@ -141,10 +141,11 @@ async fn read_binary(path : String) -> Bytes {
 ///|
 async fn write_binary(path : String, bytes : Bytes) -> Unit {
   // Used by persistence probes to materialize the virtio-blk backing image
-  // after guest writes. write_at avoids depending on stream cursor state.
+  // after guest writes. A positioned view avoids depending on stream cursor
+  // state.
   let file = @fs.create(path, permission=0o644)
   defer file.close()
-  file.write_at(bytes[:], position=0L)
+  file.at(0L).write(bytes[:])
 }
 
 ///|
